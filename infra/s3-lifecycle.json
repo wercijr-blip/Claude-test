@@ -1,0 +1,55 @@
+{
+  "Rules": [
+    {
+      "ID": "lgpd-retencao-exames-20-anos",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": "exames/"
+      },
+      "Transitions": [
+        {
+          "Days": 365,
+          "StorageClass": "STANDARD_IA"
+        },
+        {
+          "Days": 730,
+          "StorageClass": "GLACIER"
+        },
+        {
+          "Days": 2555,
+          "StorageClass": "DEEP_ARCHIVE"
+        }
+      ],
+      "Expiration": {
+        "Days": 7300
+      },
+      "AbortIncompleteMultipartUpload": {
+        "DaysAfterInitiation": 7
+      }
+    },
+    {
+      "ID": "lgpd-retencao-pdfs-20-anos",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": "pdfs/"
+      },
+      "Transitions": [
+        {
+          "Days": 365,
+          "StorageClass": "STANDARD_IA"
+        },
+        {
+          "Days": 730,
+          "StorageClass": "GLACIER"
+        },
+        {
+          "Days": 2555,
+          "StorageClass": "DEEP_ARCHIVE"
+        }
+      ],
+      "Expiration": {
+        "Days": 7300
+      }
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "Version": "2012-10-17",
+  "Comment": "Política LGPD para bucket de exames — nega HTTP e leitura pública",
+  "Statement": [
+    {
+      "Sid": "DenyNonSSL",
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": "s3:*",
+      "Resource": [
+        "arn:aws:s3:::NOME_DO_BUCKET",
+        "arn:aws:s3:::NOME_DO_BUCKET/*"
+      ],
+      "Condition": {
+        "Bool": {
+          "aws:SecureTransport": "false"
+        }
+      }
+    },
+    {
+      "Sid": "DenyPublicRead",
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": [
+        "s3:GetObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::NOME_DO_BUCKET",
+        "arn:aws:s3:::NOME_DO_BUCKET/*"
+      ],
+      "Condition": {
+        "StringNotEquals": {
+          "aws:PrincipalAccount": "SEU_ACCOUNT_ID_AWS"
+        }
+      }
+    },
+    {
+      "Sid": "AllowAppAccess",
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::SEU_ACCOUNT_ID_AWS:user/facilita-prep-app"
+      },
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:DeleteObject"
+      ],
+      "Resource": "arn:aws:s3:::NOME_DO_BUCKET/*"
+    }
+  ]
+}
