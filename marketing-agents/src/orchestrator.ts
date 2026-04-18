@@ -1,5 +1,4 @@
 import 'dotenv/config';
-import path from 'path';
 import { z } from 'zod';
 import logger from './utils/logger';
 import { scheduleTask, getNextRun } from './utils/scheduler';
@@ -8,8 +7,9 @@ import { instagramAgent } from './agents/instagram-agent';
 import { googleAgent } from './agents/google-agent';
 import { linkedinAgent } from './agents/linkedin-agent';
 import { reportAgent } from './agents/report-agent';
+import { budgetOptimizer } from './optimizer/budget-optimizer';
 import { META_AUDIENCES, GOOGLE_KEYWORDS_PREP } from './config/targets';
-import type { AdCampaign } from './types';
+import type { AdCampaign, ChannelPerformance } from './types';
 
 // ─── Env validation ───────────────────────────────────────────────────────────
 
@@ -34,25 +34,34 @@ function validateEnv() {
     logger.error('Variáveis de ambiente inválidas:', result.error.flatten());
     process.exit(1);
   }
-
   const isSimulation = process.env.SIMULATION_MODE === 'true';
   if (!isSimulation && !process.env.ANTHROPIC_API_KEY) {
     logger.warn('ANTHROPIC_API_KEY não definida — usando modo simulação para content-agent');
   }
-
   logger.info(`Modo: ${isSimulation ? 'SIMULAÇÃO' : 'PRODUÇÃO'}`);
   return result.data;
 }
 
-// ─── Active campaign IDs (persisted in memory for this session) ───────────────
-const sessionCampaigns: { meta?: string; google?: string; linkedin?: string } = {};
+// ─── Session state ────────────────────────────────────────────────────────────
+
+interface CampaignState {
+  id: string;
+  dailyBudget: number;
+  status: 'ACTIVE' | 'PAUSED';
+}
+
+const session: {
+  meta?: CampaignState;
+  google?: CampaignState;
+  linkedin?: CampaignState;
+} = {};
 
 // ─── Routine 1: Daily content post (Mon/Wed/Fri 09:00) ───────────────────────
 
 async function dailyContentPost() {
   logger.info('── Rotina: Postagem Diária de Conteúdo ──────────────────────────');
 
-  // Instagram Feed — Facilita PrEP
+  // Postagem orgânica Instagram — Facilita PrEP
   const igContent = await contentAgent.generateContent({
     platform: 'INSTAGRAM_FEED',
     audience: 'lgbt_adulto_brasil',
@@ -61,7 +70,7 @@ async function dailyContentPost() {
   const igResult = await instagramAgent.postToInstagram(igContent);
   logger.info('Instagram result', { success: igResult.success, postId: igResult.postId });
 
-  // LinkedIn — Clínica IASO
+  // Postagem orgânica LinkedIn — Clínica IASO
   const liContent = await contentAgent.generateContent({
     platform: 'LINKEDIN_POST',
     audience: 'profissionais_saude',
@@ -70,149 +79,248 @@ async function dailyContentPost() {
   const liResult = await linkedinAgent.createOrganizationPost(liContent);
   logger.info('LinkedIn result', { success: liResult.success, postId: liResult.postId });
 
-  // Google Ads — create if not exists
-  if (!sessionCampaigns.google) {
+  // Google Ads — criar se não existir
+  if (!session.google) {
     const googleContent = await contentAgent.generateContent({
       platform: 'GOOGLE_ADS',
       audience: 'busca_prep_brasil',
       brand: 'facilita_prep',
     });
-
+    const dailyBudget = 30;
     const campaignId = await googleAgent.createSearchCampaign({
       name: `PrEP Busca — ${new Date().toISOString().slice(0, 10)}`,
-      budgetBRL: 30,
+      budgetBRL: dailyBudget,
     });
-
     await googleAgent.addKeywords(campaignId, GOOGLE_KEYWORDS_PREP);
     await googleAgent.createResponsiveSearchAd(campaignId, googleContent);
-    sessionCampaigns.google = campaignId;
-
-    const googleCamp: AdCampaign = {
+    session.google = { id: campaignId, dailyBudget, status: 'PAUSED' };
+    reportAgent.registerCampaign({
       id: campaignId,
       name: `PrEP Busca — ${new Date().toISOString().slice(0, 10)}`,
       platform: 'GOOGLE',
-      budget: 30,
+      budget: dailyBudget,
       status: 'PAUSED',
       metrics: { impressions: 0, clicks: 0, spend: 0, leads: 0, cpc: 0, cpm: 0, ctr: 0 },
-    };
-    reportAgent.registerCampaign(googleCamp);
+    });
   }
 
-  // Meta campaign — create if not exists
-  if (!sessionCampaigns.meta) {
+  // Meta Ads — criar se não existir
+  if (!session.meta) {
     const metaContent = await contentAgent.generateContent({
       platform: 'INSTAGRAM_FEED',
       audience: 'lgbt_adulto_brasil',
       brand: 'facilita_prep',
     });
-
+    const dailyBudget = 25;
     const campaignId = await instagramAgent.createCampaign({
       name: `PrEP Awareness — ${new Date().toISOString().slice(0, 10)}`,
       objective: 'LEAD_GENERATION',
-      dailyBudget: 25,
+      dailyBudget,
       targeting: META_AUDIENCES.lgbt_brasil,
       startTime: new Date().toISOString(),
       destinationUrl: 'https://facilitaprep.com.br',
       content: metaContent,
     });
-
-    sessionCampaigns.meta = campaignId;
-
-    const metaCamp: AdCampaign = {
+    session.meta = { id: campaignId, dailyBudget, status: 'PAUSED' };
+    reportAgent.registerCampaign({
       id: campaignId,
       name: `PrEP Awareness — ${new Date().toISOString().slice(0, 10)}`,
       platform: 'META',
-      budget: 25,
+      budget: dailyBudget,
       status: 'PAUSED',
       metrics: { impressions: 0, clicks: 0, spend: 0, leads: 0, cpc: 0, cpm: 0, ctr: 0 },
-    };
-    reportAgent.registerCampaign(metaCamp);
+    });
   }
 
-  // LinkedIn Ads — create if not exists
-  if (!sessionCampaigns.linkedin) {
+  // LinkedIn Ads — criar se não existir
+  if (!session.linkedin) {
     const liAdContent = await contentAgent.generateContent({
       platform: 'LINKEDIN_POST',
       audience: 'profissionais_saude_brasilia',
       brand: 'iaso_clinica',
     });
-
+    const dailyBudget = 20;
     const campaignId = await linkedinAgent.createLinkedInAd({
       name: `IASO Branding LinkedIn — ${new Date().toISOString().slice(0, 10)}`,
-      dailyBudget: 20,
+      dailyBudget,
       content: liAdContent,
     });
-
-    sessionCampaigns.linkedin = campaignId;
-
-    const liCamp: AdCampaign = {
+    session.linkedin = { id: campaignId, dailyBudget, status: 'PAUSED' };
+    reportAgent.registerCampaign({
       id: campaignId,
       name: `IASO Branding LinkedIn — ${new Date().toISOString().slice(0, 10)}`,
       platform: 'LINKEDIN',
-      budget: 20,
+      budget: dailyBudget,
       status: 'PAUSED',
       metrics: { impressions: 0, clicks: 0, spend: 0, leads: 0, cpc: 0, cpm: 0, ctr: 0 },
-    };
-    reportAgent.registerCampaign(liCamp);
+    });
   }
 
   logger.info('── Postagem diária concluída ─────────────────────────────────────');
 }
 
-// ─── Routine 2: Weekly ad optimization (Mon 08:00) ───────────────────────────
+// ─── Routine 2: Weekly optimization WITH BudgetOptimizer (Mon 08:00) ─────────
 
 async function weeklyAdOptimization() {
-  logger.info('── Rotina: Otimização Semanal de Anúncios ───────────────────────');
+  logger.info('── Rotina: Otimização Inteligente de Investimento ───────────────');
+
+  budgetOptimizer.logLTVProfiles();
 
   const today = new Date();
   const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
   const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  const channels: ChannelPerformance[] = [];
 
-  // Coletar métricas
-  if (sessionCampaigns.meta) {
-    const metrics = await instagramAgent.getCampaignMetrics(sessionCampaigns.meta);
-    reportAgent.updateMetrics(sessionCampaigns.meta, metrics);
+  // ── Coletar e construir performance de cada canal ────────────────────────────
 
-    if (metrics.ctr < 0.8) {
-      logger.warn(`CTR Meta baixo (${metrics.ctr.toFixed(2)}%) — pausando e recriando creative...`);
-      await instagramAgent.pauseCampaign(sessionCampaigns.meta);
-      const newContent = await contentAgent.generateContent({
-        platform: 'INSTAGRAM_FEED',
-        audience: 'lgbt_adulto_brasil',
-        brand: 'facilita_prep',
-      });
-      logger.info('Novo creative gerado', { firstLine: newContent.firstLine });
-    } else {
-      logger.info(`Meta CTR OK: ${metrics.ctr.toFixed(2)}%`);
-    }
+  if (session.meta) {
+    const metrics = await instagramAgent.getCampaignMetrics(session.meta.id);
+    reportAgent.updateMetrics(session.meta.id, metrics);
+    channels.push(
+      budgetOptimizer.buildMetaPerformance(
+        session.meta.id,
+        `PrEP Awareness — Meta`,
+        metrics,
+        session.meta.dailyBudget,
+      ),
+    );
   }
 
-  if (sessionCampaigns.google) {
+  if (session.google) {
     const metrics = await googleAgent.getCampaignReport(fmt(lastWeek), fmt(today));
-    if (metrics.averageCpc > 3.0) {
-      logger.warn(`CPC Google alto (R$ ${metrics.averageCpc.toFixed(2)}) — reduzindo lances 20%...`);
-      // Na API real: ajustaria bids. Em simulação, só loga.
-    } else {
-      logger.info(`Google CPC OK: R$ ${metrics.averageCpc.toFixed(2)}`);
-    }
+    channels.push(
+      budgetOptimizer.buildGooglePerformance(
+        session.google.id,
+        metrics.campaignName,
+        metrics,
+        session.google.dailyBudget,
+      ),
+    );
+    reportAgent.updateMetrics(session.google.id, {
+      impressions: metrics.impressions,
+      clicks: metrics.clicks,
+      spend: metrics.cost,
+      leads: metrics.conversions,
+      cpc: metrics.averageCpc,
+      cpm: 0,
+      ctr: metrics.ctr,
+    });
   }
 
-  if (sessionCampaigns.linkedin) {
-    const metrics = await linkedinAgent.getAdMetrics(sessionCampaigns.linkedin);
-    reportAgent.updateMetrics(sessionCampaigns.linkedin, {
+  if (session.linkedin) {
+    const metrics = await linkedinAgent.getAdMetrics(session.linkedin.id);
+    channels.push(
+      budgetOptimizer.buildLinkedInPerformance(
+        session.linkedin.id,
+        `IASO Branding — LinkedIn`,
+        metrics,
+        session.linkedin.dailyBudget,
+      ),
+    );
+    reportAgent.updateMetrics(session.linkedin.id, {
       impressions: metrics.impressions,
       clicks: metrics.clicks,
       spend: metrics.costInLocalCurrency,
       leads: metrics.leads,
       cpc: metrics.clicks > 0 ? metrics.costInLocalCurrency / metrics.clicks : 0,
-      cpm:
-        metrics.impressions > 0 ? (metrics.costInLocalCurrency / metrics.impressions) * 1000 : 0,
+      cpm: metrics.impressions > 0 ? (metrics.costInLocalCurrency / metrics.impressions) * 1000 : 0,
       ctr: metrics.impressions > 0 ? (metrics.clicks / metrics.impressions) * 100 : 0,
     });
-    logger.info('LinkedIn métricas coletadas', { impressions: metrics.impressions, leads: metrics.leads });
   }
 
-  logger.info('── Otimização semanal concluída ─────────────────────────────────');
+  // ── Analisar e tomar decisões com o BudgetOptimizer ─────────────────────────
+
+  if (channels.length === 0) {
+    logger.warn('Nenhum canal com dados suficientes para otimização.');
+    return;
+  }
+
+  const report = budgetOptimizer.analyze(channels);
+  budgetOptimizer.logReport(report);
+
+  // ── Executar as decisões do optimizer ────────────────────────────────────────
+
+  for (const decision of report.decisions) {
+    await executeOptimizerDecision(decision, report);
+  }
+
+  // ── Executar realocações de orçamento ────────────────────────────────────────
+
+  for (const realloc of report.reallocations) {
+    logger.info(`Realocando orçamento: ${realloc.fromPlatform} → ${realloc.toPlatform} (${realloc.amountBRL}/dia)`);
+    applyBudgetReallocation(realloc.fromPlatform, realloc.toPlatform, realloc.amountBRL);
+  }
+
+  logger.info('── Otimização inteligente concluída ─────────────────────────────');
+}
+
+async function executeOptimizerDecision(
+  decision: { platform: string; campaignId: string; action: string; reason: string; budgetDeltaPct?: number },
+  _report: unknown,
+) {
+  const { platform, campaignId, action, budgetDeltaPct } = decision;
+  const state = platform === 'META' ? session.meta : platform === 'GOOGLE' ? session.google : session.linkedin;
+  if (!state) return;
+
+  switch (action) {
+    case 'PAUSE':
+      if (platform === 'META') {
+        await instagramAgent.pauseCampaign(campaignId);
+        state.status = 'PAUSED';
+      }
+      // LinkedIn e Google: log de aviso (APIs de pausa a implementar conforme necessidade)
+      logger.warn(`[${platform}] Campanha pausada por decisão do optimizer.`);
+      break;
+
+    case 'NEW_CREATIVE': {
+      // Gera novo conteúdo e pausa a campanha atual para substituição manual
+      const brand = platform === 'LINKEDIN' ? 'iaso_clinica' : 'facilita_prep';
+      const platformMap: Record<string, 'INSTAGRAM_FEED' | 'GOOGLE_ADS' | 'LINKEDIN_POST'> = {
+        META: 'INSTAGRAM_FEED', GOOGLE: 'GOOGLE_ADS', LINKEDIN: 'LINKEDIN_POST',
+      };
+      const newContent = await contentAgent.generateContent({
+        platform: platformMap[platform] ?? 'INSTAGRAM_FEED',
+        audience: platform === 'LINKEDIN' ? 'profissionais_saude' : 'lgbt_adulto_brasil',
+        brand,
+      });
+      logger.info(`[${platform}] Novo creative gerado`, {
+        preview: newContent.firstLine ?? newContent.hook ?? newContent.headlines?.[0],
+      });
+      if (platform === 'META') {
+        await instagramAgent.pauseCampaign(campaignId);
+        state.status = 'PAUSED';
+      }
+      break;
+    }
+
+    case 'SCALE_UP':
+    case 'SCALE_DOWN': {
+      if (budgetDeltaPct === undefined) break;
+      const change = state.dailyBudget * (budgetDeltaPct / 100);
+      const newBudget = Math.max(5, parseFloat((state.dailyBudget + change).toFixed(2)));
+      logger.info(`[${platform}] Ajuste de orçamento: R$${state.dailyBudget} → R$${newBudget} (${budgetDeltaPct > 0 ? '+' : ''}${budgetDeltaPct}%)`);
+      state.dailyBudget = newBudget;
+      // Na API real: chamaria updateBudget() de cada plataforma
+      break;
+    }
+
+    case 'MAINTAIN':
+    default:
+      // Sem ação
+      break;
+  }
+}
+
+function applyBudgetReallocation(fromPlatform: string, toPlatform: string, amountBRL: number) {
+  const stateMap: Record<string, CampaignState | undefined> = {
+    META: session.meta, GOOGLE: session.google, LINKEDIN: session.linkedin,
+  };
+  const from = stateMap[fromPlatform];
+  const to = stateMap[toPlatform];
+  if (!from || !to) return;
+  from.dailyBudget = Math.max(5, parseFloat((from.dailyBudget - amountBRL).toFixed(2)));
+  to.dailyBudget = parseFloat((to.dailyBudget + amountBRL).toFixed(2));
+  logger.info(`Orçamentos atualizados: ${fromPlatform} → R$${from.dailyBudget}/dia | ${toPlatform} → R$${to.dailyBudget}/dia`);
 }
 
 // ─── Routine 3: Monthly report (1st of month 07:00) ──────────────────────────
@@ -220,9 +328,8 @@ async function weeklyAdOptimization() {
 async function monthlyReport() {
   logger.info('── Rotina: Relatório Mensal ──────────────────────────────────────');
   const now = new Date();
-  const month = now.getMonth() === 0 ? 12 : now.getMonth(); // previous month
+  const month = now.getMonth() === 0 ? 12 : now.getMonth();
   const year = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
-
   await reportAgent.generateMonthlyReport(year, month);
   logger.info('── Relatório mensal concluído ────────────────────────────────────');
 }
@@ -245,7 +352,6 @@ async function main() {
     process.exit(0);
   }
 
-  // Schedule routines
   const CRON_DAILY = '0 9 * * 1,3,5';
   const CRON_WEEKLY = '0 8 * * 1';
   const CRON_MONTHLY = '0 7 1 * *';

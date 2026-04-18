@@ -146,3 +146,84 @@ export interface OptimizationAction {
   reason: string;
   executedAt: string;
 }
+
+// ─── Optimizer types ──────────────────────────────────────────────────────────
+
+export type ProductLine = 'facilita_prep' | 'iaso_clinica';
+
+export type OptimizerActionType =
+  | 'MAINTAIN'      // CPA dentro do range ideal — manter
+  | 'SCALE_UP'      // CPA excelente — aumentar orçamento
+  | 'SCALE_DOWN'    // CPA elevado — reduzir orçamento
+  | 'NEW_CREATIVE'  // CTR baixo — gerar novo conteúdo
+  | 'PAUSE'         // CPA inaceitável — pausar campanha
+  | 'REALLOCATE';   // Mover verba para canal mais eficiente
+
+export type DecisionUrgency = 'INFO' | 'WARNING' | 'CRITICAL';
+
+export interface ChannelPerformance {
+  platform: 'META' | 'GOOGLE' | 'LINKEDIN';
+  campaignId: string;
+  campaignName: string;
+  spend: number;
+  leads: number;
+  patients: number;         // leads × taxa de conversão lead→paciente
+  cpa: number;              // custo por paciente captado
+  cpl: number;              // custo por lead
+  ctr: number;
+  cpc: number;
+  dailyBudget: number;
+  impressions: number;
+  clicks: number;
+  leadToPatientRate: number; // taxa de conversão lead → paciente
+}
+
+export interface OptimizerDecision {
+  platform: string;
+  campaignId: string;
+  campaignName: string;
+  action: OptimizerActionType;
+  reason: string;
+  budgetDeltaPct?: number;  // ex: +20 ou -30 (percentual)
+  currentCPA: number;
+  hardThreshold: number;    // limite absoluto (ex: R$100)
+  ltvThreshold: number;     // limite LTV-ajustado (ex: R$322)
+  urgency: DecisionUrgency;
+  executedAt: string;
+}
+
+export interface ReallocationPlan {
+  fromPlatform: string;
+  toPlatform: string;
+  amountBRL: number;
+  reason: string;
+}
+
+export interface LTVProfile {
+  productLine: ProductLine;
+  avgConsultationFee: number;
+  consultationsPerYear: number;
+  avgRetentionYears: number;
+  grossMargin: number;
+  ltv: number;
+  maxAcceptableCPA: number;  // LTV × 33%
+  conservativeCPA: number;   // LTV × 10% (CPA "excelente")
+  aggressiveCPA: number;     // LTV × 50% (CPA "máximo arriscado")
+}
+
+export interface OptimizerReport {
+  analyzedAt: string;
+  periodDays: number;
+  totalSpend: number;
+  totalLeads: number;
+  totalPatients: number;
+  blendedCPA: number;
+  blendedCPL: number;
+  channels: ChannelPerformance[];
+  decisions: OptimizerDecision[];
+  reallocations: ReallocationPlan[];
+  projectedMonthlySavings: number;
+  projectedMonthlyPatientGain: number;
+  roiAtHardValue: number;    // ROI considerando R$100/paciente
+  roiAtLTV: number;          // ROI considerando LTV real
+}
