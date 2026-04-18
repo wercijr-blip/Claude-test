@@ -3,3 +3,4 @@ dist/
 .env
 logs/*.log
 logs/report_*.json
+logs/optimizer_*.json
