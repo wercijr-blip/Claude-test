@@ -68,6 +68,7 @@ export const pacientes = mysqlTable('pacientes', {
 
   // Step 3 — Contato (PII encriptado)
   emailEncrypted: text('email_encrypted'),
+  tipoTelefone: varchar('tipo_telefone', { length: 20 }),
   telefoneEncrypted: text('telefone_encrypted'),
   cep: varchar('cep', { length: 10 }),
   logradouro: varchar('logradouro', { length: 255 }),

@@ -4,9 +4,16 @@ import { z } from 'zod'
 import { trpc } from '../../lib/trpc.ts'
 import { ESTADOS_BR } from '@shared/const.ts'
 
+const TIPOS_TELEFONE = [
+  { value: 'celular_whatsapp', label: 'Celular / WhatsApp' },
+  { value: 'fixo', label: 'Fixo' },
+  { value: 'comercial', label: 'Comercial' },
+] as const
+
 const schema = z.object({
   pacienteId: z.number(),
   email: z.string().email('E-mail inválido'),
+  tipoTelefone: z.string().optional(),
   telefone: z.string().min(10, 'Telefone inválido'),
   cep: z.string().length(8, 'CEP deve ter 8 dígitos'),
   logradouro: z.string().min(2),
@@ -35,6 +42,7 @@ export default function StepContato({ pacienteId, onNext, onBack, defaultValues 
     defaultValues: {
       pacienteId: pacienteId ?? 0,
       email: defaultValues?.email ?? '',
+      tipoTelefone: 'celular_whatsapp',
       telefone: defaultValues?.telefone ?? '',
     },
   })
@@ -73,17 +81,31 @@ export default function StepContato({ pacienteId, onNext, onBack, defaultValues 
           {hasIntakeEmail && <p className="mt-0.5 text-xs text-slate-400">Preenchido automaticamente do cadastro</p>}
         </Field>
 
-        <Field label="Telefone / WhatsApp" error={errors.telefone?.message}>
-          <input
-            {...register('telefone')}
-            className={inputCls(!!errors.telefone)}
-            placeholder="(00) 00000-0000"
-            maxLength={15}
-            readOnly={hasIntakeTelefone}
-            style={hasIntakeTelefone ? { background: '#f8fafc', color: '#64748b' } : undefined}
-          />
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Telefone</label>
+          <div className="flex gap-2">
+            <select
+              {...register('tipoTelefone')}
+              className={`${inputCls(false)} w-44 shrink-0`}
+              disabled={hasIntakeTelefone}
+              style={hasIntakeTelefone ? { background: '#f8fafc', color: '#64748b' } : undefined}
+            >
+              {TIPOS_TELEFONE.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+            <input
+              {...register('telefone')}
+              className={`${inputCls(!!errors.telefone)} flex-1`}
+              placeholder="(00) 00000-0000"
+              maxLength={15}
+              readOnly={hasIntakeTelefone}
+              style={hasIntakeTelefone ? { background: '#f8fafc', color: '#64748b' } : undefined}
+            />
+          </div>
+          {errors.telefone && <p className="mt-1 text-xs text-red-500">{errors.telefone.message}</p>}
           {hasIntakeTelefone && <p className="mt-0.5 text-xs text-slate-400">Preenchido automaticamente do cadastro</p>}
-        </Field>
+        </div>
 
         <div className="grid grid-cols-2 gap-4">
           <Field label="CEP" error={errors.cep?.message}>

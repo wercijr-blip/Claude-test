@@ -110,6 +110,7 @@ export const pacienteRouter = router({
       z.object({
         pacienteId: z.number(),
         email: z.string().email(),
+        tipoTelefone: z.string().optional(),
         telefone: z.string().min(10),
         cep: z.string().length(8),
         logradouro: z.string(),
@@ -126,6 +127,7 @@ export const pacienteRouter = router({
         .update(pacientes)
         .set({
           emailEncrypted: encrypt(input.email),
+          tipoTelefone: input.tipoTelefone,
           telefoneEncrypted: encrypt(input.telefone),
           cep: input.cep,
           logradouro: input.logradouro,
