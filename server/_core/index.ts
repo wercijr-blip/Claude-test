@@ -59,7 +59,7 @@ app.post(
 
 // Servir frontend em produção
 if (env.NODE_ENV === 'production') {
-  const clientDist = path.resolve(__dirname, '../../../dist/client')
+  const clientDist = path.resolve(__dirname, '../../dist/client')
   app.use(express.static(clientDist))
   app.get('*', (_req, res) => {
     res.sendFile(path.join(clientDist, 'index.html'))

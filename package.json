@@ -5,9 +5,9 @@
   "packageManager": "pnpm@10.4.1",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"tsx watch server/_core/index.ts\" \"vite\"",
+    "dev": "concurrently \"tsx watch --env-file=.env server/_core/index.ts\" \"vite\"",
     "build": "vite build",
-    "start": "tsx server/_core/index.ts",
+    "start": "tsx --env-file=.env server/_core/index.ts",
     "check": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
