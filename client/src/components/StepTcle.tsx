@@ -29,25 +29,21 @@ export default function StepTcle({ pacienteId, onNext, onBack }: Props) {
   const [lido, setLido] = useState(false)
   const [error, setError] = useState('')
 
-  const salvarTcle = trpc.paciente.finalizar.useMutation({ onSuccess: () => onNext() })
+  const finalizar = trpc.paciente.finalizar.useMutation({ onSuccess: () => onNext() })
+  const salvarAssinatura = trpc.paciente.salvarTcle.useMutation({
+    onSuccess: () => { if (pacienteId) finalizar.mutate({ pacienteId }) },
+    onError: (err) => setError(err.message),
+  })
+
+  const isPending = salvarAssinatura.isPending || finalizar.isPending
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-
     if (!lido) { setError('Confirme que leu e compreendeu o TCLE.'); return }
     if (!assinatura) { setError('A assinatura é obrigatória.'); return }
     if (!pacienteId) return
-
-    // Salvar assinatura via fetch direto (fora do tRPC para enviar o dataUrl)
-    fetch('/api/tcle/assinar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('fp_token')}` },
-      body: JSON.stringify({ pacienteId, assinaturaDataUrl: assinatura }),
-    })
-      .then((r) => { if (!r.ok) throw new Error('Erro ao salvar assinatura') })
-      .then(() => salvarTcle.mutate({ pacienteId }))
-      .catch((err: Error) => setError(err.message))
+    salvarAssinatura.mutate({ pacienteId, assinaturaDataUrl: assinatura })
   }
 
   if (!pacienteId) return null
@@ -91,8 +87,8 @@ export default function StepTcle({ pacienteId, onNext, onBack }: Props) {
 
           <div className="flex justify-between pt-2">
             <button type="button" onClick={onBack} className={btnSecondary}>← Anterior</button>
-            <button type="submit" disabled={salvarTcle.isPending || !lido || !assinatura} className={btnPrimary}>
-              {salvarTcle.isPending ? 'Enviando…' : 'Finalizar e enviar ✓'}
+            <button type="submit" disabled={isPending || !lido || !assinatura} className={btnPrimary}>
+              {isPending ? 'Enviando…' : 'Finalizar e enviar ✓'}
             </button>
           </div>
         </form>

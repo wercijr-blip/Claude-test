@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { router, protectedProcedure } from '../_core/trpc.ts'
 import { TRPCError } from '@trpc/server'
 import { db } from '../db.ts'
-import { pacientes, precadastros, pdfs } from '../../drizzle/schema.ts'
+import { pacientes, precadastros, pdfs, tcleAssinaturas } from '../../drizzle/schema.ts'
 import { eq, and } from 'drizzle-orm'
 import { encrypt, decrypt, hashCpf } from '../_core/encryption.ts'
 import { validarCpf } from '../_core/cpfValidator.ts'
@@ -99,7 +99,15 @@ export const pacienteRouter = router({
       assertPatient(ctx.session)
       await db
         .update(pacientes)
-        .set({ ...input, currentStep: 3, updatedAt: new Date() })
+        .set({
+          corRaca: input.corRaca,
+          escolaridade: input.escolaridade,
+          situacaoConjugal: input.situacaoConjugal,
+          rendaFamiliar: input.rendaFamiliar,
+          ocupacao: input.ocupacao,
+          currentStep: 3,
+          updatedAt: new Date(),
+        })
         .where(and(eq(pacientes.id, input.pacienteId), eq(pacientes.tokenId, ctx.session.tokenId)))
       return { ok: true }
     }),
@@ -193,7 +201,14 @@ export const pacienteRouter = router({
       assertPatient(ctx.session)
       await db
         .update(pacientes)
-        .set({ ...input, currentStep: 7, updatedAt: new Date() })
+        .set({
+          tipoAtendimento: input.tipoAtendimento,
+          convenio: input.convenio,
+          numeroConvenio: input.numeroConvenio,
+          valorCentavos: input.valorCentavos,
+          currentStep: 7,
+          updatedAt: new Date(),
+        })
         .where(and(eq(pacientes.id, input.pacienteId), eq(pacientes.tokenId, ctx.session.tokenId)))
       return { ok: true }
     }),
@@ -214,6 +229,20 @@ export const pacienteRouter = router({
         .update(pacientes)
         .set({ autorizadosJson: input.autorizados, currentStep: 8, updatedAt: new Date() })
         .where(and(eq(pacientes.id, input.pacienteId), eq(pacientes.tokenId, ctx.session.tokenId)))
+      return { ok: true }
+    }),
+
+  // Salvar assinatura TCLE
+  salvarTcle: protectedProcedure
+    .input(z.object({
+      pacienteId: z.number(),
+      assinaturaDataUrl: z.string().min(1),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      assertPatient(ctx.session)
+      await db
+        .insert(tcleAssinaturas)
+        .values({ pacienteId: input.pacienteId, assinaturaDataUrl: input.assinaturaDataUrl })
       return { ok: true }
     }),
 
