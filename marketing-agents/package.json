@@ -7,6 +7,7 @@
     "start": "ts-node src/orchestrator.ts",
     "run-now": "ts-node src/orchestrator.ts --run-now",
     "report": "ts-node src/orchestrator.ts --report-only",
+    "financial": "ts-node src/orchestrator.ts --financial",
     "build": "tsc",
     "dashboard": "npx serve src/dashboard -p 3001",
     "dev": "ts-node-dev --respawn src/orchestrator.ts"

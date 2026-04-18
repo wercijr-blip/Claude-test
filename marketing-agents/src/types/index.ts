@@ -147,6 +147,93 @@ export interface OptimizationAction {
   executedAt: string;
 }
 
+// ─── Financial types ──────────────────────────────────────────────────────────
+
+export interface PatientCohort {
+  id: string;                    // "YYYY-MM"
+  month: string;
+  platform: string;
+  newPatients: number;
+  adSpend: number;
+  aiCost: number;
+  cac: number;
+  productMix: { facilita_prep: number; iaso_clinica: number };
+}
+
+export interface MonthlyCosts {
+  month: string;
+  adSpend: number;
+  aiCosts: { claude: number; ideogram: number; heygen: number; runway: number };
+  infrastructure: number;
+  total: number;
+}
+
+export type AlertType =
+  | 'CAC_HIGH'
+  | 'MARGIN_LOW'
+  | 'LTV_CAC_LOW'
+  | 'REVENUE_DROP'
+  | 'CHURN_HIGH';
+
+export type AlertSeverity = 'INFO' | 'WARNING' | 'CRITICAL';
+
+export interface FinancialAlert {
+  type: AlertType;
+  severity: AlertSeverity;
+  message: string;
+  metric: number;
+  threshold: number;
+  action: string;
+}
+
+export interface MonthlyPnL {
+  month: string;
+  revenue: number;
+  initialConsultationRevenue: number;
+  recurringRevenue: number;
+  costs: MonthlyCosts;
+  grossProfit: number;
+  grossMargin: number;           // percentage 0–100
+  newPatients: number;
+  activePatients: number;
+  cac: number;
+  avgLTV: number;
+  ltvCacRatio: number;
+  paybackMonths: number;
+  alerts: FinancialAlert[];
+}
+
+export interface RevenueProjection {
+  month: string;
+  projectedNewPatients: number;
+  projectedActivePatients: number;
+  projectedRevenue: number;
+  projectedCosts: number;
+  projectedProfit: number;
+  confidence: 'HIGH' | 'MEDIUM' | 'LOW';
+}
+
+export interface YTDSummary {
+  totalRevenue: number;
+  totalCosts: number;
+  totalProfit: number;
+  totalNewPatients: number;
+  avgCAC: number;
+  avgMargin: number;
+  avgLTVCACRatio: number;
+  bestMonth: string;
+  bestMonthProfit: number;
+}
+
+export interface FinancialReport {
+  generatedAt: string;
+  period: string;
+  pnl: MonthlyPnL;
+  cohorts: PatientCohort[];
+  projections: RevenueProjection[];
+  ytd: YTDSummary;
+}
+
 // ─── Media generation types ───────────────────────────────────────────────────
 
 export type ImageAspectRatio =

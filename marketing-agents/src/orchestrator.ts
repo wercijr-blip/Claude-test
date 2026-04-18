@@ -10,6 +10,7 @@ import { reportAgent } from './agents/report-agent';
 import { budgetOptimizer } from './optimizer/budget-optimizer';
 import { imageAgent } from './agents/image-agent';
 import { videoAgent } from './agents/video-agent';
+import { financialAgent } from './agents/financial-agent';
 import { META_AUDIENCES, GOOGLE_KEYWORDS_PREP } from './config/targets';
 import type { AdCampaign, ChannelPerformance } from './types';
 
@@ -366,6 +367,43 @@ async function monthlyReport() {
   const month = now.getMonth() === 0 ? 12 : now.getMonth();
   const year = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
   await reportAgent.generateMonthlyReport(year, month);
+
+  // ── Relatório financeiro completo ─────────────────────────────────────────
+  logger.info('── Relatório Financeiro ──────────────────────────────────────────');
+
+  // Registrar aquisições do mês com base nas métricas coletadas
+  if (session.meta) {
+    const m = await instagramAgent.getCampaignMetrics(session.meta.id);
+    financialAgent.registerAcquisition({
+      platform: 'META',
+      newPatients: Math.round(m.leads * 0.52),
+      adSpend: m.spend,
+      aiCost: 10.40 + 1.30 / 3,
+    });
+  }
+  if (session.google) {
+    const today = new Date();
+    const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    const fmt = (d: Date) => d.toISOString().slice(0, 10);
+    const m = await googleAgent.getCampaignReport(fmt(lastMonth), fmt(today));
+    financialAgent.registerAcquisition({
+      platform: 'GOOGLE',
+      newPatients: Math.round(m.conversions * 0.63),
+      adSpend: m.cost,
+      aiCost: 1.30 / 3,
+    });
+  }
+  if (session.linkedin) {
+    const m = await linkedinAgent.getAdMetrics(session.linkedin.id);
+    financialAgent.registerAcquisition({
+      platform: 'LINKEDIN',
+      newPatients: Math.round(m.leads * 0.35),
+      adSpend: m.costInLocalCurrency,
+      aiCost: 360 + 140 + 1.30 / 3,  // HeyGen + Runway dominam custo IA
+    });
+  }
+
+  financialAgent.generateReport();
   logger.info('── Relatório mensal concluído ────────────────────────────────────');
 }
 
@@ -379,12 +417,25 @@ async function main() {
   validateEnv();
 
   const args = process.argv.slice(2);
-  const runNow = args.includes('--run-now');
-  const reportOnly = args.includes('--report-only');
+  const runNow      = args.includes('--run-now');
+  const reportOnly  = args.includes('--report-only');
+  const financialOnly = args.includes('--financial');
+
+  if (financialOnly) {
+    logger.info('Modo --financial: gerando relatório financeiro com dados simulados de 12 meses...');
+    financialAgent.seedSimulationData();
+    financialAgent.generateReport();
+    process.exit(0);
+  }
 
   if (reportOnly) {
     await monthlyReport();
     process.exit(0);
+  }
+
+  // Seed financial simulation data on first run
+  if (process.env.SIMULATION_MODE === 'true') {
+    financialAgent.seedSimulationData();
   }
 
   const CRON_DAILY = '0 9 * * 1,3,5';

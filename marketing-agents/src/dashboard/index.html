@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Marketing Agents — Dashboard</title>
+  <title>Marketing Agents — Dashboard | Facilita PrEP + IASO</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -292,6 +292,86 @@
   </table>
 </div>
 
+<!-- Financial Section -->
+<div class="card" style="margin-bottom:24px">
+  <h2>Financeiro — Mês Atual</h2>
+  <div class="grid-4" style="margin-bottom:16px">
+    <div>
+      <div class="card-label">Receita Total</div>
+      <div class="card-value green" id="fin-revenue">—</div>
+      <div class="card-sub">consultas iniciais + recorrentes</div>
+    </div>
+    <div>
+      <div class="card-label">Lucro Bruto</div>
+      <div class="card-value green" id="fin-profit">—</div>
+      <div class="card-sub" id="fin-margin">margem —</div>
+    </div>
+    <div>
+      <div class="card-label">CAC Real</div>
+      <div class="card-value" id="fin-cac">—</div>
+      <div class="card-sub" id="fin-ltvcac">LTV:CAC —</div>
+    </div>
+    <div>
+      <div class="card-label">Payback</div>
+      <div class="card-value blue" id="fin-payback">—</div>
+      <div class="card-sub">meses</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <!-- Cost breakdown -->
+    <div>
+      <div class="card-label" style="margin-bottom:10px">Estrutura de Custo</div>
+      <table>
+        <thead><tr><th>Item</th><th>R$/mês</th><th>%</th></tr></thead>
+        <tbody id="fin-cost-table">
+          <tr><td colspan="3" style="color:var(--muted);text-align:center">Sem dados</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Projections -->
+    <div>
+      <div class="card-label" style="margin-bottom:10px">Projeção Próximos 3 Meses</div>
+      <table>
+        <thead><tr><th>Mês</th><th>Pac.</th><th>Receita</th><th>Lucro</th><th></th></tr></thead>
+        <tbody id="fin-proj-table">
+          <tr><td colspan="5" style="color:var(--muted);text-align:center">Sem dados</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- YTD Summary -->
+<div class="card" style="margin-bottom:24px">
+  <h2>Acumulado no Ano (YTD)</h2>
+  <div class="grid-4">
+    <div>
+      <div class="card-label">Receita YTD</div>
+      <div class="card-value" id="ytd-revenue">—</div>
+    </div>
+    <div>
+      <div class="card-label">Lucro YTD</div>
+      <div class="card-value green" id="ytd-profit">—</div>
+    </div>
+    <div>
+      <div class="card-label">Pacientes novos</div>
+      <div class="card-value blue" id="ytd-patients">—</div>
+    </div>
+    <div>
+      <div class="card-label">Melhor mês</div>
+      <div class="card-value" id="ytd-best">—</div>
+    </div>
+  </div>
+</div>
+
+<!-- Alerts -->
+<div class="card" id="alerts-card" style="margin-bottom:24px;display:none">
+  <h2>⚠ Alertas Financeiros</h2>
+  <div id="alerts-list"></div>
+</div>
+
 <footer>
   Marketing Agents v1.0 &mdash; Facilita PrEP + Clínica IASO &mdash; Atualização automática a cada 5 min
 </footer>
@@ -382,7 +462,95 @@
   }
 
   loadReport();
-  setInterval(loadReport, 5 * 60 * 1000); // atualizar a cada 5 min
+  loadFinancialReport();
+  setInterval(() => { loadReport(); loadFinancialReport(); }, 5 * 60 * 1000);
+
+  async function loadFinancialReport() {
+    const now = new Date();
+    const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    try {
+      const res = await fetch(`../../logs/financial_${ym}.json`);
+      if (!res.ok) throw new Error('not found');
+      const r = await res.json();
+      renderFinancial(r);
+    } catch {
+      renderFinancialPlaceholder();
+    }
+  }
+
+  function renderFinancial(r) {
+    const p = r.pnl;
+    const brl = (v) => `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const pct = (v) => `${Number(v).toFixed(1)}%`;
+
+    document.getElementById('fin-revenue').textContent  = brl(p.revenue);
+    document.getElementById('fin-profit').textContent   = brl(p.grossProfit);
+    document.getElementById('fin-margin').textContent   = `margem ${pct(p.grossMargin)}`;
+    document.getElementById('fin-cac').textContent      = brl(p.cac);
+    document.getElementById('fin-ltvcac').textContent   = `LTV:CAC ${Number(p.ltvCacRatio).toFixed(1)}×`;
+    document.getElementById('fin-payback').textContent  = `${Number(p.paybackMonths).toFixed(1)} meses`;
+
+    // Cost table
+    const c = p.costs;
+    const ai = c.aiCosts;
+    const aiTotal = (ai.claude + ai.ideogram + ai.heygen + ai.runway);
+    const totalCost = c.total;
+    const rows = [
+      ['Verba de anúncios', c.adSpend],
+      ['HeyGen (vídeos)',   ai.heygen],
+      ['Runway (Reels)',    ai.runway],
+      ['Ideogram (imagens)', ai.ideogram],
+      ['Claude API',       ai.claude],
+      ['Infraestrutura',   c.infrastructure],
+    ];
+    document.getElementById('fin-cost-table').innerHTML = rows.map(([label, val]) => `
+      <tr>
+        <td>${label}</td>
+        <td>${brl(val)}</td>
+        <td style="color:var(--muted)">${pct(totalCost > 0 ? val / totalCost * 100 : 0)}</td>
+      </tr>`).join('');
+
+    // Projections
+    const confIcon = { HIGH: '🟢', MEDIUM: '🟡', LOW: '🟠' };
+    document.getElementById('fin-proj-table').innerHTML = (r.projections || []).map((proj) => `
+      <tr>
+        <td>${proj.month}</td>
+        <td>${proj.projectedNewPatients}</td>
+        <td>${brl(proj.projectedRevenue)}</td>
+        <td style="color:var(--green)">${brl(proj.projectedProfit)}</td>
+        <td>${confIcon[proj.confidence] ?? ''}</td>
+      </tr>`).join('') || '<tr><td colspan="5" style="color:var(--muted);text-align:center">—</td></tr>';
+
+    // YTD
+    const ytd = r.ytd;
+    if (ytd && ytd.totalRevenue > 0) {
+      document.getElementById('ytd-revenue').textContent  = brl(ytd.totalRevenue);
+      document.getElementById('ytd-profit').textContent   = brl(ytd.totalProfit);
+      document.getElementById('ytd-patients').textContent = ytd.totalNewPatients;
+      document.getElementById('ytd-best').textContent     = `${ytd.bestMonth} (${brl(ytd.bestMonthProfit)})`;
+    }
+
+    // Alerts
+    const alertsCard = document.getElementById('alerts-card');
+    const alertsList = document.getElementById('alerts-list');
+    if (p.alerts && p.alerts.length > 0) {
+      const icon = { INFO: 'ℹ️', WARNING: '⚠️', CRITICAL: '🚨' };
+      const color = { INFO: 'var(--blue)', WARNING: 'var(--yellow)', CRITICAL: 'var(--red)' };
+      alertsList.innerHTML = p.alerts.map((a) => `
+        <div style="padding:12px 0;border-bottom:1px solid var(--border)">
+          <div style="color:${color[a.severity]}">${icon[a.severity]} <strong>[${a.type}]</strong> ${a.message}</div>
+          <div style="color:var(--muted);font-size:12px;margin-top:4px">→ ${a.action}</div>
+        </div>`).join('');
+      alertsCard.style.display = 'block';
+    } else {
+      alertsCard.style.display = 'none';
+    }
+  }
+
+  function renderFinancialPlaceholder() {
+    ['fin-revenue','fin-profit','fin-cac','fin-payback','ytd-revenue','ytd-profit','ytd-patients','ytd-best']
+      .forEach(id => { const el = document.getElementById(id); if (el) el.textContent = '—'; });
+  }
 </script>
 </body>
 </html>
