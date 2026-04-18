@@ -7,7 +7,7 @@ import { eq, and, gt } from 'drizzle-orm'
 import { decrypt } from './_core/encryption.ts'
 import { gerarPrescricaoPdf, gerarFormularioPdf, assinarPdf } from './pdfSigner.ts'
 import { gerarCadastroPdf } from './pdfCadastro.ts'
-import { uploadBuffer } from './storage.ts'
+import { uploadBuffer, getBuffer } from './storage.ts'
 import { enviarLinkAcessoIntake, enviarDocumentosAssinados, enviarPesquisaSatisfacao } from './email.ts'
 import { enviarWhatsApp } from './whatsapp.ts'
 import { gerarTokenPesquisa } from './routes/pesquisa.ts'
@@ -31,9 +31,9 @@ export function startPdfWorker() {
       const [p] = await db.select().from(pacientes).where(eq(pacientes.id, pacienteId)).limit(1)
       if (!p) throw new Error(`Paciente ${pacienteId} não encontrado`)
 
-      // Determine tipoConsulta
+      // Determine tipoConsulta e buscar chaves dos pedidos de exame
       const [consulta] = await db
-        .select({ tipoConsulta: consultasInicio.tipoConsulta })
+        .select()
         .from(consultasInicio)
         .where(eq(consultasInicio.tokenId, p.tokenId))
         .limit(1)
@@ -111,6 +111,23 @@ export function startPdfWorker() {
         await uploadBuffer(cadKey, signedCad, 'application/pdf')
         await db.insert(pdfs).values({ pacienteId, s3Key: cadKey, tipo: 'cadastro', certificadoSerial: serialCad, assinadoEm: assinadoCad })
         gerados.push({ filename: 'ficha-cadastro-prep.pdf', buffer: signedCad })
+      }
+
+      // 4. Pedidos de exame (quando o paciente não tinha exame recente)
+      if (consulta && !consulta.temExameRecente) {
+        const pedidos = [
+          { key: consulta.pedidoCompletoS3Key, tipo: 'pedido_completo', filename: 'pedido-exames-completo.pdf' },
+          { key: consulta.pedidoIstS3Key, tipo: 'pedido_ist', filename: 'pedido-sorologicos-ist.pdf' },
+          { key: consulta.pedidoHivS3Key, tipo: 'pedido_hiv', filename: 'pedido-anti-hiv.pdf' },
+          { key: consulta.pedidoDensitometriaS3Key, tipo: 'pedido_densitometria', filename: 'pedido-densitometria-ossea.pdf' },
+        ] as const
+
+        for (const { key, tipo, filename } of pedidos) {
+          if (!key) continue
+          const buf = await getBuffer(key)
+          await db.insert(pdfs).values({ pacienteId, s3Key: key, tipo, assinadoEm: consulta.createdAt })
+          gerados.push({ filename, buffer: buf })
+        }
       }
 
       // Enviar documentos por email

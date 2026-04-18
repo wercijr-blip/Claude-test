@@ -22,6 +22,10 @@ const LABEL_PDF: Record<string, string> = {
   formulario: 'Formulário Clínico',
   prescricao: 'Receita PrEP',
   cadastro: 'Ficha de Cadastro',
+  pedido_completo: 'Pedido de Exames Completo PrEP',
+  pedido_ist: 'Pedido de Sorológicos IST',
+  pedido_hiv: 'Pedido Anti-HIV',
+  pedido_densitometria: 'Pedido de Densitometria Óssea',
 }
 
 function TelaDocumentos({ pacienteId }: { pacienteId: number }) {

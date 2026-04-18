@@ -39,6 +39,13 @@ export async function uploadBuffer(key: string, buffer: Buffer, contentType: str
   )
 }
 
+export async function getBuffer(key: string): Promise<Buffer> {
+  const res = await s3.send(new GetObjectCommand({ Bucket: env.AWS_S3_BUCKET, Key: key }))
+  const chunks: Uint8Array[] = []
+  for await (const chunk of res.Body as AsyncIterable<Uint8Array>) chunks.push(chunk)
+  return Buffer.concat(chunks)
+}
+
 export async function getPresignedUrl(key: string, expiresIn = 3600): Promise<string> {
   return getSignedUrl(s3, new GetObjectCommand({ Bucket: env.AWS_S3_BUCKET, Key: key }), { expiresIn })
 }
