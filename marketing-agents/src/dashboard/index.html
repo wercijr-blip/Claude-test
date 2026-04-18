@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Marketing Agents — Dashboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --border: #2a2d3a;
+      --text: #e8eaf0;
+      --muted: #8b8fa8;
+      --accent: #6366f1;
+      --green: #22c55e;
+      --yellow: #f59e0b;
+      --red: #ef4444;
+      --blue: #3b82f6;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', 'Segoe UI', sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      padding: 24px;
+      min-height: 100vh;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 32px;
+    }
+
+    header h1 {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+
+    header h1 span { color: var(--accent); }
+
+    #last-update {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+    }
+
+    .card-label {
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .card-value {
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    .card-value.green { color: var(--green); }
+    .card-value.yellow { color: var(--yellow); }
+    .card-value.blue { color: var(--blue); }
+
+    .card-sub {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    h2 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th {
+      text-align: left;
+      padding: 8px 12px;
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    td {
+      padding: 12px 12px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .badge-green { background: rgba(34,197,94,.15); color: var(--green); }
+    .badge-yellow { background: rgba(245,158,11,.15); color: var(--yellow); }
+    .badge-red { background: rgba(239,68,68,.15); color: var(--red); }
+    .badge-blue { background: rgba(59,130,246,.15); color: var(--blue); }
+
+    .platform-icon {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      text-align: center;
+      line-height: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+
+    .pi-meta { background: #1877f2; color: #fff; }
+    .pi-google { background: #ea4335; color: #fff; }
+    .pi-linkedin { background: #0a66c2; color: #fff; }
+
+    #scheduled-list {
+      list-style: none;
+    }
+
+    #scheduled-list li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+
+    #scheduled-list li:last-child { border-bottom: none; }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      display: inline-block;
+      margin-right: 8px;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    footer {
+      margin-top: 40px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    @media (max-width: 900px) {
+      .grid-4 { grid-template-columns: 1fr 1fr; }
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 480px) {
+      .grid-4 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Marketing Agents <span>// Facilita PrEP + IASO</span></h1>
+  <span id="last-update">Carregando…</span>
+</header>
+
+<!-- KPI Cards -->
+<div class="grid-4">
+  <div class="card">
+    <div class="card-label">Total Gasto</div>
+    <div class="card-value yellow" id="total-spend">—</div>
+    <div class="card-sub">mês atual</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Alcance Total</div>
+    <div class="card-value blue" id="total-reach">—</div>
+    <div class="card-sub">pessoas únicas</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Total Leads</div>
+    <div class="card-value green" id="total-leads">—</div>
+    <div class="card-sub">formulários preenchidos</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Custo por Lead</div>
+    <div class="card-value" id="cpl">—</div>
+    <div class="card-sub">média todos canais</div>
+  </div>
+</div>
+
+<!-- Platform table + Scheduled -->
+<div class="grid-2">
+  <div class="card">
+    <h2>Performance por Plataforma</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Plataforma</th>
+          <th>Gasto</th>
+          <th>Leads</th>
+          <th>CPL</th>
+          <th>Clicks</th>
+        </tr>
+      </thead>
+      <tbody id="platform-table">
+        <tr><td colspan="5" style="color:var(--muted);text-align:center">Sem dados</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Próximas Ações Agendadas</h2>
+    <ul id="scheduled-list">
+      <li>
+        <span><span class="dot"></span>Postagem Diária (Instagram + LinkedIn)</span>
+        <span style="color:var(--muted)">Seg/Qua/Sex 09:00</span>
+      </li>
+      <li>
+        <span><span class="dot"></span>Otimização de Anúncios</span>
+        <span style="color:var(--muted)">Segunda 08:00</span>
+      </li>
+      <li>
+        <span><span class="dot"></span>Relatório Mensal</span>
+        <span style="color:var(--muted)">Dia 1 do mês 07:00</span>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<!-- Campaigns table -->
+<div class="card" style="margin-bottom:24px">
+  <h2>Campanhas Ativas</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Campanha</th>
+        <th>Status</th>
+        <th>Orçamento/dia</th>
+        <th>Impressões</th>
+        <th>Clicks</th>
+        <th>CTR</th>
+        <th>Leads</th>
+        <th>Gasto</th>
+      </tr>
+    </thead>
+    <tbody id="campaigns-table">
+      <tr><td colspan="8" style="color:var(--muted);text-align:center">Sem campanhas registradas</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<footer>
+  Marketing Agents v1.0 &mdash; Facilita PrEP + Clínica IASO &mdash; Atualização automática a cada 5 min
+</footer>
+
+<script>
+  const fmt = (n) => new Intl.NumberFormat('pt-BR').format(Math.round(n));
+  const fmtBRL = (n) => `R$ ${Number(n).toFixed(2)}`;
+
+  const PLATFORM_META = { label: 'META', cls: 'pi-meta' };
+  const PLATFORM_GOOGLE = { label: 'G', cls: 'pi-google' };
+  const PLATFORM_LINKEDIN = { label: 'in', cls: 'pi-linkedin' };
+
+  function platformMeta(p) {
+    if (p === 'META') return PLATFORM_META;
+    if (p === 'GOOGLE') return PLATFORM_GOOGLE;
+    return PLATFORM_LINKEDIN;
+  }
+
+  function statusBadge(s) {
+    if (s === 'ACTIVE') return `<span class="badge badge-green">Ativa</span>`;
+    if (s === 'PAUSED') return `<span class="badge badge-yellow">Pausada</span>`;
+    return `<span class="badge badge-red">Encerrada</span>`;
+  }
+
+  async function loadReport() {
+    // Try to load the latest monthly report JSON from logs directory
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const filename = `../../logs/report_${year}-${month}.json`;
+
+    try {
+      const res = await fetch(filename);
+      if (!res.ok) throw new Error('not found');
+      const report = await res.json();
+      renderReport(report);
+    } catch {
+      // No report yet — show simulated placeholder data
+      renderPlaceholder();
+    }
+
+    document.getElementById('last-update').textContent =
+      'Atualizado: ' + new Date().toLocaleTimeString('pt-BR');
+  }
+
+  function renderReport(report) {
+    document.getElementById('total-spend').textContent = fmtBRL(report.totalSpend);
+    document.getElementById('total-reach').textContent = fmt(report.totalReach);
+    document.getElementById('total-leads').textContent = report.totalLeads;
+    document.getElementById('cpl').textContent = fmtBRL(report.costPerLead);
+
+    const ptBody = document.getElementById('platform-table');
+    const rows = Object.entries(report.byPlatform || {}).map(([p, s]) => {
+      const pm = platformMeta(p);
+      return `<tr>
+        <td><span class="platform-icon ${pm.cls}">${pm.label}</span>${p}</td>
+        <td>${fmtBRL(s.spend)}</td>
+        <td>${s.leads}</td>
+        <td>${fmtBRL(s.cpl)}</td>
+        <td>${fmt(s.clicks)}</td>
+      </tr>`;
+    });
+    ptBody.innerHTML = rows.length ? rows.join('') : '<tr><td colspan="5" style="color:var(--muted);text-align:center">Sem dados</td></tr>';
+
+    const ctBody = document.getElementById('campaigns-table');
+    const campRows = (report.campaigns || []).map((c) => {
+      const pm = platformMeta(c.platform);
+      const m = c.metrics || {};
+      return `<tr>
+        <td><span class="platform-icon ${pm.cls}">${pm.label}</span>${c.name}</td>
+        <td>${statusBadge(c.status)}</td>
+        <td>${fmtBRL(c.budget)}</td>
+        <td>${fmt(m.impressions || 0)}</td>
+        <td>${fmt(m.clicks || 0)}</td>
+        <td>${(m.ctr || 0).toFixed(2)}%</td>
+        <td>${m.leads || 0}</td>
+        <td>${fmtBRL(m.spend || 0)}</td>
+      </tr>`;
+    });
+    ctBody.innerHTML = campRows.length ? campRows.join('') : '<tr><td colspan="8" style="color:var(--muted);text-align:center">Sem campanhas registradas</td></tr>';
+  }
+
+  function renderPlaceholder() {
+    document.getElementById('total-spend').textContent = 'R$ 0,00';
+    document.getElementById('total-reach').textContent = '0';
+    document.getElementById('total-leads').textContent = '0';
+    document.getElementById('cpl').textContent = '—';
+  }
+
+  loadReport();
+  setInterval(loadReport, 5 * 60 * 1000); // atualizar a cada 5 min
+</script>
+</body>
+</html>
