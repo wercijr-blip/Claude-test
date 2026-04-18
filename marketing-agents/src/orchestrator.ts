@@ -451,9 +451,9 @@ async function main() {
   scheduleTask({ name: 'Postagem Diária',      expression: CRON_DAILY,        handler: dailyContentPost });
   scheduleTask({ name: 'Otimização Semanal',   expression: CRON_WEEKLY,       handler: weeklyAdOptimization });
   scheduleTask({ name: 'Relatório Mensal',     expression: CRON_MONTHLY,      handler: monthlyReport });
-  scheduleTask({ name: 'Leads — E-mail Queue', expression: CRON_LEADS,        handler: () => leadAgent.processEmailQueue().then(n => logger.info(`[Leads] ${n} e-mails enviados`)) });
-  scheduleTask({ name: 'Leads — Follow-up',    expression: CRON_LEADS,        handler: () => leadAgent.followUpHotLeads() });
-  scheduleTask({ name: 'Leads — Reativação',   expression: CRON_REACTIVATION, handler: () => leadAgent.reactivateInactive() });
+  scheduleTask({ name: 'Leads — E-mail Queue', expression: CRON_LEADS,        handler: async () => { const n = await leadAgent.processEmailQueue(); logger.info(`[Leads] ${n} e-mails enviados`); } });
+  scheduleTask({ name: 'Leads — Follow-up',    expression: CRON_LEADS,        handler: async () => { await leadAgent.followUpHotLeads(); } });
+  scheduleTask({ name: 'Leads — Reativação',   expression: CRON_REACTIVATION, handler: async () => { await leadAgent.reactivateInactive(); } });
 
   logger.info('');
   logger.info('Próximas execuções agendadas:');
