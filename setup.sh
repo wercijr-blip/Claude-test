@@ -72,7 +72,7 @@ fi
 
 # Verificar variáveis críticas (sem exibir valores)
 check_env() {
-  if grep -q "^$1=" .env 2>/dev/null && [ -n "$(grep "^$1=" .env | cut -d= -f2-)" ]; then
+  if grep -q "^$1=" .env 2>/dev/null && [ -n "$(grep "^$1=" .env 2>/dev/null | cut -d= -f2-)" ]; then
     ok "$1 configurado"
   else
     warn "$1 NÃO configurado (necessário para: $2)"
@@ -97,7 +97,7 @@ ok "Dependências instaladas"
 # ─── 4. Verificação de Tipos TypeScript ───────────────────
 
 step "Verificando tipos TypeScript…"
-TS_OUTPUT=$(pnpm check 2>&1)
+TS_OUTPUT=$(pnpm check 2>&1) || true
 if echo "$TS_OUTPUT" | grep -q "error TS"; then
   warn "Erros de TypeScript encontrados. Rode 'pnpm check' para detalhes."
   echo "$TS_OUTPUT" | grep "error TS" | head -20
@@ -123,7 +123,7 @@ FAIL=0
 for test in "${UNIT_TESTS[@]}"; do
   if [ -f "$test" ]; then
     echo -n "  Testando $test … "
-    if pnpm vitest run "$test" --reporter=verbose 2>&1 | tail -3 | grep -q "passed"; then
+    if pnpm vitest run "$test" --reporter=dot > /dev/null 2>&1; then
       echo -e "${GREEN}PASSOU${NC}"
       PASS=$((PASS + 1))
     else
