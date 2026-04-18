@@ -79,6 +79,25 @@ export async function enviarResultadoAprovado(para: string, nomePaciente: string
   })
 }
 
+export async function enviarLinkAcessoIntake(para: string, nome: string, link: string, expiresAt: Date): Promise<void> {
+  const dataExpiracao = expiresAt.toLocaleDateString('pt-BR')
+  await transporter.sendMail({
+    from: `"Facilita PrEP" <${env.GMAIL_USER}>`,
+    to: para,
+    subject: 'Seu acesso ao formulário PrEP está pronto — Facilita PrEP',
+    html: baseTemplate(
+      'Acesso liberado',
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nome}</strong>!</p>
+      <p style="color:#334155;font-size:15px;">Seu cadastro foi confirmado. Clique no botão abaixo para preencher o formulário clínico PrEP:</p>
+      <a href="${link}" style="display:inline-block;background:#1d4ed8;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:600;margin:20px 0;font-size:16px;">
+        Acessar formulário
+      </a>
+      <p style="color:#64748b;font-size:13px;">Link válido até <strong>${dataExpiracao}</strong>. Use apenas uma vez.</p>
+      <p style="color:#64748b;font-size:13px;">Se você não solicitou este acesso, ignore este e-mail.</p>`,
+    ),
+  })
+}
+
 export async function enviarResultadoRejeitado(para: string, nomePaciente: string, motivo: string): Promise<void> {
   await transporter.sendMail({
     from: `"Facilita PrEP" <${env.GMAIL_USER}>`,

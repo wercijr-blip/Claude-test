@@ -1,5 +1,6 @@
 import { Route, Switch } from 'wouter'
 import { useAuth } from './_core/hooks/useAuth.ts'
+import IntakePage from './components/IntakePage.tsx'
 import FormularioPaciente from './components/FormularioPaciente.tsx'
 import MedicoDashboard from './components/MedicoDashboard.tsx'
 import SecretariaDashboard from './components/SecretariaDashboard.tsx'
@@ -11,13 +12,13 @@ import { trpc } from './lib/trpc.ts'
 
 export default function App() {
   const { token } = useAuth()
-
   const session = token ? parseJwtPayload(token) : null
   const role = session?.type === 'staff' ? session.role : null
 
   return (
     <Switch>
       <Route path="/auth/callback" component={AuthCallback} />
+      <Route path="/cadastro" component={IntakePage} />
       <Route path="/acesso/:token" component={TokenEntryPage} />
       <Route path="/formulario/:pacienteId?">
         {session?.type === 'patient' ? <FormularioPaciente /> : <TokenEntryPage />}
@@ -31,31 +32,12 @@ export default function App() {
       <Route path="/admin">
         {role === 'admin' ? <AuditDashboard /> : <LoginPage />}
       </Route>
-      <Route path="/" component={Home} />
+      <Route path="/pagamento/sucesso" component={PagamentoSucesso} />
+      <Route path="/pagamento/cancelado" component={PagamentoCancelado} />
+      <Route path="/equipe" component={LoginPage} />
+      <Route path="/" component={IntakePage} />
       <Route component={NotFound} />
     </Switch>
-  )
-}
-
-function Home() {
-  const { token } = useAuth()
-  const session = token ? parseJwtPayload(token) : null
-
-  if (session?.type === 'staff') {
-    const role = session.role
-    if (role === 'medico') window.location.href = '/medico'
-    if (role === 'secretaria') window.location.href = '/secretaria'
-    if (role === 'admin') window.location.href = '/admin'
-  }
-
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50">
-      <div className="text-center">
-        <h1 className="text-3xl font-bold text-blue-700 mb-2">Facilita PrEP</h1>
-        <p className="text-slate-500 mb-6">Plataforma de saúde digital para prevenção do HIV</p>
-        <a href="/auth/login" className="text-blue-600 underline">Entrar como equipe</a>
-      </div>
-    </div>
   )
 }
 
@@ -79,6 +61,44 @@ function AuthCallback() {
   return (
     <div className="min-h-screen flex items-center justify-center">
       <p className="text-slate-500">Autenticando…</p>
+    </div>
+  )
+}
+
+function PagamentoSucesso() {
+  return (
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 max-w-md w-full text-center">
+        <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg className="w-8 h-8 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <h2 className="text-xl font-bold text-slate-800 mb-2">Pagamento confirmado!</h2>
+        <p className="text-slate-500 text-sm">
+          Em instantes você receberá o link de acesso ao formulário por <strong>e-mail</strong> e <strong>WhatsApp</strong>.
+        </p>
+        <p className="text-slate-400 text-xs mt-4">Verifique também sua caixa de spam.</p>
+      </div>
+    </div>
+  )
+}
+
+function PagamentoCancelado() {
+  return (
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 max-w-md w-full text-center">
+        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg className="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </div>
+        <h2 className="text-xl font-bold text-slate-800 mb-2">Pagamento cancelado</h2>
+        <p className="text-slate-500 text-sm mb-6">Nenhum valor foi cobrado. Você pode tentar novamente.</p>
+        <a href="/cadastro" className="inline-block bg-blue-600 text-white px-6 py-2.5 rounded-xl font-medium hover:bg-blue-700 transition-colors">
+          Tentar novamente
+        </a>
+      </div>
     </div>
   )
 }

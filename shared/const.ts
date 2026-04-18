@@ -65,3 +65,32 @@ export const ESTADOS_BR = [
   'MA','MT','MS','MG','PA','PB','PR','PE','PI',
   'RJ','RN','RS','RO','RR','SC','SP','SE','TO',
 ] as const
+
+export const PLANOS_VALIDOS = [
+  'Amil',
+  'Bradesco Saúde',
+  'Cassi',
+  'Golden Cross',
+  'Hapvida',
+  'NotreDame Intermédica',
+  'Omint',
+  'Porto Seguro Saúde',
+  'Prevent Senior',
+  'SulAmérica',
+  'Unimed',
+  'Outro',
+] as const
+
+export const HORARIO_ATENDIMENTO = {
+  ABERTURA_HORA: 8,
+  FECHAMENTO_HORA: 18,
+} as const
+
+export const PRECADASTRO_STATUS = {
+  AGUARDANDO_VALIDACAO: 'aguardando_validacao',
+  AGUARDANDO_PAGAMENTO: 'aguardando_pagamento',
+  LINK_ENVIADO: 'link_enviado',
+  REJEITADO: 'rejeitado',
+} as const
+
+export const VALOR_CONSULTA_CENTAVOS = 25000 // R$ 250,00

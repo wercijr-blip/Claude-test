@@ -184,6 +184,35 @@ export const nfseRegistros = mysqlTable('nfse_registros', {
   pacienteIdx: index('idx_nfse_paciente').on(t.pacienteId),
 }))
 
+// ── Pré-cadastros (intake flow — antes do link ser gerado) ────
+
+export const precadastros = mysqlTable('precadastros', {
+  id: int('id').primaryKey().autoincrement(),
+  // PII encriptado
+  nomeEncrypted: text('nome_encrypted').notNull(),
+  telefoneEncrypted: text('telefone_encrypted').notNull(),
+  cpfEncrypted: text('cpf_encrypted').notNull(),
+  cpfHash: varchar('cpf_hash', { length: 64 }).notNull(),
+  emailEncrypted: text('email_encrypted').notNull(),
+  // Tipo de atendimento
+  tipo: varchar('tipo', { length: 20 }).notNull(), // 'particular' | 'plano'
+  plano: varchar('plano', { length: 100 }),
+  carteirinhaS3Key: varchar('carteirinha_s3_key', { length: 500 }),
+  documentoS3Key: varchar('documento_s3_key', { length: 500 }),
+  // Status do fluxo
+  status: varchar('status', { length: 50 }).notNull().default('aguardando'),
+  stripeSessionId: varchar('stripe_session_id', { length: 200 }),
+  accessTokenId: int('access_token_id'),
+  validadoPorId: int('validado_por_id'),
+  validadoEm: datetime('validado_em'),
+  observacoes: text('observacoes'),
+  createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (t) => ({
+  cpfHashIdx: index('idx_precad_cpf_hash').on(t.cpfHash),
+  statusIdx: index('idx_precad_status').on(t.status),
+  sessionIdx: index('idx_precad_session').on(t.stripeSessionId),
+}))
+
 // ── Pagamentos Stripe ─────────────────────────────────────────
 
 export const pagamentos = mysqlTable('pagamentos', {
