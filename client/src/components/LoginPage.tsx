@@ -1,5 +1,3 @@
-import { env } from '../../../server/_core/env.ts'
-
 export default function LoginPage() {
   const handleLogin = () => {
     const state = crypto.randomUUID()

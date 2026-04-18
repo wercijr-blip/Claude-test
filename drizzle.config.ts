@@ -3,8 +3,8 @@ import { defineConfig } from 'drizzle-kit'
 export default defineConfig({
   schema: './drizzle/schema.ts',
   out: './drizzle',
-  dialect: 'mysql',
+  driver: 'mysql2',
   dbCredentials: {
-    url: process.env.DATABASE_URL!,
+    uri: process.env.DATABASE_URL!,
   },
 })

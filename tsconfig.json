@@ -14,7 +14,8 @@
       "@/*": ["./client/src/*"],
       "@shared/*": ["./shared/*"]
     },
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "types": ["vite/client"]
   },
   "include": ["client/src", "server", "shared", "drizzle", "*.ts"]
 }

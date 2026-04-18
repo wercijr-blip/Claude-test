@@ -70,7 +70,7 @@ export default function MedicoDashboard() {
                 </dl>
               </div>
 
-              {paciente.condutaJson && (
+              {Boolean(paciente.condutaJson) && (
                 <div className="bg-white rounded-2xl border border-slate-200 p-6">
                   <h3 className="font-medium text-slate-700 mb-3">Conduta clínica</h3>
                   <pre className="text-xs text-slate-600 whitespace-pre-wrap bg-slate-50 rounded-lg p-3">
