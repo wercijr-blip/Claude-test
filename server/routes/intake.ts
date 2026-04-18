@@ -90,12 +90,6 @@ export const intakeRouter = router({
       }
 
       if (input.tipo === 'plano') {
-        if (!isDentroHorarioAtendimento()) {
-          throw new TRPCError({
-            code: 'BAD_REQUEST',
-            message: 'Atendimento por plano disponível apenas das 08h às 18h em dias úteis.',
-          })
-        }
         if (!input.plano) {
           throw new TRPCError({ code: 'BAD_REQUEST', message: 'Selecione o plano de saúde.' })
         }

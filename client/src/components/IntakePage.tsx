@@ -199,13 +199,13 @@ export default function IntakePage() {
             {isPlano ? 'Plano de Saúde' : 'Particular'}
           </div>
 
-          {/* Aviso fora do horário */}
+          {/* Aviso fora do horário — não bloqueia, apenas informa */}
           {foraHorario && (
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
-              <p className="text-amber-800 text-sm font-medium">Fora do horário de atendimento</p>
+              <p className="text-amber-800 text-sm font-medium">⏰ Fora do horário de atendimento</p>
               <p className="text-amber-700 text-sm mt-1">
-                O atendimento por plano de saúde está disponível de <strong>segunda a sexta, das 08h às 18h</strong>.
-                Tente novamente dentro desse horário ou escolha o atendimento particular.
+                O atendimento por plano funciona de <strong>segunda a sexta, das 08h às 18h</strong>.
+                Você pode enviar seus dados agora — a validação será realizada no <strong>próximo dia útil</strong> dentro desse horário.
               </p>
             </div>
           )}

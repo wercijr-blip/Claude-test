@@ -184,6 +184,31 @@ export const nfseRegistros = mysqlTable('nfse_registros', {
   pacienteIdx: index('idx_nfse_paciente').on(t.pacienteId),
 }))
 
+// ── Consultas Início (segunda parte — validação de exame HIV) ──
+
+export const consultasInicio = mysqlTable('consultas_inicio', {
+  id: int('id').primaryKey().autoincrement(),
+  tokenId: int('token_id').notNull(),
+  tipoConsulta: varchar('tipo_consulta', { length: 50 }), // 'primeiro_atendimento' | 'ja_faco_prep'
+  temExameRecente: boolean('tem_exame_recente'),
+  exameS3Key: varchar('exame_s3_key', { length: 500 }),
+  pedidoCompletoS3Key: varchar('pedido_completo_s3_key', { length: 500 }),
+  pedidoHivS3Key: varchar('pedido_hiv_s3_key', { length: 500 }),
+  status: varchar('status', { length: 50 }).notNull().default('aguardando_escolha'),
+  resultadoIa: json('resultado_ia'),
+  motivoRejeicao: varchar('motivo_rejeicao', { length: 200 }),
+  validadoPorId: int('validado_por_id'),
+  validadoEm: datetime('validado_em'),
+  observacoesMedico: text('observacoes_medico'),
+  ultimoLembreteAt: datetime('ultimo_lembrete_at'),
+  linkExpiresAt: datetime('link_expires_at'),
+  createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (t) => ({
+  tokenIdx: uniqueIndex('idx_consultas_inicio_token').on(t.tokenId),
+  statusIdx: index('idx_consultas_inicio_status').on(t.status),
+}))
+
 // ── Pré-cadastros (intake flow — antes do link ser gerado) ────
 
 export const precadastros = mysqlTable('precadastros', {

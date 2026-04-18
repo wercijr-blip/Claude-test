@@ -15,7 +15,8 @@ export default function TokenEntryPage() {
   const validar = trpc.token.validar.useMutation({
     onSuccess: (data) => {
       saveSession(data.sessionToken)
-      navigate(`/formulario/${data.pacienteId ?? ''}`)
+      // Redireciona para a segunda parte (validação de exame) antes do formulário clínico
+      navigate('/inicio')
     },
     onError: (err) => setError(err.message),
   })

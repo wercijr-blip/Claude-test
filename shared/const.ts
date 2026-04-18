@@ -94,3 +94,49 @@ export const PRECADASTRO_STATUS = {
 } as const
 
 export const VALOR_CONSULTA_CENTAVOS = 25000 // R$ 250,00
+
+export const TIPO_CONSULTA = {
+  PRIMEIRO_ATENDIMENTO: 'primeiro_atendimento',
+  JA_FACO_PREP: 'ja_faco_prep',
+} as const
+
+export const STATUS_EXAME = {
+  AGUARDANDO_ESCOLHA: 'aguardando_escolha',
+  AGUARDANDO_UPLOAD: 'aguardando_upload',
+  EM_VALIDACAO_IA: 'em_validacao_ia',
+  EM_VALIDACAO_MEDICA: 'em_validacao_medica',
+  APROVADO: 'aprovado',
+  REJEITADO: 'rejeitado',
+} as const
+
+export const MOTIVO_REJEICAO_EXAME = {
+  ILEGIVEL: 'ilegivel',
+  DATA_INVALIDA: 'data_invalida',
+  NOME_DIVERGENTE: 'nome_divergente',
+  RESULTADO_POSITIVO: 'resultado_positivo',
+} as const
+
+export const EXAMES_PRIMEIRO_ATENDIMENTO = [
+  'Anti-HIV 1/2 com Ag p24 (4ª geração)',
+  'VDRL quantitativo (Sífilis)',
+  'HBsAg (Hepatite B — antígeno de superfície)',
+  'Anti-HBc total (Hepatite B — anticorpo total)',
+  'Anti-HCV (Hepatite C)',
+  'Creatinina sérica + TFG estimada',
+  'Hemograma completo',
+  'EAS — Urinálise',
+] as const
+
+export const EXAMES_FOLLOWUP_PREP = [
+  'Anti-HIV 1/2 com Ag p24 (4ª geração)',
+  'Creatinina sérica + TFG estimada',
+  'Hemograma completo',
+  'EAS — Urinálise',
+] as const
+
+export const EXAMES_HIV_ISOLADO = [
+  'Anti-HIV 1/2 com Ag p24 (4ª geração)',
+] as const
+
+export const DIAS_VALIDADE_EXAME = 7
+export const DIAS_VALIDADE_LINK_UPLOAD = 7

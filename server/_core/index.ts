@@ -66,8 +66,13 @@ if (env.NODE_ENV === 'production') {
   })
 }
 
-app.listen(env.PORT, () => {
+app.listen(env.PORT, async () => {
   console.log(`🚀 Facilita PrEP rodando na porta ${env.PORT} [${env.NODE_ENV}]`)
+  // Iniciar workers de fila em background
+  const { startPdfWorker, startLembreteWorker, agendarLembreteDiario } = await import('../pdfQueue.ts')
+  startPdfWorker()
+  startLembreteWorker()
+  await agendarLembreteDiario()
 })
 
 export default app

@@ -1,6 +1,7 @@
 import { Route, Switch } from 'wouter'
 import { useAuth } from './_core/hooks/useAuth.ts'
 import IntakePage from './components/IntakePage.tsx'
+import SegundaParteInicio from './components/SegundaParteInicio.tsx'
 import FormularioPaciente from './components/FormularioPaciente.tsx'
 import MedicoDashboard from './components/MedicoDashboard.tsx'
 import SecretariaDashboard from './components/SecretariaDashboard.tsx'
@@ -20,6 +21,7 @@ export default function App() {
       <Route path="/auth/callback" component={AuthCallback} />
       <Route path="/cadastro" component={IntakePage} />
       <Route path="/acesso/:token" component={TokenEntryPage} />
+      <Route path="/inicio" component={SegundaParteInicio} />
       <Route path="/formulario/:pacienteId?">
         {session?.type === 'patient' ? <FormularioPaciente /> : <TokenEntryPage />}
       </Route>
