@@ -168,7 +168,15 @@ export default function FormularioPaciente({ pacienteId: initialPacienteId, init
               />
             )}
             {currentStep === 5 && <StepPrescricao {...stepProps} />}
-            {currentStep === 6 && <StepServico {...stepProps} />}
+            {currentStep === 6 && (
+              <StepServico
+                {...stepProps}
+                defaultValues={intakeData ? {
+                  tipoAtendimento: intakeData.tipo === 'plano' ? 'convenio' : 'particular',
+                  convenio: intakeData.plano ?? undefined,
+                } : undefined}
+              />
+            )}
             {currentStep === 7 && <StepAutorizados {...stepProps} />}
             {currentStep === 8 && <StepTcle {...stepProps} />}
           </motion.div>

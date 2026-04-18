@@ -12,12 +12,23 @@ const schema = z.object({
 })
 
 type FormData = z.infer<typeof schema>
-interface Props { pacienteId: number | null; onNext: () => void; onBack: () => void }
+interface Props {
+  pacienteId: number | null
+  onNext: () => void
+  onBack: () => void
+  defaultValues?: { tipoAtendimento?: 'particular' | 'convenio' | 'sus'; convenio?: string }
+}
 
-export default function StepServico({ pacienteId, onNext, onBack }: Props) {
+export default function StepServico({ pacienteId, onNext, onBack, defaultValues }: Props) {
+  const hasIntake = !!defaultValues?.tipoAtendimento
+
   const { register, handleSubmit, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { pacienteId: pacienteId ?? 0 },
+    defaultValues: {
+      pacienteId: pacienteId ?? 0,
+      tipoAtendimento: defaultValues?.tipoAtendimento,
+      convenio: defaultValues?.convenio,
+    },
   })
 
   const salvar = trpc.paciente.salvarStep6.useMutation({ onSuccess: () => onNext() })
@@ -30,21 +41,39 @@ export default function StepServico({ pacienteId, onNext, onBack }: Props) {
       <h2 className="text-lg font-semibold text-slate-800 mb-5">Serviço</h2>
 
       <form onSubmit={handleSubmit((d) => salvar.mutate(d))} className="space-y-4">
-        <Field label="Tipo de atendimento" error={errors.tipoAtendimento?.message}>
-          <div className="grid grid-cols-3 gap-3">
-            {([['particular', 'Particular'], ['convenio', 'Convênio'], ['sus', 'SUS']] as const).map(([v, l]) => (
-              <label key={v} className={`flex items-center justify-center gap-2 border rounded-lg py-3 px-4 cursor-pointer text-sm font-medium transition-colors ${tipo === v ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}>
-                <input type="radio" value={v} {...register('tipoAtendimento')} className="sr-only" />
-                {l}
-              </label>
-            ))}
-          </div>
+        <Field label="Origem do atendimento" error={errors.tipoAtendimento?.message}>
+          {hasIntake ? (
+            <div className="flex items-center gap-2 border border-slate-200 rounded-lg py-3 px-4 bg-slate-50">
+              <span className="text-sm font-medium text-slate-700">
+                {tipo === 'particular' ? 'Privado / Particular' : tipo === 'convenio' ? 'Convênio / Plano de saúde' : 'SUS'}
+              </span>
+              <span className="ml-auto text-xs text-slate-400">Preenchido do cadastro</span>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-3">
+              {([['particular', 'Privado'], ['convenio', 'Convênio'], ['sus', 'SUS']] as const).map(([v, l]) => (
+                <label key={v} className={`flex items-center justify-center gap-2 border rounded-lg py-3 px-4 cursor-pointer text-sm font-medium transition-colors ${tipo === v ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}>
+                  <input type="radio" value={v} {...register('tipoAtendimento')} className="sr-only" />
+                  {l}
+                </label>
+              ))}
+            </div>
+          )}
         </Field>
 
         {tipo === 'convenio' && (
           <>
             <Field label="Nome do convênio" error={undefined}>
-              <input {...register('convenio')} className={inputCls(false)} placeholder="Ex: Unimed, Bradesco Saúde" />
+              <input
+                {...register('convenio')}
+                className={inputCls(false)}
+                placeholder="Ex: Unimed, Bradesco Saúde"
+                readOnly={hasIntake && !!defaultValues?.convenio}
+                style={hasIntake && defaultValues?.convenio ? { background: '#f8fafc', color: '#64748b' } : undefined}
+              />
+              {hasIntake && defaultValues?.convenio && (
+                <p className="mt-0.5 text-xs text-slate-400">Preenchido do cadastro</p>
+              )}
             </Field>
             <Field label="Número da carteirinha" error={undefined}>
               <input {...register('numeroConvenio')} className={inputCls(false)} />
