@@ -19,11 +19,16 @@ interface Props {
   pacienteId: number | null
   onNext: (pacienteId?: number) => void
   onBack: () => void
+  defaultValues?: { nome?: string; cpf?: string }
 }
 
-export default function StepPaciente({ pacienteId, onNext }: Props) {
+export default function StepPaciente({ pacienteId, onNext, defaultValues }: Props) {
+  const hasIntakeNome = !!defaultValues?.nome
+  const hasIntakeCpf = !!defaultValues?.cpf
+
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
+    defaultValues: { nome: defaultValues?.nome ?? '', cpf: defaultValues?.cpf ?? '' },
   })
 
   const salvar = trpc.paciente.salvarStep1.useMutation({
@@ -38,11 +43,26 @@ export default function StepPaciente({ pacienteId, onNext }: Props) {
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <Field label="Nome completo" error={errors.nome?.message}>
-          <input {...register('nome')} className={inputCls(!!errors.nome)} placeholder="Como consta no documento" />
+          <input
+            {...register('nome')}
+            className={inputCls(!!errors.nome)}
+            placeholder="Como consta no documento"
+            readOnly={hasIntakeNome}
+            style={hasIntakeNome ? { background: '#f8fafc', color: '#64748b' } : undefined}
+          />
+          {hasIntakeNome && <p className="mt-0.5 text-xs text-slate-400">Preenchido automaticamente do cadastro</p>}
         </Field>
 
         <Field label="CPF" error={errors.cpf?.message}>
-          <input {...register('cpf')} className={inputCls(!!errors.cpf)} placeholder="000.000.000-00" maxLength={14} />
+          <input
+            {...register('cpf')}
+            className={inputCls(!!errors.cpf)}
+            placeholder="000.000.000-00"
+            maxLength={14}
+            readOnly={hasIntakeCpf}
+            style={hasIntakeCpf ? { background: '#f8fafc', color: '#64748b' } : undefined}
+          />
+          {hasIntakeCpf && <p className="mt-0.5 text-xs text-slate-400">Preenchido automaticamente do cadastro</p>}
         </Field>
 
         <Field label="Data de nascimento" error={errors.dataNascimento?.message}>

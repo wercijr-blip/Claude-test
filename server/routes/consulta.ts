@@ -7,6 +7,7 @@ import { eq, desc } from 'drizzle-orm'
 import { decrypt } from '../_core/encryption.ts'
 import { validarExameHiv } from '../examValidation.ts'
 import { gerarPedidosExames } from '../pdfExameRequest.ts'
+import { assinarPdf } from '../pdfSigner.ts'
 import { uploadBuffer } from '../storage.ts'
 import { DIAS_VALIDADE_LINK_UPLOAD } from '../../shared/const.ts'
 
@@ -104,13 +105,19 @@ export const consultaRouter = router({
         nomePaciente,
       )
 
+      // Assinar ambos os pedidos com ICP-Brasil
+      const [{ buffer: completoAssinado }, { buffer: hivAssinado }] = await Promise.all([
+        assinarPdf(completo, 'Pedido de Exames PrEP — Facilita PrEP'),
+        assinarPdf(hiv, 'Pedido de Exame Anti-HIV — Facilita PrEP'),
+      ])
+
       const ts = Date.now()
       const keyCompleto = `pedidos/${ctx.session.tokenId}/${ts}-completo.pdf`
       const keyHiv = `pedidos/${ctx.session.tokenId}/${ts}-hiv.pdf`
 
       await Promise.all([
-        uploadBuffer(keyCompleto, completo, 'application/pdf'),
-        uploadBuffer(keyHiv, hiv, 'application/pdf'),
+        uploadBuffer(keyCompleto, completoAssinado, 'application/pdf'),
+        uploadBuffer(keyHiv, hivAssinado, 'application/pdf'),
       ])
 
       await db.update(consultasInicio)
@@ -188,12 +195,16 @@ export const consultaRouter = router({
 
       if (!consulta) return { status: 'aguardando_escolha' as const, tipoConsulta: null }
 
+      const resultadoIa = consulta.resultadoIa as { dataExame?: string; resultadoHiv?: string } | null
+
       return {
         status: consulta.status,
         tipoConsulta: consulta.tipoConsulta,
         temExameRecente: consulta.temExameRecente,
         motivoRejeicao: consulta.motivoRejeicao,
         linkExpiresAt: consulta.linkExpiresAt,
+        dataExame: consulta.dataExameValidado ?? resultadoIa?.dataExame ?? null,
+        resultadoHiv: consulta.resultadoHivValidado ?? resultadoIa?.resultadoHiv ?? null,
       }
     }),
 
@@ -230,6 +241,8 @@ export const consultaRouter = router({
       .input(z.object({
         consultaId: z.number(),
         aprovado: z.boolean(),
+        resultadoHiv: z.enum(['reagente', 'nao_reagente']).optional(),
+        dataExame: z.string().optional(),
         observacoes: z.string().optional(),
       }))
       .mutation(async ({ input, ctx }) => {
@@ -238,6 +251,8 @@ export const consultaRouter = router({
             status: input.aprovado ? 'aprovado' : 'rejeitado',
             validadoPorId: ctx.session.id,
             validadoEm: new Date(),
+            resultadoHivValidado: input.resultadoHiv,
+            dataExameValidado: input.dataExame,
             observacoesMedico: input.observacoes,
             updatedAt: new Date(),
           })

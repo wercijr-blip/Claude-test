@@ -2,11 +2,13 @@ import { z } from 'zod'
 import { router, protectedProcedure } from '../_core/trpc.ts'
 import { TRPCError } from '@trpc/server'
 import { db } from '../db.ts'
-import { pacientes } from '../../drizzle/schema.ts'
+import { pacientes, precadastros, pdfs } from '../../drizzle/schema.ts'
 import { eq, and } from 'drizzle-orm'
 import { encrypt, decrypt, hashCpf } from '../_core/encryption.ts'
 import { validarCpf } from '../_core/cpfValidator.ts'
 import { ERROR_MESSAGES } from '../../shared/const.ts'
+import { getPresignedUrl } from '../storage.ts'
+import { enqueueGerarPdf } from '../pdfQueue.ts'
 
 function assertPatient(session: unknown): asserts session is { type: 'patient'; tokenId: number; pacienteId: number | null } {
   if (!session || (session as { type: string }).type !== 'patient') {
@@ -222,7 +224,56 @@ export const pacienteRouter = router({
         .update(pacientes)
         .set({ status: 'pendente', updatedAt: new Date() })
         .where(and(eq(pacientes.id, input.pacienteId), eq(pacientes.tokenId, ctx.session.tokenId)))
+      await enqueueGerarPdf(input.pacienteId)
       return { ok: true }
+    }),
+
+  // Buscar dados do pré-cadastro para pré-preencher o formulário
+  dadosIntake: protectedProcedure
+    .query(async ({ ctx }) => {
+      assertPatient(ctx.session)
+      const { tokenId } = ctx.session
+
+      const [precad] = await db
+        .select()
+        .from(precadastros)
+        .where(eq(precadastros.accessTokenId, tokenId))
+        .limit(1)
+
+      if (!precad) return null
+
+      return {
+        nome: decrypt(precad.nomeEncrypted),
+        cpf: decrypt(precad.cpfEncrypted),
+        email: decrypt(precad.emailEncrypted),
+        telefone: decrypt(precad.telefoneEncrypted),
+        tipo: precad.tipo,
+        plano: precad.plano,
+      }
+    }),
+
+  // Listar PDFs gerados para download
+  downloadPdfs: protectedProcedure
+    .input(z.object({ pacienteId: z.number() }))
+    .query(async ({ input, ctx }) => {
+      assertPatient(ctx.session)
+      const [paciente] = await db
+        .select({ id: pacientes.id })
+        .from(pacientes)
+        .where(and(eq(pacientes.id, input.pacienteId), eq(pacientes.tokenId, ctx.session.tokenId)))
+        .limit(1)
+      if (!paciente) throw new TRPCError({ code: 'NOT_FOUND' })
+
+      const rows = await db.select().from(pdfs).where(eq(pdfs.pacienteId, input.pacienteId))
+
+      return Promise.all(
+        rows.map(async (r) => ({
+          id: r.id,
+          tipo: r.tipo,
+          assinadoEm: r.assinadoEm,
+          url: await getPresignedUrl(r.s3Key, 3600),
+        })),
+      )
     }),
 
   // Buscar dados do paciente (descriptografando)

@@ -3,20 +3,24 @@ import IORedis from 'ioredis'
 import { env } from './_core/env.ts'
 import { db } from './db.ts'
 import { pacientes, pdfs, consultasInicio, accessTokens, precadastros } from '../drizzle/schema.ts'
-import { eq, and, gt, isNull } from 'drizzle-orm'
+import { eq, and, gt } from 'drizzle-orm'
 import { decrypt } from './_core/encryption.ts'
-import { gerarPrescricaoPdf, assinarPdf } from './pdfSigner.ts'
+import { gerarPrescricaoPdf, gerarFormularioPdf, assinarPdf } from './pdfSigner.ts'
+import { gerarCadastroPdf } from './pdfCadastro.ts'
 import { uploadBuffer } from './storage.ts'
-import { enviarLinkAcessoIntake } from './email.ts'
+import { enviarLinkAcessoIntake, enviarDocumentosAssinados, enviarPesquisaSatisfacao } from './email.ts'
 import { enviarWhatsApp } from './whatsapp.ts'
+import { gerarTokenPesquisa } from './routes/pesquisa.ts'
 
 export const PDF_QUEUE_NAME = 'pdf-generation'
 export const LEMBRETE_QUEUE_NAME = 'lembrete-exame'
+export const PESQUISA_QUEUE_NAME = 'pesquisa-satisfacao'
 
 const connection = new IORedis(env.REDIS_URL, { maxRetriesPerRequest: null })
 
 export const pdfQueue = new Queue(PDF_QUEUE_NAME, { connection })
 export const lembreteQueue = new Queue(LEMBRETE_QUEUE_NAME, { connection })
+export const pesquisaQueue = new Queue(PESQUISA_QUEUE_NAME, { connection })
 
 export function startPdfWorker() {
   const worker = new Worker(
@@ -27,21 +31,108 @@ export function startPdfWorker() {
       const [p] = await db.select().from(pacientes).where(eq(pacientes.id, pacienteId)).limit(1)
       if (!p) throw new Error(`Paciente ${pacienteId} não encontrado`)
 
+      // Determine tipoConsulta
+      const [consulta] = await db
+        .select({ tipoConsulta: consultasInicio.tipoConsulta })
+        .from(consultasInicio)
+        .where(eq(consultasInicio.tokenId, p.tokenId))
+        .limit(1)
+      const tipoConsulta = consulta?.tipoConsulta ?? 'primeiro_atendimento'
+
+      const nome = decrypt(p.nomeEncrypted)
+      const cpf = decrypt(p.cpfEncrypted)
+      const dataNascimento = p.dataNascimentoEncrypted ? decrypt(p.dataNascimentoEncrypted) : null
+      const email = p.emailEncrypted ? decrypt(p.emailEncrypted) : null
+      const telefone = p.telefoneEncrypted ? decrypt(p.telefoneEncrypted) : null
+
       const pacienteDecrypted = {
-        ...p,
-        nome: decrypt(p.nomeEncrypted),
-        dataNascimento: p.dataNascimentoEncrypted ? decrypt(p.dataNascimentoEncrypted) : null,
+        nome, cpf, dataNascimento, email, telefone,
+        sexo: p.sexo,
+        nomeSocial: p.nomeSocial,
+        corRaca: p.corRaca,
+        escolaridade: p.escolaridade,
+        situacaoConjugal: p.situacaoConjugal,
+        cep: p.cep,
+        logradouro: p.logradouro,
+        numero: p.numero,
+        complemento: p.complemento,
+        bairro: p.bairro,
+        cidade: p.cidade,
+        estado: p.estado,
+        tipoAtendimento: p.tipoAtendimento,
+        convenio: p.convenio,
+        condutaJson: p.condutaJson,
+        prescricaoJson: p.prescricaoJson,
       }
 
-      const pdfBuffer = await gerarPrescricaoPdf(pacienteDecrypted)
-      const { buffer: signedBuffer, certificadoSerial, assinadoEm } = await assinarPdf(pdfBuffer)
+      const gerados: { filename: string; buffer: Buffer }[] = []
 
-      const s3Key = `pdfs/${pacienteId}/${Date.now()}-prescricao.pdf`
-      await uploadBuffer(s3Key, signedBuffer, 'application/pdf')
+      // 1. Formulário clínico (sempre)
+      const formularioBuf = await gerarFormularioPdf(pacienteDecrypted)
+      const { buffer: signedForm, certificadoSerial: serialForm, assinadoEm: assinadoForm } =
+        await assinarPdf(formularioBuf, 'Formulário Clínico PrEP — Facilita PrEP')
+      const formKey = `pdfs/${pacienteId}/${Date.now()}-formulario.pdf`
+      await uploadBuffer(formKey, signedForm, 'application/pdf')
+      await db.insert(pdfs).values({ pacienteId, s3Key: formKey, tipo: 'formulario', certificadoSerial: serialForm, assinadoEm: assinadoForm })
+      gerados.push({ filename: 'formulario-clinico-prep.pdf', buffer: signedForm })
 
-      await db.insert(pdfs).values({ pacienteId, s3Key, tipo: 'prescricao', certificadoSerial, assinadoEm })
+      // 2. Receita / Prescrição (sempre)
+      const prescBuf = await gerarPrescricaoPdf(pacienteDecrypted)
+      const { buffer: signedPresc, certificadoSerial: serialPresc, assinadoEm: assinadoPresc } =
+        await assinarPdf(prescBuf, 'Receita PrEP — Facilita PrEP')
+      const prescKey = `pdfs/${pacienteId}/${Date.now() + 1}-prescricao.pdf`
+      await uploadBuffer(prescKey, signedPresc, 'application/pdf')
+      await db.insert(pdfs).values({ pacienteId, s3Key: prescKey, tipo: 'prescricao', certificadoSerial: serialPresc, assinadoEm: assinadoPresc })
+      gerados.push({ filename: 'receita-prep.pdf', buffer: signedPresc })
 
-      return { s3Key }
+      // 3. Ficha de cadastro (somente primeiro atendimento)
+      if (tipoConsulta === 'primeiro_atendimento') {
+        const cadastroBuf = await gerarCadastroPdf({
+          nome, cpf, dataNascimento,
+          sexo: p.sexo,
+          nomeSocial: p.nomeSocial,
+          corRaca: p.corRaca,
+          escolaridade: p.escolaridade,
+          situacaoConjugal: p.situacaoConjugal,
+          email, telefone,
+          cep: p.cep,
+          logradouro: p.logradouro,
+          numero: p.numero,
+          complemento: p.complemento,
+          bairro: p.bairro,
+          cidade: p.cidade,
+          estado: p.estado,
+          tipoAtendimento: p.tipoAtendimento,
+          convenio: p.convenio,
+        })
+        const { buffer: signedCad, certificadoSerial: serialCad, assinadoEm: assinadoCad } =
+          await assinarPdf(cadastroBuf, 'Ficha de Cadastro PrEP — Facilita PrEP')
+        const cadKey = `pdfs/${pacienteId}/${Date.now() + 2}-cadastro.pdf`
+        await uploadBuffer(cadKey, signedCad, 'application/pdf')
+        await db.insert(pdfs).values({ pacienteId, s3Key: cadKey, tipo: 'cadastro', certificadoSerial: serialCad, assinadoEm: assinadoCad })
+        gerados.push({ filename: 'ficha-cadastro-prep.pdf', buffer: signedCad })
+      }
+
+      // Enviar documentos por email
+      const emailAddr = email ?? (await db
+        .select({ patientEmail: accessTokens.patientEmail })
+        .from(accessTokens)
+        .where(eq(accessTokens.id, p.tokenId))
+        .limit(1)
+        .then(([r]) => r?.patientEmail ?? null))
+
+      if (emailAddr) {
+        await enviarDocumentosAssinados(emailAddr, nome, gerados).catch(console.error)
+      }
+
+      // Agendar pesquisa de satisfação para 24h depois
+      await pesquisaQueue.add(
+        'enviar-pesquisa',
+        { pacienteId, email: emailAddr, telefone, nome },
+        { delay: 24 * 60 * 60 * 1000 },
+      )
+
+      return { pdfsGerados: gerados.length }
     },
     { connection, concurrency: 3 },
   )
@@ -53,19 +144,53 @@ export function startPdfWorker() {
   return worker
 }
 
+export function startPesquisaWorker() {
+  const worker = new Worker(
+    PESQUISA_QUEUE_NAME,
+    async (job) => {
+      const { pacienteId, email, telefone, nome } = job.data as {
+        pacienteId: number
+        email: string | null
+        telefone: string | null
+        nome: string
+      }
+
+      const token = gerarTokenPesquisa(pacienteId)
+      const link = `${env.APP_URL}/pesquisa/${pacienteId}/${token}`
+
+      if (email) {
+        await enviarPesquisaSatisfacao(email, nome, link).catch(console.error)
+      }
+
+      if (telefone) {
+        const primeiroNome = nome.split(' ')[0]
+        const msg =
+          `Olá ${primeiroNome}! Como foi sua experiência com o atendimento PrEP?\n\n` +
+          `Leva menos de 1 minuto responder nossa pesquisa:\n${link}\n\n_Facilita PrEP_`
+        await enviarWhatsApp(telefone, msg).catch(console.error)
+      }
+    },
+    { connection },
+  )
+
+  worker.on('failed', (job, err) => {
+    console.error(`[pesquisaQueue] Job ${job?.id} falhou:`, err.message)
+  })
+
+  return worker
+}
+
 export function startLembreteWorker() {
   const worker = new Worker(
     LEMBRETE_QUEUE_NAME,
     async () => {
       const agora = new Date()
 
-      // Buscar todas as consultas aguardando upload dentro do prazo
       const pendentes = await db
         .select({
           consultaId: consultasInicio.id,
           tokenId: consultasInicio.tokenId,
           linkExpiresAt: consultasInicio.linkExpiresAt,
-          ultimoLembrete: consultasInicio.ultimoLembreteAt,
           patientEmail: accessTokens.patientEmail,
           precadNome: precadastros.nomeEncrypted,
           precadTelefone: precadastros.telefoneEncrypted,
@@ -115,7 +240,6 @@ export function startLembreteWorker() {
 }
 
 export async function agendarLembreteDiario() {
-  // Rodar todo dia às 08:00 horário de Brasília (11:00 UTC)
   await lembreteQueue.add('lembrete-diario', {}, {
     repeat: { pattern: '0 11 * * *' },
     jobId: 'lembrete-diario-fixo',

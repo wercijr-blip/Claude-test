@@ -98,6 +98,51 @@ export async function enviarLinkAcessoIntake(para: string, nome: string, link: s
   })
 }
 
+export async function enviarDocumentosAssinados(
+  para: string,
+  nomePaciente: string,
+  anexos: { filename: string; buffer: Buffer }[],
+): Promise<void> {
+  await transporter.sendMail({
+    from: `"Facilita PrEP" <${env.GMAIL_USER}>`,
+    to: para,
+    subject: 'Seus documentos PrEP estão prontos — Facilita PrEP',
+    html: baseTemplate(
+      'Documentos prontos',
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nomePaciente}</strong>!</p>
+      <p style="color:#334155;font-size:15px;">Seus documentos PrEP foram gerados e assinados digitalmente. Você os encontra em anexo neste e-mail.</p>
+      <p style="color:#64748b;font-size:13px;">Estes documentos possuem assinatura digital ICP-Brasil com validade legal conforme CFM 2.299/2021.</p>
+      <p style="color:#64748b;font-size:13px;">Guarde estes arquivos para seu controle.</p>`,
+    ),
+    attachments: anexos.map((a) => ({
+      filename: a.filename,
+      content: a.buffer,
+      contentType: 'application/pdf',
+    })),
+  })
+}
+
+export async function enviarPesquisaSatisfacao(
+  para: string,
+  nomePaciente: string,
+  link: string,
+): Promise<void> {
+  await transporter.sendMail({
+    from: `"Facilita PrEP" <${env.GMAIL_USER}>`,
+    to: para,
+    subject: 'Como foi sua experiência com a PrEP? — Facilita PrEP',
+    html: baseTemplate(
+      'Pesquisa de satisfação',
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nomePaciente}</strong>!</p>
+      <p style="color:#334155;font-size:15px;">Gostaríamos de saber como foi sua experiência com o atendimento PrEP. A pesquisa leva menos de 1 minuto.</p>
+      <a href="${link}" style="display:inline-block;background:#1d4ed8;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin:16px 0;">
+        Responder pesquisa
+      </a>
+      <p style="color:#64748b;font-size:13px;">Se você não quiser responder, apenas ignore este e-mail.</p>`,
+    ),
+  })
+}
+
 export async function enviarResultadoRejeitado(para: string, nomePaciente: string, motivo: string): Promise<void> {
   await transporter.sendMail({
     from: `"Facilita PrEP" <${env.GMAIL_USER}>`,

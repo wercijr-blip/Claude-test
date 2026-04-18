@@ -19,12 +19,24 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>
 
-interface Props { pacienteId: number | null; onNext: () => void; onBack: () => void }
+interface Props {
+  pacienteId: number | null
+  onNext: () => void
+  onBack: () => void
+  defaultValues?: { email?: string; telefone?: string }
+}
 
-export default function StepContato({ pacienteId, onNext, onBack }: Props) {
+export default function StepContato({ pacienteId, onNext, onBack, defaultValues }: Props) {
+  const hasIntakeEmail = !!defaultValues?.email
+  const hasIntakeTelefone = !!defaultValues?.telefone
+
   const { register, handleSubmit, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { pacienteId: pacienteId ?? 0 },
+    defaultValues: {
+      pacienteId: pacienteId ?? 0,
+      email: defaultValues?.email ?? '',
+      telefone: defaultValues?.telefone ?? '',
+    },
   })
 
   const salvar = trpc.paciente.salvarStep3.useMutation({ onSuccess: () => onNext() })
@@ -50,11 +62,27 @@ export default function StepContato({ pacienteId, onNext, onBack }: Props) {
 
       <form onSubmit={handleSubmit((d) => salvar.mutate(d))} className="space-y-4">
         <Field label="E-mail" error={errors.email?.message}>
-          <input {...register('email')} type="email" className={inputCls(!!errors.email)} placeholder="seu@email.com" />
+          <input
+            {...register('email')}
+            type="email"
+            className={inputCls(!!errors.email)}
+            placeholder="seu@email.com"
+            readOnly={hasIntakeEmail}
+            style={hasIntakeEmail ? { background: '#f8fafc', color: '#64748b' } : undefined}
+          />
+          {hasIntakeEmail && <p className="mt-0.5 text-xs text-slate-400">Preenchido automaticamente do cadastro</p>}
         </Field>
 
         <Field label="Telefone / WhatsApp" error={errors.telefone?.message}>
-          <input {...register('telefone')} className={inputCls(!!errors.telefone)} placeholder="(00) 00000-0000" maxLength={15} />
+          <input
+            {...register('telefone')}
+            className={inputCls(!!errors.telefone)}
+            placeholder="(00) 00000-0000"
+            maxLength={15}
+            readOnly={hasIntakeTelefone}
+            style={hasIntakeTelefone ? { background: '#f8fafc', color: '#64748b' } : undefined}
+          />
+          {hasIntakeTelefone && <p className="mt-0.5 text-xs text-slate-400">Preenchido automaticamente do cadastro</p>}
         </Field>
 
         <div className="grid grid-cols-2 gap-4">

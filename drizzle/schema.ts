@@ -199,6 +199,8 @@ export const consultasInicio = mysqlTable('consultas_inicio', {
   motivoRejeicao: varchar('motivo_rejeicao', { length: 200 }),
   validadoPorId: int('validado_por_id'),
   validadoEm: datetime('validado_em'),
+  dataExameValidado: varchar('data_exame_validado', { length: 20 }),
+  resultadoHivValidado: varchar('resultado_hiv_validado', { length: 20 }),
   observacoesMedico: text('observacoes_medico'),
   ultimoLembreteAt: datetime('ultimo_lembrete_at'),
   linkExpiresAt: datetime('link_expires_at'),
@@ -236,6 +238,19 @@ export const precadastros = mysqlTable('precadastros', {
   cpfHashIdx: index('idx_precad_cpf_hash').on(t.cpfHash),
   statusIdx: index('idx_precad_status').on(t.status),
   sessionIdx: index('idx_precad_session').on(t.stripeSessionId),
+}))
+
+// ── Pesquisa de satisfação ────────────────────────────────────
+
+export const satisfacaoPesquisas = mysqlTable('satisfacao_pesquisas', {
+  id: int('id').primaryKey().autoincrement(),
+  pacienteId: int('paciente_id').notNull(),
+  achouFacil: boolean('achou_facil'),
+  conseguiuMedicacao: boolean('conseguiu_medicacao'),
+  comentario: text('comentario'),
+  respondidoEm: datetime('respondido_em').notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (t) => ({
+  pacienteIdx: uniqueIndex('idx_satisfacao_paciente').on(t.pacienteId),
 }))
 
 // ── Pagamentos Stripe ─────────────────────────────────────────

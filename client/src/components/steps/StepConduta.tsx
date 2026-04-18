@@ -31,9 +31,14 @@ const TIPOS_RELACAO = [
   { value: 'oral', label: 'Oral' },
 ]
 
-interface Props { pacienteId: number | null; onNext: () => void; onBack: () => void }
+interface Props {
+  pacienteId: number | null
+  onNext: () => void
+  onBack: () => void
+  examData?: { dataExame?: string | null; resultadoHiv?: string | null }
+}
 
-export default function StepConduta({ pacienteId, onNext, onBack }: Props) {
+export default function StepConduta({ pacienteId, onNext, onBack, examData }: Props) {
   const { register, handleSubmit, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -52,7 +57,19 @@ export default function StepConduta({ pacienteId, onNext, onBack }: Props) {
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
       <h2 className="text-lg font-semibold text-slate-800 mb-2">Conduta</h2>
-      <p className="text-sm text-slate-500 mb-5">Informações clínicas confidenciais para avaliação médica.</p>
+      <p className="text-sm text-slate-500 mb-4">Informações clínicas confidenciais para avaliação médica.</p>
+
+      {(examData?.dataExame || examData?.resultadoHiv) && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-5">
+          <p className="text-blue-800 text-xs font-semibold mb-1">Resultado do exame Anti-HIV (validado)</p>
+          {examData.dataExame && (
+            <p className="text-blue-700 text-xs">Data do exame: <strong>{examData.dataExame}</strong></p>
+          )}
+          {examData.resultadoHiv && (
+            <p className="text-blue-700 text-xs">Resultado: <strong>{examData.resultadoHiv === 'nao_reagente' ? 'Não reagente' : 'Reagente'}</strong></p>
+          )}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit((d) => salvar.mutate(d))} className="space-y-5">
         {/* Tipos de relação */}
