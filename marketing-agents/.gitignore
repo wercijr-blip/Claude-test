@@ -6,3 +6,4 @@ logs/report_*.json
 logs/optimizer_*.json
 logs/financial_*.json
 logs/financial-state.json
+logs/leads-state.json

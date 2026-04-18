@@ -300,6 +300,63 @@ export interface MediaBundle {
   imagePrompt?: string;       // prompt usado para gerar a imagem
 }
 
+// ─── Lead management types ───────────────────────────────────────────────────
+
+export type LeadStatus = 'NEW' | 'CONTACTED' | 'QUALIFIED' | 'CONVERTED' | 'LOST' | 'INACTIVE';
+export type LeadSource = 'INSTAGRAM' | 'GOOGLE' | 'LINKEDIN' | 'WHATSAPP' | 'EMAIL' | 'ORGANIC' | 'PARTNER_ONG' | 'PARTNER_APP' | 'REFERRAL';
+export type LeadProfile = 'HSH' | 'MULHER_TRANS' | 'PROFISSIONAL_SEXO' | 'GERAL' | 'PROFISSIONAL_SAUDE';
+export type LeadZone = 'HOT' | 'WARM' | 'COLD';
+
+export interface Lead {
+  id: string;
+  name?: string;
+  phone?: string;
+  email?: string;
+  source: LeadSource;
+  profile: LeadProfile;
+  brand: Brand;
+  status: LeadStatus;
+  score: number;
+  zone: LeadZone;
+  scoreFactors: string[];
+  createdAt: string;
+  lastContactAt?: string;
+  convertedAt?: string;
+  emailSequenceStep: number;
+  emailSequenceNext?: string;
+  utmSource?: string;
+  utmCampaign?: string;
+  notes: string[];
+  whatsappOptIn: boolean;
+}
+
+export interface LeadCaptureData {
+  name?: string;
+  phone?: string;
+  email?: string;
+  source: LeadSource;
+  profile: LeadProfile;
+  brand: Brand;
+  utmSource?: string;
+  utmCampaign?: string;
+  intent?: string;
+  whatsappOptIn?: boolean;
+}
+
+export interface FunnelReport {
+  total: number;
+  byStatus: Record<string, number>;
+  byZone: Record<string, number>;
+  bySource: Record<string, number>;
+  byBrand: Record<string, number>;
+  conversionRate: number;
+  contactRate: number;
+  avgScore: number;
+  topSource: string;
+  recentLeads: Array<Pick<Lead, 'id' | 'name' | 'source' | 'zone' | 'status' | 'createdAt'>>;
+  generatedAt: string;
+}
+
 // ─── Optimizer types ──────────────────────────────────────────────────────────
 
 export type ProductLine = 'facilita_prep' | 'iaso_clinica';

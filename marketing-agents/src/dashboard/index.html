@@ -372,6 +372,67 @@
   <div id="alerts-list"></div>
 </div>
 
+<!-- Leads Funnel -->
+<div class="card" style="margin-bottom:24px">
+  <h2>Funil de Captação de Leads</h2>
+  <div class="grid-4" style="margin-bottom:16px">
+    <div>
+      <div class="card-label">Total de Leads</div>
+      <div class="card-value blue" id="lead-total">—</div>
+      <div class="card-sub">todos os canais</div>
+    </div>
+    <div>
+      <div class="card-label">Leads HOT 🔥</div>
+      <div class="card-value" style="color:var(--red)" id="lead-hot">—</div>
+      <div class="card-sub">score ≥ 65</div>
+    </div>
+    <div>
+      <div class="card-label">Taxa de Conversão</div>
+      <div class="card-value green" id="lead-conv">—</div>
+      <div class="card-sub">leads → pacientes</div>
+    </div>
+    <div>
+      <div class="card-label">Taxa de Contato</div>
+      <div class="card-value" id="lead-contact">—</div>
+      <div class="card-sub">leads alcançados</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <!-- Funil por status -->
+    <div>
+      <div class="card-label" style="margin-bottom:10px">Funil por Status</div>
+      <table>
+        <thead><tr><th>Status</th><th>Leads</th><th>%</th></tr></thead>
+        <tbody id="lead-status-table">
+          <tr><td colspan="3" style="color:var(--muted);text-align:center">Sem dados</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <!-- Por canal de origem -->
+    <div>
+      <div class="card-label" style="margin-bottom:10px">Origem dos Leads</div>
+      <table>
+        <thead><tr><th>Canal</th><th>Leads</th><th>%</th></tr></thead>
+        <tbody id="lead-source-table">
+          <tr><td colspan="3" style="color:var(--muted);text-align:center">Sem dados</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Leads recentes -->
+  <div style="margin-top:20px">
+    <div class="card-label" style="margin-bottom:10px">Leads Recentes</div>
+    <table>
+      <thead><tr><th>Nome</th><th>Origem</th><th>Score</th><th>Status</th><th>Data</th></tr></thead>
+      <tbody id="lead-recent-table">
+        <tr><td colspan="5" style="color:var(--muted);text-align:center">Sem dados</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
 <footer>
   Marketing Agents v1.0 &mdash; Facilita PrEP + Clínica IASO &mdash; Atualização automática a cada 5 min
 </footer>
@@ -461,10 +522,6 @@
     document.getElementById('cpl').textContent = '—';
   }
 
-  loadReport();
-  loadFinancialReport();
-  setInterval(() => { loadReport(); loadFinancialReport(); }, 5 * 60 * 1000);
-
   async function loadFinancialReport() {
     const now = new Date();
     const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -551,6 +608,69 @@
     ['fin-revenue','fin-profit','fin-cac','fin-payback','ytd-revenue','ytd-profit','ytd-patients','ytd-best']
       .forEach(id => { const el = document.getElementById(id); if (el) el.textContent = '—'; });
   }
+
+  // ── Leads funnel ─────────────────────────────────────────────────────────
+
+  async function loadLeadFunnel() {
+    try {
+      const res = await fetch('../../logs/leads-state.json');
+      if (!res.ok) throw new Error('not found');
+      const state = await res.json();
+      renderLeadFunnel(state.leads || []);
+    } catch {
+      // no data yet
+    }
+  }
+
+  function renderLeadFunnel(leads) {
+    if (!leads.length) return;
+    const total = leads.length;
+    const pct = (n) => (total > 0 ? (n / total * 100).toFixed(1) + '%' : '—');
+
+    // KPIs
+    const hot       = leads.filter(l => l.zone === 'HOT').length;
+    const converted = leads.filter(l => l.status === 'CONVERTED').length;
+    const contacted = leads.filter(l => l.status !== 'NEW').length;
+    document.getElementById('lead-total').textContent   = total;
+    document.getElementById('lead-hot').textContent     = hot;
+    document.getElementById('lead-conv').textContent    = pct(converted);
+    document.getElementById('lead-contact').textContent = pct(contacted);
+
+    // Status funnel
+    const statusOrder = ['NEW','CONTACTED','QUALIFIED','CONVERTED','LOST','INACTIVE'];
+    const statusLabel = { NEW:'Novo', CONTACTED:'Contatado', QUALIFIED:'Qualificado', CONVERTED:'Convertido', LOST:'Perdido', INACTIVE:'Inativo' };
+    const byStatus = {};
+    leads.forEach(l => { byStatus[l.status] = (byStatus[l.status] || 0) + 1; });
+    document.getElementById('lead-status-table').innerHTML = statusOrder
+      .filter(s => byStatus[s])
+      .map(s => `<tr><td>${statusLabel[s] || s}</td><td>${byStatus[s]}</td><td style="color:var(--muted)">${pct(byStatus[s])}</td></tr>`)
+      .join('') || '<tr><td colspan="3" style="color:var(--muted);text-align:center">—</td></tr>';
+
+    // Source breakdown
+    const bySource = {};
+    leads.forEach(l => { bySource[l.source] = (bySource[l.source] || 0) + 1; });
+    document.getElementById('lead-source-table').innerHTML = Object.entries(bySource)
+      .sort((a,b) => b[1] - a[1])
+      .map(([s, n]) => `<tr><td>${s}</td><td>${n}</td><td style="color:var(--muted)">${pct(n)}</td></tr>`)
+      .join('') || '<tr><td colspan="3" style="color:var(--muted);text-align:center">—</td></tr>';
+
+    // Recent leads
+    const zoneColor = { HOT: 'var(--red)', WARM: 'var(--yellow)', COLD: 'var(--muted)' };
+    document.getElementById('lead-recent-table').innerHTML = leads.slice(-8).reverse()
+      .map(l => `<tr>
+        <td>${l.name || '—'}</td>
+        <td>${l.source}</td>
+        <td style="color:${zoneColor[l.zone] || ''}">${l.score} (${l.zone})</td>
+        <td>${l.status}</td>
+        <td style="color:var(--muted)">${new Date(l.createdAt).toLocaleDateString('pt-BR')}</td>
+      </tr>`).join('');
+  }
+
+  // Load on startup and refresh
+  loadReport();
+  loadFinancialReport();
+  loadLeadFunnel();
+  setInterval(() => { loadReport(); loadFinancialReport(); loadLeadFunnel(); }, 5 * 60 * 1000);
 </script>
 </body>
 </html>

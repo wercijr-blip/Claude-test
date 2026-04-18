@@ -11,6 +11,7 @@ import { budgetOptimizer } from './optimizer/budget-optimizer';
 import { imageAgent } from './agents/image-agent';
 import { videoAgent } from './agents/video-agent';
 import { financialAgent } from './agents/financial-agent';
+import { leadAgent } from './agents/lead-agent';
 import { META_AUDIENCES, GOOGLE_KEYWORDS_PREP } from './config/targets';
 import type { AdCampaign, ChannelPerformance } from './types';
 
@@ -433,18 +434,26 @@ async function main() {
     process.exit(0);
   }
 
-  // Seed financial simulation data on first run
+  // Seed simulation data on first run
   if (process.env.SIMULATION_MODE === 'true') {
     financialAgent.seedSimulationData();
+    await leadAgent.seedSimulationData();
+    const funnel = leadAgent.generateFunnelReport();
+    logger.info(`[Leads] Funil inicial: ${funnel.total} leads | HOT:${funnel.byZone['HOT'] ?? 0} | Convertidos:${funnel.byStatus['CONVERTED'] ?? 0}`);
   }
 
-  const CRON_DAILY = '0 9 * * 1,3,5';
-  const CRON_WEEKLY = '0 8 * * 1';
+  const CRON_DAILY   = '0 9 * * 1,3,5';
+  const CRON_WEEKLY  = '0 8 * * 1';
   const CRON_MONTHLY = '0 7 1 * *';
+  const CRON_LEADS   = '0 */4 * * *';   // a cada 4h: processa fila de e-mails e follow-ups
+  const CRON_REACTIVATION = '0 10 * * 3'; // quarta-feira: reativação de inativos
 
-  scheduleTask({ name: 'Postagem Diária', expression: CRON_DAILY, handler: dailyContentPost });
-  scheduleTask({ name: 'Otimização Semanal', expression: CRON_WEEKLY, handler: weeklyAdOptimization });
-  scheduleTask({ name: 'Relatório Mensal', expression: CRON_MONTHLY, handler: monthlyReport });
+  scheduleTask({ name: 'Postagem Diária',      expression: CRON_DAILY,        handler: dailyContentPost });
+  scheduleTask({ name: 'Otimização Semanal',   expression: CRON_WEEKLY,       handler: weeklyAdOptimization });
+  scheduleTask({ name: 'Relatório Mensal',     expression: CRON_MONTHLY,      handler: monthlyReport });
+  scheduleTask({ name: 'Leads — E-mail Queue', expression: CRON_LEADS,        handler: () => leadAgent.processEmailQueue().then(n => logger.info(`[Leads] ${n} e-mails enviados`)) });
+  scheduleTask({ name: 'Leads — Follow-up',    expression: CRON_LEADS,        handler: () => leadAgent.followUpHotLeads() });
+  scheduleTask({ name: 'Leads — Reativação',   expression: CRON_REACTIVATION, handler: () => leadAgent.reactivateInactive() });
 
   logger.info('');
   logger.info('Próximas execuções agendadas:');
