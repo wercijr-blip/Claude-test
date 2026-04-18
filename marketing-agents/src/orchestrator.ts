@@ -12,6 +12,7 @@ import { imageAgent } from './agents/image-agent';
 import { videoAgent } from './agents/video-agent';
 import { financialAgent } from './agents/financial-agent';
 import { leadAgent } from './agents/lead-agent';
+import { startDashboardServer, markRoutineStart, markRoutineDone } from './dashboard/server';
 import { META_AUDIENCES, GOOGLE_KEYWORDS_PREP } from './config/targets';
 import type { AdCampaign, ChannelPerformance } from './types';
 
@@ -63,6 +64,7 @@ const session: {
 // ─── Routine 1: Daily content post (Mon/Wed/Fri 09:00) ───────────────────────
 
 async function dailyContentPost() {
+  markRoutineStart('daily');
   logger.info('── Rotina: Postagem Diária de Conteúdo ──────────────────────────');
 
   // ── Instagram Feed com imagem gerada por IA ──────────────────────────────────
@@ -194,11 +196,13 @@ async function dailyContentPost() {
   }
 
   logger.info('── Postagem diária concluída ─────────────────────────────────────');
+  markRoutineDone('daily', true);
 }
 
 // ─── Routine 2: Weekly optimization WITH BudgetOptimizer (Mon 08:00) ─────────
 
 async function weeklyAdOptimization() {
+  markRoutineStart('optimization');
   logger.info('── Rotina: Otimização Inteligente de Investimento ───────────────');
 
   budgetOptimizer.logLTVProfiles();
@@ -289,6 +293,7 @@ async function weeklyAdOptimization() {
   }
 
   logger.info('── Otimização inteligente concluída ─────────────────────────────');
+  markRoutineDone('optimization', true);
 }
 
 async function executeOptimizerDecision(
@@ -363,6 +368,7 @@ function applyBudgetReallocation(fromPlatform: string, toPlatform: string, amoun
 // ─── Routine 3: Monthly report (1st of month 07:00) ──────────────────────────
 
 async function monthlyReport() {
+  markRoutineStart('monthly');
   logger.info('── Rotina: Relatório Mensal ──────────────────────────────────────');
   const now = new Date();
   const month = now.getMonth() === 0 ? 12 : now.getMonth();
@@ -406,6 +412,7 @@ async function monthlyReport() {
 
   financialAgent.generateReport();
   logger.info('── Relatório mensal concluído ────────────────────────────────────');
+  markRoutineDone('monthly', true);
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
@@ -421,6 +428,15 @@ async function main() {
   const runNow      = args.includes('--run-now');
   const reportOnly  = args.includes('--report-only');
   const financialOnly = args.includes('--financial');
+
+  // Inicia o servidor web do dashboard
+  if (!financialOnly && !reportOnly) {
+    startDashboardServer({
+      daily:        dailyContentPost,
+      optimization: weeklyAdOptimization,
+      monthly:      monthlyReport,
+    });
+  }
 
   if (financialOnly) {
     logger.info('Modo --financial: gerando relatório financeiro com dados simulados de 12 meses...');

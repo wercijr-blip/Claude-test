@@ -198,14 +198,67 @@
     @media (max-width: 480px) {
       .grid-4 { grid-template-columns: 1fr; }
     }
+
+    /* Status badges */
+    .status-ok      { color: var(--green); font-weight: 600; }
+    .status-error   { color: var(--red);   font-weight: 600; }
+    .status-running { color: var(--yellow);font-weight: 600; }
+    .status-idle    { color: var(--muted); }
+
+    /* Trigger buttons */
+    .btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 16px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: opacity .2s;
+    }
+    .btn:hover   { opacity: .85; }
+    .btn:disabled{ opacity: .4; cursor: not-allowed; }
+    .btn-sm { padding: 5px 10px; font-size: 12px; }
+
+    /* Live log */
+    #live-log {
+      background: #0a0c12;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+      height: 260px;
+      overflow-y: auto;
+      font-family: 'Fira Mono', 'Courier New', monospace;
+      font-size: 12px;
+      color: #a0ffb0;
+      line-height: 1.6;
+    }
+    #live-log .log-error { color: var(--red); }
+    #live-log .log-warn  { color: var(--yellow); }
   </style>
 </head>
 <body>
 
 <header>
   <h1>Marketing Agents <span>// Facilita PrEP + IASO</span></h1>
-  <span id="last-update">Carregando…</span>
+  <div style="display:flex;align-items:center;gap:12px">
+    <span id="sim-badge" style="font-size:11px;padding:3px 8px;border-radius:4px;background:#f59e0b22;color:var(--yellow);display:none">SIMULAÇÃO</span>
+    <span id="last-update" style="font-size:12px;color:var(--muted)">Carregando…</span>
+  </div>
 </header>
+
+<!-- Agent status + triggers -->
+<div class="card" style="margin-bottom:24px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <h2>Status dos Agentes</h2>
+    <div style="display:flex;gap:8px">
+      <button class="btn" id="btn-daily"        onclick="trigger('daily')">▶ Postar Agora</button>
+      <button class="btn" id="btn-optimization" onclick="trigger('optimization')">📊 Otimizar</button>
+      <button class="btn" id="btn-monthly"      onclick="trigger('monthly')">📋 Relatório</button>
+    </div>
+  </div>
+  <div id="routine-status" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px"></div>
+</div>
 
 <!-- KPI Cards -->
 <div class="grid-4">
@@ -433,6 +486,19 @@
   </div>
 </div>
 
+<!-- Live Log -->
+<div class="card" style="margin-bottom:24px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <h2>Log ao Vivo</h2>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span class="dot"></span>
+      <span style="font-size:12px;color:var(--muted)" id="log-status">conectando…</span>
+      <button class="btn btn-sm" onclick="clearLog()">Limpar</button>
+    </div>
+  </div>
+  <div id="live-log"></div>
+</div>
+
 <footer>
   Marketing Agents v1.0 &mdash; Facilita PrEP + Clínica IASO &mdash; Atualização automática a cada 5 min
 </footer>
@@ -458,22 +524,12 @@
   }
 
   async function loadReport() {
-    // Try to load the latest monthly report JSON from logs directory
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const filename = `../../logs/report_${year}-${month}.json`;
-
     try {
-      const res = await fetch(filename);
+      const res = await fetch('/api/report');
       if (!res.ok) throw new Error('not found');
       const report = await res.json();
-      renderReport(report);
-    } catch {
-      // No report yet — show simulated placeholder data
-      renderPlaceholder();
-    }
-
+      if (report) renderReport(report); else renderPlaceholder();
+    } catch { renderPlaceholder(); }
     document.getElementById('last-update').textContent =
       'Atualizado: ' + new Date().toLocaleTimeString('pt-BR');
   }
@@ -523,16 +579,12 @@
   }
 
   async function loadFinancialReport() {
-    const now = new Date();
-    const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     try {
-      const res = await fetch(`../../logs/financial_${ym}.json`);
+      const res = await fetch('/api/financial');
       if (!res.ok) throw new Error('not found');
       const r = await res.json();
-      renderFinancial(r);
-    } catch {
-      renderFinancialPlaceholder();
-    }
+      if (r) renderFinancial(r); else renderFinancialPlaceholder();
+    } catch { renderFinancialPlaceholder(); }
   }
 
   function renderFinancial(r) {
@@ -613,7 +665,7 @@
 
   async function loadLeadFunnel() {
     try {
-      const res = await fetch('../../logs/leads-state.json');
+      const res = await fetch('/api/leads');
       if (!res.ok) throw new Error('not found');
       const state = await res.json();
       renderLeadFunnel(state.leads || []);
@@ -666,11 +718,94 @@
       </tr>`).join('');
   }
 
-  // Load on startup and refresh
+  // ── Agent status ───────────────────────────────────────────────────────────
+
+  async function loadStatus() {
+    try {
+      const res = await fetch('/api/status');
+      if (!res.ok) return;
+      const data = await res.json();
+
+      if (data.simulation) document.getElementById('sim-badge').style.display = 'inline';
+
+      const container = document.getElementById('routine-status');
+      const icon = { success: '✅', error: '❌', undefined: '⏳' };
+      const cls  = { success: 'status-ok', error: 'status-error' };
+      container.innerHTML = Object.entries(data.routines).map(([key, r]) => {
+        const lastRun = r.lastRun ? new Date(r.lastRun).toLocaleTimeString('pt-BR') : 'Nunca';
+        const state   = r.running ? '<span class="status-running">● Rodando…</span>' : `<span class="${cls[r.lastResult] || 'status-idle'}">${icon[r.lastResult] || '○'} ${lastRun}</span>`;
+        return `<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:4px">${r.name}</div>
+          <div style="font-size:13px">${state}</div>
+        </div>`;
+      }).join('');
+    } catch { /* server not yet up */ }
+  }
+
+  // ── Trigger buttons ────────────────────────────────────────────────────────
+
+  async function trigger(routine) {
+    const btn = document.getElementById(`btn-${routine}`);
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Rodando…'; }
+    try {
+      await fetch(`/api/trigger/${routine}`, { method: 'POST' });
+      appendLog(`▶ Rotina "${routine}" disparada manualmente`);
+    } catch (e) { appendLog(`❌ Erro ao disparar ${routine}: ${e.message}`); }
+    setTimeout(() => { if (btn) { btn.disabled = false; btn.textContent = btn.id === 'btn-daily' ? '▶ Postar Agora' : btn.id === 'btn-optimization' ? '📊 Otimizar' : '📋 Relatório'; } }, 3000);
+  }
+
+  // ── Live log ───────────────────────────────────────────────────────────────
+
+  const logEl = document.getElementById('live-log');
+
+  function appendLog(line) {
+    const div = document.createElement('div');
+    div.textContent = line;
+    if (line.includes('error') || line.includes('Error') || line.includes('❌')) div.className = 'log-error';
+    else if (line.includes('warn') || line.includes('⚠')) div.className = 'log-warn';
+    logEl.appendChild(div);
+    logEl.scrollTop = logEl.scrollHeight;
+    // Keep max 300 lines
+    while (logEl.children.length > 300) logEl.removeChild(logEl.firstChild);
+  }
+
+  function clearLog() { logEl.innerHTML = ''; }
+
+  function connectSSE() {
+    const source = new EventSource('/api/logs/stream');
+    source.onopen    = () => { document.getElementById('log-status').textContent = 'conectado'; };
+    source.onmessage = (e) => { try { appendLog(JSON.parse(e.data)); } catch { appendLog(e.data); } };
+    source.onerror   = () => {
+      document.getElementById('log-status').textContent = 'reconectando…';
+      source.close();
+      setTimeout(connectSSE, 5000);
+    };
+  }
+
+  // Load last 80 log lines on startup
+  async function loadInitialLogs() {
+    try {
+      const res  = await fetch('/api/logs?lines=80');
+      const data = await res.json();
+      (data.lines || []).forEach(appendLog);
+    } catch { /* server not ready */ }
+  }
+
+  // ── Boot ───────────────────────────────────────────────────────────────────
+
   loadReport();
   loadFinancialReport();
   loadLeadFunnel();
-  setInterval(() => { loadReport(); loadFinancialReport(); loadLeadFunnel(); }, 5 * 60 * 1000);
+  loadStatus();
+  loadInitialLogs();
+  connectSSE();
+
+  setInterval(() => {
+    loadReport();
+    loadFinancialReport();
+    loadLeadFunnel();
+    loadStatus();
+  }, 5 * 60 * 1000);
 </script>
 </body>
 </html>
