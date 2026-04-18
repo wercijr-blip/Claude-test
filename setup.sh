@@ -33,7 +33,7 @@ if ! command -v node &> /dev/null; then
   fail "Node.js não encontrado. Instale em https://nodejs.org (mínimo v18)"
 fi
 NODE_VER=$(node -v | sed 's/v//')
-NODE_MAJOR=$(echo $NODE_VER | cut -d. -f1)
+NODE_MAJOR=$(echo "$NODE_VER" | cut -d. -f1)
 if [ "$NODE_MAJOR" -lt 18 ]; then
   fail "Node.js $NODE_VER muito antigo. Mínimo: v18. Atual: v$NODE_VER"
 fi
@@ -97,9 +97,10 @@ ok "Dependências instaladas"
 # ─── 4. Verificação de Tipos TypeScript ───────────────────
 
 step "Verificando tipos TypeScript…"
-if pnpm check 2>&1 | grep -q "error TS"; then
+TS_OUTPUT=$(pnpm check 2>&1)
+if echo "$TS_OUTPUT" | grep -q "error TS"; then
   warn "Erros de TypeScript encontrados. Rode 'pnpm check' para detalhes."
-  pnpm check 2>&1 | grep "error TS" | head -20
+  echo "$TS_OUTPUT" | grep "error TS" | head -20
 else
   ok "Tipos TypeScript: OK"
 fi
@@ -124,10 +125,10 @@ for test in "${UNIT_TESTS[@]}"; do
     echo -n "  Testando $test … "
     if pnpm vitest run "$test" --reporter=verbose 2>&1 | tail -3 | grep -q "passed"; then
       echo -e "${GREEN}PASSOU${NC}"
-      ((PASS++))
+      PASS=$((PASS + 1))
     else
       echo -e "${RED}FALHOU${NC}"
-      ((FAIL++))
+      FAIL=$((FAIL + 1))
     fi
   else
     warn "  Arquivo não encontrado: $test"
@@ -135,7 +136,7 @@ for test in "${UNIT_TESTS[@]}"; do
 done
 
 echo ""
-echo "Resultado: ${GREEN}$PASS passou(aram)${NC} | ${RED}$FAIL falhou(aram)${NC}"
+echo -e "Resultado: ${GREEN}$PASS passou(aram)${NC} | ${RED}$FAIL falhou(aram)${NC}"
 
 # ─── 6. Verificação de Certificados ICP-Brasil ────────────
 
@@ -163,7 +164,7 @@ done
 # ─── 7. Build de Produção (opcional) ──────────────────────
 
 step "Build de produção (verificação)…"
-if [ "${1}" == "--build" ]; then
+if [[ "${1}" == "--build" ]]; then
   pnpm build && ok "Build concluído com sucesso" || fail "Build falhou"
 else
   warn "Build pulado. Use './setup.sh --build' para testar o build completo."
@@ -183,7 +184,7 @@ echo -e "  ${GREEN}pnpm db:push${NC}    → Aplicar schema no banco"
 echo -e "  ${GREEN}pnpm build${NC}      → Build de produção"
 echo ""
 
-if [ -f ".env" ] && grep -q "DATABASE_URL=mysql://" .env 2>/dev/null; then
+if [ -f ".env" ] && grep -q "DATABASE_URL=mysql://usuario:senha" .env 2>/dev/null; then
   echo -e "  ${YELLOW}⚠  Configure DATABASE_URL no .env antes de 'pnpm dev'${NC}"
 fi
 
