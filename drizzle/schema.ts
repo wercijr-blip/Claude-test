@@ -193,7 +193,9 @@ export const consultasInicio = mysqlTable('consultas_inicio', {
   temExameRecente: boolean('tem_exame_recente'),
   exameS3Key: varchar('exame_s3_key', { length: 500 }),
   pedidoCompletoS3Key: varchar('pedido_completo_s3_key', { length: 500 }),
+  pedidoIstS3Key: varchar('pedido_ist_s3_key', { length: 500 }),
   pedidoHivS3Key: varchar('pedido_hiv_s3_key', { length: 500 }),
+  pedidoDensitometriaS3Key: varchar('pedido_densitometria_s3_key', { length: 500 }),
   status: varchar('status', { length: 50 }).notNull().default('aguardando_escolha'),
   resultadoIa: json('resultado_ia'),
   motivoRejeicao: varchar('motivo_rejeicao', { length: 200 }),
@@ -247,6 +249,7 @@ export const satisfacaoPesquisas = mysqlTable('satisfacao_pesquisas', {
   pacienteId: int('paciente_id').notNull(),
   achouFacil: boolean('achou_facil'),
   conseguiuMedicacao: boolean('conseguiu_medicacao'),
+  indicaria: boolean('indicaria'),
   comentario: text('comentario'),
   respondidoEm: datetime('respondido_em').notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (t) => ({

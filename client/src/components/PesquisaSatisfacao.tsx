@@ -10,6 +10,7 @@ export default function PesquisaSatisfacao() {
 
   const [achouFacil, setAchouFacil] = useState<boolean | null>(null)
   const [conseguiuMedicacao, setConseguiuMedicacao] = useState<boolean | null>(null)
+  const [indicaria, setIndicaria] = useState<boolean | null>(null)
   const [comentario, setComentario] = useState('')
   const [enviado, setEnviado] = useState(false)
 
@@ -52,8 +53,8 @@ export default function PesquisaSatisfacao() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (achouFacil === null || conseguiuMedicacao === null) return
-    submeter.mutate({ pacienteId, token, achouFacil, conseguiuMedicacao, comentario: comentario || undefined })
+    if (achouFacil === null || conseguiuMedicacao === null || indicaria === null) return
+    submeter.mutate({ pacienteId, token, achouFacil, conseguiuMedicacao, indicaria, comentario: comentario || undefined })
   }
 
   return (
@@ -107,6 +108,26 @@ export default function PesquisaSatisfacao() {
           </div>
 
           <div>
+            <p className="text-sm font-medium text-slate-700 mb-3">Você indicaria o Facilita PrEP para alguém?</p>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setIndicaria(true)}
+                className={`py-3 rounded-xl border-2 text-sm font-medium transition-all ${indicaria === true ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}
+              >
+                Sim, indicaria
+              </button>
+              <button
+                type="button"
+                onClick={() => setIndicaria(false)}
+                className={`py-3 rounded-xl border-2 text-sm font-medium transition-all ${indicaria === false ? 'border-red-400 bg-red-50 text-red-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}
+              >
+                Não indicaria
+              </button>
+            </div>
+          </div>
+
+          <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
               Comentários (opcional)
             </label>
@@ -126,7 +147,7 @@ export default function PesquisaSatisfacao() {
 
           <button
             type="submit"
-            disabled={achouFacil === null || conseguiuMedicacao === null || submeter.isPending}
+            disabled={achouFacil === null || conseguiuMedicacao === null || indicaria === null || submeter.isPending}
             className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold disabled:opacity-50 hover:bg-blue-700 transition-colors"
           >
             {submeter.isPending ? 'Enviando…' : 'Enviar resposta'}

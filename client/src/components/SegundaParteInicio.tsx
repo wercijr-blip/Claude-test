@@ -330,28 +330,76 @@ function TipoCard({ titulo, descricao, icon, onClick, onSelect }: {
   )
 }
 
-function BotaoBaixarPedidos({ tipoConsulta, onBaixou }: { tipoConsulta: TipoConsulta; onBaixou: () => void }) {
-  const gerarMut = trpc.consulta.gerarPedidos.useMutation({
-    onSuccess: (data) => {
-      window.open(data.urlCompleto, '_blank')
-      window.open(data.urlHiv, '_blank')
-      onBaixou()
-    },
-  })
+type PedidosData = {
+  urlCompleto: string
+  urlIst: string | null
+  urlHiv: string
+  urlDensitometria: string | null
+}
+
+const PEDIDOS_INFO = [
+  { key: 'urlCompleto' as const, label: 'Painel completo de exames', desc: 'Todos os exames do protocolo PrEP' },
+  { key: 'urlIst' as const, label: 'Sorológicos de IST', desc: 'HIV, Sífilis, Hepatite B/C, Gonorreia, Clamídia' },
+  { key: 'urlHiv' as const, label: 'Exame Anti-HIV isolado', desc: 'Anti-HIV 1/2 com Ag p24 (4ª geração)' },
+  { key: 'urlDensitometria' as const, label: 'Densitometria óssea', desc: 'Monitoramento ósseo — uso de Tenofovir (TDF)' },
+]
+
+function BotaoBaixarPedidos({ tipoConsulta: _tipoConsulta, onBaixou }: { tipoConsulta: TipoConsulta; onBaixou: () => void }) {
+  const gerarMut = trpc.consulta.gerarPedidos.useMutation({ onSuccess: onBaixou })
+  const data = gerarMut.data as PedidosData | undefined
+
+  const downloadIcon = (
+    <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+  )
+
+  if (!data) {
+    return (
+      <div className="space-y-3">
+        <button
+          onClick={() => gerarMut.mutate()}
+          disabled={gerarMut.isPending}
+          className="w-full border border-blue-300 bg-blue-50 text-blue-700 py-3 rounded-xl font-medium hover:bg-blue-100 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+        >
+          {downloadIcon}
+          {gerarMut.isPending ? 'Gerando PDFs assinados…' : 'Gerar pedidos de exame (4 documentos)'}
+        </button>
+        {gerarMut.error && <p className="text-red-500 text-sm">{gerarMut.error.message}</p>}
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-3">
-      <button
-        onClick={() => gerarMut.mutate()}
-        disabled={gerarMut.isPending}
-        className="w-full border border-blue-300 bg-blue-50 text-blue-700 py-3 rounded-xl font-medium hover:bg-blue-100 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-      >
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-        </svg>
-        {gerarMut.isPending ? 'Gerando PDFs…' : 'Baixar pedidos de exame (2 arquivos)'}
-      </button>
-      {gerarMut.error && <p className="text-red-500 text-sm">{gerarMut.error.message}</p>}
+    <div className="space-y-2">
+      <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-3">Pedidos prontos — assinados com ICP-Brasil</p>
+      {PEDIDOS_INFO.map(({ key, label, desc }) => {
+        const url = data[key]
+        if (!url) return null
+        return (
+          <div key={key} className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
+            <div>
+              <p className="text-sm font-medium text-slate-800">{label}</p>
+              <p className="text-xs text-slate-500">{desc}</p>
+            </div>
+            <div className="flex gap-2 ml-3">
+              <a
+                href={url}
+                download
+                className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 flex items-center gap-1 transition-colors"
+              >
+                {downloadIcon} Download
+              </a>
+              <button
+                onClick={() => window.open(url, '_blank')}
+                className="text-xs bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg hover:bg-slate-300 transition-colors"
+              >
+                Imprimir
+              </button>
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }

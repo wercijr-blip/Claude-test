@@ -19,6 +19,7 @@ export const pesquisaRouter = router({
         token: z.string(),
         achouFacil: z.boolean(),
         conseguiuMedicacao: z.boolean(),
+        indicaria: z.boolean(),
         comentario: z.string().max(500).optional(),
       }),
     )
@@ -42,6 +43,7 @@ export const pesquisaRouter = router({
         pacienteId: input.pacienteId,
         achouFacil: input.achouFacil,
         conseguiuMedicacao: input.conseguiuMedicacao,
+        indicaria: input.indicaria,
         comentario: input.comentario,
       })
 

@@ -116,6 +116,20 @@ export const MOTIVO_REJEICAO_EXAME = {
   RESULTADO_POSITIVO: 'resultado_positivo',
 } as const
 
+export const EXAMES_SOROLOGICOS_IST = [
+  'Anti-HIV 1/2 com Ag p24 (4ª geração)',
+  'VDRL quantitativo (Sífilis)',
+  'HBsAg (Hepatite B — antígeno de superfície)',
+  'Anti-HBc total (Hepatite B — anticorpo total)',
+  'Anti-HCV (Hepatite C)',
+  'PCR gonorreia e clamídia — swab uretral/vaginal',
+] as const
+
+export const EXAMES_DENSITOMETRIA = [
+  'Densitometria óssea — coluna lombar (L1-L4)',
+  'Densitometria óssea — fêmur proximal bilateral',
+] as const
+
 export const EXAMES_PRIMEIRO_ATENDIMENTO = [
   'Anti-HIV 1/2 com Ag p24 (4ª geração)',
   'VDRL quantitativo (Sífilis)',

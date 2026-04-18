@@ -93,41 +93,62 @@ export const consultaRouter = router({
         const { getPresignedUrl } = await import('../storage.ts')
         return {
           urlCompleto: await getPresignedUrl(consulta.pedidoCompletoS3Key, 3600),
+          urlIst: consulta.pedidoIstS3Key ? await getPresignedUrl(consulta.pedidoIstS3Key, 3600) : null,
           urlHiv: await getPresignedUrl(consulta.pedidoHivS3Key, 3600),
+          urlDensitometria: consulta.pedidoDensitometriaS3Key ? await getPresignedUrl(consulta.pedidoDensitometriaS3Key, 3600) : null,
         }
       }
 
       const nomeEsperado = await getNomeEsperado(ctx.session.tokenId)
       const nomePaciente = nomeEsperado ?? 'Paciente'
 
-      const { completo, hiv } = await gerarPedidosExames(
+      const { completo, ist, hiv, densitometria } = await gerarPedidosExames(
         consulta.tipoConsulta as 'primeiro_atendimento' | 'ja_faco_prep',
         nomePaciente,
       )
 
-      // Assinar ambos os pedidos com ICP-Brasil
-      const [{ buffer: completoAssinado }, { buffer: hivAssinado }] = await Promise.all([
-        assinarPdf(completo, 'Pedido de Exames PrEP — Facilita PrEP'),
+      // Assinar todos com ICP-Brasil
+      const [
+        { buffer: completoAssinado },
+        { buffer: istAssinado },
+        { buffer: hivAssinado },
+        { buffer: densitometriaAssinada },
+      ] = await Promise.all([
+        assinarPdf(completo, 'Pedido de Exames Completo PrEP — Facilita PrEP'),
+        assinarPdf(ist, 'Pedido de Exames Sorológicos IST — Facilita PrEP'),
         assinarPdf(hiv, 'Pedido de Exame Anti-HIV — Facilita PrEP'),
+        assinarPdf(densitometria, 'Pedido de Densitometria Óssea — Facilita PrEP'),
       ])
 
       const ts = Date.now()
       const keyCompleto = `pedidos/${ctx.session.tokenId}/${ts}-completo.pdf`
+      const keyIst = `pedidos/${ctx.session.tokenId}/${ts}-ist.pdf`
       const keyHiv = `pedidos/${ctx.session.tokenId}/${ts}-hiv.pdf`
+      const keyDensit = `pedidos/${ctx.session.tokenId}/${ts}-densitometria.pdf`
 
       await Promise.all([
         uploadBuffer(keyCompleto, completoAssinado, 'application/pdf'),
+        uploadBuffer(keyIst, istAssinado, 'application/pdf'),
         uploadBuffer(keyHiv, hivAssinado, 'application/pdf'),
+        uploadBuffer(keyDensit, densitometriaAssinada, 'application/pdf'),
       ])
 
       await db.update(consultasInicio)
-        .set({ pedidoCompletoS3Key: keyCompleto, pedidoHivS3Key: keyHiv, updatedAt: new Date() })
+        .set({
+          pedidoCompletoS3Key: keyCompleto,
+          pedidoIstS3Key: keyIst,
+          pedidoHivS3Key: keyHiv,
+          pedidoDensitometriaS3Key: keyDensit,
+          updatedAt: new Date(),
+        })
         .where(eq(consultasInicio.id, consulta.id))
 
       const { getPresignedUrl } = await import('../storage.ts')
       return {
         urlCompleto: await getPresignedUrl(keyCompleto, 3600),
+        urlIst: await getPresignedUrl(keyIst, 3600),
         urlHiv: await getPresignedUrl(keyHiv, 3600),
+        urlDensitometria: await getPresignedUrl(keyDensit, 3600),
       }
     }),
 
