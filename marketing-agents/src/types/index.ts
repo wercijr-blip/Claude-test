@@ -147,6 +147,72 @@ export interface OptimizationAction {
   executedAt: string;
 }
 
+// ─── Media generation types ───────────────────────────────────────────────────
+
+export type ImageAspectRatio =
+  | 'SQUARE'      // 1:1  — feed Instagram / LinkedIn
+  | 'PORTRAIT'    // 9:16 — Stories / Reels
+  | 'LANDSCAPE';  // 16:9 — YouTube thumbnail / Google Display
+
+export type ImageStyle =
+  | 'PHOTOREALISTIC'   // foto realista de pessoas
+  | 'ILLUSTRATION'     // ilustração vetorial / flat design
+  | 'MINIMALIST';      // fundo sólido + tipografia
+
+export interface ImageRequest {
+  prompt: string;             // prompt detalhado para a IA
+  negativePrompt?: string;    // o que evitar na imagem
+  aspectRatio: ImageAspectRatio;
+  style: ImageStyle;
+  brand: Brand;
+  platform: Platform | 'INSTAGRAM' | 'LINKEDIN';
+}
+
+export interface GeneratedImage {
+  url: string;                // URL pública da imagem gerada
+  provider: 'IDEOGRAM' | 'DALLE3' | 'SIMULATION';
+  prompt: string;
+  aspectRatio: ImageAspectRatio;
+  generatedAt: string;
+  costUSD?: number;
+}
+
+export type VideoFormat =
+  | 'REEL_VERTICAL'   // 9:16 — Instagram Reels / TikTok
+  | 'FEED_SQUARE'     // 1:1  — feed Instagram
+  | 'YOUTUBE';        // 16:9 — YouTube
+
+export type VideoProvider = 'HEYGEN' | 'RUNWAY' | 'SIMULATION';
+
+export interface VideoRequest {
+  script: string;             // texto que será narrado/animado
+  format: VideoFormat;
+  provider: VideoProvider;
+  avatarId?: string;          // ID do avatar HeyGen (ex: Dr. Werciley)
+  voiceId?: string;           // ID da voz HeyGen
+  brand: Brand;
+  durationSeconds?: number;
+}
+
+export interface VideoJob {
+  jobId: string;
+  provider: VideoProvider;
+  status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+  videoUrl?: string;
+  thumbnailUrl?: string;
+  durationSeconds?: number;
+  submittedAt: string;
+  completedAt?: string;
+  costUSD?: number;
+}
+
+export interface MediaBundle {
+  content: GeneratedContent;
+  image?: GeneratedImage;
+  video?: VideoJob;
+  imagePrompt?: string;       // prompt usado para gerar a imagem
+}
+
 // ─── Optimizer types ──────────────────────────────────────────────────────────
 
 export type ProductLine = 'facilita_prep' | 'iaso_clinica';

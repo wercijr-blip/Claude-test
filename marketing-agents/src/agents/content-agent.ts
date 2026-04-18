@@ -3,7 +3,7 @@ import { z } from 'zod';
 import logger from '../utils/logger';
 import { withRetry } from '../utils/scheduler';
 import { SYSTEM_PROMPT, USER_PROMPTS } from '../config/prompts';
-import type { ContentRequest, GeneratedContent, Platform } from '../types';
+import type { ContentRequest, GeneratedContent, Platform, ImageAspectRatio, ImageStyle } from '../types';
 
 // ─── Zod schemas ─────────────────────────────────────────────────────────────
 
@@ -49,7 +49,7 @@ const YoutubeSchema = z.object({
   caption: z.string(),
 });
 
-// ─── Mock data for simulation mode ──────────────────────────────────────────
+// ─── Mock data for simulation mode ───────────────────────────────────────────
 
 const MOCK_CONTENT: Record<Platform, Partial<GeneratedContent>> = {
   INSTAGRAM_FEED: {
@@ -57,16 +57,8 @@ const MOCK_CONTENT: Record<Platform, Partial<GeneratedContent>> = {
       'Sua saúde sexual importa 💙 A PrEP reduz em até 99% o risco de infecção pelo HIV. Disponível pelo SUS ou na Facilita PrEP — consulta online com infectologista em minutos.',
     firstLine: 'Proteja-se com a PrEP 💙',
     hashtags: [
-      'PrEP',
-      'PrevenãoHIV',
-      'SaúdeSexual',
-      'LGBT',
-      'FacilitaPrEP',
-      'Telemedicina',
-      'SaúdePública',
-      'HIV',
-      'SUS',
-      'Infectologia',
+      'PrEP', 'PrevenãoHIV', 'SaúdeSexual', 'LGBT', 'FacilitaPrEP',
+      'Telemedicina', 'SaúdePública', 'HIV', 'SUS', 'Infectologia',
     ],
   },
   INSTAGRAM_REEL: {
@@ -93,11 +85,8 @@ const MOCK_CONTENT: Record<Platform, Partial<GeneratedContent>> = {
   },
   GOOGLE_ADS: {
     headlines: [
-      'PrEP Online – Consulta Rápida',
-      'Previna o HIV com PrEP',
-      'Infectologista Online 24h',
-      'PrEP pelo SUS ou Online',
-      'Facilita PrEP – Agende Já',
+      'PrEP Online – Consulta Rápida', 'Previna o HIV com PrEP',
+      'Infectologista Online 24h', 'PrEP pelo SUS ou Online', 'Facilita PrEP – Agende Já',
     ],
     descriptions: [
       'Consulta com infectologista online. Receita em 24h. Prevenção do HIV acessível e sem julgamentos.',
@@ -108,40 +97,60 @@ const MOCK_CONTENT: Record<Platform, Partial<GeneratedContent>> = {
   },
   LINKEDIN_POST: {
     hook: 'A PrEP salva vidas — e ainda é subutilizada no Brasil.',
-    body: 'Como infectologista, vejo diariamente o impacto transformador da Profilaxia Pré-Exposição (PrEP) na vida de meus pacientes. Estudos mostram que a PrEP reduz o risco de infecção pelo HIV em até 99% quando usada corretamente. Apesar disso, estima-se que apenas 15% das pessoas elegíveis no Brasil têm acesso ao tratamento. Barreiras como estigma, falta de informação e dificuldade de acesso aos serviços de saúde ainda impedem que milhares de brasileiros se beneficiem dessa ferramenta. Na Clínica IASO e pela plataforma Facilita PrEP, trabalhamos para democratizar esse acesso, com atendimento humanizado, especializado e sem julgamentos. Precisamos falar mais sobre prevenção combinada do HIV.',
+    body: 'Como infectologista, vejo diariamente o impacto transformador da Profilaxia Pré-Exposição (PrEP) na vida de meus pacientes. Estudos mostram que a PrEP reduz o risco de infecção pelo HIV em até 99% quando usada corretamente. Apesar disso, estima-se que apenas 15% das pessoas elegíveis no Brasil têm acesso ao tratamento. Barreiras como estigma, falta de informação e dificuldade de acesso aos serviços de saúde ainda impedem que milhares de brasileiros se beneficiem dessa ferramenta. Na Clínica IASO e pela plataforma Facilita PrEP, trabalhamos para democratizar esse acesso, com atendimento humanizado, especializado e sem julgamentos.',
     cta: 'Marque um colega que trabalha na área de saúde sexual. Vamos ampliar essa conversa.',
     hashtags: ['Infectologia', 'PrEP', 'SaúdeSexual', 'HIV'],
   },
   YOUTUBE_SCRIPT: {
     segments: [
-      {
-        timeStart: '0s',
-        timeEnd: '5s',
-        text: 'Você sabia que existe um remédio que previne o HIV?',
-        direction: 'Close no rosto, expressão curiosa, fundo colorido',
-      },
-      {
-        timeStart: '5s',
-        timeEnd: '30s',
-        text: 'Chama-se PrEP — Profilaxia Pré-Exposição. Tomada todos os dias, ela reduz em até 99% o risco de contrair o HIV. Está disponível gratuitamente no SUS ou pela Facilita PrEP, com consulta online e sem julgamentos.',
-        direction: 'Infográfico animado mostrando comprimido e escudo protetor',
-      },
-      {
-        timeStart: '30s',
-        timeEnd: '45s',
-        text: 'Qualquer pessoa com risco aumentado de exposição ao HIV pode usar a PrEP. O infectologista vai avaliar seu caso e emitir a receita — tudo online, no conforto da sua casa.',
-        direction: 'Tela dividida: médico no computador / paciente em casa sorrindo',
-      },
-      {
-        timeStart: '45s',
-        timeEnd: '60s',
-        text: 'Não espere. Proteja-se hoje. Acesse facilitaprep.com.br e agende sua consulta.',
-        direction: 'Logo Facilita PrEP, URL grande, música animada',
-      },
+      { timeStart: '0s', timeEnd: '5s', text: 'Você sabia que existe um remédio que previne o HIV?', direction: 'Close no rosto, expressão curiosa, fundo colorido' },
+      { timeStart: '5s', timeEnd: '30s', text: 'Chama-se PrEP — Profilaxia Pré-Exposição. Tomada todos os dias, ela reduz em até 99% o risco de contrair o HIV. Está disponível gratuitamente no SUS ou pela Facilita PrEP, com consulta online e sem julgamentos.', direction: 'Infográfico animado mostrando comprimido e escudo protetor' },
+      { timeStart: '30s', timeEnd: '45s', text: 'Qualquer pessoa com risco aumentado de exposição ao HIV pode usar a PrEP. O infectologista vai avaliar seu caso e emitir a receita — tudo online, no conforto da sua casa.', direction: 'Tela dividida: médico no computador / paciente em casa sorrindo' },
+      { timeStart: '45s', timeEnd: '60s', text: 'Não espere. Proteja-se hoje. Acesse facilitaprep.com.br e agende sua consulta.', direction: 'Logo Facilita PrEP, URL grande, música animada' },
     ],
     caption: 'PrEP: prevenção do HIV disponível pelo SUS e online | Facilita PrEP',
   },
 };
+
+// ─── Mock image prompts ───────────────────────────────────────────────────────
+
+const MOCK_IMAGE_PROMPTS: Record<string, string> = {
+  facilita_prep_PORTRAIT:
+    'Close-up portrait of a confident young trans Brazilian woman, smiling directly at camera, holding a small white pill bottle with a heart on it. Warm studio lighting, colorful bokeh background in pride colors. Photorealistic, editorial style. No text.',
+  facilita_prep_SQUARE:
+    'A young Brazilian gay couple in their late 20s smiling confidently at a smartphone screen showing a telemedicine consultation. Modern apartment, warm natural light, diverse skin tones. Clean and empowering aesthetic. Soft blue and white color palette. No text.',
+  facilita_prep_LANDSCAPE:
+    'Split scene: a young diverse Brazilian person on a video call with a doctor on screen. Home environment on left, doctor office on right. Modern, warm colors. Empowering and accessible healthcare mood. No text.',
+  iaso_clinica_PORTRAIT:
+    'Professional Brazilian male doctor in his 40s, dark skin, white coat, in a modern clinic office in Brasília. Warm lighting, bookshelves with medical books, laptop open. Approachable and trustworthy expression. Vertical composition.',
+  iaso_clinica_SQUARE:
+    'Overhead view of a modern medical office desk with a stethoscope, laptop showing charts, coffee cup, and small Brazilian flag. Clean minimal aesthetic, neutral tones. Professional healthcare branding.',
+  iaso_clinica_LANDSCAPE:
+    'Wide shot of a modern medical clinic reception in Brasília with diverse staff and patients. Bright, clean environment. Professional, welcoming, inclusive atmosphere. No text.',
+};
+
+// ─── Image prompt generation config ──────────────────────────────────────────
+
+const IMAGE_PROMPT_SYSTEM = `
+Você é um diretor de arte especializado em campanhas de saúde sexual inclusiva para o Brasil.
+Cria prompts detalhados para geração de imagens por IA (Ideogram / DALL-E 3).
+
+REGRAS:
+- Pessoas diversas e representativas do público LGBT+ e saúde no Brasil
+- Nunca mostrar nudez, conteúdo sexual explícito ou estigmatizante
+- Cores quentes, ambientes acolhedores, linguagem visual empática
+- Para saúde: profissionais, ambientes médicos modernos, telemedicina
+- Estilo fotorrealista para anúncios de performance; ilustração para awareness
+- Responda APENAS com o prompt em inglês (mais preciso para IAs de imagem)
+- Máximo 200 palavras no prompt
+`.trim();
+
+export interface ImagePromptResult {
+  prompt: string;
+  negativePrompt: string;
+  aspectRatio: ImageAspectRatio;
+  style: ImageStyle;
+}
 
 // ─── Content Agent ────────────────────────────────────────────────────────────
 
@@ -156,6 +165,8 @@ export class ContentAgent {
     }
   }
 
+  // ── Text content ─────────────────────────────────────────────────────────────
+
   async generateContent(request: ContentRequest): Promise<GeneratedContent> {
     if (this.isSimulation || !this.client) {
       return this.simulateGeneration(request);
@@ -169,52 +180,36 @@ export class ContentAgent {
       audience: request.audience,
       brand: request.brand,
     });
-
     const mock = MOCK_CONTENT[request.platform] ?? {};
     const result: GeneratedContent = {
       platform: request.platform,
       brand: request.brand,
       generatedAt: new Date().toISOString(),
-      tokensUsed: 0, // simulation
+      tokensUsed: 0,
       ...mock,
     };
-
     logger.info('[SIMULATION] Conteúdo gerado com sucesso', {
       platform: request.platform,
-      previewKey: request.platform === 'INSTAGRAM_FEED' ? result.firstLine : result.hook,
+      previewKey: result.firstLine ?? result.hook,
     });
-
     return result;
   }
 
   private async callClaudeAPI(request: ContentRequest): Promise<GeneratedContent> {
     const promptFn = USER_PROMPTS[request.platform];
-    if (!promptFn) {
-      throw new Error(`Plataforma não suportada: ${request.platform}`);
-    }
-
-    const userPrompt = promptFn(request.audience, request.brand);
+    if (!promptFn) throw new Error(`Plataforma não suportada: ${request.platform}`);
 
     const response = await this.client!.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 1024,
       system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: userPrompt }],
+      messages: [{ role: 'user', content: promptFn(request.audience, request.brand) }],
     });
 
     const rawText = response.content[0].type === 'text' ? response.content[0].text : '';
-    const parsed = JSON.parse(rawText);
     const tokensUsed = response.usage.input_tokens + response.usage.output_tokens;
-
-    logger.info('Conteúdo gerado via Claude API', {
-      platform: request.platform,
-      audience: request.audience,
-      brand: request.brand,
-      tokensUsed,
-    });
-
-    const validated = this.validateAndMap(request, parsed, tokensUsed);
-    return validated;
+    logger.info('Conteúdo gerado via Claude API', { platform: request.platform, tokensUsed });
+    return this.validateAndMap(request, JSON.parse(rawText), tokensUsed);
   }
 
   private validateAndMap(
@@ -228,31 +223,45 @@ export class ContentAgent {
       generatedAt: new Date().toISOString(),
       tokensUsed,
     };
-
     switch (request.platform) {
-      case 'INSTAGRAM_FEED': {
-        const v = InstagramFeedSchema.parse(data);
-        return { ...base, ...v };
-      }
-      case 'INSTAGRAM_REEL': {
-        const v = InstagramReelSchema.parse(data);
-        return { ...base, ...v };
-      }
-      case 'GOOGLE_ADS': {
-        const v = GoogleAdsSchema.parse(data);
-        return { ...base, ...v };
-      }
-      case 'LINKEDIN_POST': {
-        const v = LinkedInSchema.parse(data);
-        return { ...base, ...v };
-      }
-      case 'YOUTUBE_SCRIPT': {
-        const v = YoutubeSchema.parse(data);
-        return { ...base, ...v };
-      }
-      default:
-        throw new Error(`Plataforma desconhecida: ${request.platform}`);
+      case 'INSTAGRAM_FEED':  return { ...base, ...InstagramFeedSchema.parse(data) };
+      case 'INSTAGRAM_REEL':  return { ...base, ...InstagramReelSchema.parse(data) };
+      case 'GOOGLE_ADS':      return { ...base, ...GoogleAdsSchema.parse(data) };
+      case 'LINKEDIN_POST':   return { ...base, ...LinkedInSchema.parse(data) };
+      case 'YOUTUBE_SCRIPT':  return { ...base, ...YoutubeSchema.parse(data) };
+      default: throw new Error(`Plataforma desconhecida: ${request.platform}`);
     }
+  }
+
+  // ── Image prompt ──────────────────────────────────────────────────────────────
+
+  async generateImagePrompt(
+    content: GeneratedContent,
+    aspectRatio: ImageAspectRatio = 'PORTRAIT',
+  ): Promise<ImagePromptResult> {
+    const negativePrompt =
+      'text, watermark, logo, nudity, explicit content, stigma, needle, blood, ugly, deformed, extra limbs';
+
+    if (this.isSimulation || !this.client) {
+      const key = `${content.brand}_${aspectRatio}`;
+      const prompt = MOCK_IMAGE_PROMPTS[key] ?? MOCK_IMAGE_PROMPTS['facilita_prep_PORTRAIT'];
+      logger.info('[SIMULATION] Image prompt gerado', { brand: content.brand, aspectRatio, chars: prompt.length });
+      return { prompt, negativePrompt, aspectRatio, style: 'PHOTOREALISTIC' };
+    }
+
+    const response = await this.client.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 300,
+      system: IMAGE_PROMPT_SYSTEM,
+      messages: [{
+        role: 'user',
+        content: `Crie um prompt de imagem para IA.\nMarca: ${content.brand}\nPlataforma: ${content.platform}\nGancho: ${content.firstLine ?? content.hook ?? ''}\nCorpo: ${(content.body ?? content.caption ?? '').slice(0, 200)}\nProporção: ${aspectRatio}\n\nRetorne APENAS o prompt em inglês.`,
+      }],
+    });
+
+    const prompt = response.content[0].type === 'text' ? response.content[0].text.trim() : '';
+    logger.info('Image prompt gerado via Claude', { brand: content.brand, chars: prompt.length });
+    return { prompt, negativePrompt, aspectRatio, style: 'PHOTOREALISTIC' };
   }
 }
 

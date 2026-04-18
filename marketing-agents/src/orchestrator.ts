@@ -8,6 +8,8 @@ import { googleAgent } from './agents/google-agent';
 import { linkedinAgent } from './agents/linkedin-agent';
 import { reportAgent } from './agents/report-agent';
 import { budgetOptimizer } from './optimizer/budget-optimizer';
+import { imageAgent } from './agents/image-agent';
+import { videoAgent } from './agents/video-agent';
 import { META_AUDIENCES, GOOGLE_KEYWORDS_PREP } from './config/targets';
 import type { AdCampaign, ChannelPerformance } from './types';
 
@@ -61,23 +63,56 @@ const session: {
 async function dailyContentPost() {
   logger.info('── Rotina: Postagem Diária de Conteúdo ──────────────────────────');
 
-  // Postagem orgânica Instagram — Facilita PrEP
+  // ── Instagram Feed com imagem gerada por IA ──────────────────────────────────
   const igContent = await contentAgent.generateContent({
     platform: 'INSTAGRAM_FEED',
     audience: 'lgbt_adulto_brasil',
     brand: 'facilita_prep',
   });
-  const igResult = await instagramAgent.postToInstagram(igContent);
+  const igImagePrompt = await contentAgent.generateImagePrompt(igContent, 'SQUARE');
+  const igImage = await imageAgent.generateForInstagramFeed(
+    igImagePrompt.prompt, igImagePrompt.negativePrompt, 'facilita_prep',
+  );
+  logger.info('Imagem Instagram gerada', { provider: igImage.provider, url: igImage.url.slice(0, 60) });
+  const igResult = await instagramAgent.postToInstagram(igContent, igImage.url);
   logger.info('Instagram result', { success: igResult.success, postId: igResult.postId });
 
-  // Postagem orgânica LinkedIn — Clínica IASO
+  // ── Instagram Reel com vídeo gerado por IA (Facilita PrEP) ───────────────────
+  const reelContent = await contentAgent.generateContent({
+    platform: 'YOUTUBE_SCRIPT',  // roteiro de 60s reutilizado para Reel
+    audience: 'lgbt_adulto_brasil',
+    brand: 'facilita_prep',
+  });
+  const reelScript = (reelContent.segments ?? []).map((s) => s.text).join(' ');
+  const reelVideo = await videoAgent.generateAnimatedReel(reelScript, 'facilita_prep');
+  logger.info('Reel gerado', { jobId: reelVideo.jobId, status: reelVideo.status, url: reelVideo.videoUrl?.slice(0, 60) });
+  // Post do Reel usando a thumbnail como imagem de capa
+  if (reelVideo.status === 'COMPLETED' && reelVideo.thumbnailUrl) {
+    const reelResult = await instagramAgent.postInstagramStory(reelVideo.thumbnailUrl, 'https://facilitaprep.com.br');
+    logger.info('Reel Story postado', { success: reelResult.success, postId: reelResult.postId });
+  }
+
+  // ── LinkedIn com imagem gerada por IA (Clínica IASO) ─────────────────────────
   const liContent = await contentAgent.generateContent({
     platform: 'LINKEDIN_POST',
     audience: 'profissionais_saude',
     brand: 'iaso_clinica',
   });
+  const liImagePrompt = await contentAgent.generateImagePrompt(liContent, 'LANDSCAPE');
+  const liImage = await imageAgent.generateForLinkedIn(liImagePrompt.prompt, liImagePrompt.negativePrompt);
+  logger.info('Imagem LinkedIn gerada', { provider: liImage.provider, url: liImage.url.slice(0, 60) });
   const liResult = await linkedinAgent.createOrganizationPost(liContent);
   logger.info('LinkedIn result', { success: liResult.success, postId: liResult.postId });
+
+  // ── Vídeo avatar Dr. Werciley (HeyGen) — LinkedIn / YouTube ──────────────────
+  const drVideoScript = (liContent.hook ?? '') + ' ' + (liContent.body ?? '').slice(0, 500);
+  const drVideo = await videoAgent.generateDrWercileyReel(drVideoScript);
+  logger.info('Vídeo Dr. Werciley submetido', {
+    jobId: drVideo.jobId,
+    provider: drVideo.provider,
+    status: drVideo.status,
+    url: drVideo.videoUrl?.slice(0, 60) ?? '(processando...)',
+  });
 
   // Google Ads — criar se não existir
   if (!session.google) {
