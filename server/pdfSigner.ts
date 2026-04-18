@@ -3,7 +3,6 @@ import { readFile } from 'fs/promises'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import forge from 'node-forge'
-import type { Paciente } from './types.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const CERTS_DIR = path.join(__dirname, 'certs')

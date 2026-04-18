@@ -8,8 +8,8 @@ import { db } from '../db.ts'
 import { accessTokens, pacientes } from '../../drizzle/schema.ts'
 import { eq, and, gt, isNull } from 'drizzle-orm'
 import { env } from '../_core/env.ts'
-import { JWT_EXPIRY_PATIENT, TOKEN_EXPIRY_DAYS } from '@shared/security-constants.ts'
-import { ERROR_MESSAGES } from '@shared/const.ts'
+import { JWT_EXPIRY_PATIENT, TOKEN_EXPIRY_DAYS } from '../../shared/security-constants.ts'
+import { ERROR_MESSAGES } from '../../shared/const.ts'
 
 function hashToken(raw: string): string {
   return createHash('sha256').update(raw).digest('hex')

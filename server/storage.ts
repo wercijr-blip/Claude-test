@@ -5,7 +5,7 @@ import type { Request, Response } from 'express'
 import { env } from './_core/env.ts'
 import { db } from './db.ts'
 import { exames } from '../drizzle/schema.ts'
-import { MAX_UPLOAD_SIZE_BYTES, ALLOWED_MIME_TYPES } from '@shared/security-constants.ts'
+import { MAX_UPLOAD_SIZE_BYTES, ALLOWED_MIME_TYPES } from '../shared/security-constants.ts'
 
 const s3 = new S3Client({
   region: env.AWS_REGION,

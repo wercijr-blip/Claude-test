@@ -1,6 +1,6 @@
 import { initTRPC, TRPCError } from '@trpc/server'
 import type { Context } from './context.ts'
-import type { AuthUser } from '@shared/types.ts'
+import type { AuthUser } from '../../shared/types.ts'
 
 const t = initTRPC.context<Context>().create()
 

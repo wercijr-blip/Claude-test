@@ -4,7 +4,7 @@ import { env } from './env.ts'
 import { db } from '../db.ts'
 import { users } from '../../drizzle/schema.ts'
 import { eq } from 'drizzle-orm'
-import type { AuthUser, PatientSession } from '@shared/types.ts'
+import type { AuthUser, PatientSession } from '../../shared/types.ts'
 
 export type SessionUser = AuthUser | PatientSession
 

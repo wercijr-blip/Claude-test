@@ -6,7 +6,7 @@ import { pacientes } from '../../drizzle/schema.ts'
 import { eq, and } from 'drizzle-orm'
 import { encrypt, decrypt, hashCpf } from '../_core/encryption.ts'
 import { validarCpf } from '../_core/cpfValidator.ts'
-import { ERROR_MESSAGES } from '@shared/const.ts'
+import { ERROR_MESSAGES } from '../../shared/const.ts'
 
 function assertPatient(session: unknown): asserts session is { type: 'patient'; tokenId: number; pacienteId: number | null } {
   if (!session || (session as { type: string }).type !== 'patient') {

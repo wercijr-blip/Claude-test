@@ -5,8 +5,8 @@ import { env } from '../_core/env.ts'
 import { db } from '../db.ts'
 import { users } from '../../drizzle/schema.ts'
 import { eq } from 'drizzle-orm'
-import { JWT_EXPIRY_STAFF } from '@shared/security-constants.ts'
-import type { Role } from '@shared/types.ts'
+import { JWT_EXPIRY_STAFF } from '../../shared/security-constants.ts'
+import type { Role } from '../../shared/types.ts'
 
 export const authRouter = router({
   // Callback OAuth — troca code por JWT interno

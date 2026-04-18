@@ -3,7 +3,7 @@ import { db } from './db.ts'
 import { exames } from '../drizzle/schema.ts'
 import { eq } from 'drizzle-orm'
 import { getPresignedUrl } from './storage.ts'
-import type { ResultadoIa } from '@shared/types.ts'
+import type { ResultadoIa } from '../shared/types.ts'
 
 export async function analisarExame(exameId: number): Promise<ResultadoIa> {
   const [exame] = await db.select().from(exames).where(eq(exames.id, exameId)).limit(1)

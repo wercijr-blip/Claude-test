@@ -1,5 +1,5 @@
 import rateLimit from 'express-rate-limit'
-import { RATE_LIMITS } from '@shared/security-constants.ts'
+import { RATE_LIMITS } from '../../shared/security-constants.ts'
 
 export const authLimiter = rateLimit({
   windowMs: RATE_LIMITS.AUTH.windowMs,

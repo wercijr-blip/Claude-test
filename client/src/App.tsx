@@ -7,6 +7,7 @@ import AuditDashboard from './components/AuditDashboard.tsx'
 import LoginPage from './components/LoginPage.tsx'
 import TokenEntryPage from './components/TokenEntryPage.tsx'
 import { parseJwtPayload } from './_core/hooks/useAuth.ts'
+import { trpc } from './lib/trpc.ts'
 
 export default function App() {
   const { token } = useAuth()
@@ -60,12 +61,11 @@ function Home() {
 
 function AuthCallback() {
   const { setToken } = useAuth()
-  const { trpc: trpcHooks } = require('./lib/trpc.ts')
 
   const params = new URLSearchParams(window.location.search)
   const code = params.get('code') ?? ''
 
-  const callbackMutation = trpcHooks.auth.callback.useMutation({
+  const callbackMutation = trpc.auth.callback.useMutation({
     onSuccess: (data: { token: string }) => {
       setToken(data.token)
       window.location.href = '/'

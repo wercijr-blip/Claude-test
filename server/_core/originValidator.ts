@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from 'express'
-import { ALLOWED_ORIGINS } from '@shared/security-constants.ts'
+import { ALLOWED_ORIGINS } from '../../shared/security-constants.ts'
 import { env } from './env.ts'
 
 export function validateOrigin(req: Request, res: Response, next: NextFunction): void {

@@ -4,7 +4,7 @@ import { TRPCError } from '@trpc/server'
 import { db } from '../db.ts'
 import { users, securityEvents } from '../../drizzle/schema.ts'
 import { eq, desc } from 'drizzle-orm'
-import type { Role } from '@shared/types.ts'
+import type { Role } from '../../shared/types.ts'
 
 export const adminRouter = router({
   // Listar equipe
