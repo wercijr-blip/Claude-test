@@ -132,40 +132,10 @@ export default function DuvidasPage() {
             </div>
           </div>
 
-          {/* PrEP injetável */}
-          <div className="bg-white rounded-2xl border border-purple-200 p-6 mt-4">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-2xl">💉</span>
-              <h3 className="font-bold text-slate-800">Novidade: PrEP subcutânea (injetável)</h3>
-              <span className="ml-auto text-xs bg-purple-100 text-purple-700 font-semibold px-2 py-0.5 rounded-full">Em breve no Facilita PrEP</span>
-            </div>
-            <p className="text-sm text-slate-600 leading-relaxed mb-4">
-              Além do comprimido diário, já existe uma opção injetável de longa duração:
-              o <strong>Cabotegravir injetável (CAB-LA)</strong>. Aprovado pela ANVISA, é aplicado
-              a cada <strong>2 meses</strong> por um profissional de saúde e demonstrou eficácia
-              <strong> superior à PrEP oral</strong> em estudos clínicos — tornando-se ideal para
-              quem tem dificuldade em tomar comprimidos diariamente.
+          <div className="bg-amber-50 rounded-2xl border border-amber-200 p-5 mt-4">
+            <p className="text-xs text-amber-800 leading-relaxed">
+              <strong>PrEP particular hoje:</strong> o medicamento oral (TDF/FTC) está disponível em farmácias e drogarias em todo o Brasil, mediante receita médica. O Facilita PrEP emite a receita com assinatura digital ICP-Brasil para você retirar onde preferir.
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {[
-                { emoji: '📅', titulo: 'A cada 2 meses', desc: 'Uma injeção subcutânea feita pela equipe de saúde' },
-                { emoji: '⚡', titulo: 'Alta eficácia', desc: 'Estudos mostram proteção superior ao comprimido diário' },
-                { emoji: '✅', titulo: 'Aprovado ANVISA', desc: 'Registrado no Brasil; disponível em clínicas particulares' },
-              ].map(({ emoji, titulo, desc }) => (
-                <div key={titulo} className="bg-purple-50 rounded-xl p-3 text-center">
-                  <div className="text-2xl mb-1">{emoji}</div>
-                  <p className="font-semibold text-purple-800 text-xs">{titulo}</p>
-                  <p className="text-xs text-purple-600 mt-0.5">{desc}</p>
-                </div>
-              ))}
-            </div>
-            <div className="mt-4 bg-purple-50 border border-purple-100 rounded-xl p-3">
-              <p className="text-xs text-purple-800 leading-relaxed">
-                🚀 <strong>Em breve disponível pelo Facilita PrEP:</strong> o agendamento da PrEP injetável,
-                com prescrição digital e acompanhamento pela nossa plataforma. Deixe seu e-mail no cadastro
-                para ser notificado quando disponível.
-              </p>
-            </div>
           </div>
         </section>
 
