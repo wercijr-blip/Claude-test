@@ -100,16 +100,16 @@ function Accordion({ items }: { items: typeof FAQS }) {
 
 export default function DuvidasPage() {
   return (
-    <div className="bg-slate-50 min-h-screen">
+    <div className="bg-warm-bg min-h-screen">
 
       {/* Hero */}
-      <div className="bg-gradient-to-br from-blue-700 to-blue-900 text-white px-4 py-16 text-center">
-        <p className="text-blue-300 text-sm font-medium mb-2 uppercase tracking-widest">Facilita PrEP</p>
+      <div className="bg-gradient-to-br from-brand-dark to-brand-deeper text-white px-4 py-16 text-center">
+        <p className="text-slate-300 text-sm font-medium mb-2 uppercase tracking-widest">Facilita PrEP</p>
         <h1 className="text-3xl sm:text-4xl font-bold mb-4">Tire suas dúvidas sobre PrEP</h1>
         <p className="text-blue-100 text-base max-w-xl mx-auto leading-relaxed">
           Tudo o que você precisa saber sobre a Profilaxia Pré-Exposição ao HIV e sobre como funciona o Facilita PrEP.
         </p>
-        <a href="/" className="inline-block mt-8 bg-white text-blue-700 font-semibold px-6 py-3 rounded-xl hover:bg-blue-50 transition-colors text-sm">
+        <a href="/" className="inline-block mt-8 bg-white text-brand font-semibold px-6 py-3 rounded-xl hover:bg-brand-pale transition-colors text-sm">
           Quero me cadastrar →
         </a>
       </div>
@@ -120,7 +120,7 @@ export default function DuvidasPage() {
         <section>
           <h2 className="text-2xl font-bold text-slate-800 mb-2">O que é o Facilita PrEP?</h2>
           <p className="text-sm text-slate-500 mb-6">Uma plataforma digital de saúde — não uma consulta médica convencional.</p>
-          <div className="bg-white rounded-2xl border border-blue-200 p-6 space-y-4">
+          <div className="bg-white rounded-2xl border border-brand-light p-6 space-y-4">
             <p className="text-sm text-slate-700 leading-relaxed">
               O <strong>Facilita PrEP</strong> é uma <strong>plataforma digital de saúde</strong> criada para
               democratizar e facilitar o acesso da população à PrEP — tanto pela rede pública quanto de forma particular.
@@ -134,17 +134,17 @@ export default function DuvidasPage() {
                 { emoji: '📋', titulo: 'Orientação sobre a PrEP', desc: 'Informações claras e baseadas em evidências para você tomar a melhor decisão.' },
                 { emoji: '💊', titulo: 'Prescrição digital', desc: 'Receita assinada digitalmente com certificado ICP-Brasil, com validade jurídica em todo o Brasil.' },
               ].map(({ emoji, titulo, desc }) => (
-                <div key={titulo} className="flex items-start gap-3 bg-blue-50 rounded-xl p-4">
+                <div key={titulo} className="flex items-start gap-3 bg-brand-pale rounded-xl p-4">
                   <span className="text-2xl shrink-0">{emoji}</span>
                   <div>
-                    <p className="font-semibold text-blue-800 text-sm">{titulo}</p>
-                    <p className="text-xs text-blue-700 mt-0.5 leading-relaxed">{desc}</p>
+                    <p className="font-semibold text-brand-dark text-sm">{titulo}</p>
+                    <p className="text-xs text-brand mt-0.5 leading-relaxed">{desc}</p>
                   </div>
                 </div>
               ))}
             </div>
-            <div className="bg-red-50 border border-red-200 rounded-xl p-4 mt-2">
-              <p className="text-xs text-red-800 leading-relaxed">
+            <div className="bg-terra-light border border-terra-light rounded-xl p-4 mt-2">
+              <p className="text-xs text-terra-dark leading-relaxed">
                 <strong>⚠️ Atenção:</strong> caso algum resultado de exame se mostre positivo para IST ou HIV,
                 a plataforma <strong>não substitui o acompanhamento clínico especializado</strong>.
                 Nessa situação, você será orientado a agendar uma consulta com seu médico de confiança
@@ -173,17 +173,17 @@ export default function DuvidasPage() {
                 { emoji: '🛡️', titulo: '>99% de eficácia', desc: 'Quando tomado corretamente e de forma contínua' },
                 { emoji: '🔬', titulo: 'Aprovado pela ANVISA', desc: 'Disponível no SUS desde 2017 e via planos/particular' },
               ].map(({ emoji, titulo, desc }) => (
-                <div key={titulo} className="bg-blue-50 rounded-xl p-4 text-center">
+                <div key={titulo} className="bg-brand-pale rounded-xl p-4 text-center">
                   <div className="text-3xl mb-2">{emoji}</div>
-                  <p className="font-semibold text-blue-800 text-sm">{titulo}</p>
-                  <p className="text-xs text-blue-700 mt-1">{desc}</p>
+                  <p className="font-semibold text-brand-dark text-sm">{titulo}</p>
+                  <p className="text-xs text-brand mt-1">{desc}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="bg-amber-50 rounded-2xl border border-amber-200 p-5 mt-4">
-            <p className="text-xs text-amber-800 leading-relaxed">
+          <div className="bg-honey-light rounded-2xl border border-honey-light p-5 mt-4">
+            <p className="text-xs text-honey-dark leading-relaxed">
               <strong>PrEP particular hoje:</strong> o medicamento oral (TDF/FTC) está disponível em farmácias e drogarias
               em todo o Brasil, mediante receita médica. O Facilita PrEP emite a receita com assinatura digital ICP-Brasil
               para você retirar onde preferir.
@@ -191,11 +191,11 @@ export default function DuvidasPage() {
           </div>
 
           {/* PrEP injetável */}
-          <div className="bg-white rounded-2xl border border-purple-200 p-6 mt-4">
+          <div className="bg-white rounded-2xl border border-brand-light p-6 mt-4">
             <div className="flex items-center gap-2 mb-3 flex-wrap">
               <span className="text-2xl">💉</span>
               <h3 className="font-bold text-slate-800">Novidade: PrEP subcutânea (injetável)</h3>
-              <span className="ml-auto text-xs bg-purple-100 text-purple-700 font-semibold px-2 py-0.5 rounded-full whitespace-nowrap">Em breve no Facilita PrEP</span>
+              <span className="ml-auto text-xs bg-brand-light text-brand-dark font-semibold px-2 py-0.5 rounded-full whitespace-nowrap">Em breve no Facilita PrEP</span>
             </div>
             <p className="text-sm text-slate-600 leading-relaxed mb-4">
               Além do comprimido diário, já existe uma opção injetável de longa duração:
@@ -210,15 +210,15 @@ export default function DuvidasPage() {
                 { emoji: '⚡', titulo: 'Alta eficácia', desc: 'Estudos mostram proteção superior ao comprimido diário' },
                 { emoji: '✅', titulo: 'Aprovado pela ANVISA', desc: 'Registrado no Brasil; disponível em clínicas particulares' },
               ].map(({ emoji, titulo, desc }) => (
-                <div key={titulo} className="bg-purple-50 rounded-xl p-3 text-center">
+                <div key={titulo} className="bg-brand-pale rounded-xl p-3 text-center">
                   <div className="text-2xl mb-1">{emoji}</div>
-                  <p className="font-semibold text-purple-800 text-xs">{titulo}</p>
-                  <p className="text-xs text-purple-600 mt-0.5">{desc}</p>
+                  <p className="font-semibold text-brand-dark text-xs">{titulo}</p>
+                  <p className="text-xs text-brand mt-0.5">{desc}</p>
                 </div>
               ))}
             </div>
-            <div className="mt-4 bg-purple-50 border border-purple-100 rounded-xl p-3">
-              <p className="text-xs text-purple-800 leading-relaxed">
+            <div className="mt-4 bg-brand-pale border border-brand-light rounded-xl p-3">
+              <p className="text-xs text-brand-dark leading-relaxed">
                 🚀 <strong>Em breve disponível pelo Facilita PrEP:</strong> agendamento da PrEP injetável com prescrição digital e acompanhamento pela nossa plataforma. Faça seu cadastro para ser notificado quando disponível.
               </p>
             </div>
@@ -247,8 +247,8 @@ export default function DuvidasPage() {
                 </div>
               ))}
             </div>
-            <div className="mt-5 bg-amber-50 border border-amber-200 rounded-xl p-4">
-              <p className="text-xs text-amber-800 leading-relaxed">
+            <div className="mt-5 bg-honey-light border border-honey-light rounded-xl p-4">
+              <p className="text-xs text-honey-dark leading-relaxed">
                 <strong>Importante:</strong> a indicação final é sempre do médico, após avaliação clínica e exames.
                 O Facilita PrEP conecta você a um médico especializado de forma rápida e sigilosa.
               </p>
@@ -263,7 +263,7 @@ export default function DuvidasPage() {
           <div className="space-y-3">
             {PASSOS.map((p) => (
               <div key={p.num} className="bg-white rounded-2xl border border-slate-200 p-5 flex gap-4 items-start">
-                <div className="w-9 h-9 rounded-full bg-blue-600 text-white text-sm font-bold flex items-center justify-center shrink-0">
+                <div className="w-9 h-9 rounded-full bg-brand text-white text-sm font-bold flex items-center justify-center shrink-0">
                   {p.num}
                 </div>
                 <div>
@@ -290,9 +290,9 @@ export default function DuvidasPage() {
                 <li>✗ Possível exposição em ambiente de saúde pública</li>
               </ul>
             </div>
-            <div className="bg-blue-50 rounded-2xl border border-blue-200 p-5">
-              <p className="font-bold text-blue-800 mb-3">💻 Facilita PrEP (particular / plano)</p>
-              <ul className="text-xs text-blue-800 space-y-2">
+            <div className="bg-brand-pale rounded-2xl border border-brand-light p-5">
+              <p className="font-bold text-brand-dark mb-3">💻 Facilita PrEP (particular / plano)</p>
+              <ul className="text-xs text-brand-dark space-y-2">
                 <li>✓ Atendimento 100% online e ágil</li>
                 <li>✓ Receita assinada digitalmente em horas</li>
                 <li>✓ Total sigilo e privacidade</li>
@@ -304,25 +304,25 @@ export default function DuvidasPage() {
           </div>
 
           {/* SUS UDM Locator */}
-          <div className="mt-4 bg-green-50 rounded-2xl border border-green-200 p-5">
+          <div className="mt-4 bg-sage-pale rounded-2xl border border-sage-light p-5">
             <div className="flex items-center gap-2 mb-3">
               <span className="text-xl">🗺️</span>
-              <h3 className="font-bold text-green-800 text-sm">Como encontrar a UDM mais próxima de você</h3>
+              <h3 className="font-bold text-sage-dark text-sm">Como encontrar a UDM mais próxima de você</h3>
             </div>
-            <p className="text-xs text-green-800 leading-relaxed mb-4">
+            <p className="text-xs text-sage-dark leading-relaxed mb-4">
               As <strong>Unidades Dispensadoras de Medicamentos (UDMs)</strong> são os postos do SUS onde você retira a PrEP gratuitamente. Para localizar a unidade mais próxima:
             </p>
-            <ol className="text-xs text-green-800 space-y-2 mb-4">
+            <ol className="text-xs text-sage-dark space-y-2 mb-4">
               <li className="flex items-start gap-2">
-                <span className="bg-green-200 text-green-900 font-bold rounded-full w-5 h-5 flex items-center justify-center shrink-0 text-xs">1</span>
+                <span className="bg-sage-light text-sage-dark font-bold rounded-full w-5 h-5 flex items-center justify-center shrink-0 text-xs">1</span>
                 <span>Acesse o site oficial do Departamento de HIV, Hepatites Virais e IST</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="bg-green-200 text-green-900 font-bold rounded-full w-5 h-5 flex items-center justify-center shrink-0 text-xs">2</span>
+                <span className="bg-sage-light text-sage-dark font-bold rounded-full w-5 h-5 flex items-center justify-center shrink-0 text-xs">2</span>
                 <span>Clique em <strong>"Consulte uma UDM"</strong></span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="bg-green-200 text-green-900 font-bold rounded-full w-5 h-5 flex items-center justify-center shrink-0 text-xs">3</span>
+                <span className="bg-sage-light text-sage-dark font-bold rounded-full w-5 h-5 flex items-center justify-center shrink-0 text-xs">3</span>
                 <span>Escolha o seu <strong>estado</strong> para ver as unidades disponíveis</span>
               </li>
             </ol>
@@ -330,7 +330,7 @@ export default function DuvidasPage() {
               href="https://azt.aids.gov.br"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 bg-green-600 text-white text-xs font-semibold px-4 py-2.5 rounded-xl hover:bg-green-700 transition-colors"
+              className="inline-flex items-center gap-2 bg-sage text-white text-xs font-semibold px-4 py-2.5 rounded-xl hover:bg-sage-dark transition-colors"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -346,8 +346,8 @@ export default function DuvidasPage() {
               O que levar para retirar sua PrEP na rede pública
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="bg-blue-50 rounded-xl p-4">
-                <p className="text-xs font-bold text-blue-800 mb-3">🆕 Primeira retirada</p>
+              <div className="bg-brand-pale rounded-xl p-4">
+                <p className="text-xs font-bold text-brand-dark mb-3">🆕 Primeira retirada</p>
                 <ul className="space-y-1.5">
                   {[
                     'Ficha de Cadastro',
@@ -355,33 +355,33 @@ export default function DuvidasPage() {
                     'Formulário PrEP',
                     'Exame Anti-HIV (menos de 7 dias)',
                   ].map(item => (
-                    <li key={item} className="flex items-start gap-1.5 text-xs text-blue-800">
-                      <svg className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <li key={item} className="flex items-start gap-1.5 text-xs text-brand-dark">
+                      <svg className="w-3.5 h-3.5 text-brand shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                       </svg>
                       {item}
                     </li>
                   ))}
                 </ul>
-                <p className="text-xs text-blue-600 mt-3 italic">Todos gerados pelo Facilita PrEP.</p>
+                <p className="text-xs text-brand mt-3 italic">Todos gerados pelo Facilita PrEP.</p>
               </div>
-              <div className="bg-emerald-50 rounded-xl p-4">
-                <p className="text-xs font-bold text-emerald-800 mb-3">🔄 Já uso PrEP regularmente</p>
+              <div className="bg-sage-pale rounded-xl p-4">
+                <p className="text-xs font-bold text-sage-dark mb-3">🔄 Já uso PrEP regularmente</p>
                 <ul className="space-y-1.5">
                   {[
                     'Receita Médica',
                     'Formulário PrEP',
                     'Exame Anti-HIV (menos de 7 dias)',
                   ].map(item => (
-                    <li key={item} className="flex items-start gap-1.5 text-xs text-emerald-800">
-                      <svg className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <li key={item} className="flex items-start gap-1.5 text-xs text-sage-dark">
+                      <svg className="w-3.5 h-3.5 text-sage shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                       </svg>
                       {item}
                     </li>
                   ))}
                 </ul>
-                <p className="text-xs text-emerald-600 mt-3 italic">Todos gerados pelo Facilita PrEP.</p>
+                <p className="text-xs text-sage mt-3 italic">Todos gerados pelo Facilita PrEP.</p>
               </div>
             </div>
           </div>
@@ -395,25 +395,25 @@ export default function DuvidasPage() {
             {[
               {
                 icone: '🔴',
-                cor: 'border-red-100 bg-red-50',
-                corTitulo: 'text-red-800',
-                corTexto: 'text-red-700',
+                cor: 'border-terra-light bg-terra-light',
+                corTitulo: 'text-terra-dark',
+                corTexto: 'text-terra',
                 titulo: 'Exame de HIV — obrigatório a cada renovação',
                 desc: 'O resultado deve ter sido realizado há menos de 7 dias. O diagnóstico prévio de HIV contraindicaria a PrEP — por isso a confirmação periódica é indispensável e protege você.',
               },
               {
                 icone: '🟡',
-                cor: 'border-amber-100 bg-amber-50',
-                corTitulo: 'text-amber-800',
-                corTexto: 'text-amber-700',
+                cor: 'border-honey-light bg-honey-light',
+                corTitulo: 'text-honey-dark',
+                corTexto: 'text-honey',
                 titulo: 'Exames de IST — a cada 3 meses (ou ao menor sinal de infecção)',
                 desc: 'A PrEP protege contra o HIV, mas não contra sífilis, gonorreia, clamídia ou hepatites. O rastreamento trimestral — ou sempre que houver suspeita — garante diagnóstico e tratamento precoce. Por isso o Facilita PrEP sempre gera as requisições de sorológicos junto com a prescrição.',
               },
               {
                 icone: '🦴',
-                cor: 'border-purple-100 bg-purple-50',
-                corTitulo: 'text-purple-800',
-                corTexto: 'text-purple-700',
+                cor: 'border-brand-light bg-brand-pale',
+                corTitulo: 'text-brand-dark',
+                corTexto: 'text-brand-dark',
                 titulo: 'Densitometria óssea — anualmente',
                 desc: 'O Tenofovir (TDF), componente da PrEP oral, pode reduzir a densidade mineral óssea em uso prolongado, aumentando o risco de osteoporose. O exame anual de densitometria detecta alterações precocemente, permitindo ajuste de conduta ou suplementação antes que haja impacto clínico significativo.',
               },
@@ -434,14 +434,14 @@ export default function DuvidasPage() {
         </section>
 
         {/* CTA final */}
-        <section className="bg-blue-700 rounded-2xl p-8 text-center text-white">
+        <section className="bg-brand-dark rounded-2xl p-8 text-center text-white">
           <h2 className="text-xl font-bold mb-2">Pronto para começar?</h2>
           <p className="text-blue-100 text-sm mb-6 leading-relaxed">
             Cadastre-se agora e receba sua receita de PrEP com assinatura digital ICP-Brasil em poucas horas.
           </p>
           <a
             href="/"
-            className="inline-block bg-white text-blue-700 font-bold px-8 py-3 rounded-xl hover:bg-blue-50 transition-colors"
+            className="inline-block bg-white text-brand font-bold px-8 py-3 rounded-xl hover:bg-brand-pale transition-colors"
           >
             Fazer cadastro →
           </a>

@@ -1,12 +1,12 @@
 export default function FooterCfm() {
   return (
-    <footer className="w-full bg-slate-800 text-slate-300 mt-auto">
+    <footer className="w-full bg-warm-dark text-slate-300 mt-auto">
       {/* Faixa de destaque do RT */}
-      <div className="bg-blue-900 px-4 py-3 text-center">
+      <div className="bg-warm-darker px-4 py-3 text-center">
         <p className="text-sm font-semibold text-white leading-tight">
           Responsável Técnico: Dr. Werciley Saraiva Vieira Júnior
         </p>
-        <p className="text-sm text-blue-200 font-medium">CRM/DF 16381</p>
+        <p className="text-sm text-slate-400 font-medium">CRM/DF 16381</p>
       </div>
 
       {/* Informações institucionais */}
