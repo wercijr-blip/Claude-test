@@ -9,6 +9,7 @@ import AuditDashboard from './components/AuditDashboard.tsx'
 import LoginPage from './components/LoginPage.tsx'
 import TokenEntryPage from './components/TokenEntryPage.tsx'
 import PesquisaSatisfacao from './components/PesquisaSatisfacao.tsx'
+import DuvidasPage from './components/DuvidasPage.tsx'
 import FooterCfm from './components/FooterCfm.tsx'
 import { parseJwtPayload } from './_core/hooks/useAuth.ts'
 import { trpc } from './lib/trpc.ts'
@@ -38,6 +39,7 @@ export default function App() {
           <Route path="/admin">
             {role === 'admin' ? <AuditDashboard /> : <LoginPage />}
           </Route>
+          <Route path="/duvidas" component={DuvidasPage} />
           <Route path="/pesquisa/:pacienteId/:token" component={PesquisaSatisfacao} />
           <Route path="/pagamento/sucesso" component={PagamentoSucesso} />
           <Route path="/pagamento/cancelado" component={PagamentoCancelado} />

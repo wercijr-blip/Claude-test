@@ -66,8 +66,11 @@ export default function FooterCfm() {
       </div>
 
       {/* Linha inferior */}
-      <div className="border-t border-slate-700 px-4 py-3 text-center text-xs text-slate-500">
-        © {new Date().getFullYear()} Iaso Saúde Hospital Dia — Todos os direitos reservados
+      <div className="border-t border-slate-700 px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
+        <span>© {new Date().getFullYear()} Iaso Saúde Hospital Dia — Todos os direitos reservados</span>
+        <a href="/duvidas" className="text-slate-400 hover:text-white transition-colors">
+          Dúvidas sobre PrEP →
+        </a>
       </div>
     </footer>
   )
