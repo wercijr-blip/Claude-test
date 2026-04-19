@@ -89,6 +89,7 @@ export default function IntakePage() {
   const [carteirinhaKey, setCarteirinhaKey] = useState<string | null>(null)
   const [documentoKey, setDocumentoKey] = useState<string | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const [planosAbertos, setPlanosAbertos] = useState(false)
 
   useEffect(() => {
     const interval = setInterval(() => setDentroHorario(isDentroHorarioAtendimento()), 60_000)
@@ -261,6 +262,90 @@ export default function IntakePage() {
             </div>
           </div>
         </main>
+
+        {/* ── Como funciona o Facilita PrEP ── */}
+        <section className="max-w-6xl mx-auto px-4 pb-12">
+          <div className="text-center mb-10">
+            <h2 className="text-2xl font-bold text-slate-800">Como utilizar o Facilita PrEP</h2>
+            <p className="text-slate-500 text-sm mt-2">Do cadastro à receita — em poucos passos, sem sair de casa.</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+            {[
+              {
+                n: '1', cor: 'bg-blue-600', titulo: 'Cadastro e escolha do tipo',
+                desc: 'Informe nome, CPF, e-mail e telefone. Escolha atendimento particular ou via plano de saúde aceito pela plataforma.',
+              },
+              {
+                n: '2', cor: 'bg-teal-600', titulo: 'Exame de HIV válido',
+                desc: 'Envie seu exame Anti-HIV realizado há menos de 7 dias. Sem exame? O Facilita PrEP gera o pedido assinado digitalmente para você levar ao laboratório.',
+              },
+              {
+                n: '3', cor: 'bg-indigo-600', titulo: 'Validação por IA + médico',
+                desc: 'O exame é analisado automaticamente por IA sob supervisão médica. A validação é ágil, segura e sigilosa.',
+              },
+              {
+                n: '4', cor: 'bg-emerald-600', titulo: 'Formulário clínico',
+                desc: 'Com o exame validado, preencha o formulário de triagem clínica. Os dados do cadastro já vêm pré-preenchidos.',
+              },
+              {
+                n: '5', cor: 'bg-violet-600', titulo: 'Documentos no seu e-mail',
+                desc: 'Receita, formulário clínico e ficha de cadastro — todos assinados digitalmente com certificado ICP-Brasil — chegam ao seu e-mail em horas.',
+              },
+              {
+                n: '6', cor: 'bg-rose-500', titulo: 'Retire sua PrEP',
+                desc: 'Com a receita em mãos, retire o TDF/FTC em qualquer farmácia ou drogaria. Pelo SUS, procure a UDM mais próxima.',
+              },
+            ].map(({ n, cor, titulo, desc }) => (
+              <div key={n} className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-shadow">
+                <div className={`w-9 h-9 ${cor} text-white rounded-xl flex items-center justify-center text-sm font-bold mb-3`}>{n}</div>
+                <p className="font-semibold text-slate-800 text-sm mb-1.5">{titulo}</p>
+                <p className="text-slate-500 text-xs leading-relaxed">{desc}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Planos aceitos */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <button
+              onClick={() => setPlanosAbertos(v => !v)}
+              className="w-full flex items-center justify-between px-6 py-5 text-left hover:bg-slate-50 transition-colors"
+            >
+              <div>
+                <p className="font-semibold text-slate-800">Veja os planos que atualmente aceitamos</p>
+                <p className="text-slate-500 text-xs mt-0.5">Atendemos os principais convênios médicos — clique para conferir a lista</p>
+              </div>
+              <svg
+                className={`w-5 h-5 text-slate-400 shrink-0 transition-transform ${planosAbertos ? 'rotate-180' : ''}`}
+                fill="none" viewBox="0 0 24 24" stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {planosAbertos && (
+              <div className="px-6 pb-6 border-t border-slate-100">
+                <p className="text-xs text-slate-500 mt-4 mb-4 leading-relaxed">
+                  Confira abaixo os planos atualmente aceitos pela plataforma. Novos convênios são adicionados periodicamente.
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 mb-4">
+                  {PLANOS_VALIDOS.filter(p => p !== 'Outro').map(plano => (
+                    <div key={plano} className="flex items-center gap-1.5 text-xs text-slate-700 bg-slate-50 rounded-lg px-3 py-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
+                      {plano}
+                    </div>
+                  ))}
+                </div>
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                  <p className="text-xs text-amber-800 leading-relaxed">
+                    <strong>⚠️ Atenção:</strong> esta lista pode sofrer modificações conforme as contratualizações vigentes.
+                    Em caso de dúvida, entre em contato com nossa equipe antes de iniciar o cadastro.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
       </div>
     )
   }

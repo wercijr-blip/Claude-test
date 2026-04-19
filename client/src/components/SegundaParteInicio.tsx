@@ -123,6 +123,7 @@ export default function SegundaParteInicio() {
         <button onClick={() => navigate('/formulario')} className={btnPrimary}>
           Continuar para o formulário clínico →
         </button>
+        <OndeRetirarPrep />
       </StatusCard>
     )
   }
@@ -360,6 +361,8 @@ export default function SegundaParteInicio() {
               Enviar resultado do exame HIV →
             </button>
           </div>
+
+          <OndeRetirarPrep />
         </div>
       </PageShell>
     )
@@ -431,6 +434,70 @@ export default function SegundaParteInicio() {
         </div>
       </div>
     </PageShell>
+  )
+}
+
+function OndeRetirarPrep() {
+  return (
+    <div className="mt-8 border-t border-slate-100 pt-6">
+      <p className="text-sm font-semibold text-slate-700 mb-4 flex items-center gap-2">
+        <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+        Saiba onde retirar sua PrEP
+      </p>
+
+      <div className="space-y-3">
+        {/* Particular */}
+        <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-lg">💊</span>
+            <p className="font-semibold text-blue-800 text-sm">Farmácias e drogarias (particular)</p>
+          </div>
+          <p className="text-blue-700 text-xs leading-relaxed">
+            Com a receita emitida pelo Facilita PrEP (assinada digitalmente com ICP-Brasil),
+            você pode retirar o <strong>TDF/FTC</strong> em qualquer farmácia ou drogaria do Brasil.
+            A receita tem validade jurídica e é aceita em todo o território nacional.
+          </p>
+        </div>
+
+        {/* SUS */}
+        <div className="bg-green-50 border border-green-100 rounded-2xl p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-lg">🏥</span>
+            <p className="font-semibold text-green-800 text-sm">Rede pública (SUS — gratuito)</p>
+          </div>
+          <p className="text-green-700 text-xs leading-relaxed mb-3">
+            A PrEP é distribuída gratuitamente nas <strong>Unidades Dispensadoras de Medicamentos (UDMs)</strong>.
+            Para localizar a unidade mais próxima de você:
+          </p>
+          <ol className="text-xs text-green-800 space-y-1 mb-3">
+            {[
+              'Acesse o site oficial do Departamento de HIV, Hepatites Virais e IST',
+              'Clique em "Consulte uma UDM"',
+              'Escolha o seu estado para ver as unidades disponíveis',
+            ].map((step, i) => (
+              <li key={i} className="flex items-start gap-2">
+                <span className="bg-green-200 text-green-900 font-bold rounded-full w-4 h-4 flex items-center justify-center shrink-0 text-xs mt-0.5">{i + 1}</span>
+                <span>{step}</span>
+              </li>
+            ))}
+          </ol>
+          <a
+            href="https://azt.aids.gov.br"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 bg-green-600 text-white text-xs font-semibold px-3 py-2 rounded-xl hover:bg-green-700 transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+            Acessar azt.aids.gov.br → Consulte uma UDM
+          </a>
+        </div>
+      </div>
+    </div>
   )
 }
 
