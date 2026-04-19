@@ -23,8 +23,8 @@ const FAQS = [
     a: 'Não. A PrEP protege especificamente contra o HIV. Ela não previne sífilis, gonorreia, clamídia, herpes ou hepatites. Por isso, o uso de preservativo continua sendo recomendado em conjunto com a PrEP para proteção ampla. O acompanhamento regular inclui triagem periódica para essas infecções.',
   },
   {
-    q: 'Posso fazer PrEP pelo SUS gratuitamente?',
-    a: 'Sim. A PrEP está disponível gratuitamente no SUS desde 2017 para pessoas em situação de risco aumentado para o HIV. Basta comparecer a um Serviço de Atenção Especializada (SAE) ou Unidade Dispensadora de Medicamentos (UDM) com exames recentes. O Facilita PrEP é uma opção para quem prefere comodidade, rapidez e atendimento digital particular ou via plano de saúde.',
+    q: 'Posso fazer PrEP pelo SUS?',
+    a: 'Sim. A PrEP está disponível no SUS desde 2017 para pessoas em situação de risco aumentado para o HIV. Basta comparecer a um Serviço de Atenção Especializada (SAE) ou Unidade Dispensadora de Medicamentos (UDM) com exames recentes. O Facilita PrEP é uma opção para quem prefere comodidade, rapidez e atendimento digital particular ou via plano de saúde.',
   },
   {
     q: 'Preciso tomar a PrEP todo dia? E se esquecer um dia?',
@@ -198,7 +198,7 @@ export default function DuvidasPage() {
               <li className="flex items-start gap-2">
                 <span className="text-honey font-bold mt-0.5">🏥</span>
                 <span>
-                  <strong>Pela rede pública (SUS — gratuito):</strong> leve o formulário PrEP, a receita e o exame de HIV (&lt; 7 dias) à UDM mais próxima e retire o TDF/FTC sem custo.
+                  <strong>Pela rede pública (SUS):</strong> leve o formulário PrEP, a receita e o exame de HIV (&lt; 7 dias) à UDM mais próxima e retire o TDF/FTC.
                 </span>
               </li>
               <li className="flex items-start gap-2">
@@ -303,10 +303,10 @@ export default function DuvidasPage() {
           <h2 className="font-display text-3xl font-light text-fp-dark mb-6">PrEP no SUS × PrEP particular</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="bg-white rounded-2xl border border-slate-200 p-5">
-              <p className="font-bold text-slate-800 mb-3">🏥 SUS (gratuito)</p>
+              <p className="font-bold text-slate-800 mb-3">🏥 SUS</p>
               <ul className="text-xs text-slate-600 space-y-2">
-                <li>✓ Medicamento gratuito</li>
-                <li>✓ Exames periódicos gratuitos</li>
+                <li>✓ Medicamento fornecido pelo SUS</li>
+                <li>✓ Exames periódicos pelo SUS</li>
                 <li>✗ Necessário comparecer presencialmente ao SAE/UDM</li>
                 <li>✗ Fila de espera em algumas cidades</li>
                 <li>✗ Horários limitados</li>
@@ -333,7 +333,7 @@ export default function DuvidasPage() {
               <h3 className="font-bold text-sage-dark text-sm">Como encontrar a UDM mais próxima de você</h3>
             </div>
             <p className="text-xs text-sage-dark leading-relaxed mb-4">
-              As <strong>Unidades Dispensadoras de Medicamentos (UDMs)</strong> são os postos do SUS onde você retira a PrEP gratuitamente. Para localizar a unidade mais próxima:
+              As <strong>Unidades Dispensadoras de Medicamentos (UDMs)</strong> são os postos do SUS onde você retira a PrEP. Para localizar a unidade mais próxima:
             </p>
             <ol className="text-xs text-sage-dark space-y-2 mb-4">
               <li className="flex items-start gap-2">

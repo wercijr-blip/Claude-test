@@ -252,7 +252,7 @@ export default function IntakePage() {
             {/* SUS note */}
             <div className="mt-4 bg-white/70 border border-slate-200 rounded-2xl p-4 text-center">
               <p className="text-xs text-slate-500">
-                Quer a PrEP gratuitamente pelo SUS?{' '}
+                Quer a PrEP pelo SUS?{' '}
                 <a href="/duvidas" className="text-brand hover:underline font-medium">Veja como encontrar a UDM mais próxima →</a>
               </p>
             </div>

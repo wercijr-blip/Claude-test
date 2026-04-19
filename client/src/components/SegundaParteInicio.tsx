@@ -460,10 +460,10 @@ function OndeRetirarPrep() {
         <div className="bg-sage-pale border border-sage-light rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-lg">🏥</span>
-            <p className="font-semibold text-sage-dark text-sm">Rede pública (SUS — gratuito)</p>
+            <p className="font-semibold text-sage-dark text-sm">Rede pública (SUS)</p>
           </div>
           <p className="text-sage text-xs leading-relaxed mb-3">
-            A PrEP é distribuída gratuitamente nas <strong>Unidades Dispensadoras de Medicamentos (UDMs)</strong>.
+            A PrEP é distribuída pelas <strong>Unidades Dispensadoras de Medicamentos (UDMs)</strong>.
             Para localizar a unidade mais próxima de você:
           </p>
           <ol className="text-xs text-sage-dark space-y-1 mb-3">
