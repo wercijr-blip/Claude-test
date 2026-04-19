@@ -49,6 +49,14 @@ const FAQS = [
     q: 'Meu plano de saúde cobre a PrEP?',
     a: 'Depende do plano. Pelo Rol de Procedimentos da ANS, os planos de saúde são obrigados a cobrir consultas médicas e exames laboratoriais. A cobertura do medicamento em si (TDF/FTC) pode variar. O Facilita PrEP aceita os principais planos — nossa equipe verifica a cobertura após o cadastro e informa você antes de qualquer cobrança.',
   },
+  {
+    q: 'O que levar para retirar minha PrEP na rede pública (UDM)?',
+    a: 'Se for sua primeira retirada, leve: Ficha de Cadastro, Receita Médica, Formulário PrEP e o resultado do exame Anti-HIV realizado há menos de 7 dias. Todos esses documentos são gerados pelo Facilita PrEP com assinatura digital ICP-Brasil. Se já usa PrEP regularmente, leve: Receita Médica, Formulário PrEP e o resultado do exame Anti-HIV com menos de 7 dias — também gerados pela plataforma. Localize a UDM mais próxima em azt.aids.gov.br → "Consulte uma UDM".',
+  },
+  {
+    q: 'Por que recebo pedidos de exames de IST, HIV e densitometria óssea?',
+    a: 'Os pedidos de exame fazem parte do protocolo de acompanhamento seguro da PrEP. O exame de HIV é obrigatório antes de cada renovação (resultado com menos de 7 dias). Os exames de IST (sífilis, hepatite, gonorreia, clamídia) devem ser realizados a cada 3 meses — ou sempre que houver suspeita de infecção sexual, pois a PrEP não protege contra essas infecções. A densitometria óssea deve ser feita anualmente: o Tenofovir (TDF), componente da PrEP oral, pode reduzir a densidade mineral óssea em uso prolongado, aumentando o risco de osteoporose. O monitoramento garante que qualquer alteração seja identificada e tratada precocemente.',
+  },
 ]
 
 const PASSOS = [
@@ -329,6 +337,92 @@ export default function DuvidasPage() {
               </svg>
               Acessar azt.aids.gov.br → Consulte uma UDM
             </a>
+          </div>
+
+          {/* O que levar à UDM */}
+          <div className="mt-4 bg-white rounded-2xl border border-slate-200 p-5">
+            <p className="font-bold text-slate-800 text-sm mb-4 flex items-center gap-2">
+              <span className="text-lg">📋</span>
+              O que levar para retirar sua PrEP na rede pública
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="bg-blue-50 rounded-xl p-4">
+                <p className="text-xs font-bold text-blue-800 mb-3">🆕 Primeira retirada</p>
+                <ul className="space-y-1.5">
+                  {[
+                    'Ficha de Cadastro',
+                    'Receita Médica',
+                    'Formulário PrEP',
+                    'Exame Anti-HIV (menos de 7 dias)',
+                  ].map(item => (
+                    <li key={item} className="flex items-start gap-1.5 text-xs text-blue-800">
+                      <svg className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                      </svg>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-xs text-blue-600 mt-3 italic">Todos gerados pelo Facilita PrEP.</p>
+              </div>
+              <div className="bg-emerald-50 rounded-xl p-4">
+                <p className="text-xs font-bold text-emerald-800 mb-3">🔄 Já uso PrEP regularmente</p>
+                <ul className="space-y-1.5">
+                  {[
+                    'Receita Médica',
+                    'Formulário PrEP',
+                    'Exame Anti-HIV (menos de 7 dias)',
+                  ].map(item => (
+                    <li key={item} className="flex items-start gap-1.5 text-xs text-emerald-800">
+                      <svg className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                      </svg>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-xs text-emerald-600 mt-3 italic">Todos gerados pelo Facilita PrEP.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Por que recebo pedidos de exames */}
+        <section>
+          <h2 className="text-2xl font-bold text-slate-800 mb-2">Por que recebo pedidos de exames de IST, HIV e densitometria?</h2>
+          <p className="text-sm text-slate-500 mb-6">O acompanhamento laboratorial é parte essencial do protocolo seguro da PrEP.</p>
+          <div className="space-y-4">
+            {[
+              {
+                icone: '🔴',
+                cor: 'border-red-100 bg-red-50',
+                corTitulo: 'text-red-800',
+                corTexto: 'text-red-700',
+                titulo: 'Exame de HIV — obrigatório a cada renovação',
+                desc: 'O resultado deve ter sido realizado há menos de 7 dias. O diagnóstico prévio de HIV contraindicaria a PrEP — por isso a confirmação periódica é indispensável e protege você.',
+              },
+              {
+                icone: '🟡',
+                cor: 'border-amber-100 bg-amber-50',
+                corTitulo: 'text-amber-800',
+                corTexto: 'text-amber-700',
+                titulo: 'Exames de IST — a cada 3 meses (ou ao menor sinal de infecção)',
+                desc: 'A PrEP protege contra o HIV, mas não contra sífilis, gonorreia, clamídia ou hepatites. O rastreamento trimestral — ou sempre que houver suspeita — garante diagnóstico e tratamento precoce. Por isso o Facilita PrEP sempre gera as requisições de sorológicos junto com a prescrição.',
+              },
+              {
+                icone: '🦴',
+                cor: 'border-purple-100 bg-purple-50',
+                corTitulo: 'text-purple-800',
+                corTexto: 'text-purple-700',
+                titulo: 'Densitometria óssea — anualmente',
+                desc: 'O Tenofovir (TDF), componente da PrEP oral, pode reduzir a densidade mineral óssea em uso prolongado, aumentando o risco de osteoporose. O exame anual de densitometria detecta alterações precocemente, permitindo ajuste de conduta ou suplementação antes que haja impacto clínico significativo.',
+              },
+            ].map(({ icone, cor, corTitulo, corTexto, titulo, desc }) => (
+              <div key={titulo} className={`rounded-2xl border ${cor} p-5`}>
+                <p className={`font-bold text-sm mb-2 ${corTitulo}`}>{icone} {titulo}</p>
+                <p className={`text-xs leading-relaxed ${corTexto}`}>{desc}</p>
+              </div>
+            ))}
           </div>
         </section>
 
