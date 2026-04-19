@@ -1,3 +1,21 @@
+// ─── Compliance types ─────────────────────────────────────────────────────────
+
+export type ComplianceStatus = 'APPROVED' | 'WARNING' | 'BLOCKED';
+
+export interface ComplianceIssue {
+  rule: string;         // ex: "CFM 1974/2011 Art. 3º"
+  description: string;  // ex: "Superlativo proibido: 'o melhor'"
+  severity: 'INFO' | 'WARNING' | 'VIOLATION';
+  excerpt?: string;     // trecho problemático do texto
+}
+
+export interface ComplianceResult {
+  status: ComplianceStatus;
+  issues: ComplianceIssue[];
+  suggestions: string[];
+  checkedAt: string;
+}
+
 // ─── Content approval types ───────────────────────────────────────────────────
 
 export type JobStatus =
@@ -23,6 +41,7 @@ export interface ContentJob {
   publishedAt?: string;
   publishedPostId?: string;         // ID do post na plataforma (para retirada)
   rejectionSuggestions?: string;    // sugestões do dono ao reprovar
+  compliance?: ComplianceResult;    // resultado da verificação CFM/CONAR
   regenerationCount: number;
   createdAt: string;
 }

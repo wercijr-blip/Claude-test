@@ -13,6 +13,7 @@ import { videoAgent } from './agents/video-agent';
 import { financialAgent } from './agents/financial-agent';
 import { leadAgent } from './agents/lead-agent';
 import { approvalAgent } from './agents/approval-agent';
+import { complianceAgent } from './agents/compliance-agent';
 import { startDashboardServer, markRoutineStart, markRoutineDone } from './dashboard/server';
 import { META_AUDIENCES, GOOGLE_KEYWORDS_PREP } from './config/targets';
 import type { AdCampaign, ChannelPerformance } from './types';
@@ -62,6 +63,32 @@ const session: {
   linkedin?: CampaignState;
 } = {};
 
+// ─── Compliance + schedule helper ────────────────────────────────────────────
+
+async function scheduleWithCompliance(params: {
+  content: import('./types').GeneratedContent;
+  brand: import('./types').Brand;
+  platform: string;
+  label: string;
+  preview: string;
+  imageUrl?: string;
+  videoUrl?: string;
+  publishFn: (job: import('./types').ContentJob) => Promise<string | undefined>;
+}) {
+  const { content, publishFn, ...rest } = params;
+  const compliance = await complianceAgent.check(content);
+
+  if (compliance.status === 'BLOCKED') {
+    logger.warn(`[Orchestrator] ⛔ Publicação BLOQUEADA por compliance: ${rest.label}`);
+    logger.warn(`[Orchestrator]    Motivo: ${compliance.issues.map(i => i.description).join(' | ')}`);
+    return null;
+  }
+
+  const job = approvalAgent.schedule({ ...rest, delayMinutes: 5, publishFn });
+  job.compliance = compliance;
+  return job;
+}
+
 // ─── Routine 1: Daily content post (Mon/Wed/Fri 09:00) ───────────────────────
 
 async function dailyContentPost() {
@@ -74,16 +101,12 @@ async function dailyContentPost() {
   });
   const igImagePrompt = await contentAgent.generateImagePrompt(igContent, 'SQUARE');
   const igImage = await imageAgent.generateForInstagramFeed(igImagePrompt.prompt, igImagePrompt.negativePrompt, 'facilita_prep');
-  approvalAgent.schedule({
-    brand: 'facilita_prep', platform: 'INSTAGRAM_FEED',
+  await scheduleWithCompliance({
+    content: igContent, brand: 'facilita_prep', platform: 'INSTAGRAM_FEED',
     label: 'Instagram Feed — Facilita PrEP',
     preview: igContent.firstLine ?? igContent.caption?.slice(0, 120) ?? '',
     imageUrl: igImage.url,
-    delayMinutes: 5,
-    publishFn: async () => {
-      const r = await instagramAgent.postToInstagram(igContent, igImage.url);
-      return r.postId;
-    },
+    publishFn: async () => { const r = await instagramAgent.postToInstagram(igContent, igImage.url); return r.postId; },
   });
 
   // ── Instagram Reel → fila de aprovação ───────────────────────────────────────
@@ -93,17 +116,13 @@ async function dailyContentPost() {
   const reelScript = (reelContent.segments ?? []).map(s => s.text).join(' ');
   const reelVideo  = await videoAgent.generateAnimatedReel(reelScript, 'facilita_prep');
   if (reelVideo.status === 'COMPLETED' && reelVideo.thumbnailUrl) {
-    approvalAgent.schedule({
-      brand: 'facilita_prep', platform: 'INSTAGRAM_REEL',
+    await scheduleWithCompliance({
+      content: reelContent, brand: 'facilita_prep', platform: 'INSTAGRAM_REEL',
       label: 'Instagram Reel — Facilita PrEP',
       preview: reelScript.slice(0, 120),
       imageUrl: reelVideo.thumbnailUrl,
       videoUrl: reelVideo.videoUrl,
-      delayMinutes: 5,
-      publishFn: async () => {
-        const r = await instagramAgent.postInstagramStory(reelVideo.thumbnailUrl!, 'https://facilitaprep.com.br');
-        return r.postId;
-      },
+      publishFn: async () => { const r = await instagramAgent.postInstagramStory(reelVideo.thumbnailUrl!, 'https://facilitaprep.com.br'); return r.postId; },
     });
   }
 
@@ -113,16 +132,12 @@ async function dailyContentPost() {
   });
   const liImagePrompt = await contentAgent.generateImagePrompt(liContent, 'LANDSCAPE');
   const liImage = await imageAgent.generateForLinkedIn(liImagePrompt.prompt, liImagePrompt.negativePrompt);
-  approvalAgent.schedule({
-    brand: 'iaso_clinica', platform: 'LINKEDIN_POST',
+  await scheduleWithCompliance({
+    content: liContent, brand: 'iaso_clinica', platform: 'LINKEDIN_POST',
     label: 'LinkedIn Post — Clínica IASO',
     preview: liContent.hook ?? liContent.body?.slice(0, 120) ?? '',
     imageUrl: liImage.url,
-    delayMinutes: 5,
-    publishFn: async () => {
-      const r = await linkedinAgent.createOrganizationPost(liContent);
-      return r.postId;
-    },
+    publishFn: async () => { const r = await linkedinAgent.createOrganizationPost(liContent); return r.postId; },
   });
 
   // ── Vídeo Dr. Werciley (HeyGen) — gerado em background ───────────────────────

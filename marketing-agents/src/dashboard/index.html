@@ -782,12 +782,41 @@
       return `<span style="color:var(--yellow);font-size:11px"> ⏱ ${mins} min restantes</span>`;
     }
 
+    function complianceBadge(c) {
+      if (!c) return '';
+      const cfg = {
+        APPROVED: { icon: '✅', label: 'CFM OK',       color: 'var(--green)'  },
+        WARNING:  { icon: '⚠️', label: 'CFM Atenção',  color: 'var(--yellow)' },
+        BLOCKED:  { icon: '🚫', label: 'CFM Bloqueado', color: 'var(--red)'   },
+      };
+      const b = cfg[c.status] ?? cfg.WARNING;
+      const issues = (c.issues || []).filter(i => i.severity !== 'INFO');
+      const tooltip = issues.map(i => `${i.rule}: ${i.description}`).join('\n') || 'Sem violações';
+      return `<span title="${tooltip}" style="font-size:11px;padding:2px 7px;border-radius:4px;background:${b.color}22;color:${b.color};cursor:help">${b.icon} ${b.label}</span>`;
+    }
+
+    function complianceDetail(c) {
+      if (!c || c.status === 'APPROVED') return '';
+      const issues = (c.issues || []).filter(i => i.severity !== 'INFO');
+      if (!issues.length && !(c.suggestions||[]).length) return '';
+      const rows = issues.map(i => `
+        <div style="font-size:11px;padding:4px 0;border-bottom:1px solid var(--border)">
+          <span style="color:${i.severity==='VIOLATION'?'var(--red)':'var(--yellow)'}">${i.severity==='VIOLATION'?'🚫':'⚠️'} ${i.rule}</span>
+          <span style="color:var(--muted)"> — ${i.description}</span>
+          ${i.excerpt ? `<span style="color:var(--muted);font-style:italic"> "${i.excerpt}"</span>` : ''}
+        </div>`).join('');
+      const sugs = (c.suggestions||[]).map(s => `<div style="font-size:11px;color:var(--blue)">💡 ${s}</div>`).join('');
+      return `<div style="background:#0a0c12;border-radius:6px;padding:8px 12px;margin:6px 0">${rows}${sugs}</div>`;
+    }
+
     function jobCard(j) {
       const actions = [];
       if (['SCHEDULED','PENDING_REVIEW'].includes(j.status)) {
         if (j.status === 'SCHEDULED')
           actions.push(`<button class="btn btn-sm" onclick="queueAction('${j.id}','preview')">👁 Ver antes</button>`);
-        actions.push(`<button class="btn btn-sm" style="background:var(--green)" onclick="queueAction('${j.id}','approve')">✅ Aprovar</button>`);
+        // Block approve if compliance is BLOCKED
+        const blocked = j.compliance?.status === 'BLOCKED';
+        actions.push(`<button class="btn btn-sm" style="background:var(--green)" ${blocked?'disabled title="Bloqueado por compliance CFM"':''} onclick="queueAction('${j.id}','approve')">✅ Aprovar</button>`);
         actions.push(`<button class="btn btn-sm" style="background:var(--red)" onclick="openReject('${j.id}')">❌ Reprovar</button>`);
       }
       if (j.status === 'PUBLISHED')
@@ -800,14 +829,16 @@
       return `<div style="display:flex;align-items:flex-start;gap:12px;padding:14px 0;border-bottom:1px solid var(--border)">
         ${img}
         <div style="flex:1;min-width:0">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
             <span style="font-weight:600;font-size:13px">${j.label}</span>
             <span style="color:${statusColor[j.status]};font-size:12px">● ${statusLabel[j.status]}</span>
+            ${complianceBadge(j.compliance)}
             ${j.status === 'PENDING_REVIEW' ? countdown(j.reviewDeadline) : ''}
           </div>
-          <div style="color:var(--muted);font-size:12px;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${j.preview}</div>
-          ${j.rejectionSuggestions ? `<div style="font-size:11px;color:var(--yellow);margin-bottom:6px">📝 Sugestão: ${j.rejectionSuggestions}</div>` : ''}
-          <div style="display:flex;gap:6px">${actions.join('')}</div>
+          <div style="color:var(--muted);font-size:12px;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${j.preview}</div>
+          ${complianceDetail(j.compliance)}
+          ${j.rejectionSuggestions ? `<div style="font-size:11px;color:var(--yellow);margin-bottom:6px">📝 Sugestão do dono: ${j.rejectionSuggestions}</div>` : ''}
+          <div style="display:flex;gap:6px;flex-wrap:wrap">${actions.join('')}</div>
         </div>
       </div>`;
     }
