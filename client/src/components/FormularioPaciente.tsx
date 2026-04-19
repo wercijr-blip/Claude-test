@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { FORM_STEPS, TOTAL_FORM_STEPS } from '@shared/const.ts'
+import { LogoWordmark } from './Logo.tsx'
 import StepPaciente from './steps/StepPaciente.tsx'
 import StepDemografico from './steps/StepDemografico.tsx'
 import StepContato from './steps/StepContato.tsx'
@@ -42,13 +43,11 @@ function TelaDocumentos({ pacienteId }: { pacienteId: number }) {
 
   return (
     <div className="min-h-screen bg-warm-bg flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 max-w-lg w-full">
-        <div className="w-16 h-16 bg-sage-light rounded-full flex items-center justify-center mx-auto mb-4">
-          <svg className="w-8 h-8 text-sage" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
+      <div className="bg-white rounded-3xl shadow-lg border border-slate-100 p-8 max-w-lg w-full">
+        <div className="flex justify-center mb-4">
+          <LogoWordmark size={40} mode="light" />
         </div>
-        <h2 className="text-xl font-bold text-slate-800 text-center mb-1">Pronto! Seus documentos estão prontos</h2>
+        <h2 className="font-display text-3xl font-light text-fp-dark text-center mb-1">Pronto! Seus documentos estão prontos</h2>
         <p className="text-slate-500 text-sm text-center mb-6">
           Obrigado por confiar no Facilita PrEP. Em instantes você receberá tudo no seu e-mail — assinado digitalmente com certificado ICP-Brasil.
         </p>

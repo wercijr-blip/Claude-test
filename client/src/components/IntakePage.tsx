@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { trpc } from '../lib/trpc.ts'
 import { PLANOS_VALIDOS, HORARIO_ATENDIMENTO } from '@shared/const.ts'
+import { Logo, LogoWordmark } from './Logo.tsx'
 
 const ABERTURA = HORARIO_ATENDIMENTO.ABERTURA_HORA
 const FECHAMENTO = HORARIO_ATENDIMENTO.FECHAMENTO_HORA
@@ -156,15 +157,8 @@ export default function IntakePage() {
       <div className="min-h-screen bg-warm-bg">
         {/* Navbar */}
         <header className="px-6 py-4 flex items-center justify-between max-w-6xl mx-auto">
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 bg-brand rounded-xl flex items-center justify-center shadow-sm">
-              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-              </svg>
-            </div>
-            <span className="font-bold text-brand-dark text-lg">Facilita PrEP</span>
-          </div>
-          <a href="/duvidas" className="text-sm text-slate-500 hover:text-brand transition-colors">
+          <LogoWordmark size={44} mode="light" />
+          <a href="/duvidas" className="text-sm text-slate-500 hover:text-fp-accent transition-colors">
             Dúvidas sobre PrEP →
           </a>
         </header>
@@ -173,10 +167,12 @@ export default function IntakePage() {
         <main className="max-w-6xl mx-auto px-4 py-6 lg:py-10 grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
           {/* Lado esquerdo — mensagem + ilustração */}
           <div className="text-center lg:text-left order-2 lg:order-1">
-            <HeroIllustration />
-            <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-800 mb-4 leading-tight mt-4">
+            <div className="flex justify-center lg:justify-start mb-6">
+              <Logo size={180} mode="light" />
+            </div>
+            <h1 className="font-display text-4xl sm:text-5xl font-light text-fp-dark mb-4 leading-tight tracking-tight">
               Sua saúde em boas mãos,<br className="hidden sm:block" />
-              <span className="text-brand"> de onde você estiver</span>
+              <span className="text-fp-accent italic">de onde você estiver</span>
             </h1>
             <p className="text-slate-500 text-base leading-relaxed mb-6 max-w-md mx-auto lg:mx-0">
               Acesso rápido, sigiloso e 100% digital à PrEP. Do cadastro à receita assinada digitalmente — tudo sem sair de casa.
@@ -266,7 +262,7 @@ export default function IntakePage() {
         {/* ── Como funciona o Facilita PrEP ── */}
         <section className="max-w-6xl mx-auto px-4 pb-12">
           <div className="text-center mb-10">
-            <h2 className="text-2xl font-bold text-slate-800">Como utilizar o Facilita PrEP</h2>
+            <h2 className="font-display text-3xl font-light text-fp-dark">Como utilizar o Facilita PrEP</h2>
             <p className="text-slate-500 text-sm mt-2">Do cadastro à receita — em poucos passos, sem sair de casa.</p>
           </div>
 
@@ -398,14 +394,7 @@ export default function IntakePage() {
             </svg>
             Voltar
           </button>
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-brand rounded-lg flex items-center justify-center">
-              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-              </svg>
-            </div>
-            <span className="font-bold text-brand-dark text-sm">Facilita PrEP</span>
-          </div>
+          <LogoWordmark size={36} mode="light" />
         </div>
 
         <div className="bg-white rounded-3xl shadow-xl border border-slate-100 p-8">

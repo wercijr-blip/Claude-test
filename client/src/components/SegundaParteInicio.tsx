@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { trpc } from '../lib/trpc.ts'
 import { useLocation } from 'wouter'
+import { LogoWordmark } from './Logo.tsx'
 
 type Etapa = 'tipo_consulta' | 'tem_exame' | 'upload_exame' | 'gerar_pedido' | 'aguardando_ia' | 'em_revisao_medica' | 'aprovado' | 'rejeitado' | 'expirado'
 type TipoConsulta = 'primeiro_atendimento' | 'ja_faco_prep'
@@ -12,14 +13,7 @@ function PageShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-warm-bg py-10 px-4">
       <div className="max-w-lg mx-auto">
         <div className="flex justify-center mb-8">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-brand rounded-xl flex items-center justify-center shadow-sm">
-              <svg className="w-4.5 h-4.5 text-white w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-              </svg>
-            </div>
-            <span className="font-bold text-brand-dark">Facilita PrEP</span>
-          </div>
+          <LogoWordmark size={40} mode="light" />
         </div>
         {children}
       </div>
@@ -43,7 +37,7 @@ function StatusCard({
         <div className={`w-20 h-20 ${iconBg} rounded-full flex items-center justify-center mx-auto mb-6`}>
           <div className={iconColor}>{icon}</div>
         </div>
-        <h2 className="text-2xl font-bold text-slate-800 mb-2">{title}</h2>
+        <h2 className="font-display text-2xl font-medium text-fp-dark mb-2 leading-tight">{title}</h2>
         {subtitle && <p className="text-slate-500 text-sm leading-relaxed mb-4">{subtitle}</p>}
         {children}
       </div>

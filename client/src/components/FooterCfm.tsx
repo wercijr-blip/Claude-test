@@ -1,12 +1,18 @@
+import { LogoWordmark } from './Logo.tsx'
+
 export default function FooterCfm() {
   return (
-    <footer className="w-full bg-warm-dark text-slate-300 mt-auto">
+    <footer className="w-full bg-fp-dark text-slate-300 mt-auto">
       {/* Faixa de destaque do RT */}
-      <div className="bg-warm-darker px-4 py-3 text-center">
+      <div className="bg-fp-dark-mid px-4 py-3 text-center">
         <p className="text-sm font-semibold text-white leading-tight">
           Responsável Técnico: Dr. Werciley Saraiva Vieira Júnior
         </p>
-        <p className="text-sm text-slate-400 font-medium">CRM/DF 16381</p>
+        <p className="text-sm text-fp-lilac-soft font-medium">CRM/DF 16381</p>
+      </div>
+
+      <div className="max-w-4xl mx-auto px-4 pt-6 flex justify-center">
+        <LogoWordmark size={36} mode="dark" />
       </div>
 
       {/* Informações institucionais */}

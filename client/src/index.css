@@ -1,36 +1,67 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+
 @import "tailwindcss";
 
 @theme {
-  /* Azul-aço muted — confiança sem frieza */
-  --color-brand: #4A7C9E;
-  --color-brand-dark: #3A6482;
-  --color-brand-deeper: #2D4E6A;
-  --color-brand-light: #EDF4F8;
-  --color-brand-pale: #F4F8FB;
+  /* ───── Sistema oficial Facilita PrEP ─────────────────────────────── */
+  /* Primárias */
+  --color-fp-lilac:        #B890D0;
+  --color-fp-lilac-soft:   #C4A8D8;
+  --color-fp-blue:         #88AACE;
+  --color-fp-blue-soft:    #A8C4D8;
 
-  /* Verde sálvia — calma, acolhimento */
-  --color-sage: #5A9070;
-  --color-sage-dark: #4A7860;
-  --color-sage-light: #EEF6F1;
-  --color-sage-pale: #F3F9F5;
+  /* Neutras claras */
+  --color-fp-fog:          #FAF8FD;
+  --color-fp-lavender-50:  #F0EBF8;
+  --color-fp-lavender-100: #E0D0F8;
 
-  /* Âmbar quente — atenção sem alarme */
-  --color-honey: #C4884A;
-  --color-honey-dark: #A8723E;
-  --color-honey-light: #FBF3EA;
+  /* Neutras escuras */
+  --color-fp-dark:         #2E2838;
+  --color-fp-dark-mid:     #3D3050;
+  --color-fp-dark-soft:    #5A4868;
+  --color-fp-accent:       #8860B0;
 
-  /* Rosa-terracota — alerta suave */
-  --color-terra: #B05C5C;
-  --color-terra-dark: #944C4C;
-  --color-terra-light: #F8EEEE;
+  /* Semânticas */
+  --color-fp-success:      #7DBFA0;
+  --color-fp-warning:      #D4A86A;
+  --color-fp-error:        #D08888;
+  --color-fp-info:         #88AACE;
 
-  /* Fundos e superfícies quentes */
-  --color-warm-bg: #FEFBF6;
-  --color-warm-surface: #FFFFFF;
-  --color-warm-dark: #2C3A47;
-  --color-warm-darker: #1E2A35;
+  /* ───── Aliases legados (apontam para a marca) ─────────────────────── */
+  --color-brand:           #8860B0;
+  --color-brand-dark:      #5A4868;
+  --color-brand-deeper:    #3D3050;
+  --color-brand-light:     #F0EBF8;
+  --color-brand-pale:      #FAF8FD;
+
+  --color-sage:            #7DBFA0;
+  --color-sage-dark:       #5FA083;
+  --color-sage-light:      #E8F4F0;
+  --color-sage-pale:       #F2F8F5;
+
+  --color-honey:           #D4A86A;
+  --color-honey-dark:      #B58850;
+  --color-honey-light:     #FAF1E5;
+
+  --color-terra:           #D08888;
+  --color-terra-dark:      #B07070;
+  --color-terra-light:     #FBEDED;
+
+  --color-warm-bg:         #FAF8FD;
+  --color-warm-surface:    #FFFFFF;
+  --color-warm-dark:       #2E2838;
+  --color-warm-darker:     #1E1A28;
+
+  /* ───── Tipografia oficial ─────────────────────────────────────────── */
+  --font-display: 'Cormorant Garamond', Georgia, serif;
+  --font-body:    'DM Sans', system-ui, sans-serif;
 }
 
 :root {
   --radius: 0.5rem;
+}
+
+html, body {
+  font-family: var(--font-body);
+  color: #2E2838;
 }

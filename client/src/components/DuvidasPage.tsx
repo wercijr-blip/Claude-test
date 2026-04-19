@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Logo } from './Logo.tsx'
 
 const FAQS = [
   {
@@ -103,13 +104,17 @@ export default function DuvidasPage() {
     <div className="bg-warm-bg min-h-screen">
 
       {/* Hero */}
-      <div className="bg-gradient-to-br from-brand-dark to-brand-deeper text-white px-4 py-16 text-center">
-        <p className="text-slate-300 text-sm font-medium mb-2 uppercase tracking-widest">Facilita PrEP</p>
-        <h1 className="text-3xl sm:text-4xl font-bold mb-4">Tire suas dúvidas sobre PrEP</h1>
-        <p className="text-blue-100 text-base max-w-xl mx-auto leading-relaxed">
+      <div className="bg-gradient-to-br from-fp-dark via-fp-dark-mid to-fp-dark-soft text-white px-4 py-16 text-center">
+        <div className="flex justify-center mb-6">
+          <Logo size={120} mode="dark" />
+        </div>
+        <p className="font-display text-fp-lilac-soft text-base italic mb-1" style={{ letterSpacing: '0.05em' }}>facilita</p>
+        <p className="text-fp-dark-soft text-[10px] font-bold mb-6" style={{ letterSpacing: '0.3em' }}>PrEP</p>
+        <h1 className="font-display text-4xl sm:text-5xl font-light mb-4 leading-tight">Tire suas dúvidas sobre PrEP</h1>
+        <p className="text-fp-lavender-100 text-base max-w-xl mx-auto leading-relaxed">
           Tudo o que você precisa saber sobre a Profilaxia Pré-Exposição ao HIV e sobre como funciona o Facilita PrEP.
         </p>
-        <a href="/" className="inline-block mt-8 bg-white text-brand font-semibold px-6 py-3 rounded-xl hover:bg-brand-pale transition-colors text-sm">
+        <a href="/" className="inline-block mt-8 bg-white text-fp-accent font-semibold px-7 py-3 rounded-full hover:bg-fp-lavender-50 transition-colors text-sm shadow-md">
           Quero me cadastrar →
         </a>
       </div>
@@ -118,7 +123,7 @@ export default function DuvidasPage() {
 
         {/* O que é o Facilita PrEP */}
         <section>
-          <h2 className="text-2xl font-bold text-slate-800 mb-2">O que é o Facilita PrEP?</h2>
+          <h2 className="font-display text-3xl font-light text-fp-dark mb-2">O que é o Facilita PrEP?</h2>
           <p className="text-sm text-slate-500 mb-6">Uma plataforma digital de saúde — não uma consulta médica convencional.</p>
           <div className="bg-white rounded-2xl border border-brand-light p-6 space-y-4">
             <p className="text-sm text-slate-700 leading-relaxed">
@@ -156,7 +161,7 @@ export default function DuvidasPage() {
 
         {/* O que é PrEP */}
         <section>
-          <h2 className="text-2xl font-bold text-slate-800 mb-6">O que é a PrEP?</h2>
+          <h2 className="font-display text-3xl font-light text-fp-dark mb-6">O que é a PrEP?</h2>
           <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4 text-sm text-slate-700 leading-relaxed">
             <p>
               <strong>PrEP</strong> significa <strong>Profilaxia Pré-Exposição</strong>. É um medicamento antirretroviral
@@ -227,7 +232,7 @@ export default function DuvidasPage() {
 
         {/* Quem pode tomar */}
         <section>
-          <h2 className="text-2xl font-bold text-slate-800 mb-6">Quem tem indicação para usar PrEP?</h2>
+          <h2 className="font-display text-3xl font-light text-fp-dark mb-6">Quem tem indicação para usar PrEP?</h2>
           <div className="bg-white rounded-2xl border border-slate-200 p-6">
             <p className="text-sm text-slate-600 mb-5 leading-relaxed">
               A PrEP é indicada para pessoas HIV negativas com risco aumentado de infecção. Não há restrição por sexo, gênero ou orientação sexual. Os principais grupos com indicação são:
@@ -258,7 +263,7 @@ export default function DuvidasPage() {
 
         {/* Como funciona o Facilita PrEP */}
         <section>
-          <h2 className="text-2xl font-bold text-slate-800 mb-2">Como funciona o Facilita PrEP?</h2>
+          <h2 className="font-display text-3xl font-light text-fp-dark mb-2">Como funciona o Facilita PrEP?</h2>
           <p className="text-sm text-slate-500 mb-6">Do cadastro à receita assinada digitalmente, tudo online.</p>
           <div className="space-y-3">
             {PASSOS.map((p) => (
@@ -277,7 +282,7 @@ export default function DuvidasPage() {
 
         {/* SUS vs Particular */}
         <section>
-          <h2 className="text-2xl font-bold text-slate-800 mb-6">PrEP no SUS × PrEP particular</h2>
+          <h2 className="font-display text-3xl font-light text-fp-dark mb-6">PrEP no SUS × PrEP particular</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="bg-white rounded-2xl border border-slate-200 p-5">
               <p className="font-bold text-slate-800 mb-3">🏥 SUS (gratuito)</p>
@@ -389,7 +394,7 @@ export default function DuvidasPage() {
 
         {/* Por que recebo pedidos de exames */}
         <section>
-          <h2 className="text-2xl font-bold text-slate-800 mb-2">Por que recebo pedidos de exames de IST, HIV e densitometria?</h2>
+          <h2 className="font-display text-3xl font-light text-fp-dark mb-2">Por que recebo pedidos de exames de IST, HIV e densitometria?</h2>
           <p className="text-sm text-slate-500 mb-6">O acompanhamento laboratorial é parte essencial do protocolo seguro da PrEP.</p>
           <div className="space-y-4">
             {[
@@ -428,7 +433,7 @@ export default function DuvidasPage() {
 
         {/* FAQ */}
         <section>
-          <h2 className="text-2xl font-bold text-slate-800 mb-2">Perguntas frequentes</h2>
+          <h2 className="font-display text-3xl font-light text-fp-dark mb-2">Perguntas frequentes</h2>
           <p className="text-sm text-slate-500 mb-6">Clique em uma pergunta para ver a resposta.</p>
           <Accordion items={FAQS} />
         </section>
