@@ -12,6 +12,7 @@ import { imageAgent } from './agents/image-agent';
 import { videoAgent } from './agents/video-agent';
 import { financialAgent } from './agents/financial-agent';
 import { leadAgent } from './agents/lead-agent';
+import { approvalAgent } from './agents/approval-agent';
 import { startDashboardServer, markRoutineStart, markRoutineDone } from './dashboard/server';
 import { META_AUDIENCES, GOOGLE_KEYWORDS_PREP } from './config/targets';
 import type { AdCampaign, ChannelPerformance } from './types';
@@ -67,55 +68,69 @@ async function dailyContentPost() {
   markRoutineStart('daily');
   logger.info('── Rotina: Postagem Diária de Conteúdo ──────────────────────────');
 
-  // ── Instagram Feed com imagem gerada por IA ──────────────────────────────────
+  // ── Instagram Feed → fila de aprovação ──────────────────────────────────────
   const igContent = await contentAgent.generateContent({
-    platform: 'INSTAGRAM_FEED',
-    audience: 'lgbt_adulto_brasil',
-    brand: 'facilita_prep',
+    platform: 'INSTAGRAM_FEED', audience: 'lgbt_adulto_brasil', brand: 'facilita_prep',
   });
   const igImagePrompt = await contentAgent.generateImagePrompt(igContent, 'SQUARE');
-  const igImage = await imageAgent.generateForInstagramFeed(
-    igImagePrompt.prompt, igImagePrompt.negativePrompt, 'facilita_prep',
-  );
-  logger.info('Imagem Instagram gerada', { provider: igImage.provider, url: igImage.url.slice(0, 60) });
-  const igResult = await instagramAgent.postToInstagram(igContent, igImage.url);
-  logger.info('Instagram result', { success: igResult.success, postId: igResult.postId });
-
-  // ── Instagram Reel com vídeo gerado por IA (Facilita PrEP) ───────────────────
-  const reelContent = await contentAgent.generateContent({
-    platform: 'YOUTUBE_SCRIPT',  // roteiro de 60s reutilizado para Reel
-    audience: 'lgbt_adulto_brasil',
-    brand: 'facilita_prep',
+  const igImage = await imageAgent.generateForInstagramFeed(igImagePrompt.prompt, igImagePrompt.negativePrompt, 'facilita_prep');
+  approvalAgent.schedule({
+    brand: 'facilita_prep', platform: 'INSTAGRAM_FEED',
+    label: 'Instagram Feed — Facilita PrEP',
+    preview: igContent.firstLine ?? igContent.caption?.slice(0, 120) ?? '',
+    imageUrl: igImage.url,
+    delayMinutes: 5,
+    publishFn: async () => {
+      const r = await instagramAgent.postToInstagram(igContent, igImage.url);
+      return r.postId;
+    },
   });
-  const reelScript = (reelContent.segments ?? []).map((s) => s.text).join(' ');
-  const reelVideo = await videoAgent.generateAnimatedReel(reelScript, 'facilita_prep');
-  logger.info('Reel gerado', { jobId: reelVideo.jobId, status: reelVideo.status, url: reelVideo.videoUrl?.slice(0, 60) });
-  // Post do Reel usando a thumbnail como imagem de capa
+
+  // ── Instagram Reel → fila de aprovação ───────────────────────────────────────
+  const reelContent = await contentAgent.generateContent({
+    platform: 'YOUTUBE_SCRIPT', audience: 'lgbt_adulto_brasil', brand: 'facilita_prep',
+  });
+  const reelScript = (reelContent.segments ?? []).map(s => s.text).join(' ');
+  const reelVideo  = await videoAgent.generateAnimatedReel(reelScript, 'facilita_prep');
   if (reelVideo.status === 'COMPLETED' && reelVideo.thumbnailUrl) {
-    const reelResult = await instagramAgent.postInstagramStory(reelVideo.thumbnailUrl, 'https://facilitaprep.com.br');
-    logger.info('Reel Story postado', { success: reelResult.success, postId: reelResult.postId });
+    approvalAgent.schedule({
+      brand: 'facilita_prep', platform: 'INSTAGRAM_REEL',
+      label: 'Instagram Reel — Facilita PrEP',
+      preview: reelScript.slice(0, 120),
+      imageUrl: reelVideo.thumbnailUrl,
+      videoUrl: reelVideo.videoUrl,
+      delayMinutes: 5,
+      publishFn: async () => {
+        const r = await instagramAgent.postInstagramStory(reelVideo.thumbnailUrl!, 'https://facilitaprep.com.br');
+        return r.postId;
+      },
+    });
   }
 
-  // ── LinkedIn com imagem gerada por IA (Clínica IASO) ─────────────────────────
+  // ── LinkedIn → fila de aprovação ─────────────────────────────────────────────
   const liContent = await contentAgent.generateContent({
-    platform: 'LINKEDIN_POST',
-    audience: 'profissionais_saude',
-    brand: 'iaso_clinica',
+    platform: 'LINKEDIN_POST', audience: 'profissionais_saude', brand: 'iaso_clinica',
   });
   const liImagePrompt = await contentAgent.generateImagePrompt(liContent, 'LANDSCAPE');
   const liImage = await imageAgent.generateForLinkedIn(liImagePrompt.prompt, liImagePrompt.negativePrompt);
-  logger.info('Imagem LinkedIn gerada', { provider: liImage.provider, url: liImage.url.slice(0, 60) });
-  const liResult = await linkedinAgent.createOrganizationPost(liContent);
-  logger.info('LinkedIn result', { success: liResult.success, postId: liResult.postId });
+  approvalAgent.schedule({
+    brand: 'iaso_clinica', platform: 'LINKEDIN_POST',
+    label: 'LinkedIn Post — Clínica IASO',
+    preview: liContent.hook ?? liContent.body?.slice(0, 120) ?? '',
+    imageUrl: liImage.url,
+    delayMinutes: 5,
+    publishFn: async () => {
+      const r = await linkedinAgent.createOrganizationPost(liContent);
+      return r.postId;
+    },
+  });
 
-  // ── Vídeo avatar Dr. Werciley (HeyGen) — LinkedIn / YouTube ──────────────────
+  // ── Vídeo Dr. Werciley (HeyGen) — gerado em background ───────────────────────
   const drVideoScript = (liContent.hook ?? '') + ' ' + (liContent.body ?? '').slice(0, 500);
   const drVideo = await videoAgent.generateDrWercileyReel(drVideoScript);
   logger.info('Vídeo Dr. Werciley submetido', {
-    jobId: drVideo.jobId,
-    provider: drVideo.provider,
-    status: drVideo.status,
-    url: drVideo.videoUrl?.slice(0, 60) ?? '(processando...)',
+    jobId: drVideo.jobId, status: drVideo.status,
+    url: drVideo.videoUrl?.slice(0, 60) ?? '(processando…)',
   });
 
   // Google Ads — criar se não existir
@@ -461,9 +476,11 @@ async function main() {
   const CRON_DAILY   = '0 9 * * 1,3,5';
   const CRON_WEEKLY  = '0 8 * * 1';
   const CRON_MONTHLY = '0 7 1 * *';
+  const CRON_QUEUE   = '* * * * *';     // a cada 1 min: processa fila de aprovação
   const CRON_LEADS   = '0 */4 * * *';   // a cada 4h: processa fila de e-mails e follow-ups
   const CRON_REACTIVATION = '0 10 * * 3'; // quarta-feira: reativação de inativos
 
+  scheduleTask({ name: 'Fila de Aprovação', expression: CRON_QUEUE, handler: async () => { await approvalAgent.processQueue(); } });
   scheduleTask({ name: 'Postagem Diária',      expression: CRON_DAILY,        handler: dailyContentPost });
   scheduleTask({ name: 'Otimização Semanal',   expression: CRON_WEEKLY,       handler: weeklyAdOptimization });
   scheduleTask({ name: 'Relatório Mensal',     expression: CRON_MONTHLY,      handler: monthlyReport });

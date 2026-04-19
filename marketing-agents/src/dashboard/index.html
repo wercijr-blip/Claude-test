@@ -260,6 +260,20 @@
   <div id="routine-status" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px"></div>
 </div>
 
+<!-- Approval Queue -->
+<div class="card" style="margin-bottom:24px" id="approval-card">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <h2>Publicações <span id="queue-count" style="font-size:13px;color:var(--muted);font-weight:400"></span></h2>
+    <div style="display:flex;align-items:center;gap:12px">
+      <span id="pause-label" style="font-size:13px;color:var(--muted)">Publicação automática ativa</span>
+      <button class="btn" id="btn-pause" onclick="togglePause()">⏸ Pausar tudo</button>
+    </div>
+  </div>
+  <div id="queue-list">
+    <div style="color:var(--muted);text-align:center;padding:24px">Nenhum conteúdo na fila</div>
+  </div>
+</div>
+
 <!-- KPI Cards -->
 <div class="grid-4">
   <div class="card">
@@ -718,6 +732,124 @@
       </tr>`).join('');
   }
 
+  // ── Approval queue ────────────────────────────────────────────────────────
+
+  let globalPaused = false;
+
+  async function loadQueue() {
+    try {
+      const res  = await fetch('/api/queue');
+      const data = await res.json();
+      globalPaused = data.paused;
+      renderQueue(data.jobs || [], data.paused);
+    } catch { /* server not ready */ }
+  }
+
+  function renderQueue(jobs, paused) {
+    const btn   = document.getElementById('btn-pause');
+    const label = document.getElementById('pause-label');
+    if (paused) {
+      btn.textContent   = '▶ Retomar publicações';
+      btn.style.background = 'var(--green)';
+      label.textContent = '⏸ Publicações PAUSADAS';
+      label.style.color = 'var(--yellow)';
+    } else {
+      btn.textContent   = '⏸ Pausar tudo';
+      btn.style.background = '';
+      label.textContent = 'Publicação automática ativa';
+      label.style.color = 'var(--muted)';
+    }
+
+    const active = jobs.filter(j => ['SCHEDULED','PENDING_REVIEW','REJECTED'].includes(j.status));
+    const recent = jobs.filter(j => ['PUBLISHED','REMOVED','FAILED'].includes(j.status)).slice(-5).reverse();
+    document.getElementById('queue-count').textContent =
+      active.length ? `(${active.length} aguardando)` : '';
+
+    const statusColor = {
+      SCHEDULED:'var(--blue)', PENDING_REVIEW:'var(--yellow)',
+      APPROVED:'var(--green)', REJECTED:'var(--red)',
+      PUBLISHED:'var(--green)', REMOVED:'var(--muted)', FAILED:'var(--red)',
+    };
+    const statusLabel = {
+      SCHEDULED:'Agendado', PENDING_REVIEW:'Aguardando sua aprovação',
+      APPROVED:'Aprovado', REJECTED:'Reprovado',
+      PUBLISHED:'Publicado', REMOVED:'Retirado', FAILED:'Falhou',
+    };
+
+    function countdown(deadline) {
+      if (!deadline) return '';
+      const mins = Math.max(0, Math.round((new Date(deadline) - Date.now()) / 60000));
+      return `<span style="color:var(--yellow);font-size:11px"> ⏱ ${mins} min restantes</span>`;
+    }
+
+    function jobCard(j) {
+      const actions = [];
+      if (['SCHEDULED','PENDING_REVIEW'].includes(j.status)) {
+        if (j.status === 'SCHEDULED')
+          actions.push(`<button class="btn btn-sm" onclick="queueAction('${j.id}','preview')">👁 Ver antes</button>`);
+        actions.push(`<button class="btn btn-sm" style="background:var(--green)" onclick="queueAction('${j.id}','approve')">✅ Aprovar</button>`);
+        actions.push(`<button class="btn btn-sm" style="background:var(--red)" onclick="openReject('${j.id}')">❌ Reprovar</button>`);
+      }
+      if (j.status === 'PUBLISHED')
+        actions.push(`<button class="btn btn-sm" style="background:var(--red)" onclick="queueAction('${j.id}','remove')">🗑 Retirar</button>`);
+
+      const img = j.imageUrl
+        ? `<img src="${j.imageUrl}" style="width:64px;height:64px;object-fit:cover;border-radius:6px;margin-right:12px;flex-shrink:0" onerror="this.style.display='none'">`
+        : '';
+
+      return `<div style="display:flex;align-items:flex-start;gap:12px;padding:14px 0;border-bottom:1px solid var(--border)">
+        ${img}
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <span style="font-weight:600;font-size:13px">${j.label}</span>
+            <span style="color:${statusColor[j.status]};font-size:12px">● ${statusLabel[j.status]}</span>
+            ${j.status === 'PENDING_REVIEW' ? countdown(j.reviewDeadline) : ''}
+          </div>
+          <div style="color:var(--muted);font-size:12px;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${j.preview}</div>
+          ${j.rejectionSuggestions ? `<div style="font-size:11px;color:var(--yellow);margin-bottom:6px">📝 Sugestão: ${j.rejectionSuggestions}</div>` : ''}
+          <div style="display:flex;gap:6px">${actions.join('')}</div>
+        </div>
+      </div>`;
+    }
+
+    const allCards = [...active, ...recent].map(jobCard).join('');
+    document.getElementById('queue-list').innerHTML =
+      allCards || '<div style="color:var(--muted);text-align:center;padding:24px">Nenhum conteúdo na fila</div>';
+  }
+
+  async function queueAction(id, action) {
+    try {
+      const res = await fetch(`/api/queue/${id}/${action}`, { method: 'POST' });
+      const data = await res.json();
+      if (!data.ok) { alert(data.error); return; }
+      appendLog(`[Fila] ${action.toUpperCase()}: ${data.job?.label ?? id}`);
+      await loadQueue();
+    } catch (e) { alert('Erro: ' + e.message); }
+  }
+
+  function openReject(id) {
+    const suggestions = prompt('Descreva o que deve ser alterado (ex: "usar tom mais acolhedor", "trocar imagem"):');
+    if (suggestions === null) return;
+    fetch(`/api/queue/${id}/reject`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ suggestions }),
+    }).then(r => r.json()).then(data => {
+      appendLog(`[Fila] REPROVADO: ${data.job?.label ?? id} — "${suggestions}"`);
+      loadQueue();
+    });
+  }
+
+  async function togglePause() {
+    await fetch('/api/queue/pause', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paused: !globalPaused }),
+    });
+    appendLog(`[Fila] Publicações ${!globalPaused ? 'PAUSADAS' : 'RETOMADAS'}`);
+    await loadQueue();
+  }
+
   // ── Agent status ───────────────────────────────────────────────────────────
 
   async function loadStatus() {
@@ -797,14 +929,16 @@
   loadFinancialReport();
   loadLeadFunnel();
   loadStatus();
+  loadQueue();
   loadInitialLogs();
   connectSSE();
 
+  setInterval(loadQueue,  15 * 1000);        // fila atualiza a cada 15s
+  setInterval(loadStatus, 30 * 1000);        // status a cada 30s
   setInterval(() => {
     loadReport();
     loadFinancialReport();
     loadLeadFunnel();
-    loadStatus();
   }, 5 * 60 * 1000);
 </script>
 </body>

@@ -2,6 +2,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import fs from 'fs';
 import path from 'path';
 import logger from '../utils/logger';
+import { approvalAgent } from '../agents/approval-agent';
 
 const DASHBOARD_USER = process.env.DASHBOARD_USER ?? 'admin';
 const DASHBOARD_PASS = process.env.DASHBOARD_PASSWORD ?? 'agentes2026';
@@ -147,6 +148,46 @@ export function startDashboardServer(triggers: {
   app.get('/api/report', (_req, res) => {
     const f = latestFile('report_');
     res.json(f ? readJson(f) : null);
+  });
+
+  // ── Approval queue ──────────────────────────────────────────────────────────
+
+  app.get('/api/queue', (_req, res) => {
+    res.json({
+      jobs:   approvalAgent.getQueue(),
+      paused: approvalAgent.isPaused(),
+    });
+  });
+
+  app.post('/api/queue/pause', (req, res) => {
+    const paused = req.body?.paused ?? true;
+    approvalAgent.setPause(paused);
+    res.json({ ok: true, paused });
+  });
+
+  app.post('/api/queue/:id/preview', (req, res) => {
+    const job = approvalAgent.requestPreview(req.params.id);
+    if (!job) return res.status(404).json({ error: 'Job não encontrado ou já processado' });
+    res.json({ ok: true, job });
+  });
+
+  app.post('/api/queue/:id/approve', async (req, res) => {
+    const job = await approvalAgent.approve(req.params.id);
+    if (!job) return res.status(404).json({ error: 'Job não encontrado ou já processado' });
+    res.json({ ok: true, job });
+  });
+
+  app.post('/api/queue/:id/reject', (req, res) => {
+    const { suggestions = '' } = req.body ?? {};
+    const job = approvalAgent.reject(req.params.id, suggestions);
+    if (!job) return res.status(404).json({ error: 'Job não encontrado ou já processado' });
+    res.json({ ok: true, job });
+  });
+
+  app.post('/api/queue/:id/remove', async (req, res) => {
+    const job = await approvalAgent.requestRemoval(req.params.id);
+    if (!job) return res.status(404).json({ error: 'Job não encontrado ou não está publicado' });
+    res.json({ ok: true, job });
   });
 
   // ── Trigger routines ────────────────────────────────────────────────────────

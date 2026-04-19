@@ -1,3 +1,32 @@
+// ─── Content approval types ───────────────────────────────────────────────────
+
+export type JobStatus =
+  | 'SCHEDULED'       // aguardando horário — vai publicar automaticamente
+  | 'PENDING_REVIEW'  // dono pediu para ver antes — timer ativo
+  | 'APPROVED'        // aprovado manualmente — publica imediatamente
+  | 'REJECTED'        // reprovado — aguardando regeneração
+  | 'PUBLISHED'       // publicado com sucesso
+  | 'REMOVED'         // retirado da plataforma pelo dono
+  | 'FAILED';         // erro na publicação
+
+export interface ContentJob {
+  id: string;
+  brand: Brand;
+  platform: string;
+  label: string;                    // ex: "Instagram Feed — Facilita PrEP"
+  preview: string;                  // trecho do conteúdo para mostrar no dashboard
+  imageUrl?: string;
+  videoUrl?: string;
+  status: JobStatus;
+  scheduledFor: string;             // ISO — quando vai auto-publicar
+  reviewDeadline?: string;          // ISO — prazo para aprovação (30 min após pedido)
+  publishedAt?: string;
+  publishedPostId?: string;         // ID do post na plataforma (para retirada)
+  rejectionSuggestions?: string;    // sugestões do dono ao reprovar
+  regenerationCount: number;
+  createdAt: string;
+}
+
 export type Platform =
   | 'INSTAGRAM_FEED'
   | 'INSTAGRAM_REEL'
