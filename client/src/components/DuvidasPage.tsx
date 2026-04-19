@@ -187,11 +187,29 @@ export default function DuvidasPage() {
             </div>
           </div>
 
-          <div className="bg-honey-light rounded-2xl border border-honey-light p-5 mt-4">
+          <div className="bg-honey-light rounded-2xl border border-honey-light p-5 mt-4 space-y-3">
+            <p className="text-sm font-semibold text-honey-dark">
+              Como retirar sua PrEP com os documentos do Facilita PrEP
+            </p>
             <p className="text-xs text-honey-dark leading-relaxed">
-              <strong>PrEP particular hoje:</strong> o medicamento oral (TDF/FTC) está disponível em farmácias e drogarias
-              em todo o Brasil, mediante receita médica. O Facilita PrEP emite a receita com assinatura digital ICP-Brasil
-              para você retirar onde preferir.
+              Com os documentos emitidos pela plataforma — todos com assinatura digital ICP-Brasil — você tem <strong>duas opções</strong> para receber a medicação:
+            </p>
+            <ul className="space-y-2 text-xs text-honey-dark leading-relaxed">
+              <li className="flex items-start gap-2">
+                <span className="text-honey font-bold mt-0.5">🏥</span>
+                <span>
+                  <strong>Pela rede pública (SUS — gratuito):</strong> leve o formulário PrEP, a receita e o exame de HIV (&lt; 7 dias) à UDM mais próxima e retire o TDF/FTC sem custo.
+                </span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-honey font-bold mt-0.5">💊</span>
+                <span>
+                  <strong>Em farmácias e drogarias (particular):</strong> apresente a receita digital em qualquer farmácia ou drogaria do Brasil para comprar o medicamento.
+                </span>
+              </li>
+            </ul>
+            <p className="text-xs text-honey leading-relaxed italic">
+              Você escolhe a opção que melhor se encaixa em sua rotina — sem precisar começar de novo.
             </p>
           </div>
 
