@@ -176,7 +176,7 @@ export default function DuvidasPage() {
               {[
                 { emoji: '💊', titulo: 'Medicamento oral', desc: '1 comprimido por dia, no mesmo horário' },
                 { emoji: '🛡️', titulo: '>99% de eficácia', desc: 'Quando tomado corretamente e de forma contínua' },
-                { emoji: '🔬', titulo: 'Aprovado pela ANVISA', desc: 'Disponível no SUS desde 2017 e via planos/particular' },
+                { emoji: '🔬', titulo: 'Aprovado pela ANVISA', desc: 'Disponível pelo SUS desde 2017 e em farmácias e drogarias na modalidade particular' },
               ].map(({ emoji, titulo, desc }) => (
                 <div key={titulo} className="bg-brand-pale rounded-xl p-4 text-center">
                   <div className="text-3xl mb-2">{emoji}</div>
