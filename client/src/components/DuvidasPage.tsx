@@ -314,7 +314,7 @@ export default function DuvidasPage() {
               </ul>
             </div>
             <div className="bg-brand-pale rounded-2xl border border-brand-light p-5">
-              <p className="font-bold text-brand-dark mb-3">💻 Facilita PrEP (particular / plano)</p>
+              <p className="font-bold text-brand-dark mb-3">💻 Facilita PrEP</p>
               <ul className="text-xs text-brand-dark space-y-2">
                 <li>✓ Atendimento 100% online e ágil</li>
                 <li>✓ Receita assinada digitalmente em horas</li>
@@ -324,6 +324,17 @@ export default function DuvidasPage() {
                 <li>✓ Aceita os principais planos de saúde</li>
               </ul>
             </div>
+          </div>
+
+          {/* Liberdade de escolha */}
+          <div className="mt-4 bg-honey-light rounded-2xl border border-honey-light p-5 flex items-start gap-3">
+            <span className="text-xl shrink-0">✨</span>
+            <p className="text-sm text-honey-dark leading-relaxed">
+              <strong>Você é livre para escolher</strong> onde retirar sua medicação:
+              pegar a PrEP no SUS apresentando os documentos do Facilita PrEP <strong>ou</strong>
+              comprar diretamente em farmácias e drogarias com a sua receita digital.
+              A decisão é sua — em qualquer caminho, estamos com você.
+            </p>
           </div>
 
           {/* SUS UDM Locator */}
