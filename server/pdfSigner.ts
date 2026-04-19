@@ -207,6 +207,29 @@ export async function gerarFormularioPdf(paciente: PacienteCompleto): Promise<Bu
 
 export async function assinarPdf(pdfBuffer: Buffer, titulo = 'Documento PrEP — Facilita PrEP'): Promise<PdfSignResult> {
   const pfxPath = path.join(CERTS_DIR, 'werciley.pfx')
+
+  // Modo desenvolvimento: se o certificado não existir, devolve o PDF
+  // sem assinatura (com aviso visual de DEMO) para permitir validação local.
+  try {
+    await readFile(pfxPath)
+  } catch {
+    if (process.env.NODE_ENV !== 'production') {
+      const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib')
+      const doc = await PDFDocument.load(pdfBuffer)
+      const font = await doc.embedFont(StandardFonts.HelveticaBold)
+      doc.getPages().forEach(p => {
+        const { width } = p.getSize()
+        p.drawRectangle({ x: 0, y: 0, width, height: 22, color: rgb(1, 0.92, 0.7) })
+        p.drawText('DEMO LOCAL — documento NÃO assinado digitalmente (certificado ICP-Brasil ausente)', {
+          x: 16, y: 7, size: 8, font, color: rgb(0.45, 0.3, 0),
+        })
+      })
+      const buf = Buffer.from(await doc.save())
+      return { buffer: buf, certificadoSerial: 'DEMO-LOCAL', assinadoEm: new Date() }
+    }
+    throw new Error('Certificado ICP-Brasil não encontrado em server/certs/werciley.pfx')
+  }
+
   const pfxBuffer = await readFile(pfxPath)
 
   const pfxDer = pfxBuffer.toString('binary')

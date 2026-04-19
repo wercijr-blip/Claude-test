@@ -64,6 +64,43 @@ export const authRouter = router({
       return { token, role }
     }),
 
+  // Login mock — APENAS em desenvolvimento. Pula o OAuth real e cria
+  // uma sessão de equipe direta para validação visual local.
+  devLogin: publicProcedure
+    .input(z.object({ role: z.enum(['admin', 'medico', 'secretaria']) }))
+    .mutation(async ({ input }) => {
+      if (env.NODE_ENV !== 'development') {
+        throw new Error('devLogin disponível apenas em ambiente de desenvolvimento')
+      }
+
+      const openId = `dev-${input.role}`
+      const email = `${input.role}@dev.local`
+      const nome = `Dev ${input.role.charAt(0).toUpperCase()}${input.role.slice(1)}`
+
+      const [existing] = await db.select().from(users).where(eq(users.openId, openId)).limit(1)
+
+      let userId: number
+      if (existing) {
+        userId = existing.id
+        await db.update(users)
+          .set({ role: input.role, email, nome, updatedAt: new Date() })
+          .where(eq(users.id, existing.id))
+      } else {
+        const [result] = await db.insert(users).values({ openId, email, nome, role: input.role })
+        userId = (result as { insertId: number }).insertId
+      }
+
+      const secret = new TextEncoder().encode(env.JWT_SECRET)
+      const token = await new SignJWT({ type: 'staff', userId })
+        .setProtectedHeader({ alg: 'HS256' })
+        .setSubject(openId)
+        .setIssuedAt()
+        .setExpirationTime(JWT_EXPIRY_STAFF)
+        .sign(secret)
+
+      return { token, role: input.role }
+    }),
+
   me: protectedProcedure.query(({ ctx }) => {
     return ctx.session
   }),
