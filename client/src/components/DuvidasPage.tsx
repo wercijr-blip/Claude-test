@@ -341,7 +341,7 @@ export default function DuvidasPage() {
           <div className="mt-4 bg-sage-pale rounded-2xl border border-sage-light p-5">
             <div className="flex items-center gap-2 mb-3">
               <span className="text-xl">🗺️</span>
-              <h3 className="font-bold text-sage-dark text-sm">Como encontrar a UDM mais próxima de você</h3>
+              <h3 className="font-bold text-sage-dark text-sm">Onde pegar a PrEP pelo SUS mais próxima de você</h3>
             </div>
             <p className="text-xs text-sage-dark leading-relaxed mb-4">
               As <strong>Unidades Dispensadoras de Medicamentos (UDMs)</strong> são os postos do SUS onde você retira a PrEP. Para localizar a unidade mais próxima:
