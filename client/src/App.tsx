@@ -9,6 +9,7 @@ import AuditDashboard from './components/AuditDashboard.tsx'
 import LoginPage from './components/LoginPage.tsx'
 import TokenEntryPage from './components/TokenEntryPage.tsx'
 import PesquisaSatisfacao from './components/PesquisaSatisfacao.tsx'
+import FooterCfm from './components/FooterCfm.tsx'
 import { parseJwtPayload } from './_core/hooks/useAuth.ts'
 import { trpc } from './lib/trpc.ts'
 
@@ -18,30 +19,35 @@ export default function App() {
   const role = session?.type === 'staff' ? session.role : null
 
   return (
-    <Switch>
-      <Route path="/auth/callback" component={AuthCallback} />
-      <Route path="/cadastro" component={IntakePage} />
-      <Route path="/acesso/:token" component={TokenEntryPage} />
-      <Route path="/inicio" component={SegundaParteInicio} />
-      <Route path="/formulario/:pacienteId?">
-        {session?.type === 'patient' ? <FormularioPaciente /> : <TokenEntryPage />}
-      </Route>
-      <Route path="/medico">
-        {role === 'medico' || role === 'admin' ? <MedicoDashboard /> : <LoginPage />}
-      </Route>
-      <Route path="/secretaria">
-        {role === 'secretaria' || role === 'admin' ? <SecretariaDashboard /> : <LoginPage />}
-      </Route>
-      <Route path="/admin">
-        {role === 'admin' ? <AuditDashboard /> : <LoginPage />}
-      </Route>
-      <Route path="/pesquisa/:pacienteId/:token" component={PesquisaSatisfacao} />
-      <Route path="/pagamento/sucesso" component={PagamentoSucesso} />
-      <Route path="/pagamento/cancelado" component={PagamentoCancelado} />
-      <Route path="/equipe" component={LoginPage} />
-      <Route path="/" component={IntakePage} />
-      <Route component={NotFound} />
-    </Switch>
+    <div className="min-h-screen flex flex-col">
+      <div className="flex-1">
+        <Switch>
+          <Route path="/auth/callback" component={AuthCallback} />
+          <Route path="/cadastro" component={IntakePage} />
+          <Route path="/acesso/:token" component={TokenEntryPage} />
+          <Route path="/inicio" component={SegundaParteInicio} />
+          <Route path="/formulario/:pacienteId?">
+            {session?.type === 'patient' ? <FormularioPaciente /> : <TokenEntryPage />}
+          </Route>
+          <Route path="/medico">
+            {role === 'medico' || role === 'admin' ? <MedicoDashboard /> : <LoginPage />}
+          </Route>
+          <Route path="/secretaria">
+            {role === 'secretaria' || role === 'admin' ? <SecretariaDashboard /> : <LoginPage />}
+          </Route>
+          <Route path="/admin">
+            {role === 'admin' ? <AuditDashboard /> : <LoginPage />}
+          </Route>
+          <Route path="/pesquisa/:pacienteId/:token" component={PesquisaSatisfacao} />
+          <Route path="/pagamento/sucesso" component={PagamentoSucesso} />
+          <Route path="/pagamento/cancelado" component={PagamentoCancelado} />
+          <Route path="/equipe" component={LoginPage} />
+          <Route path="/" component={IntakePage} />
+          <Route component={NotFound} />
+        </Switch>
+      </div>
+      <FooterCfm />
+    </div>
   )
 }
 
