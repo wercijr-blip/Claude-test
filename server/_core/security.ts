@@ -2,7 +2,6 @@ import helmet from 'helmet'
 import cors from 'cors'
 import type { Express, Request, Response, NextFunction } from 'express'
 import { ALLOWED_ORIGINS } from '../../shared/security-constants.ts'
-import { env } from './env.ts'
 import { apiLimiter } from './rateLimiters.ts'
 
 export function applySecurityMiddleware(app: Express): void {
@@ -27,7 +26,7 @@ export function applySecurityMiddleware(app: Express): void {
   app.use(
     cors({
       origin: (origin, callback) => {
-        if (!origin || env.NODE_ENV === 'development') {
+        if (!origin) {
           callback(null, true)
           return
         }

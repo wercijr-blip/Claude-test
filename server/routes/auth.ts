@@ -7,6 +7,7 @@ import { users } from '../../drizzle/schema.ts'
 import { eq } from 'drizzle-orm'
 import { JWT_EXPIRY_STAFF } from '../../shared/security-constants.ts'
 import type { Role } from '../../shared/types.ts'
+import type { ResultSetHeader } from 'mysql2'
 
 export const authRouter = router({
   // Callback OAuth — troca code por JWT interno
@@ -18,6 +19,7 @@ export const authRouter = router({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code: input.code, app_id: env.VITE_APP_ID }),
+        signal: AbortSignal.timeout(10000),
       })
 
       if (!resp.ok) throw new Error('Falha ao obter token OAuth')
@@ -50,7 +52,7 @@ export const authRouter = router({
           nome: data.name,
           role,
         })
-        userId = (result as { insertId: number }).insertId
+        userId = (result as ResultSetHeader).insertId
       }
 
       const secret = new TextEncoder().encode(env.JWT_SECRET)
@@ -87,7 +89,7 @@ export const authRouter = router({
           .where(eq(users.id, existing.id))
       } else {
         const [result] = await db.insert(users).values({ openId, email, nome, role: input.role })
-        userId = (result as { insertId: number }).insertId
+        userId = (result as ResultSetHeader).insertId
       }
 
       const secret = new TextEncoder().encode(env.JWT_SECRET)

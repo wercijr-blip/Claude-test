@@ -8,6 +8,7 @@ import { applySecurityMiddleware } from './security.ts'
 import { appRouter } from '../routers.ts'
 import { createContext } from './context.ts'
 import { authLimiter, tokenValidateLimiter, uploadLimiter } from './rateLimiters.ts'
+import { db } from '../db.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -36,9 +37,14 @@ app.use(
   }),
 )
 
-// Healthcheck
-app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', ts: new Date().toISOString() })
+// Healthcheck com verificação do banco
+app.get('/api/health', async (_req, res) => {
+  try {
+    await db.execute('SELECT 1')
+    res.json({ status: 'ok', ts: new Date().toISOString() })
+  } catch {
+    res.status(503).json({ status: 'error', ts: new Date().toISOString() })
+  }
 })
 
 // Upload de exames (lazy import para evitar carregar S3 client no boot)

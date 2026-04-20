@@ -15,14 +15,18 @@ export function encrypt(plaintext: string): string {
 }
 
 export function decrypt(ciphertext: string): string {
-  const buffer = Buffer.from(ciphertext, 'base64')
-  const iv = buffer.subarray(0, IV_LENGTH)
-  const tag = buffer.subarray(IV_LENGTH, IV_LENGTH + TAG_LENGTH)
-  const encrypted = buffer.subarray(IV_LENGTH + TAG_LENGTH)
-  const key = Buffer.from(env.ENCRYPTION_KEY, 'hex')
-  const decipher = createDecipheriv(ALGORITHM, key, iv)
-  decipher.setAuthTag(tag)
-  return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString('utf8')
+  try {
+    const buffer = Buffer.from(ciphertext, 'base64')
+    const iv = buffer.subarray(0, IV_LENGTH)
+    const tag = buffer.subarray(IV_LENGTH, IV_LENGTH + TAG_LENGTH)
+    const encrypted = buffer.subarray(IV_LENGTH + TAG_LENGTH)
+    const key = Buffer.from(env.ENCRYPTION_KEY, 'hex')
+    const decipher = createDecipheriv(ALGORITHM, key, iv)
+    decipher.setAuthTag(tag)
+    return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString('utf8')
+  } catch {
+    throw new Error('Falha na descriptografia: dado corrompido ou adulterado')
+  }
 }
 
 export function hashCpf(cpf: string): string {

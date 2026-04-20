@@ -27,6 +27,7 @@ Responda APENAS com o JSON, sem texto adicional.`
       'x-api-key': env.BUILT_IN_FORGE_API_KEY ?? '',
       'anthropic-version': '2023-06-01',
     },
+    signal: AbortSignal.timeout(30000),
     body: JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 500,

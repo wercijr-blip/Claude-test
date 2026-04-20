@@ -1,5 +1,6 @@
+import { Component, type ReactNode } from 'react'
 import { Route, Switch } from 'wouter'
-import { useAuth } from './_core/hooks/useAuth.ts'
+import { useAuth, parseJwtPayload } from './_core/hooks/useAuth.ts'
 import IntakePage from './components/IntakePage.tsx'
 import SegundaParteInicio from './components/SegundaParteInicio.tsx'
 import FormularioPaciente from './components/FormularioPaciente.tsx'
@@ -11,8 +12,38 @@ import TokenEntryPage from './components/TokenEntryPage.tsx'
 import PesquisaSatisfacao from './components/PesquisaSatisfacao.tsx'
 import DuvidasPage from './components/DuvidasPage.tsx'
 import FooterCfm from './components/FooterCfm.tsx'
-import { parseJwtPayload } from './_core/hooks/useAuth.ts'
 import { trpc } from './lib/trpc.ts'
+
+class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: ReactNode }) {
+    super(props)
+    this.state = { hasError: false }
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-slate-700 mb-2">Algo deu errado</h1>
+            <p className="text-slate-500 mb-4">Ocorreu um erro inesperado.</p>
+            <button
+              className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-medium hover:bg-blue-700 transition-colors"
+              onClick={() => window.location.reload()}
+            >
+              Recarregar página
+            </button>
+          </div>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 export default function App() {
   const { token } = useAuth()
@@ -20,36 +51,38 @@ export default function App() {
   const role = session?.type === 'staff' ? session.role : null
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <div className="flex-1">
-        <Switch>
-          <Route path="/auth/callback" component={AuthCallback} />
-          <Route path="/cadastro" component={IntakePage} />
-          <Route path="/acesso/:token" component={TokenEntryPage} />
-          <Route path="/inicio" component={SegundaParteInicio} />
-          <Route path="/formulario/:pacienteId?">
-            {session?.type === 'patient' ? <FormularioPaciente /> : <TokenEntryPage />}
-          </Route>
-          <Route path="/medico">
-            {role === 'medico' || role === 'admin' ? <MedicoDashboard /> : <LoginPage />}
-          </Route>
-          <Route path="/secretaria">
-            {role === 'secretaria' || role === 'admin' ? <SecretariaDashboard /> : <LoginPage />}
-          </Route>
-          <Route path="/admin">
-            {role === 'admin' ? <AuditDashboard /> : <LoginPage />}
-          </Route>
-          <Route path="/duvidas" component={DuvidasPage} />
-          <Route path="/pesquisa/:pacienteId/:token" component={PesquisaSatisfacao} />
-          <Route path="/pagamento/sucesso" component={PagamentoSucesso} />
-          <Route path="/pagamento/cancelado" component={PagamentoCancelado} />
-          <Route path="/equipe" component={LoginPage} />
-          <Route path="/" component={IntakePage} />
-          <Route component={NotFound} />
-        </Switch>
+    <ErrorBoundary>
+      <div className="min-h-screen flex flex-col">
+        <div className="flex-1">
+          <Switch>
+            <Route path="/auth/callback" component={AuthCallback} />
+            <Route path="/cadastro" component={IntakePage} />
+            <Route path="/acesso/:token" component={TokenEntryPage} />
+            <Route path="/inicio" component={SegundaParteInicio} />
+            <Route path="/formulario/:pacienteId?">
+              {session?.type === 'patient' ? <FormularioPaciente /> : <TokenEntryPage />}
+            </Route>
+            <Route path="/medico">
+              {role === 'medico' || role === 'admin' ? <MedicoDashboard /> : <LoginPage />}
+            </Route>
+            <Route path="/secretaria">
+              {role === 'secretaria' || role === 'admin' ? <SecretariaDashboard /> : <LoginPage />}
+            </Route>
+            <Route path="/admin">
+              {role === 'admin' ? <AuditDashboard /> : <LoginPage />}
+            </Route>
+            <Route path="/duvidas" component={DuvidasPage} />
+            <Route path="/pesquisa/:pacienteId/:token" component={PesquisaSatisfacao} />
+            <Route path="/pagamento/sucesso" component={PagamentoSucesso} />
+            <Route path="/pagamento/cancelado" component={PagamentoCancelado} />
+            <Route path="/equipe" component={LoginPage} />
+            <Route path="/" component={IntakePage} />
+            <Route component={NotFound} />
+          </Switch>
+        </div>
+        <FooterCfm />
       </div>
-      <FooterCfm />
-    </div>
+    </ErrorBoundary>
   )
 }
 
@@ -100,7 +133,7 @@ function PagamentoCancelado() {
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 max-w-md w-full text-center">
-        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb4">
           <svg className="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
