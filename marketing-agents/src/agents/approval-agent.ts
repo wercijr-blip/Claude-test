@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import logger from '../utils/logger';
-import type { ContentJob, JobStatus, Brand } from '../types';
+import type { ContentJob, JobStatus, Brand, ComplianceResult } from '../types';
 
 const STATE_FILE   = path.join(process.cwd(), 'logs', 'approval-queue.json');
 const PAUSE_FILE   = path.join(process.cwd(), 'logs', 'publish-paused.json');
@@ -71,6 +71,7 @@ export class ApprovalAgent {
     preview: string;
     imageUrl?: string;
     videoUrl?: string;
+    compliance?: ComplianceResult;
     delayMinutes?: number;
     publishFn: PublishFn;
   }): ContentJob {

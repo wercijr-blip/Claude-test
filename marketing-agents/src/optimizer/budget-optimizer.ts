@@ -264,8 +264,8 @@ export class BudgetOptimizer {
     const totalSpend = channels.reduce((s, c) => s + c.spend, 0);
     const totalLeads = channels.reduce((s, c) => s + c.leads, 0);
     const totalPatients = channels.reduce((s, c) => s + c.patients, 0);
-    const blendedCPA = totalPatients > 0 ? totalSpend / totalPatients : Infinity;
-    const blendedCPL = totalLeads > 0 ? totalSpend / totalLeads : Infinity;
+    const blendedCPA = totalPatients > 0 ? totalSpend / totalPatients : 0;
+    const blendedCPL = totalLeads > 0 ? totalSpend / totalLeads : 0;
 
     const decisions = channels.map((c) => this.analyzeChannel(c));
     const reallocations = this.planReallocations(channels);

@@ -170,8 +170,8 @@ export class FinancialAgent {
       infrastructure: costs.infrastructure ?? DEFAULT_INFRA,
       total: 0,
     };
-    const aiTotal = Object.values(monthlyCosts.aiCosts).reduce((s, v) => s + v, 0);
-    monthlyCosts.total = monthlyCosts.adSpend + aiTotal + monthlyCosts.infrastructure;
+    const aiCostTotal = Object.values(monthlyCosts.aiCosts).reduce((s, v) => s + v, 0);
+    monthlyCosts.total = monthlyCosts.adSpend + aiCostTotal + monthlyCosts.infrastructure;
 
     const grossProfit  = revenue - monthlyCosts.total;
     const grossMargin  = revenue > 0 ? (grossProfit / revenue) * 100 : 0;

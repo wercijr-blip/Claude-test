@@ -141,7 +141,7 @@ export class VideoAgent {
         promptText: request.script,
         ratio: RUNWAY_RATIO[request.format],
         duration: Math.min(request.durationSeconds ?? 10, 10), // Runway máx 10s por chamada
-        model: 'gen3a_turbo',
+        model: process.env.RUNWAY_MODEL ?? 'gen3a_turbo', // override via .env se Runway mudar o nome
       },
       {
         headers: {

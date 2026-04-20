@@ -129,7 +129,9 @@ export class LeadAgent {
   private state: LeadState = { leads: [], emailQueue: [] };
 
   constructor() {
-    this.anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY ?? 'sim' });
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey && !SIM) logger.warn('[LeadAgent] ANTHROPIC_API_KEY não definida — scoring via IA desabilitado');
+    this.anthropic = new Anthropic({ apiKey: apiKey ?? 'not-set' });
     this.loadState();
   }
 

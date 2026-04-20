@@ -98,7 +98,9 @@ export class ComplianceAgent {
   private anthropic: Anthropic;
 
   constructor() {
-    this.anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY ?? 'sim' });
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey && !SIM) logger.warn('[ComplianceAgent] ANTHROPIC_API_KEY não definida — verificação CFM desabilitada');
+    this.anthropic = new Anthropic({ apiKey: apiKey ?? 'not-set' });
   }
 
   async check(content: GeneratedContent, context?: string): Promise<ComplianceResult> {

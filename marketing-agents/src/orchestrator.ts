@@ -16,7 +16,7 @@ import { approvalAgent } from './agents/approval-agent';
 import { complianceAgent } from './agents/compliance-agent';
 import { startDashboardServer, markRoutineStart, markRoutineDone } from './dashboard/server';
 import { META_AUDIENCES, GOOGLE_KEYWORDS_PREP } from './config/targets';
-import type { AdCampaign, ChannelPerformance } from './types';
+import type { AdCampaign, ChannelPerformance, GeneratedContent, Brand, ContentJob } from './types';
 
 // ─── Env validation ───────────────────────────────────────────────────────────
 
@@ -66,14 +66,14 @@ const session: {
 // ─── Compliance + schedule helper ────────────────────────────────────────────
 
 async function scheduleWithCompliance(params: {
-  content: import('./types').GeneratedContent;
-  brand: import('./types').Brand;
+  content: GeneratedContent;
+  brand: Brand;
   platform: string;
   label: string;
   preview: string;
   imageUrl?: string;
   videoUrl?: string;
-  publishFn: (job: import('./types').ContentJob) => Promise<string | undefined>;
+  publishFn: (job: ContentJob) => Promise<string | undefined>;
 }) {
   const { content, publishFn, ...rest } = params;
   const compliance = await complianceAgent.check(content);
@@ -84,9 +84,7 @@ async function scheduleWithCompliance(params: {
     return null;
   }
 
-  const job = approvalAgent.schedule({ ...rest, delayMinutes: 5, publishFn });
-  job.compliance = compliance;
-  return job;
+  return approvalAgent.schedule({ ...rest, compliance, delayMinutes: 5, publishFn });
 }
 
 // ─── Routine 1: Daily content post (Mon/Wed/Fri 09:00) ───────────────────────
