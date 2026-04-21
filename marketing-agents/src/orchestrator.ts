@@ -15,6 +15,7 @@ import { leadAgent } from './agents/lead-agent';
 import { approvalAgent } from './agents/approval-agent';
 import { complianceAgent } from './agents/compliance-agent';
 import { startDashboardServer, markRoutineStart, markRoutineDone } from './dashboard/server';
+import { buildVaultContext, createWeeklyBriefingTemplate, writeReport } from './utils/vault';
 import { META_AUDIENCES, GOOGLE_KEYWORDS_PREP } from './config/targets';
 import type { AdCampaign, ChannelPerformance, GeneratedContent, Brand, ContentJob } from './types';
 
@@ -93,9 +94,15 @@ async function dailyContentPost() {
   markRoutineStart('daily');
   logger.info('── Rotina: Postagem Diária de Conteúdo ──────────────────────────');
 
+  // Cria template da semana se não existe e carrega contexto do vault
+  createWeeklyBriefingTemplate();
+  const prepContext  = buildVaultContext('facilita_prep');
+  const iasoContext  = buildVaultContext('iaso_clinica');
+
   // ── Instagram Feed → fila de aprovação ──────────────────────────────────────
   const igContent = await contentAgent.generateContent({
     platform: 'INSTAGRAM_FEED', audience: 'lgbt_adulto_brasil', brand: 'facilita_prep',
+    vaultContext: prepContext || undefined,
   });
   const igImagePrompt = await contentAgent.generateImagePrompt(igContent, 'SQUARE');
   const igImage = await imageAgent.generateForInstagramFeed(igImagePrompt.prompt, igImagePrompt.negativePrompt, 'facilita_prep');
@@ -110,6 +117,7 @@ async function dailyContentPost() {
   // ── Instagram Reel → fila de aprovação ───────────────────────────────────────
   const reelContent = await contentAgent.generateContent({
     platform: 'YOUTUBE_SCRIPT', audience: 'lgbt_adulto_brasil', brand: 'facilita_prep',
+    vaultContext: prepContext || undefined,
   });
   const reelScript = (reelContent.segments ?? []).map(s => s.text).join(' ');
   const reelVideo  = await videoAgent.generateAnimatedReel(reelScript, 'facilita_prep');
@@ -127,6 +135,7 @@ async function dailyContentPost() {
   // ── LinkedIn → fila de aprovação ─────────────────────────────────────────────
   const liContent = await contentAgent.generateContent({
     platform: 'LINKEDIN_POST', audience: 'profissionais_saude', brand: 'iaso_clinica',
+    vaultContext: iasoContext || undefined,
   });
   const liImagePrompt = await contentAgent.generateImagePrompt(liContent, 'LANDSCAPE');
   const liImage = await imageAgent.generateForLinkedIn(liImagePrompt.prompt, liImagePrompt.negativePrompt);
@@ -438,7 +447,17 @@ async function monthlyReport() {
     });
   }
 
-  financialAgent.generateReport();
+  const financialReport = financialAgent.generateReport();
+
+  // Escreve relatório financeiro no vault para consulta no Obsidian
+  if (financialReport) {
+    const m = new Date().toISOString().slice(0, 7);
+    writeReport(
+      `# Relatório Financeiro — ${m}\n\nGerado automaticamente em ${new Date().toLocaleString('pt-BR')}\n\n\`\`\`json\n${JSON.stringify(financialReport, null, 2)}\n\`\`\`\n`,
+      m,
+    );
+  }
+
   logger.info('── Relatório mensal concluído ────────────────────────────────────');
   markRoutineDone('monthly', true);
 }

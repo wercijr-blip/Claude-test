@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import logger from '../utils/logger';
+import { appendPublishedPost } from '../utils/vault';
 import type { ContentJob, JobStatus, Brand, ComplianceResult } from '../types';
 
 const STATE_FILE   = path.join(process.cwd(), 'logs', 'approval-queue.json');
@@ -168,6 +169,7 @@ export class ApprovalAgent {
       job.publishedAt     = new Date().toISOString();
       job.publishedPostId = postId;
       this.saveState();
+      appendPublishedPost(job);
       logger.info(`[ApprovalAgent] ✅ Publicado: ${job.label} (postId: ${postId ?? 'n/a'})`);
     } catch (err: unknown) {
       job.status = 'FAILED';

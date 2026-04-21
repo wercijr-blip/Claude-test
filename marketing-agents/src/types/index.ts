@@ -60,6 +60,7 @@ export interface ContentRequest {
   audience: string;
   contentType?: string;
   brand: Brand;
+  vaultContext?: string;  // contexto injetado do Obsidian vault (briefing, brand voice, etc.)
 }
 
 export interface InstagramVersion {

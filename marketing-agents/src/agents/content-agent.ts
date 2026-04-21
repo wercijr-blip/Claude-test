@@ -199,10 +199,14 @@ export class ContentAgent {
     const promptFn = USER_PROMPTS[request.platform];
     if (!promptFn) throw new Error(`Plataforma não suportada: ${request.platform}`);
 
+    const systemPrompt = request.vaultContext
+      ? `${SYSTEM_PROMPT}\n\n# CONTEXTO ESTRATÉGICO DA SEMANA (do vault do proprietário)\n${request.vaultContext}`
+      : SYSTEM_PROMPT;
+
     const response = await this.client!.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 1024,
-      system: SYSTEM_PROMPT,
+      system: systemPrompt,
       messages: [{ role: 'user', content: promptFn(request.audience, request.brand) }],
     });
 
