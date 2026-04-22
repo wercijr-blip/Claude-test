@@ -8,7 +8,8 @@ const pool = mysql.createPool({
   uri: env.DATABASE_URL,
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0,
+  queueLimit: 100,
+  connectTimeout: 10000,
 })
 
 export const db = drizzle(pool, { schema: { ...schema, ...relations }, mode: 'default' })

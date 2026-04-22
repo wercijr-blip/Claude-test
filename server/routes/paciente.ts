@@ -9,11 +9,26 @@ import { validarCpf } from '../_core/cpfValidator.ts'
 import { ERROR_MESSAGES } from '../../shared/const.ts'
 import { getPresignedUrl } from '../storage.ts'
 import { enqueueGerarPdf } from '../pdfQueue.ts'
+import type { ResultSetHeader } from 'mysql2'
 
 function assertPatient(session: unknown): asserts session is { type: 'patient'; tokenId: number; pacienteId: number | null } {
   if (!session || (session as { type: string }).type !== 'patient') {
     throw new TRPCError({ code: 'FORBIDDEN' })
   }
+}
+
+async function validarEtapaPaciente(pacienteId: number, tokenId: number, etapaRequerida: number) {
+  const [p] = await db
+    .select({ id: pacientes.id, currentStep: pacientes.currentStep })
+    .from(pacientes)
+    .where(and(eq(pacientes.id, pacienteId), eq(pacientes.tokenId, tokenId)))
+    .limit(1)
+
+  if (!p) throw new TRPCError({ code: 'NOT_FOUND' })
+  if (p.currentStep < etapaRequerida) {
+    throw new TRPCError({ code: 'BAD_REQUEST', message: 'Complete as etapas anteriores primeiro' })
+  }
+  return p
 }
 
 const condutaSchema = z.object({
@@ -24,12 +39,12 @@ const condutaSchema = z.object({
     usaPreservativo: z.enum(['sempre', 'quase_sempre', 'as_vezes', 'nunca']),
   }),
   historicoDst: z.boolean(),
-  dstDescricao: z.string().optional(),
+  dstDescricao: z.string().max(1000).optional(),
   prepAnterior: z.boolean(),
-  prepPeriodo: z.string().optional(),
+  prepPeriodo: z.string().max(255).optional(),
   usoDrogas: z.boolean(),
-  drogasDescricao: z.string().optional(),
-  outrasInformacoes: z.string().optional(),
+  drogasDescricao: z.string().max(1000).optional(),
+  outrasInformacoes: z.string().max(2000).optional(),
 })
 
 export const pacienteRouter = router({
@@ -38,10 +53,10 @@ export const pacienteRouter = router({
     .input(
       z.object({
         cpf: z.string().refine(validarCpf, ERROR_MESSAGES.CPF_INVALID),
-        nome: z.string().min(3),
+        nome: z.string().min(3).max(255),
         dataNascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
         sexo: z.enum(['masculino', 'feminino', 'outro']),
-        nomeSocial: z.string().optional(),
+        nomeSocial: z.string().max(255).optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -80,7 +95,7 @@ export const pacienteRouter = router({
         currentStep: 2,
         retentionUntil,
       })
-      return { pacienteId: (result as { insertId: number }).insertId }
+      return { pacienteId: (result as ResultSetHeader).insertId }
     }),
 
   // Step 2 — Demográfico
@@ -88,15 +103,16 @@ export const pacienteRouter = router({
     .input(
       z.object({
         pacienteId: z.number(),
-        corRaca: z.string(),
-        escolaridade: z.string(),
-        situacaoConjugal: z.string().optional(),
-        rendaFamiliar: z.string().optional(),
-        ocupacao: z.string().optional(),
+        corRaca: z.string().max(50),
+        escolaridade: z.string().max(100),
+        situacaoConjugal: z.string().max(50).optional(),
+        rendaFamiliar: z.string().max(100).optional(),
+        ocupacao: z.string().max(255).optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
       assertPatient(ctx.session)
+      const p = await validarEtapaPaciente(input.pacienteId, ctx.session.tokenId, 2)
       await db
         .update(pacientes)
         .set({
@@ -105,7 +121,7 @@ export const pacienteRouter = router({
           situacaoConjugal: input.situacaoConjugal,
           rendaFamiliar: input.rendaFamiliar,
           ocupacao: input.ocupacao,
-          currentStep: 3,
+          currentStep: Math.max(p.currentStep, 3),
           updatedAt: new Date(),
         })
         .where(and(eq(pacientes.id, input.pacienteId), eq(pacientes.tokenId, ctx.session.tokenId)))
@@ -117,20 +133,21 @@ export const pacienteRouter = router({
     .input(
       z.object({
         pacienteId: z.number(),
-        email: z.string().email(),
-        tipoTelefone: z.string().optional(),
-        telefone: z.string().min(10),
+        email: z.string().email().max(255),
+        tipoTelefone: z.string().max(20).optional(),
+        telefone: z.string().min(10).max(20),
         cep: z.string().length(8),
-        logradouro: z.string(),
-        numero: z.string(),
-        complemento: z.string().optional(),
-        bairro: z.string(),
-        cidade: z.string(),
+        logradouro: z.string().max(255),
+        numero: z.string().max(20),
+        complemento: z.string().max(100).optional(),
+        bairro: z.string().max(100),
+        cidade: z.string().max(100),
         estado: z.string().length(2),
       }),
     )
     .mutation(async ({ input, ctx }) => {
       assertPatient(ctx.session)
+      const p = await validarEtapaPaciente(input.pacienteId, ctx.session.tokenId, 3)
       await db
         .update(pacientes)
         .set({
@@ -144,7 +161,7 @@ export const pacienteRouter = router({
           bairro: input.bairro,
           cidade: input.cidade,
           estado: input.estado,
-          currentStep: 4,
+          currentStep: Math.max(p.currentStep, 4),
           updatedAt: new Date(),
         })
         .where(and(eq(pacientes.id, input.pacienteId), eq(pacientes.tokenId, ctx.session.tokenId)))
@@ -156,9 +173,10 @@ export const pacienteRouter = router({
     .input(z.object({ pacienteId: z.number(), conduta: condutaSchema }))
     .mutation(async ({ input, ctx }) => {
       assertPatient(ctx.session)
+      const p = await validarEtapaPaciente(input.pacienteId, ctx.session.tokenId, 4)
       await db
         .update(pacientes)
-        .set({ condutaJson: input.conduta, currentStep: 5, updatedAt: new Date() })
+        .set({ condutaJson: input.conduta, currentStep: Math.max(p.currentStep, 5), updatedAt: new Date() })
         .where(and(eq(pacientes.id, input.pacienteId), eq(pacientes.tokenId, ctx.session.tokenId)))
       return { ok: true }
     }),
@@ -170,18 +188,19 @@ export const pacienteRouter = router({
         pacienteId: z.number(),
         prescricao: z.object({
           medicamento: z.enum(['tenofovir_emtricitabina', 'outro']),
-          nomeMedicamento: z.string().optional(),
-          posologia: z.string(),
-          duracao: z.string(),
-          observacoes: z.string().optional(),
+          nomeMedicamento: z.string().max(255).optional(),
+          posologia: z.string().max(500),
+          duracao: z.string().max(100),
+          observacoes: z.string().max(2000).optional(),
         }),
       }),
     )
     .mutation(async ({ input, ctx }) => {
       assertPatient(ctx.session)
+      const p = await validarEtapaPaciente(input.pacienteId, ctx.session.tokenId, 5)
       await db
         .update(pacientes)
-        .set({ prescricaoJson: input.prescricao, currentStep: 6, updatedAt: new Date() })
+        .set({ prescricaoJson: input.prescricao, currentStep: Math.max(p.currentStep, 6), updatedAt: new Date() })
         .where(and(eq(pacientes.id, input.pacienteId), eq(pacientes.tokenId, ctx.session.tokenId)))
       return { ok: true }
     }),
@@ -192,13 +211,14 @@ export const pacienteRouter = router({
       z.object({
         pacienteId: z.number(),
         tipoAtendimento: z.enum(['particular', 'convenio', 'sus']),
-        convenio: z.string().optional(),
-        numeroConvenio: z.string().optional(),
+        convenio: z.string().max(255).optional(),
+        numeroConvenio: z.string().max(100).optional(),
         valorCentavos: z.number().optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
       assertPatient(ctx.session)
+      const p = await validarEtapaPaciente(input.pacienteId, ctx.session.tokenId, 6)
       await db
         .update(pacientes)
         .set({
@@ -206,7 +226,7 @@ export const pacienteRouter = router({
           convenio: input.convenio,
           numeroConvenio: input.numeroConvenio,
           valorCentavos: input.valorCentavos,
-          currentStep: 7,
+          currentStep: Math.max(p.currentStep, 7),
           updatedAt: new Date(),
         })
         .where(and(eq(pacientes.id, input.pacienteId), eq(pacientes.tokenId, ctx.session.tokenId)))
@@ -219,15 +239,20 @@ export const pacienteRouter = router({
       z.object({
         pacienteId: z.number(),
         autorizados: z.array(
-          z.object({ nome: z.string(), parentesco: z.string(), telefone: z.string().optional() }),
-        ),
+          z.object({
+            nome: z.string().max(255),
+            parentesco: z.string().max(50),
+            telefone: z.string().max(20).optional(),
+          }),
+        ).max(10),
       }),
     )
     .mutation(async ({ input, ctx }) => {
       assertPatient(ctx.session)
+      const p = await validarEtapaPaciente(input.pacienteId, ctx.session.tokenId, 7)
       await db
         .update(pacientes)
-        .set({ autorizadosJson: input.autorizados, currentStep: 8, updatedAt: new Date() })
+        .set({ autorizadosJson: input.autorizados, currentStep: Math.max(p.currentStep, 8), updatedAt: new Date() })
         .where(and(eq(pacientes.id, input.pacienteId), eq(pacientes.tokenId, ctx.session.tokenId)))
       return { ok: true }
     }),
@@ -236,10 +261,11 @@ export const pacienteRouter = router({
   salvarTcle: protectedProcedure
     .input(z.object({
       pacienteId: z.number(),
-      assinaturaDataUrl: z.string().min(1),
+      assinaturaDataUrl: z.string().min(1).max(500_000),
     }))
     .mutation(async ({ input, ctx }) => {
       assertPatient(ctx.session)
+      await validarEtapaPaciente(input.pacienteId, ctx.session.tokenId, 8)
       await db
         .insert(tcleAssinaturas)
         .values({ pacienteId: input.pacienteId, assinaturaDataUrl: input.assinaturaDataUrl })
@@ -327,7 +353,6 @@ export const pacienteRouter = router({
         dataNascimento: p.dataNascimentoEncrypted ? decrypt(p.dataNascimentoEncrypted) : null,
         email: p.emailEncrypted ? decrypt(p.emailEncrypted) : null,
         telefone: p.telefoneEncrypted ? decrypt(p.telefoneEncrypted) : null,
-        // Remover campos encriptados brutos da resposta
         cpfEncrypted: undefined,
         nomeEncrypted: undefined,
         dataNascimentoEncrypted: undefined,

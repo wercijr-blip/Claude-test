@@ -2,6 +2,7 @@ import { env } from './_core/env.ts'
 import { db } from './db.ts'
 import { nfseRegistros } from '../drizzle/schema.ts'
 import { eq } from 'drizzle-orm'
+import type { ResultSetHeader } from 'mysql2'
 
 const BASE_URL = env.FOCUSNFE_ENVIRONMENT === 'producao'
   ? 'https://api.focusnfe.com.br'
@@ -30,7 +31,7 @@ export async function emitirNfse(dados: DadosNfse): Promise<void> {
     focusnfeRef: refNfse,
   })
 
-  const registroId = (result as { insertId: number }).insertId
+  const registroId = (result as ResultSetHeader).insertId
 
   try {
     const payload = {
@@ -65,6 +66,7 @@ export async function emitirNfse(dados: DadosNfse): Promise<void> {
         'Content-Type': 'application/json',
         Authorization: `Basic ${Buffer.from(TOKEN + ':').toString('base64')}`,
       },
+      signal: AbortSignal.timeout(15000),
       body: JSON.stringify(payload),
     })
 
