@@ -33,7 +33,12 @@ const envSchema = z.object({
   ZAPI_INSTANCE_ID: z.string().optional(),
   ZAPI_TOKEN: z.string().optional(),
 
-  APP_URL: z.string().url().default('https://facilitaprep.manus.space'),
+  // Certificado ICP-Brasil via variável de ambiente (Railway/cloud)
+  // Alternativa ao arquivo em server/certs/werciley.pfx
+  ICP_PFX_BASE64: z.string().optional(),
+  ICP_PFX_PASSWORD: z.string().optional(),
+
+  APP_URL: z.string().url().default('https://facilitaprep.com.br'),
 
   PORT: z.coerce.number().default(3000),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),

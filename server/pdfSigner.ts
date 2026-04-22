@@ -198,21 +198,37 @@ export async function gerarFormularioPdf(paciente: PacienteCompleto): Promise<Bu
   if (paciente.convenio) campo('Convênio', paciente.convenio)
 
   const emitido = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-  page.drawText(`Facilita PrEP · facilitaprep.manus.space · Emitido em ${emitido}`, {
+  page.drawText(`Facilita PrEP · ${process.env.APP_URL ?? 'facilitaprep.com.br'} · Emitido em ${emitido}`, {
     x: m, y: 28, font, size: 7, color: rgb(0.7, 0.7, 0.7),
   })
 
   return Buffer.from(await doc.save())
 }
 
-export async function assinarPdf(pdfBuffer: Buffer, titulo = 'Documento PrEP — Facilita PrEP'): Promise<PdfSignResult> {
+async function carregarPfxBuffer(): Promise<{ buffer: Buffer; password: string } | null> {
+  // Prioridade 1: variável de ambiente (Railway/produção em cloud)
+  if (process.env.ICP_PFX_BASE64) {
+    return {
+      buffer: Buffer.from(process.env.ICP_PFX_BASE64, 'base64'),
+      password: process.env.ICP_PFX_PASSWORD ?? '',
+    }
+  }
+  // Prioridade 2: arquivo em disco (servidor VPS ou dev local)
   const pfxPath = path.join(CERTS_DIR, 'werciley.pfx')
+  try {
+    const buffer = await readFile(pfxPath)
+    return { buffer, password: process.env.ICP_PFX_PASSWORD ?? '' }
+  } catch {
+    return null
+  }
+}
+
+export async function assinarPdf(pdfBuffer: Buffer, titulo = 'Documento PrEP — Facilita PrEP'): Promise<PdfSignResult> {
+  const pfx = await carregarPfxBuffer()
 
   // Modo desenvolvimento: se o certificado não existir, devolve o PDF
   // sem assinatura (com aviso visual de DEMO) para permitir validação local.
-  try {
-    await readFile(pfxPath)
-  } catch {
+  if (!pfx) {
     if (process.env.NODE_ENV !== 'production') {
       const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib')
       const doc = await PDFDocument.load(pdfBuffer)
@@ -227,14 +243,12 @@ export async function assinarPdf(pdfBuffer: Buffer, titulo = 'Documento PrEP —
       const buf = Buffer.from(await doc.save())
       return { buffer: buf, certificadoSerial: 'DEMO-LOCAL', assinadoEm: new Date() }
     }
-    throw new Error('Certificado ICP-Brasil não encontrado em server/certs/werciley.pfx')
+    throw new Error('Certificado ICP-Brasil não encontrado. Configure ICP_PFX_BASE64 ou coloque o arquivo em server/certs/werciley.pfx')
   }
 
-  const pfxBuffer = await readFile(pfxPath)
-
-  const pfxDer = pfxBuffer.toString('binary')
+  const pfxDer = pfx.buffer.toString('binary')
   const pfxAsn1 = forge.asn1.fromDer(pfxDer)
-  const pfxObj = forge.pkcs12.pkcs12FromAsn1(pfxAsn1, '')
+  const pfxObj = forge.pkcs12.pkcs12FromAsn1(pfxAsn1, pfx.password)
 
   // Extrair certificado e chave privada
   const certBags = pfxObj.getBags({ bagType: forge.pki.oids.certBag })
