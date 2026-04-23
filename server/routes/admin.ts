@@ -9,7 +9,7 @@ import {
   bulletinSendLogs,
   adminNotifications,
 } from '../../drizzle/schema.ts'
-import { eq, desc, and, gte, lte } from 'drizzle-orm'
+import { eq, desc, and } from 'drizzle-orm'
 import type { Role } from '../../shared/types.ts'
 
 const reportsRouter = router({

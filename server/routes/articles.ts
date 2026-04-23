@@ -7,7 +7,7 @@ import {
   articleTopicLinks,
   articleClusters,
 } from '../../drizzle/schema.ts'
-import { eq, desc, and, gte, lte, sql } from 'drizzle-orm'
+import { eq, desc, and, sql } from 'drizzle-orm'
 
 const saveArticleInput = z.object({
   pmid: z.string().max(20),
