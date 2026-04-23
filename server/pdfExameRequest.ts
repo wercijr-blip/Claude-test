@@ -17,20 +17,29 @@ async function gerarPdfPedido(
   observacao?: string,
 ): Promise<Buffer> {
   const doc = await PDFDocument.create()
-  const page = doc.addPage([595, 842])
   const font = await doc.embedFont(StandardFonts.Helvetica)
   const fontBold = await doc.embedFont(StandardFonts.HelveticaBold)
 
-  const { width, height } = page.getSize()
+  const PAGE_W = 595
+  const PAGE_H = 842
   const margin = 50
-  let y = height - 60
+  // y mínimo antes de iniciar nova página (reserva rodapé)
+  const MIN_Y = 80
 
-  // Header
+  // Adiciona nova página e retorna referência + cursor inicial
+  const novaPage = () => {
+    const p = doc.addPage([PAGE_W, PAGE_H])
+    return { page: p, y: PAGE_H - 60 }
+  }
+
+  let { page, y } = novaPage()
+
+  // Header (primeira página)
   page.drawText('FACILITA PrEP', { x: margin, y, font: fontBold, size: 18, color: rgb(0.07, 0.27, 0.52) })
   y -= 22
   page.drawText('Plataforma de Saúde Digital — Pedido de Exames', { x: margin, y, font, size: 10, color: rgb(0.4, 0.4, 0.4) })
   y -= 14
-  page.drawLine({ start: { x: margin, y }, end: { x: width - margin, y }, thickness: 1, color: rgb(0.8, 0.8, 0.8) })
+  page.drawLine({ start: { x: margin, y }, end: { x: PAGE_W - margin, y }, thickness: 1, color: rgb(0.8, 0.8, 0.8) })
   y -= 24
 
   // Título
@@ -44,7 +53,7 @@ async function gerarPdfPedido(
   y -= 18
   page.drawText(nomePaciente, { x: margin, y, font, size: 11, color: rgb(0.1, 0.1, 0.1) })
   y -= 10
-  page.drawLine({ start: { x: margin, y }, end: { x: width - margin, y }, thickness: 0.5, color: rgb(0.9, 0.9, 0.9) })
+  page.drawLine({ start: { x: margin, y }, end: { x: PAGE_W - margin, y }, thickness: 0.5, color: rgb(0.9, 0.9, 0.9) })
   y -= 24
 
   // Lista de exames
@@ -52,26 +61,36 @@ async function gerarPdfPedido(
   y -= 20
 
   for (const exame of exames) {
+    // Quebra de página quando o espaço acabar
+    if (y < MIN_Y) {
+      desenharCarimboICP(page, font, fontBold, PAGE_W, margin)
+      ;({ page, y } = novaPage())
+      // Cabeçalho de continuação
+      page.drawText(`${titulo} (continuação)`, { x: margin, y, font: fontBold, size: 11, color: rgb(0.07, 0.27, 0.52) })
+      y -= 14
+      page.drawLine({ start: { x: margin, y }, end: { x: PAGE_W - margin, y }, thickness: 0.5, color: rgb(0.8, 0.8, 0.8) })
+      y -= 20
+    }
     page.drawText(`•  ${exame.nome}`, { x: margin + 8, y, font, size: 10, color: rgb(0.1, 0.1, 0.1) })
-    page.drawText(`TUSS ${exame.tuss}`, { x: width - margin - 90, y, font, size: 8, color: rgb(0.5, 0.5, 0.5) })
+    page.drawText(`TUSS ${exame.tuss}`, { x: PAGE_W - margin - 90, y, font, size: 8, color: rgb(0.5, 0.5, 0.5) })
     y -= 18
   }
 
   if (observacao) {
+    if (y < MIN_Y + 40) {
+      desenharCarimboICP(page, font, fontBold, PAGE_W, margin)
+      ;({ page, y } = novaPage())
+    }
     y -= 8
     page.drawText('OBSERVAÇÃO', { x: margin, y, font: fontBold, size: 9, color: rgb(0.5, 0.5, 0.5) })
     y -= 14
-    page.drawText(observacao, { x: margin, y, font, size: 9, color: rgb(0.4, 0.4, 0.4), maxWidth: width - margin * 2 })
-    y -= 14
+    page.drawText(observacao, { x: margin, y, font, size: 9, color: rgb(0.4, 0.4, 0.4), maxWidth: PAGE_W - margin * 2 })
   }
 
-  y -= 20
-  page.drawLine({ start: { x: margin, y }, end: { x: width - margin, y }, thickness: 0.5, color: rgb(0.9, 0.9, 0.9) })
-
-  // Data de emissão + carimbo digital (posições fixas no rodapé)
+  // Data de emissão + carimbo digital na última página
   const dataEmissao = new Date().toLocaleDateString('pt-BR')
   page.drawText(`Data de emissão: ${dataEmissao}`, { x: margin, y: 62, font, size: 8, color: rgb(0.5, 0.5, 0.5) })
-  desenharCarimboICP(page, font, fontBold, width, margin)
+  desenharCarimboICP(page, font, fontBold, PAGE_W, margin)
 
   return Buffer.from(await doc.save())
 }
