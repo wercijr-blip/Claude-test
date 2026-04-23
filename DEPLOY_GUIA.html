@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+  body { font-family: Arial, sans-serif; max-width: 860px; margin: 40px auto; padding: 0 32px; color: #1e293b; line-height: 1.7; font-size: 14px; }
+  h1 { font-size: 26px; color: #0f172a; border-bottom: 3px solid #2563eb; padding-bottom: 8px; margin-top: 0; }
+  h2 { font-size: 18px; color: #1d4ed8; margin-top: 40px; border-left: 4px solid #2563eb; padding-left: 10px; }
+  h3 { font-size: 15px; color: #0f172a; margin-top: 24px; }
+  code { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 4px; padding: 1px 5px; font-size: 13px; font-family: 'Courier New', monospace; }
+  pre { background: #0f172a; color: #e2e8f0; border-radius: 8px; padding: 16px; overflow-x: auto; font-size: 12.5px; line-height: 1.6; }
+  pre code { background: none; border: none; color: inherit; padding: 0; font-size: inherit; }
+  table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+  th { background: #1d4ed8; color: white; padding: 10px 14px; text-align: left; font-size: 13px; }
+  td { border: 1px solid #e2e8f0; padding: 9px 14px; font-size: 13px; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  blockquote { background: #eff6ff; border-left: 4px solid #2563eb; margin: 16px 0; padding: 12px 16px; border-radius: 0 8px 8px 0; color: #1e40af; }
+  blockquote p { margin: 0; }
+  ul, ol { padding-left: 20px; }
+  li { margin: 4px 0; }
+  hr { border: none; border-top: 1px solid #e2e8f0; margin: 32px 0; }
+  strong { color: #0f172a; }
+  .page-break { page-break-before: always; }
+</style>
+</head>
+<body>
+<h1>Guia de Deploy — MedScribe</h1>
+<h3>Para quem nunca fez deploy antes</h3>
+<blockquote>
+<p>Este guia assume que você tem um computador com Windows ou Mac e vai colocar o MedScribe no ar em um servidor na nuvem. Siga cada passo na ordem. Não pule etapas.</p>
+</blockquote>
+<hr />
+<h2>O que você vai precisar (antes de começar)</h2>
+<p>Antes de iniciar, separe:</p>
+<table>
+<thead>
+<tr>
+<th>O que</th>
+<th>Para que serve</th>
+<th>Onde conseguir</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cartão de crédito</td>
+<td>Pagar o servidor</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Chave da OpenAI</td>
+<td>IA do sistema (transcrição e SOAP)</td>
+<td>platform.openai.com</td>
+</tr>
+<tr>
+<td>Domínio (ex: <code>minhaClinica.com.br</code>)</td>
+<td>Endereço do site</td>
+<td>registro.br ou godaddy.com</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>PARTE 1 — Contratar o Servidor</h2>
+<h3>Passo 1 — Criar conta na DigitalOcean</h3>
+<ol>
+<li>Acesse <strong>digitalocean.com</strong></li>
+<li>Clique em <strong>Sign Up</strong></li>
+<li>Crie conta com e-mail e senha</li>
+<li>Coloque um cartão de crédito (cobrado conforme uso)</li>
+</ol>
+<h3>Passo 2 — Criar o servidor (Droplet)</h3>
+<ol>
+<li>No painel, clique em <strong>Create → Droplets</strong></li>
+<li>Escolha as opções:</li>
+<li><strong>Region:</strong> São Paulo (ou o mais próximo do Brasil)</li>
+<li><strong>Image:</strong> Ubuntu 22.04 LTS</li>
+<li><strong>Size:</strong> Basic → Regular → <strong>2 GB RAM / 1 CPU</strong> (≈ $12/mês)</li>
+<li><strong>Authentication:</strong> Password → crie uma senha forte e <strong>anote ela</strong></li>
+<li>Clique em <strong>Create Droplet</strong></li>
+<li>Aguarde 1 minuto. Você receberá um <strong>endereço IP</strong> (ex: <code>143.198.50.25</code>) — <strong>anote ele</strong></li>
+</ol>
+<hr />
+<h2>PARTE 2 — Acessar o Servidor</h2>
+<h3>Passo 3 — Instalar o terminal SSH</h3>
+<p><strong>No Windows:</strong>
+1. Baixe o <strong>MobaXterm</strong> em mobaxterm.mobatek.net (versão Home gratuita)
+2. Instale normalmente</p>
+<p><strong>No Mac:</strong>
+1. Abra o aplicativo <strong>Terminal</strong> (já vem instalado)</p>
+<h3>Passo 4 — Conectar ao servidor</h3>
+<p><strong>No MobaXterm (Windows):</strong>
+1. Abra o MobaXterm
+2. Clique em <strong>Session → SSH</strong>
+3. Em "Remote host", coloque o IP do seu servidor (ex: <code>143.198.50.25</code>)
+4. Em "Username", coloque: <code>root</code>
+5. Clique <strong>OK</strong>
+6. Digite a senha que você criou no Passo 2</p>
+<p><strong>No Terminal (Mac):</strong></p>
+<pre><code>ssh root@143.198.50.25
+</code></pre>
+<p>(troque pelo seu IP) → pressione Enter → Digite a senha</p>
+<blockquote>
+<p>Você está agora "dentro" do servidor. Tudo que digitar aqui roda no servidor, não no seu computador.</p>
+</blockquote>
+<hr />
+<h2>PARTE 3 — Preparar o Servidor</h2>
+<p>Copie e cole <strong>cada bloco de comandos</strong> no terminal. Aguarde terminar antes de continuar.</p>
+<h3>Passo 5 — Atualizar o sistema</h3>
+<pre><code class="language-bash">apt update &amp;&amp; apt upgrade -y
+</code></pre>
+<blockquote>
+<p>Aguarde. Pode demorar 2-3 minutos.</p>
+</blockquote>
+<h3>Passo 6 — Instalar Node.js 20</h3>
+<pre><code class="language-bash">curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+apt install -y nodejs
+node -v
+</code></pre>
+<blockquote>
+<p>Deve aparecer algo como <code>v20.x.x</code>. Se aparecer, está certo.</p>
+</blockquote>
+<h3>Passo 7 — Instalar pnpm (gerenciador de pacotes)</h3>
+<pre><code class="language-bash">npm install -g pnpm
+pnpm -v
+</code></pre>
+<blockquote>
+<p>Deve aparecer um número de versão. Está certo.</p>
+</blockquote>
+<h3>Passo 8 — Instalar o banco de dados MySQL</h3>
+<pre><code class="language-bash">apt install -y mysql-server
+mysql_secure_installation
+</code></pre>
+<p>O sistema vai fazer perguntas. Responda assim:
+- <code>Would you like to setup VALIDATE PASSWORD component?</code> → Digite <code>n</code> e Enter
+- <code>New password:</code> → Crie uma senha forte (ex: <code>MedScribe@2025!</code>) — <strong>anote ela</strong>
+- <code>Re-enter new password:</code> → Repita a senha
+- Todas as próximas perguntas → Digite <code>y</code> e Enter</p>
+<h3>Passo 9 — Criar o banco de dados</h3>
+<pre><code class="language-bash">mysql -u root -p
+</code></pre>
+<p>Digite a senha do MySQL que você criou acima. Depois cole esses comandos um por um:</p>
+<pre><code class="language-sql">CREATE DATABASE medscribe CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'medscribe'@'localhost' IDENTIFIED BY 'SuaSenhaDoBanco123!';
+GRANT ALL PRIVILEGES ON medscribe.* TO 'medscribe'@'localhost';
+FLUSH PRIVILEGES;
+EXIT;
+</code></pre>
+<blockquote>
+<p><strong>Anote:</strong> usuário <code>medscribe</code>, senha que você escolheu acima.</p>
+</blockquote>
+<h3>Passo 10 — Instalar Redis (fila de tarefas)</h3>
+<pre><code class="language-bash">apt install -y redis-server
+systemctl enable redis-server
+systemctl start redis-server
+redis-cli ping
+</code></pre>
+<blockquote>
+<p>Deve aparecer <code>PONG</code>. Está funcionando.</p>
+</blockquote>
+<h3>Passo 11 — Instalar o Nginx (servidor web)</h3>
+<pre><code class="language-bash">apt install -y nginx
+systemctl enable nginx
+systemctl start nginx
+</code></pre>
+<h3>Passo 12 — Instalar o PM2 (mantém o site no ar)</h3>
+<pre><code class="language-bash">npm install -g pm2
+pm2 startup
+</code></pre>
+<blockquote>
+<p>O comando vai mostrar uma linha começando com <code>sudo env PATH=...</code>. <strong>Copie essa linha toda</strong> e execute ela.</p>
+</blockquote>
+<hr />
+<h2>PARTE 4 — Configurar o Domínio</h2>
+<h3>Passo 13 — Apontar o domínio para o servidor</h3>
+<ol>
+<li>Acesse o painel de onde você comprou o domínio (registro.br, GoDaddy, etc.)</li>
+<li>Vá em <strong>Gerenciar DNS</strong> ou <strong>Zone DNS</strong></li>
+<li>Crie um registro do tipo <strong>A</strong>:</li>
+<li><strong>Nome/Host:</strong> <code>@</code> (ou deixe em branco para o domínio raiz)</li>
+<li><strong>Valor/Points to:</strong> o IP do seu servidor (ex: <code>143.198.50.25</code>)</li>
+<li><strong>TTL:</strong> 3600 (ou padrão)</li>
+<li>Se quiser também o <code>www</code>, crie outro registro A com:</li>
+<li><strong>Nome/Host:</strong> <code>www</code></li>
+<li><strong>Valor:</strong> mesmo IP</li>
+</ol>
+<blockquote>
+<p><strong>Aguarde 10-30 minutos</strong> para o DNS propagar antes de continuar.</p>
+</blockquote>
+<hr />
+<h2>PARTE 5 — Colocar o Código no Servidor</h2>
+<h3>Passo 14 — Fazer download do código</h3>
+<p>No terminal do servidor:</p>
+<pre><code class="language-bash">cd /var/www
+git clone https://github.com/wercijr-blip/Claude-test.git medscribe
+cd medscribe
+git checkout claude/medscribe-auth-admin-3Lc5Y
+</code></pre>
+<h3>Passo 15 — Instalar as dependências</h3>
+<pre><code class="language-bash">pnpm install
+</code></pre>
+<blockquote>
+<p>Aguarde. Pode demorar 2-4 minutos na primeira vez.</p>
+</blockquote>
+<hr />
+<h2>PARTE 6 — Configurar as Variáveis de Ambiente</h2>
+<h3>Passo 16 — Criar o arquivo .env</h3>
+<pre><code class="language-bash">cp .env.example .env
+nano .env
+</code></pre>
+<p>Um editor de texto vai abrir. Edite cada linha com seus dados reais:</p>
+<pre><code>DATABASE_URL=mysql://medscribe:SuaSenhaDoBanco123!@localhost:3306/medscribe
+JWT_SECRET=cole_aqui_uma_string_aleatoria_grande
+OPENAI_API_KEY=sk-...sua chave da OpenAI...
+MEDSCRIBE_URL=https://seudominio.com.br
+MEDSCRIBE_CLINIC_NAME=Nome da Sua Clínica
+NODE_ENV=production
+PORT=3000
+REDIS_URL=redis://localhost:6379
+VITE_APP_ID=medscribe
+</code></pre>
+<p><strong>Para gerar o JWT_SECRET</strong> (abra outra aba do terminal ou rode antes de entrar no nano):</p>
+<pre><code class="language-bash">openssl rand -hex 32
+</code></pre>
+<p>Copie o resultado e cole no lugar de <code>cole_aqui_uma_string_aleatoria_grande</code>.</p>
+<p><strong>Para salvar no nano:</strong>
+- Pressione <code>Ctrl + X</code>
+- Pressione <code>Y</code>
+- Pressione <code>Enter</code></p>
+<h3>Passo 17 — Configurar chave da OpenAI</h3>
+<ol>
+<li>Acesse <strong>platform.openai.com</strong></li>
+<li>Faça login ou crie uma conta</li>
+<li>Vá em <strong>API Keys → Create new secret key</strong></li>
+<li>Copie a chave (começa com <code>sk-</code>)</li>
+<li>Cole no <code>.env</code> no campo <code>OPENAI_API_KEY=</code></li>
+</ol>
+<hr />
+<h2>PARTE 7 — Configurar o Banco de Dados</h2>
+<h3>Passo 18 — Criar as tabelas</h3>
+<pre><code class="language-bash">cd /var/www/medscribe
+npx drizzle-kit push
+</code></pre>
+<blockquote>
+<p>Vai mostrar várias linhas e perguntar confirmação. Digite <code>y</code> e Enter.</p>
+</blockquote>
+<h3>Passo 19 — Aplicar as tabelas do MedScribe</h3>
+<pre><code class="language-bash">mysql -u medscribe -p medscribe &lt; drizzle/migrations/0004_auth_users.sql
+mysql -u medscribe -p medscribe &lt; drizzle/migrations/0005_knowledge_topics.sql
+mysql -u medscribe -p medscribe &lt; drizzle/migrations/0006_consultation_clinical_data.sql
+</code></pre>
+<blockquote>
+<p>Vai pedir a senha do banco (<code>SuaSenhaDoBanco123!</code>) em cada comando.</p>
+</blockquote>
+<h3>Passo 20 — Criar o primeiro usuário administrador</h3>
+<pre><code class="language-bash">npx tsx seed.ts \
+  --email=seuemail@gmail.com \
+  --nome=&quot;Dr. Seu Nome&quot; \
+  --crm=12345 \
+  --especialidade=&quot;Clínica Médica&quot;
+</code></pre>
+<blockquote>
+<p>Substitua pelos seus dados reais. O sistema vai mostrar uma senha temporária — <strong>anote ela</strong>, você vai precisar para fazer o primeiro login.</p>
+</blockquote>
+<hr />
+<h2>PARTE 8 — Colocar o Site no Ar</h2>
+<h3>Passo 21 — Fazer o build (compilar o site)</h3>
+<pre><code class="language-bash">cd /var/www/medscribe
+pnpm build
+</code></pre>
+<blockquote>
+<p>Aguarde. Pode demorar 1-2 minutos.</p>
+</blockquote>
+<h3>Passo 22 — Iniciar o servidor com PM2</h3>
+<pre><code class="language-bash">pm2 start pnpm --name medscribe -- start
+pm2 save
+</code></pre>
+<p>Verifique se está rodando:</p>
+<pre><code class="language-bash">pm2 status
+</code></pre>
+<blockquote>
+<p>Deve aparecer <code>medscribe</code> com status <code>online</code> em verde.</p>
+</blockquote>
+<h3>Passo 23 — Configurar o Nginx (proxy)</h3>
+<pre><code class="language-bash">nano /etc/nginx/sites-available/medscribe
+</code></pre>
+<p>Cole este conteúdo (substituindo <code>seudominio.com.br</code> pelo seu domínio real):</p>
+<pre><code class="language-nginx">server {
+    listen 80;
+    server_name seudominio.com.br www.seudominio.com.br;
+
+    client_max_body_size 55M;
+
+    location / {
+        proxy_pass         http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+    }
+}
+</code></pre>
+<p>Salve: <code>Ctrl + X</code> → <code>Y</code> → <code>Enter</code></p>
+<p>Ative o site:</p>
+<pre><code class="language-bash">ln -s /etc/nginx/sites-available/medscribe /etc/nginx/sites-enabled/
+nginx -t
+systemctl reload nginx
+</code></pre>
+<blockquote>
+<p><code>nginx -t</code> deve mostrar <code>syntax is ok</code> e <code>test is successful</code>.</p>
+</blockquote>
+<h3>Passo 24 — Instalar o certificado HTTPS (cadeado verde)</h3>
+<pre><code class="language-bash">apt install -y certbot python3-certbot-nginx
+certbot --nginx -d seudominio.com.br -d www.seudominio.com.br
+</code></pre>
+<p>O Certbot vai fazer perguntas:
+- <strong>Email:</strong> coloque seu e-mail real (para avisos de expiração)
+- <strong>Agree to terms:</strong> <code>A</code>
+- <strong>Share email with EFF:</strong> <code>N</code></p>
+<p>Quando terminar, acesse <code>https://seudominio.com.br</code> no navegador. Deve aparecer o cadeado verde e a tela de login do MedScribe.</p>
+<hr />
+<h2>PARTE 9 — Primeiro Acesso</h2>
+<h3>Passo 25 — Fazer login</h3>
+<ol>
+<li>Abra o navegador e acesse <code>https://seudominio.com.br</code></li>
+<li>Coloque o e-mail e a senha temporária gerada no Passo 20</li>
+<li>O sistema vai pedir para criar uma nova senha — escolha uma senha forte</li>
+</ol>
+<p>Pronto! O MedScribe está no ar.</p>
+<hr />
+<h2>PARTE 10 — Manutenção Básica</h2>
+<h3>Ver se o site está funcionando</h3>
+<pre><code class="language-bash">pm2 status
+</code></pre>
+<h3>Ver erros (se algo não funcionar)</h3>
+<pre><code class="language-bash">pm2 logs medscribe --lines 50
+</code></pre>
+<h3>Reiniciar o servidor (após atualização)</h3>
+<pre><code class="language-bash">cd /var/www/medscribe
+git pull
+pnpm install
+pnpm build
+pm2 restart medscribe
+</code></pre>
+<h3>Renovar o certificado HTTPS automaticamente</h3>
+<p>O Certbot já configura a renovação automática. Para verificar:</p>
+<pre><code class="language-bash">certbot renew --dry-run
+</code></pre>
+<blockquote>
+<p>Deve aparecer <code>Congratulations, all simulated renewals succeeded</code>.</p>
+</blockquote>
+<hr />
+<h2>Problemas Comuns</h2>
+<table>
+<thead>
+<tr>
+<th>Problema</th>
+<th>Solução</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Site não abre</td>
+<td>Verifique <code>pm2 status</code> — deve estar <code>online</code>. Se <code>errored</code>, rode <code>pm2 logs medscribe</code></td>
+</tr>
+<tr>
+<td>"502 Bad Gateway"</td>
+<td>O servidor Node não está rodando. Rode <code>pm2 restart medscribe</code></td>
+</tr>
+<tr>
+<td>Login não funciona</td>
+<td>Verifique se <code>JWT_SECRET</code> está preenchido no <code>.env</code></td>
+</tr>
+<tr>
+<td>Transcrição de áudio não funciona</td>
+<td>Verifique se <code>OPENAI_API_KEY</code> está correto e com crédito</td>
+</tr>
+<tr>
+<td>DNS não resolveu ainda</td>
+<td>Aguarde mais tempo (pode levar até 24h em alguns provedores)</td>
+</tr>
+<tr>
+<td>Esqueci a senha do admin</td>
+<td>No servidor: <code>npx tsx seed.ts --email=seuemail@gmail.com --nome="Nome" --crm=123 --especialidade="Especialidade"</code> — cria novo admin</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>Resumo dos dados que você anotou</h2>
+<p>Ao longo do guia, você precisou anotar:</p>
+<ul>
+<li>[ ] IP do servidor (ex: <code>143.198.50.25</code>)</li>
+<li>[ ] Senha do servidor (root)</li>
+<li>[ ] Senha do banco de dados MySQL</li>
+<li>[ ] JWT_SECRET gerado</li>
+<li>[ ] Chave da OpenAI (sk-...)</li>
+<li>[ ] Senha temporária do primeiro admin</li>
+<li>[ ] Seu domínio</li>
+</ul>
+<p>Guarde essas informações em local seguro.</p>
+</body>
+</html>
