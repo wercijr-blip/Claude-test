@@ -7,6 +7,7 @@ import {
   EXAMES_DENSITOMETRIA,
   type Exame,
 } from '../shared/const.ts'
+import { desenharCarimboICP } from './pdfSigner.ts'
 
 async function gerarPdfPedido(
   exames: readonly Exame[],
@@ -66,20 +67,11 @@ async function gerarPdfPedido(
 
   y -= 20
   page.drawLine({ start: { x: margin, y }, end: { x: width - margin, y }, thickness: 0.5, color: rgb(0.9, 0.9, 0.9) })
-  y -= 20
 
-  // Data e assinatura
+  // Data de emissão + carimbo digital (posições fixas no rodapé)
   const dataEmissao = new Date().toLocaleDateString('pt-BR')
-  page.drawText(`Data de emissão: ${dataEmissao}`, { x: margin, y, font, size: 9, color: rgb(0.5, 0.5, 0.5) })
-  y -= 40
-  page.drawLine({ start: { x: margin, y }, end: { x: margin + 180, y }, thickness: 0.5, color: rgb(0.6, 0.6, 0.6) })
-  y -= 14
-  page.drawText('Assinatura do médico responsável', { x: margin, y, font, size: 8, color: rgb(0.6, 0.6, 0.6) })
-
-  // Rodapé
-  page.drawText(`Facilita PrEP · ${process.env.APP_URL ?? 'facilitaprep.com.br'} · Documento gerado e assinado eletronicamente com ICP-Brasil`, {
-    x: margin, y: 30, font, size: 7, color: rgb(0.7, 0.7, 0.7),
-  })
+  page.drawText(`Data de emissão: ${dataEmissao}`, { x: margin, y: 62, font, size: 8, color: rgb(0.5, 0.5, 0.5) })
+  desenharCarimboICP(page, font, fontBold, width, margin)
 
   return Buffer.from(await doc.save())
 }

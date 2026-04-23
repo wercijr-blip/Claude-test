@@ -1,4 +1,4 @@
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
+import { PDFDocument, PDFFont, PDFPage, rgb, StandardFonts } from 'pdf-lib'
 import { readFile } from 'fs/promises'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -6,6 +6,51 @@ import forge from 'node-forge'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const CERTS_DIR = path.join(__dirname, 'certs')
+
+export function desenharCarimboICP(
+  page: PDFPage,
+  font: PDFFont,
+  fontBold: PDFFont,
+  pageWidth: number,
+  margin: number,
+): void {
+  const bX = margin
+  const bY = 8
+  const bW = pageWidth - margin * 2
+  const bH = 46
+
+  page.drawRectangle({
+    x: bX, y: bY, width: bW, height: bH,
+    color: rgb(0.92, 0.95, 1.0),
+    borderColor: rgb(0.07, 0.27, 0.52),
+    borderWidth: 1,
+  })
+
+  const nome = process.env.MEDICO_NOME
+  const crm  = process.env.MEDICO_CRM
+  const temMedico = !!(nome || crm)
+
+  page.drawText('DOCUMENTO ASSINADO DIGITALMENTE — PADRÃO ICP-BRASIL', {
+    x: bX + 10, y: bY + (temMedico ? 31 : 24),
+    font: fontBold, size: 8.5, color: rgb(0.07, 0.27, 0.52),
+  })
+
+  if (temMedico) {
+    const linha = [nome, crm ? `CRM ${crm}` : ''].filter(Boolean).join(' · ')
+    page.drawText(linha, {
+      x: bX + 10, y: bY + 19,
+      font: fontBold, size: 8, color: rgb(0.08, 0.08, 0.28),
+    })
+  }
+
+  page.drawText(
+    `Medida Provisória 2.200-2/2001 · Resolução CFM 2.299/2021 · ${process.env.APP_URL ?? 'facilitaprep.com.br'}`,
+    {
+      x: bX + 10, y: bY + (temMedico ? 9 : 12),
+      font, size: 6.5, color: rgb(0.3, 0.3, 0.55),
+    },
+  )
+}
 
 export interface PdfSignResult {
   buffer: Buffer
@@ -67,11 +112,12 @@ export async function gerarPrescricaoPdf(paciente: Paciente): Promise<Buffer> {
     y -= 30
   }
 
-  // Rodapé
+  // Data de emissão + carimbo digital
   const dataEmissao = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-  page.drawText(`Emitido em: ${dataEmissao} | Documento com validade legal conforme CFM 2.299/2021`, {
-    x: margin, y: 40, font, size: 8, color: rgb(0.6, 0.6, 0.6),
+  page.drawText(`Emitido em: ${dataEmissao}`, {
+    x: margin, y: 62, font, size: 8, color: rgb(0.5, 0.5, 0.5),
   })
+  desenharCarimboICP(page, font, fontBold, width, margin)
 
   return Buffer.from(await doc.save())
 }
@@ -198,9 +244,10 @@ export async function gerarFormularioPdf(paciente: PacienteCompleto): Promise<Bu
   if (paciente.convenio) campo('Convênio', paciente.convenio)
 
   const emitido = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-  page.drawText(`Facilita PrEP · ${process.env.APP_URL ?? 'facilitaprep.com.br'} · Emitido em ${emitido}`, {
-    x: m, y: 28, font, size: 7, color: rgb(0.7, 0.7, 0.7),
+  page.drawText(`Emitido em: ${emitido}`, {
+    x: m, y: 62, font, size: 8, color: rgb(0.5, 0.5, 0.5),
   })
+  desenharCarimboICP(page, font, fontBold, width, m)
 
   return Buffer.from(await doc.save())
 }

@@ -38,6 +38,9 @@ const envSchema = z.object({
   ICP_PFX_BASE64: z.string().optional(),
   ICP_PFX_PASSWORD: z.string().optional(),
 
+  MEDICO_NOME: z.string().optional(),
+  MEDICO_CRM: z.string().optional(),
+
   APP_URL: z.string().url().default('https://facilitaprep.com.br'),
 
   PORT: z.coerce.number().default(3000),
