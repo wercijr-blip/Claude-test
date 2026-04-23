@@ -75,7 +75,7 @@ async function gerarPdfPedido(
   page.drawText('Assinatura do médico responsável', { x: margin, y, font, size: 8, color: rgb(0.6, 0.6, 0.6) })
 
   // Rodapé
-  page.drawText('Facilita PrEP · facilitaprep.manus.space · Documento gerado e assinado eletronicamente com ICP-Brasil', {
+  page.drawText(`Facilita PrEP · ${process.env.APP_URL ?? 'facilitaprep.com.br'} · Documento gerado e assinado eletronicamente com ICP-Brasil`, {
     x: margin, y: 30, font, size: 7, color: rgb(0.7, 0.7, 0.7),
   })
 
