@@ -177,10 +177,10 @@ export const intakeRouter = router({
       }
 
       await db.update(precadastros)
-        .set({ validadoPorId: ctx.session.id, validadoEm: new Date() })
+        .set({ validadoPorId: ctx.user!.id, validadoEm: new Date() })
         .where(eq(precadastros.id, input.precadastroId))
 
-      await gerarEEnviarLinkAcesso(input.precadastroId, ctx.session.id)
+      await gerarEEnviarLinkAcesso(input.precadastroId, ctx.user!.id)
 
       return { ok: true }
     }),
@@ -195,7 +195,7 @@ export const intakeRouter = router({
       await db.update(precadastros)
         .set({
           status: 'rejeitado',
-          validadoPorId: ctx.session.id,
+          validadoPorId: ctx.user!.id,
           validadoEm: new Date(),
           observacoes: input.observacoes,
         })

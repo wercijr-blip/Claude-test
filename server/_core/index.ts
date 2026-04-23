@@ -16,7 +16,7 @@ const app = express()
 
 applySecurityMiddleware(app)
 app.use(cookieParser())
-app.use(express.json({ limit: '2mb' }))
+app.use(express.json({ limit: '50mb' }))
 app.use(express.urlencoded({ extended: true }))
 
 // tRPC — com rate limiters por rota
@@ -33,7 +33,7 @@ app.use(
   '/trpc',
   createExpressMiddleware({
     router: appRouter,
-    createContext: ({ req }) => createContext({ req }),
+    createContext: ({ req, res }) => createContext({ req, res: res as import('express').Response }),
   }),
 )
 

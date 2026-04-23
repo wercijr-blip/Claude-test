@@ -1,69 +1,79 @@
-import type { Request } from 'express'
-import { jwtVerify } from 'jose'
-import { env } from './env.ts'
+import type { Request, Response } from 'express'
+import { verifyToken, COOKIE_NAME } from './auth.ts'
 import { db } from '../db.ts'
 import { users } from '../../drizzle/schema.ts'
 import { eq } from 'drizzle-orm'
-import type { AuthUser, PatientSession } from '../../shared/types.ts'
 
-export type SessionUser = AuthUser | PatientSession
-
-export interface Context {
-  req: Request
-  session: SessionUser | null
+export interface MedscribeUser {
+  id:                 number
+  email:              string
+  name:               string | null
+  role:               'admin' | 'doctor'
+  clinicId:           string | null
+  specialty:          string | null
+  crm:                string | null
+  active:             number
+  mustChangePassword: number
+  bulletinEmail:      string | null
+  receiveMonthlyBulletin: number
 }
 
-export async function createContext({ req }: { req: Request }): Promise<Context> {
+export interface Context {
+  req:  Request
+  res:  Response
+  user: MedscribeUser | null
+  // Legacy session field kept for backward compatibility with existing routes
+  session: MedscribeUser | null
+}
+
+export async function createContext({ req, res }: { req: Request; res: Response }): Promise<Context> {
   const token = extractToken(req)
-  if (!token) return { req, session: null }
+  if (!token) return { req, res, user: null, session: null }
 
   try {
-    const secret = new TextEncoder().encode(env.JWT_SECRET)
-    const { payload } = await jwtVerify(token, secret)
+    const payload = await verifyToken(token)
 
-    if (payload['type'] === 'patient') {
-      return {
-        req,
-        session: {
-          type: 'patient',
-          tokenId: payload['tokenId'] as number,
-          pacienteId: (payload['pacienteId'] as number | null) ?? null,
-        },
-      }
+    const row = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, payload.userId))
+      .limit(1)
+      .then((rows) => rows[0] ?? null)
+
+    if (!row || !row.active) return { req, res, user: null, session: null }
+
+    const user: MedscribeUser = {
+      id:                     row.id,
+      email:                  row.email,
+      name:                   row.name ?? row.nome ?? null,
+      role:                   (row.role === 'admin' ? 'admin' : 'doctor') as 'admin' | 'doctor',
+      clinicId:               row.clinicId ?? null,
+      specialty:              row.specialty ?? null,
+      crm:                    row.crm ?? null,
+      active:                 row.active,
+      mustChangePassword:     row.mustChangePassword,
+      bulletinEmail:          row.bulletinEmail ?? null,
+      receiveMonthlyBulletin: row.receiveMonthlyBulletin,
     }
 
-    if (payload['type'] === 'staff' && payload.sub) {
-      const user = await db
-        .select()
-        .from(users)
-        .where(eq(users.openId, payload.sub))
-        .limit(1)
-        .then((rows) => rows[0] ?? null)
-
-      if (!user || !user.ativo) return { req, session: null }
-
-      return {
-        req,
-        session: {
-          type: 'staff',
-          id: user.id,
-          openId: user.openId,
-          nome: user.nome,
-          email: user.email,
-          role: user.role as AuthUser['role'],
-        },
-      }
-    }
+    return { req, res, user, session: user }
   } catch {
     // token inválido ou expirado
   }
 
-  return { req, session: null }
+  return { req, res, user: null, session: null }
 }
 
 function extractToken(req: Request): string | null {
+  // Cookie MedScribe
+  const cookie = req.cookies?.[COOKIE_NAME] as string | undefined
+  if (cookie) return cookie
+
+  // Authorization header (Bearer)
   const auth = req.headers.authorization
   if (auth?.startsWith('Bearer ')) return auth.slice(7)
-  const cookie = req.cookies?.fp_session as string | undefined
-  return cookie ?? null
+
+  // Cookie legado Facilita PrEP
+  const legacy = req.cookies?.fp_session as string | undefined
+  return legacy ?? null
 }

@@ -39,7 +39,7 @@ export const medicoRouter = router({
 
       await db
         .update(pacientes)
-        .set({ status: 'em_revisao', medicoId: ctx.session.id, updatedAt: new Date() })
+        .set({ status: 'em_revisao', medicoId: ctx.user!.id, updatedAt: new Date() })
         .where(eq(pacientes.id, input.pacienteId))
 
       const examesDoP = await db
@@ -74,7 +74,7 @@ export const medicoRouter = router({
         .update(pacientes)
         .set({
           status: 'aprovado',
-          medicoId: ctx.session.id,
+          medicoId: ctx.user!.id,
           observacoesMedico: input.observacoes,
           updatedAt: new Date(),
         })
@@ -94,7 +94,7 @@ export const medicoRouter = router({
         .update(pacientes)
         .set({
           status: 'rejeitado',
-          medicoId: ctx.session.id,
+          medicoId: ctx.user!.id,
           observacoesMedico: input.motivo,
           updatedAt: new Date(),
         })

@@ -14,14 +14,14 @@ export const adminRouter = router({
 
   // Alterar role de usuário
   alterarRole: adminProcedure
-    .input(z.object({ userId: z.number(), role: z.enum(['secretaria', 'medico', 'admin']) }))
+    .input(z.object({ userId: z.number(), role: z.enum(['admin', 'doctor']) }))
     .mutation(async ({ input }) => {
       const [user] = await db.select().from(users).where(eq(users.id, input.userId)).limit(1)
       if (!user) throw new TRPCError({ code: 'NOT_FOUND' })
 
       await db
         .update(users)
-        .set({ role: input.role as Role, updatedAt: new Date() })
+        .set({ role: input.role, updatedAt: new Date() })
         .where(eq(users.id, input.userId))
 
       return { ok: true }

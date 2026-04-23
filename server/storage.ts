@@ -9,10 +9,12 @@ import { MAX_UPLOAD_SIZE_BYTES, ALLOWED_MIME_TYPES } from '../shared/security-co
 
 const s3 = new S3Client({
   region: env.AWS_REGION,
-  credentials: {
-    accessKeyId: env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
-  },
+  ...(env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY ? {
+    credentials: {
+      accessKeyId:     env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
+    },
+  } : {}),
 })
 
 const upload = multer({

@@ -1,113 +1,62 @@
 import { z } from 'zod'
-import { SignJWT } from 'jose'
+import { TRPCError } from '@trpc/server'
 import { router, publicProcedure, protectedProcedure } from '../_core/trpc.ts'
-import { env } from '../_core/env.ts'
-import { db } from '../db.ts'
-import { users } from '../../drizzle/schema.ts'
-import { eq } from 'drizzle-orm'
-import { JWT_EXPIRY_STAFF } from '../../shared/security-constants.ts'
-import type { Role } from '../../shared/types.ts'
-import type { ResultSetHeader } from 'mysql2'
+import {
+  hashPassword,
+  verifyPassword,
+  signToken,
+  COOKIE_NAME,
+  getSessionCookieOptions,
+} from '../_core/auth.ts'
+import { getUserByEmail, getUserById, updateUser } from '../db.ts'
 
 export const authRouter = router({
-  // Callback OAuth — troca code por JWT interno
-  callback: publicProcedure
-    .input(z.object({ code: z.string(), state: z.string().optional() }))
-    .mutation(async ({ input }) => {
-      // Trocar code por dados do usuário no servidor OAuth
-      const resp = await fetch(`${env.OAUTH_SERVER_URL}/token`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: input.code, app_id: env.VITE_APP_ID }),
-        signal: AbortSignal.timeout(10000),
-      })
-
-      if (!resp.ok) throw new Error('Falha ao obter token OAuth')
-
-      const data = (await resp.json()) as {
-        openId: string
-        email: string
-        name: string
+  login: publicProcedure
+    .input(z.object({ email: z.string().email(), password: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const user = await getUserByEmail(input.email)
+      if (!user || !user.active) {
+        throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Credenciais inválidas' })
       }
 
-      // Upsert do usuário
-      const [existing] = await db.select().from(users).where(eq(users.openId, data.openId)).limit(1)
-
-      let userId: number
-      let role: Role
-
-      if (existing) {
-        userId = existing.id
-        role = existing.role as Role
-        await db
-          .update(users)
-          .set({ email: data.email, nome: data.name, updatedAt: new Date() })
-          .where(eq(users.id, existing.id))
-      } else {
-        const isOwner = data.openId === env.OWNER_OPEN_ID
-        role = isOwner ? 'admin' : 'secretaria'
-        const [result] = await db.insert(users).values({
-          openId: data.openId,
-          email: data.email,
-          nome: data.name,
-          role,
-        })
-        userId = (result as ResultSetHeader).insertId
+      const ok = await verifyPassword(input.password, user.passwordHash ?? '')
+      if (!ok) {
+        throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Credenciais inválidas' })
       }
 
-      const secret = new TextEncoder().encode(env.JWT_SECRET)
-      const token = await new SignJWT({ type: 'staff', userId })
-        .setProtectedHeader({ alg: 'HS256' })
-        .setSubject(data.openId)
-        .setIssuedAt()
-        .setExpirationTime(JWT_EXPIRY_STAFF)
-        .sign(secret)
+      const token = await signToken({ userId: user.id, role: user.role })
+      ctx.res.cookie(COOKIE_NAME, token, getSessionCookieOptions(ctx.req))
 
-      return { token, role }
+      return {
+        mustChangePassword: !!user.mustChangePassword,
+        role:               user.role,
+      }
     }),
 
-  // Login mock — APENAS em desenvolvimento. Pula o OAuth real e cria
-  // uma sessão de equipe direta para validação visual local.
-  devLogin: publicProcedure
-    .input(z.object({ role: z.enum(['admin', 'medico', 'secretaria']) }))
-    .mutation(async ({ input }) => {
-      if (env.NODE_ENV !== 'development') {
-        throw new Error('devLogin disponível apenas em ambiente de desenvolvimento')
+  logout: publicProcedure.mutation(({ ctx }) => {
+    ctx.res.clearCookie(COOKIE_NAME, { path: '/' })
+    return { success: true }
+  }),
+
+  me: publicProcedure.query(({ ctx }) => ctx.user ?? null),
+
+  changePassword: protectedProcedure
+    .input(z.object({
+      currentPassword: z.string(),
+      newPassword:     z.string().min(8, 'Senha deve ter no mínimo 8 caracteres'),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const user = await getUserById(ctx.user.id)
+      if (!user) throw new TRPCError({ code: 'NOT_FOUND', message: 'Usuário não encontrado' })
+
+      const ok = await verifyPassword(input.currentPassword, user.passwordHash ?? '')
+      if (!ok) {
+        throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Senha atual incorreta' })
       }
 
-      const openId = `dev-${input.role}`
-      const email = `${input.role}@dev.local`
-      const nome = `Dev ${input.role.charAt(0).toUpperCase()}${input.role.slice(1)}`
+      const hash = await hashPassword(input.newPassword)
+      await updateUser(user.id, { passwordHash: hash, mustChangePassword: 0 })
 
-      const [existing] = await db.select().from(users).where(eq(users.openId, openId)).limit(1)
-
-      let userId: number
-      if (existing) {
-        userId = existing.id
-        await db.update(users)
-          .set({ role: input.role, email, nome, updatedAt: new Date() })
-          .where(eq(users.id, existing.id))
-      } else {
-        const [result] = await db.insert(users).values({ openId, email, nome, role: input.role })
-        userId = (result as ResultSetHeader).insertId
-      }
-
-      const secret = new TextEncoder().encode(env.JWT_SECRET)
-      const token = await new SignJWT({ type: 'staff', userId })
-        .setProtectedHeader({ alg: 'HS256' })
-        .setSubject(openId)
-        .setIssuedAt()
-        .setExpirationTime(JWT_EXPIRY_STAFF)
-        .sign(secret)
-
-      return { token, role: input.role }
+      return { success: true }
     }),
-
-  me: protectedProcedure.query(({ ctx }) => {
-    return ctx.session
-  }),
-
-  logout: protectedProcedure.mutation(() => {
-    return { ok: true }
-  }),
 })

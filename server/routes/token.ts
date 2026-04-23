@@ -38,7 +38,7 @@ export const tokenRouter = router({
         tipo: input.tipo,
         convenio: input.convenio,
         expiresAt,
-        createdById: ctx.session.id,
+        createdById: ctx.user!.id,
       })
 
       return { token: raw, expiresAt }
@@ -104,7 +104,7 @@ export const tokenRouter = router({
     return db
       .select()
       .from(accessTokens)
-      .where(eq(accessTokens.createdById, ctx.session.id))
+      .where(eq(accessTokens.createdById, ctx.user!.id))
       .orderBy(accessTokens.createdAt)
   }),
 
@@ -116,7 +116,7 @@ export const tokenRouter = router({
         .select()
         .from(accessTokens)
         .where(
-          and(eq(accessTokens.id, input.tokenId), eq(accessTokens.createdById, ctx.session.id)),
+          and(eq(accessTokens.id, input.tokenId), eq(accessTokens.createdById, ctx.user!.id)),
         )
         .limit(1)
 

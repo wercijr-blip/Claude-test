@@ -270,7 +270,7 @@ export const consultaRouter = router({
         await db.update(consultasInicio)
           .set({
             status: input.aprovado ? 'aprovado' : 'rejeitado',
-            validadoPorId: ctx.session.id,
+            validadoPorId: ctx.user!.id,
             validadoEm: new Date(),
             resultadoHivValidado: input.resultadoHiv,
             dataExameValidado: input.dataExame,

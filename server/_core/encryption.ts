@@ -7,7 +7,7 @@ const TAG_LENGTH = 16
 
 export function encrypt(plaintext: string): string {
   const iv = randomBytes(IV_LENGTH)
-  const key = Buffer.from(env.ENCRYPTION_KEY, 'hex')
+  const key = Buffer.from(env.ENCRYPTION_KEY ?? '0'.repeat(64), 'hex')
   const cipher = createCipheriv(ALGORITHM, key, iv)
   const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()])
   const tag = cipher.getAuthTag()
@@ -20,7 +20,7 @@ export function decrypt(ciphertext: string): string {
     const iv = buffer.subarray(0, IV_LENGTH)
     const tag = buffer.subarray(IV_LENGTH, IV_LENGTH + TAG_LENGTH)
     const encrypted = buffer.subarray(IV_LENGTH + TAG_LENGTH)
-    const key = Buffer.from(env.ENCRYPTION_KEY, 'hex')
+    const key = Buffer.from(env.ENCRYPTION_KEY ?? '0'.repeat(64), 'hex')
     const decipher = createDecipheriv(ALGORITHM, key, iv)
     decipher.setAuthTag(tag)
     return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString('utf8')
@@ -32,6 +32,6 @@ export function decrypt(ciphertext: string): string {
 export function hashCpf(cpf: string): string {
   const normalized = cpf.replace(/\D/g, '')
   return createHash('sha256')
-    .update(normalized + env.CPF_HASH_SALT)
+    .update(normalized + (env.CPF_HASH_SALT ?? 'default-salt-medscribe-00000000000'))
     .digest('hex')
 }
