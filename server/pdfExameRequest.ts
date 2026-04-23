@@ -5,10 +5,11 @@ import {
   EXAMES_HIV_ISOLADO,
   EXAMES_SOROLOGICOS_IST,
   EXAMES_DENSITOMETRIA,
+  type Exame,
 } from '../shared/const.ts'
 
 async function gerarPdfPedido(
-  exames: readonly string[],
+  exames: readonly Exame[],
   titulo: string,
   subtitulo: string,
   nomePaciente: string,
@@ -50,7 +51,8 @@ async function gerarPdfPedido(
   y -= 20
 
   for (const exame of exames) {
-    page.drawText('•  ' + exame, { x: margin + 8, y, font, size: 10, color: rgb(0.1, 0.1, 0.1) })
+    page.drawText(`•  ${exame.nome}`, { x: margin + 8, y, font, size: 10, color: rgb(0.1, 0.1, 0.1) })
+    page.drawText(`TUSS ${exame.tuss}`, { x: width - margin - 90, y, font, size: 8, color: rgb(0.5, 0.5, 0.5) })
     y -= 18
   }
 
