@@ -1,0 +1,525 @@
+{
+  "name": "MedScribe — Relatório Mensal de Evidências",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 1 * *"
+            }
+          ]
+        }
+      },
+      "id": "node-schedule-monthly",
+      "name": "Dia 1 de cada mês às 08h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.MEDSCRIBE_URL }}/trpc/knowledgeTopic.list",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "input",
+              "value": "={\"json\":{\"status\":\"done\",\"clinic_id\":{{ $env.CLINIC_ID }},\"dateFrom\":\"{{ $now.minus({months:1}).startOf('month').format('yyyy-MM-dd') }}\",\"dateTo\":\"{{ $now.minus({months:1}).endOf('month').format('yyyy-MM-dd') }}\"}}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-N8N-API-KEY", "value": "={{ $env.N8N_MEDSCRIBE_KEY }}" }
+          ]
+        },
+        "options": {
+          "response": { "response": { "responseFormat": "json" } }
+        }
+      },
+      "id": "node-fetch-month-topics",
+      "name": "Buscar tópicos do mês anterior",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Agrupar tópicos por especialidade e calcular métricas\nconst topics = $input.all().map(i => i.json.result?.data?.json ?? []).flat();\nconst referenceMonth = $now.minus({months:1}).format('yyyy-MM');\n\nconst bySpecialty = {};\nfor (const t of topics) {\n  const key = t.medical_specialty || 'Geral';\n  if (!bySpecialty[key]) {\n    bySpecialty[key] = {\n      medical_specialty: key,\n      specialty_category: t.specialty_category || 'Geral',\n      topics: [],\n      articles: [],\n      articlesWithPdf: 0,\n      journals: new Set(),\n    };\n  }\n  bySpecialty[key].topics.push(t);\n  if (t.articles) {\n    for (const a of t.articles) {\n      bySpecialty[key].articles.push(a);\n      if (a.pdf_available) bySpecialty[key].articlesWithPdf++;\n      if (a.journal) bySpecialty[key].journals.add(a.journal);\n    }\n  }\n}\n\nconst result = Object.values(bySpecialty).map(s => ({\n  medical_specialty: s.medical_specialty,\n  specialty_category: s.specialty_category,\n  total_topics: s.topics.length,\n  total_articles: s.articles.length,\n  articles_with_pdf: s.articlesWithPdf,\n  avg_articles_per_topic: s.topics.length > 0 ? +(s.articles.length / s.topics.length).toFixed(2) : 0,\n  top_journals: [...s.journals].slice(0, 5),\n  evidence_strength: s.articles.length >= 5 ? 'forte' : s.articles.length >= 2 ? 'moderada' : 'limitada',\n  topics_list: s.topics,\n  articles_list: s.articles,\n  reference_month: referenceMonth,\n}));\n\nreturn result.map(r => ({ json: r }));"
+      },
+      "id": "node-aggregate",
+      "name": "Agregar por especialidade",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "node-split-specialty",
+      "name": "1 especialidade por vez",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"claude-sonnet-4-20250514\",\n  \"max_tokens\": 1200,\n  \"messages\": [{\n    \"role\": \"user\",\n    \"content\": \"Você é um editor científico médico especialista em {{ $json.medical_specialty }}.\\nAnalise os dados de evidências do mês {{ $json.reference_month }} e escreva em português:\\n\\n1. PANORAMA DO MÊS (2 linhas)\\n2. TEMAS COM EVIDÊNCIA FORTE (lista) — >= 5 artigos por tópico\\n3. TEMAS COM EVIDÊNCIA LIMITADA (lista) — <= 1 artigo — lacunas científicas\\n4. DESTAQUES DO MÊS (2-3 linhas) — Journals mais citados\\n5. RECOMENDAÇÃO (1-2 linhas)\\n\\nDados:\\n- Total de tópicos: {{ $json.total_topics }}\\n- Total de artigos: {{ $json.total_articles }}\\n- Artigos com PDF: {{ $json.articles_with_pdf }}\\n- Média artigos/tópico: {{ $json.avg_articles_per_topic }}\\n- Robustez geral: {{ $json.evidence_strength }}\\n- Journals principais: {{ $json.top_journals.join(', ') }}\\n- Tópicos: {{ JSON.stringify($json.topics_list.map(t => ({topic: t.topic, articles: t.articles?.length || 0}))) }}\"\n  }]\n}",
+        "options": {
+          "response": { "response": { "responseFormat": "json" } }
+        }
+      },
+      "id": "node-claude-summary-specialty",
+      "name": "Claude — panorama especialidade",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1120, 300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"claude-sonnet-4-20250514\",\n  \"max_tokens\": 800,\n  \"messages\": [{\n    \"role\": \"user\",\n    \"content\": \"Analise os artigos abaixo e agrupe os que tratam do mesmo tema clínico central.\\nRetorne APENAS JSON válido, sem texto adicional:\\n{\\\"clusters\\\": [{\\\"cluster_topic\\\": string, \\\"pmids\\\": string[], \\\"rationale\\\": string}]}\\nAgrupe apenas se >= 2 PMIDs. Artigos sem par ficam fora.\\nArtigos: {{ JSON.stringify($('Agregar por especialidade').item.json.articles_list.slice(0, 30).map(a => ({pmid: a.pmid, title: a.title, abstract: a.abstract?.substring(0,200)}))) }}\"\n  }]\n}",
+        "options": {
+          "response": { "response": { "responseFormat": "json" } }
+        }
+      },
+      "id": "node-claude-clustering",
+      "name": "Claude — clustering de artigos",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1340, 300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parsear clusters retornados pelo Claude\nconst raw = $input.first().json.content?.[0]?.text ?? '{\"clusters\":[]}';\nlet clusters = [];\ntry {\n  const parsed = JSON.parse(raw.replace(/```json\\n?|```/g, '').trim());\n  clusters = parsed.clusters ?? [];\n} catch(e) {\n  clusters = [];\n}\n\nconst specialty = $('Agregar por especialidade').item.json.medical_specialty;\nconst articles = $('Agregar por especialidade').item.json.articles_list ?? [];\n\nconst enriched = clusters\n  .filter(c => c.pmids && c.pmids.length >= 2)\n  .map(c => ({\n    cluster_topic: c.cluster_topic,\n    pmids: c.pmids,\n    total_articles: c.pmids.length,\n    medical_specialty: specialty,\n    articles: articles.filter(a => c.pmids.includes(a.pmid)),\n    evidence_level: c.pmids.length >= 5 ? 'A' : c.pmids.length >= 2 ? 'B' : 'C',\n  }));\n\nreturn enriched.map(c => ({ json: c }));"
+      },
+      "id": "node-parse-clusters",
+      "name": "Parsear clusters",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "node-split-clusters",
+      "name": "1 cluster por vez",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [1780, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"claude-sonnet-4-20250514\",\n  \"max_tokens\": 1500,\n  \"messages\": [{\n    \"role\": \"user\",\n    \"content\": \"Você é médico especialista em {{ $json.medical_specialty }} com expertise em medicina baseada em evidências.\\nAnalise os {{ $json.total_articles }} artigos sobre '{{ $json.cluster_topic }}' e produza RESUMO ESTRUTURADO:\\n\\n## 1. QUESTÃO CLÍNICA CENTRAL (1-2 linhas)\\n## 2. SÍNTESE DAS EVIDÊNCIAS (3-4 linhas)\\n## 3. PONTOS DE CONCORDÂNCIA (lista)\\n## 4. PONTOS DE CONTROVÉRSIA (lista)\\n## 5. RECOMENDAÇÃO CLÍNICA PRÁTICA (2-3 linhas)\\n## 6. NÍVEL DE EVIDÊNCIA: A | B | C\\n   A: >= 5 artigos concordantes\\n   B: 2-4 artigos ou resultados mistos\\n   C: <= 1 artigo ou muito heterogêneo\\n## 7. LACUNAS DO CONHECIMENTO (1-2 linhas)\\n\\nArtigos: {{ JSON.stringify($json.articles.map(a => ({pmid: a.pmid, title: a.title, abstract: a.abstract?.substring(0,300)}))) }}\"\n  }]\n}",
+        "options": {
+          "response": { "response": { "responseFormat": "json" } }
+        }
+      },
+      "id": "node-claude-metaanalysis",
+      "name": "Claude — meta-análise do cluster",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2000, 300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Determinar consenso a partir do texto da meta-análise\nconst text = ($input.first().json.content?.[0]?.text ?? '').toLowerCase();\nlet consensus = 'inconclusivo';\nif (text.includes('concordância') || text.includes('consistente') || text.includes('unanime')) {\n  consensus = 'concordante';\n} else if (text.includes('controvér') || text.includes('conflitante') || text.includes('divergen')) {\n  consensus = 'controverso';\n}\n\nreturn [{\n  json: {\n    meta_analysis_text: $input.first().json.content?.[0]?.text ?? '',\n    consensus,\n    cluster_topic: $('1 cluster por vez').item.json.cluster_topic,\n    pmids: $('1 cluster por vez').item.json.pmids,\n    total_articles: $('1 cluster por vez').item.json.total_articles,\n    medical_specialty: $('1 cluster por vez').item.json.medical_specialty,\n    evidence_level: $('1 cluster por vez').item.json.evidence_level,\n  }\n}];"
+      },
+      "id": "node-process-metaanalysis",
+      "name": "Processar meta-análise",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2220, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.MEDSCRIBE_URL }}/trpc/articles.saveCluster",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-N8N-API-KEY", "value": "={{ $env.N8N_MEDSCRIBE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"json\": {\n    \"clinicId\": {{ $env.CLINIC_ID }},\n    \"referenceMonth\": \"{{ $now.minus({months:1}).format('yyyy-MM') }}\",\n    \"clusterTopic\": \"{{ $json.cluster_topic }}\",\n    \"medicalSpecialty\": \"{{ $json.medical_specialty }}\",\n    \"articlePmids\": {{ JSON.stringify($json.pmids) }},\n    \"totalArticles\": {{ $json.total_articles }},\n    \"metaAnalysisText\": {{ JSON.stringify($json.meta_analysis_text) }},\n    \"evidenceLevel\": \"{{ $json.evidence_level }}\",\n    \"consensus\": \"{{ $json.consensus }}\"\n  }\n}",
+        "options": {
+          "response": { "response": { "responseFormat": "json" } }
+        }
+      },
+      "id": "node-save-cluster",
+      "name": "Salvar cluster no banco",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2440, 300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.MEDSCRIBE_URL }}/trpc/admin.reports.saveMonthly",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-N8N-API-KEY", "value": "={{ $env.N8N_MEDSCRIBE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"json\": {\n    \"clinicId\": {{ $env.CLINIC_ID }},\n    \"referenceMonth\": \"{{ $now.minus({months:1}).format('yyyy-MM') }}\",\n    \"specialtyCategory\": \"{{ $('Agregar por especialidade').item.json.specialty_category }}\",\n    \"medicalSpecialty\": \"{{ $('Agregar por especialidade').item.json.medical_specialty }}\",\n    \"totalArticlesFound\": {{ $('Agregar por especialidade').item.json.total_articles }},\n    \"totalArticlesWithPdf\": {{ $('Agregar por especialidade').item.json.articles_with_pdf }},\n    \"totalTopicsProcessed\": {{ $('Agregar por especialidade').item.json.total_topics }},\n    \"avgArticlesPerTopic\": {{ $('Agregar por especialidade').item.json.avg_articles_per_topic }},\n    \"evidenceStrength\": \"{{ $('Agregar por especialidade').item.json.evidence_strength }}\",\n    \"topJournals\": {{ JSON.stringify($('Agregar por especialidade').item.json.top_journals) }},\n    \"summaryClaude\": {{ JSON.stringify($('Claude — panorama especialidade').item.json.content?.[0]?.text ?? '') }}\n  }\n}",
+        "options": {
+          "response": { "response": { "responseFormat": "json" } }
+        }
+      },
+      "id": "node-save-report",
+      "name": "Salvar relatório no banco",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2660, 300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ $env.COUCHDB_URL }}/{{ $env.COUCHDB_DATABASE }}/Relatorio-{{ $('Agregar por especialidade').item.json.medical_specialty }}-{{ $now.minus({months:1}).format('yyyy-MM') }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Basic {{ Buffer.from($env.COUCHDB_USER + ':' + $env.COUCHDB_PASSWORD).toString('base64') }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"_id\": \"Relatorio-{{ $('Agregar por especialidade').item.json.medical_specialty }}-{{ $now.minus({months:1}).format('yyyy-MM') }}\",\n  \"content\": \"---\\ntags: [relatório-mensal, {{ $('Agregar por especialidade').item.json.medical_specialty.toLowerCase() }}, evidências]\\nmês: {{ $now.minus({months:1}).format('yyyy-MM') }}\\nespecialidade: {{ $('Agregar por especialidade').item.json.medical_specialty }}\\ntotal_artigos: {{ $('Agregar por especialidade').item.json.total_articles }}\\ntotal_tópicos: {{ $('Agregar por especialidade').item.json.total_topics }}\\nrobustez: {{ $('Agregar por especialidade').item.json.evidence_strength }}\\n---\\n\\n# Relatório Mensal — {{ $('Agregar por especialidade').item.json.medical_specialty }}\\n## {{ $now.minus({months:1}).format('yyyy-MM') }}\\n\\n### 📊 Panorama do mês\\n{{ $('Claude — panorama especialidade').item.json.content?.[0]?.text ?? 'Dados insuficientes.' }}\\n\\n### 📈 Métricas\\n| Indicador | Valor |\\n|---|---|\\n| Total de tópicos | {{ $('Agregar por especialidade').item.json.total_topics }} |\\n| Total de artigos | {{ $('Agregar por especialidade').item.json.total_articles }} |\\n| Artigos com PDF | {{ $('Agregar por especialidade').item.json.articles_with_pdf }} |\\n| Média artigos/tópico | {{ $('Agregar por especialidade').item.json.avg_articles_per_topic }} |\\n| Robustez | {{ $('Agregar por especialidade').item.json.evidence_strength }} |\\n\\n### 🏅 Journals principais\\n{{ $('Agregar por especialidade').item.json.top_journals.map(j => '- ' + j).join('\\\\n') }}\\n\\n---\\n*Gerado automaticamente — {{ $now.format('yyyy-MM-dd HH:mm') }}*\"\n}",
+        "options": {
+          "response": { "response": { "responseFormat": "json" } }
+        }
+      },
+      "id": "node-couchdb-monthly-note",
+      "name": "CouchDB — nota mensal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2880, 300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.MEDSCRIBE_URL }}/trpc/admin.bulletin.getDoctors",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-N8N-API-KEY", "value": "={{ $env.N8N_MEDSCRIBE_KEY }}" }
+          ]
+        },
+        "options": {
+          "response": { "response": { "responseFormat": "json" } }
+        }
+      },
+      "id": "node-get-doctors",
+      "name": "Buscar médicos para boletim",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [3100, 300]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "node-split-doctors",
+      "name": "1 médico por vez",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [3320, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.MEDSCRIBE_URL }}/trpc/articles.mostCited",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "input", "value": "={\"json\":{\"limit\":10,\"clinicId\":{{ $env.CLINIC_ID }}}}" }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-N8N-API-KEY", "value": "={{ $env.N8N_MEDSCRIBE_KEY }}" }
+          ]
+        },
+        "options": {
+          "response": { "response": { "responseFormat": "json" } }
+        }
+      },
+      "id": "node-most-cited",
+      "name": "Top artigos mais citados",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [3540, 300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"claude-sonnet-4-20250514\",\n  \"max_tokens\": 1200,\n  \"messages\": [{\n    \"role\": \"user\",\n    \"content\": \"Você é editor de educação médica continuada.\\nEscreva um boletim mensal em português para Dr(a). {{ $('1 médico por vez').item.json.nome }}, especialista em {{ $('1 médico por vez').item.json.role }}.\\n\\nO boletim deve:\\n- Tom profissional e direto\\n- Destacar relevância clínica prática\\n- Mencionar que artigos vieram de casos reais da clínica no mês {{ $now.minus({months:1}).format('yyyy-MM') }}\\n- Máximo 1 página (formato email)\\n\\nEstrutura:\\n- Saudação personalizada\\n- Volume de evidências do mês\\n- Artigos mais relevantes para a prática\\n- Encerramento\\n\\nTop artigos do mês: {{ JSON.stringify(($('Top artigos mais citados').item.json.result?.data?.json ?? []).slice(0, 5).map(a => ({title: a.title, journal: a.journal, year: a.year, citações: a.total_notes_generated}))) }}\"\n  }]\n}",
+        "options": {
+          "response": { "response": { "responseFormat": "json" } }
+        }
+      },
+      "id": "node-claude-bulletin",
+      "name": "Claude — boletim personalizado",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [3760, 300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.sendgrid.com/v3/mail/send",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.SENDGRID_API_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"personalizations\": [{\n    \"to\": [{ \"email\": \"{{ $('1 médico por vez').item.json.bulletin_email ?? $('1 médico por vez').item.json.email }}\" }]\n  }],\n  \"from\": {\n    \"email\": \"{{ $env.BULLETIN_FROM_EMAIL }}\",\n    \"name\": \"{{ $env.BULLETIN_FROM_NAME }}\"\n  },\n  \"subject\": \"📚 Boletim de Evidências — {{ $now.minus({months:1}).format('yyyy-MM') }}\",\n  \"content\": [{\n    \"type\": \"text/html\",\n    \"value\": \"<div style='font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto;'><div style='background: #1a365d; color: white; padding: 20px; border-radius: 8px 8px 0 0;'><h1 style='margin:0; font-size:20px;'>📚 Boletim de Evidências Científicas</h1><p style='margin:4px 0 0; opacity:0.8;'>{{ $now.minus({months:1}).format('yyyy-MM') }} | MedScribe</p></div><div style='padding: 24px; background: #f7fafc; border-radius: 0 0 8px 8px;'><div style='white-space: pre-wrap; line-height: 1.6;'>{{ $json.content?.[0]?.text ?? 'Boletim indisponível.' }}</div></div><div style='margin-top: 16px; padding: 12px; background: #edf2f7; border-radius: 6px; font-size: 12px; color: #718096;'>Para atualizar seu email de recebimento, entre em contato com o administrador da clínica.</div></div>\"\n  }]\n}",
+        "options": {
+          "response": { "response": { "responseFormat": "json" } }
+        }
+      },
+      "id": "node-sendgrid",
+      "name": "Sendgrid — enviar boletim",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [3980, 300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.MEDSCRIBE_URL }}/trpc/admin.bulletin.logSend",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-N8N-API-KEY", "value": "={{ $env.N8N_MEDSCRIBE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"json\": {\n    \"doctorId\": {{ $('1 médico por vez').item.json.id }},\n    \"referenceMonth\": \"{{ $now.minus({months:1}).format('yyyy-MM') }}\",\n    \"articlesCount\": {{ ($('Top artigos mais citados').item.json.result?.data?.json ?? []).length }},\n    \"metaAnalysesCount\": 0,\n    \"sentAt\": \"{{ $now.toISO() }}\",\n    \"emailUsed\": \"{{ $('1 médico por vez').item.json.bulletin_email ?? $('1 médico por vez').item.json.email }}\"\n  }\n}",
+        "options": {
+          "response": { "response": { "responseFormat": "json" } }
+        }
+      },
+      "id": "node-log-send",
+      "name": "Registrar envio do boletim",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [4200, 300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.MEDSCRIBE_URL }}/trpc/admin.notify",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-N8N-API-KEY", "value": "={{ $env.N8N_MEDSCRIBE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"json\": {\n    \"type\": \"monthly_report_ready\",\n    \"message\": \"Relatório {{ $now.minus({months:1}).format('yyyy-MM') }} gerado com sucesso. Pipeline concluído.\",\n    \"month\": \"{{ $now.minus({months:1}).format('yyyy-MM') }}\"\n  }\n}",
+        "options": {
+          "response": { "response": { "responseFormat": "json" } }
+        }
+      },
+      "id": "node-notify-admin",
+      "name": "Notificar admin",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [4420, 300],
+      "continueOnFail": true
+    }
+  ],
+  "connections": {
+    "Dia 1 de cada mês às 08h": {
+      "main": [
+        [{ "node": "Buscar tópicos do mês anterior", "type": "main", "index": 0 }]
+      ]
+    },
+    "Buscar tópicos do mês anterior": {
+      "main": [
+        [{ "node": "Agregar por especialidade", "type": "main", "index": 0 }]
+      ]
+    },
+    "Agregar por especialidade": {
+      "main": [
+        [{ "node": "1 especialidade por vez", "type": "main", "index": 0 }]
+      ]
+    },
+    "1 especialidade por vez": {
+      "main": [
+        [{ "node": "Claude — panorama especialidade", "type": "main", "index": 0 }]
+      ]
+    },
+    "Claude — panorama especialidade": {
+      "main": [
+        [{ "node": "Claude — clustering de artigos", "type": "main", "index": 0 }]
+      ]
+    },
+    "Claude — clustering de artigos": {
+      "main": [
+        [{ "node": "Parsear clusters", "type": "main", "index": 0 }]
+      ]
+    },
+    "Parsear clusters": {
+      "main": [
+        [{ "node": "1 cluster por vez", "type": "main", "index": 0 }]
+      ]
+    },
+    "1 cluster por vez": {
+      "main": [
+        [{ "node": "Claude — meta-análise do cluster", "type": "main", "index": 0 }]
+      ]
+    },
+    "Claude — meta-análise do cluster": {
+      "main": [
+        [{ "node": "Processar meta-análise", "type": "main", "index": 0 }]
+      ]
+    },
+    "Processar meta-análise": {
+      "main": [
+        [{ "node": "Salvar cluster no banco", "type": "main", "index": 0 }]
+      ]
+    },
+    "Salvar cluster no banco": {
+      "main": [
+        [{ "node": "Salvar relatório no banco", "type": "main", "index": 0 }]
+      ]
+    },
+    "Salvar relatório no banco": {
+      "main": [
+        [{ "node": "CouchDB — nota mensal", "type": "main", "index": 0 }]
+      ]
+    },
+    "CouchDB — nota mensal": {
+      "main": [
+        [{ "node": "Buscar médicos para boletim", "type": "main", "index": 0 }]
+      ]
+    },
+    "Buscar médicos para boletim": {
+      "main": [
+        [{ "node": "1 médico por vez", "type": "main", "index": 0 }]
+      ]
+    },
+    "1 médico por vez": {
+      "main": [
+        [{ "node": "Top artigos mais citados", "type": "main", "index": 0 }]
+      ]
+    },
+    "Top artigos mais citados": {
+      "main": [
+        [{ "node": "Claude — boletim personalizado", "type": "main", "index": 0 }]
+      ]
+    },
+    "Claude — boletim personalizado": {
+      "main": [
+        [{ "node": "Sendgrid — enviar boletim", "type": "main", "index": 0 }]
+      ]
+    },
+    "Sendgrid — enviar boletim": {
+      "main": [
+        [{ "node": "Registrar envio do boletim", "type": "main", "index": 0 }]
+      ]
+    },
+    "Registrar envio do boletim": {
+      "main": [
+        [{ "node": "Notificar admin", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": [
+    { "name": "medscribe" },
+    { "name": "pipeline" },
+    { "name": "relatório-mensal" }
+  ],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

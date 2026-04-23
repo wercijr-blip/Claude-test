@@ -1,0 +1,62 @@
+# Pipeline de Conhecimento Clínico — VPS
+# Sobe n8n + CouchDB (backend Obsidian LiveSync) no mesmo VPS do MedScribe
+#
+# Uso:
+#   docker compose -f docker-compose.pipeline.yml up -d
+#
+# Variáveis necessárias em .env.pipeline (copiar de .env.pipeline.example):
+#   N8N_USER, N8N_PASSWORD, N8N_HOST
+#   COUCHDB_USER, COUCHDB_PASSWORD
+#   e todas as variáveis do pipeline (ver SETUP.md)
+
+services:
+
+  n8n:
+    image: n8nio/n8n
+    container_name: n8n
+    restart: always
+    ports:
+      - "5678:5678"
+    environment:
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: ${N8N_USER}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_PASSWORD}
+      N8N_HOST: ${N8N_HOST}
+      WEBHOOK_URL: https://${N8N_HOST}
+      # Variáveis do pipeline — acessíveis nos workflows via {{ $env.NOME }}
+      MEDSCRIBE_URL: ${MEDSCRIBE_URL}
+      N8N_MEDSCRIBE_KEY: ${N8N_MEDSCRIBE_KEY}
+      CLINIC_ID: ${CLINIC_ID}
+      NCBI_API_KEY: ${NCBI_API_KEY}
+      UNPAYWALL_EMAIL: ${UNPAYWALL_EMAIL}
+      ZOTERO_USER_ID: ${ZOTERO_USER_ID}
+      ZOTERO_API_KEY: ${ZOTERO_API_KEY}
+      ZOTERO_COLLECTION_ID: ${ZOTERO_COLLECTION_ID}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      COUCHDB_URL: ${COUCHDB_URL}
+      COUCHDB_USER: ${COUCHDB_USER}
+      COUCHDB_PASSWORD: ${COUCHDB_PASSWORD}
+      COUCHDB_DATABASE: ${COUCHDB_DATABASE:-obsidian-knowledge}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY}
+      BULLETIN_FROM_EMAIL: ${BULLETIN_FROM_EMAIL}
+      BULLETIN_FROM_NAME: ${BULLETIN_FROM_NAME:-MedScribe — Conhecimento Clínico}
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      - couchdb-obsidian
+
+  couchdb-obsidian:
+    image: couchdb:3
+    container_name: couchdb-obsidian
+    restart: always
+    ports:
+      - "5984:5984"
+    environment:
+      COUCHDB_USER: ${COUCHDB_USER}
+      COUCHDB_PASSWORD: ${COUCHDB_PASSWORD}
+    volumes:
+      - couchdb_data:/opt/couchdb/data
+
+volumes:
+  n8n_data:
+  couchdb_data:

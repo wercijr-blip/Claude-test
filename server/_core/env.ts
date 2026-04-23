@@ -35,6 +35,21 @@ const envSchema = z.object({
 
   APP_URL: z.string().url().default('https://facilitaprep.manus.space'),
 
+  // Pipeline de conhecimento clínico (n8n)
+  N8N_MEDSCRIBE_KEY: z.string().optional(),
+  NCBI_API_KEY: z.string().optional(),
+  UNPAYWALL_EMAIL: z.string().email().optional(),
+  ZOTERO_USER_ID: z.string().optional(),
+  ZOTERO_API_KEY: z.string().optional(),
+  ZOTERO_COLLECTION_ID: z.string().optional(),
+  COUCHDB_URL: z.string().url().optional(),
+  COUCHDB_USER: z.string().optional(),
+  COUCHDB_PASSWORD: z.string().optional(),
+  COUCHDB_DATABASE: z.string().default('obsidian-knowledge'),
+  SENDGRID_API_KEY: z.string().optional(),
+  BULLETIN_FROM_EMAIL: z.string().email().optional(),
+  BULLETIN_FROM_NAME: z.string().default('MedScribe — Conhecimento Clínico'),
+
   PORT: z.coerce.number().default(3000),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 })

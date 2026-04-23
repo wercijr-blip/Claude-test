@@ -8,6 +8,7 @@ import {
   json,
   index,
   uniqueIndex,
+  double,
 } from 'drizzle-orm/mysql-core'
 import { sql } from 'drizzle-orm'
 
@@ -20,6 +21,9 @@ export const users = mysqlTable('users', {
   nome: varchar('nome', { length: 255 }),
   role: varchar('role', { length: 50 }).notNull().default('user'),
   ativo: boolean('ativo').notNull().default(true),
+  // Boletim mensal de evidências
+  receiveMonthlyBulletin: boolean('receive_monthly_bulletin').notNull().default(false),
+  bulletinEmail: varchar('bulletin_email', { length: 255 }),
   createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (t) => ({
@@ -270,4 +274,123 @@ export const pagamentos = mysqlTable('pagamentos', {
 }, (t) => ({
   pacienteIdx: index('idx_pagamentos_paciente').on(t.pacienteId),
   sessionIdx: index('idx_pagamentos_session').on(t.stripeSessionId),
+}))
+
+// ═══════════════════════════════════════════════════════════════
+// PIPELINE DE CONHECIMENTO CLÍNICO
+// ═══════════════════════════════════════════════════════════════
+
+// ── Artigos PubMed (deduplicados por PMID) ────────────────────
+
+export const pubmedArticles = mysqlTable('pubmed_articles', {
+  id: int('id').primaryKey().autoincrement(),
+  pmid: varchar('pmid', { length: 20 }).notNull(),
+  doi: varchar('doi', { length: 255 }),
+  title: text('title').notNull(),
+  journal: varchar('journal', { length: 255 }),
+  year: int('year'),
+  abstract: text('abstract'),
+  zoteroItemKey: varchar('zotero_item_key', { length: 50 }),
+  pdfAvailable: boolean('pdf_available').notNull().default(false),
+  pdfUrl: varchar('pdf_url', { length: 500 }),
+  totalNotesGenerated: int('total_notes_generated').notNull().default(0),
+  firstSeenAt: datetime('first_seen_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  lastCitedAt: datetime('last_cited_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (t) => ({
+  pmidIdx: uniqueIndex('idx_pubmed_pmid').on(t.pmid),
+  doiIdx: uniqueIndex('idx_pubmed_doi').on(t.doi),
+  citedIdx: index('idx_pubmed_cited').on(t.totalNotesGenerated),
+}))
+
+// ── Vínculos artigo ↔ tópico de conhecimento ─────────────────
+
+export const articleTopicLinks = mysqlTable('article_topic_links', {
+  id: int('id').primaryKey().autoincrement(),
+  articleId: int('article_id').notNull(),
+  knowledgeTopicId: int('knowledge_topic_id').notNull(),
+  consultationId: int('consultation_id'),
+  doctorId: int('doctor_id'),
+  clinicId: int('clinic_id').notNull(),
+  notePathObsidian: varchar('note_path_obsidian', { length: 500 }),
+  createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (t) => ({
+  articleIdx: index('idx_atl_article').on(t.articleId),
+  topicIdx: index('idx_atl_topic').on(t.knowledgeTopicId),
+  clinicIdx: index('idx_atl_clinic').on(t.clinicId),
+  doctorIdx: index('idx_atl_doctor').on(t.doctorId),
+}))
+
+// ── Clusters de artigos (meta-análises automáticas) ───────────
+
+export const articleClusters = mysqlTable('article_clusters', {
+  id: int('id').primaryKey().autoincrement(),
+  clinicId: int('clinic_id').notNull(),
+  referenceMonth: varchar('reference_month', { length: 7 }).notNull(),
+  clusterTopic: varchar('cluster_topic', { length: 255 }).notNull(),
+  medicalSpecialty: varchar('medical_specialty', { length: 100 }),
+  articlePmids: json('article_pmids').notNull(),
+  totalArticles: int('total_articles').notNull().default(0),
+  totalNotesGenerated: int('total_notes_generated').notNull().default(0),
+  metaAnalysisText: text('meta_analysis_text'),
+  evidenceLevel: varchar('evidence_level', { length: 1 }),
+  consensus: varchar('consensus', { length: 20 }),
+  clinicalRecommendation: text('clinical_recommendation'),
+  createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (t) => ({
+  clinicMonthIdx: index('idx_clusters_clinic_month').on(t.clinicId, t.referenceMonth),
+  specialtyIdx: index('idx_clusters_specialty').on(t.medicalSpecialty),
+  evidenceIdx: index('idx_clusters_evidence').on(t.evidenceLevel),
+}))
+
+// ── Relatórios mensais de evidências ─────────────────────────
+
+export const monthlyEvidenceReports = mysqlTable('monthly_evidence_reports', {
+  id: int('id').primaryKey().autoincrement(),
+  clinicId: int('clinic_id').notNull(),
+  referenceMonth: varchar('reference_month', { length: 7 }).notNull(),
+  specialtyCategory: varchar('specialty_category', { length: 100 }),
+  medicalSpecialty: varchar('medical_specialty', { length: 100 }).notNull(),
+  topic: varchar('topic', { length: 255 }),
+  totalArticlesFound: int('total_articles_found').notNull().default(0),
+  totalArticlesWithPdf: int('total_articles_with_pdf').notNull().default(0),
+  totalTopicsProcessed: int('total_topics_processed').notNull().default(0),
+  avgArticlesPerTopic: double('avg_articles_per_topic'),
+  evidenceStrength: varchar('evidence_strength', { length: 20 }),
+  topJournals: json('top_journals'),
+  summaryClaude: text('summary_claude'),
+  createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (t) => ({
+  clinicMonthIdx: index('idx_mer_clinic_month').on(t.clinicId, t.referenceMonth),
+  specialtyIdx: index('idx_mer_specialty').on(t.medicalSpecialty),
+  strengthIdx: index('idx_mer_strength').on(t.evidenceStrength),
+}))
+
+// ── Log de envios de boletins ─────────────────────────────────
+
+export const bulletinSendLogs = mysqlTable('bulletin_send_logs', {
+  id: int('id').primaryKey().autoincrement(),
+  doctorId: int('doctor_id').notNull(),
+  referenceMonth: varchar('reference_month', { length: 7 }).notNull(),
+  articlesCount: int('articles_count').notNull().default(0),
+  metaAnalysesCount: int('meta_analyses_count').notNull().default(0),
+  sentAt: datetime('sent_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  emailUsed: varchar('email_used', { length: 255 }),
+  createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (t) => ({
+  doctorMonthIdx: index('idx_bsl_doctor_month').on(t.doctorId, t.referenceMonth),
+}))
+
+// ── Notificações internas do admin ────────────────────────────
+
+export const adminNotifications = mysqlTable('admin_notifications', {
+  id: int('id').primaryKey().autoincrement(),
+  type: varchar('type', { length: 100 }).notNull(),
+  message: text('message').notNull(),
+  month: varchar('month', { length: 7 }),
+  read: boolean('read').notNull().default(false),
+  createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (t) => ({
+  typeIdx: index('idx_notif_type').on(t.type),
+  readIdx: index('idx_notif_read').on(t.read),
+  createdIdx: index('idx_notif_created').on(t.createdAt),
 }))

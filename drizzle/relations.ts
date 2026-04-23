@@ -9,6 +9,9 @@ import {
   nfseRegistros,
   pagamentos,
   securityEvents,
+  pubmedArticles,
+  articleTopicLinks,
+  bulletinSendLogs,
 } from './schema.ts'
 
 export const usersRelations = relations(users, ({ many }) => ({
@@ -89,6 +92,28 @@ export const pagamentosRelations = relations(pagamentos, ({ one }) => ({
 export const securityEventsRelations = relations(securityEvents, ({ one }) => ({
   user: one(users, {
     fields: [securityEvents.userId],
+    references: [users.id],
+  }),
+}))
+
+export const pubmedArticlesRelations = relations(pubmedArticles, ({ many }) => ({
+  topicLinks: many(articleTopicLinks),
+}))
+
+export const articleTopicLinksRelations = relations(articleTopicLinks, ({ one }) => ({
+  article: one(pubmedArticles, {
+    fields: [articleTopicLinks.articleId],
+    references: [pubmedArticles.id],
+  }),
+  doctor: one(users, {
+    fields: [articleTopicLinks.doctorId],
+    references: [users.id],
+  }),
+}))
+
+export const bulletinSendLogsRelations = relations(bulletinSendLogs, ({ one }) => ({
+  doctor: one(users, {
+    fields: [bulletinSendLogs.doctorId],
     references: [users.id],
   }),
 }))

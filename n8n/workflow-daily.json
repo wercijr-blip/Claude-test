@@ -1,0 +1,487 @@
+{
+  "name": "MedScribe — Pipeline Diário PubMed",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "node-schedule",
+      "name": "A cada 1 hora",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.MEDSCRIBE_URL }}/trpc/knowledgeTopic.list",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "input", "value": "={\"json\":{\"status\":\"pending\",\"clinic_id\":{{ $env.CLINIC_ID }}}}" }
+          ]
+        },
+        "options": {
+          "response": { "response": { "responseFormat": "json" } }
+        }
+      },
+      "id": "node-fetch-topics",
+      "name": "Buscar tópicos pendentes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "cond-topics",
+              "leftValue": "={{ $json.result.data.json.length }}",
+              "rightValue": 0,
+              "operator": { "type": "number", "operation": "gt" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-if-topics",
+      "name": "Há tópicos?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "options": { "reset": false }
+      },
+      "id": "node-split-topics",
+      "name": "1 tópico por vez",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [900, 200]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "a1", "name": "topicId", "value": "={{ $json.id }}", "type": "string" },
+            { "id": "a2", "name": "medical_specialty", "value": "={{ $json.medical_specialty }}", "type": "string" },
+            { "id": "a3", "name": "specialty_category", "value": "={{ $json.specialty_category }}", "type": "string" },
+            { "id": "a4", "name": "subtopics", "value": "={{ $json.subtopics }}", "type": "array" },
+            { "id": "a5", "name": "pubmedQuery", "value": "={{ $json.pubmed_query }}", "type": "string" },
+            { "id": "a6", "name": "topic", "value": "={{ $json.topic }}", "type": "string" },
+            { "id": "a7", "name": "consultationId", "value": "={{ $json.consultation_id }}", "type": "number" },
+            { "id": "a8", "name": "doctorId", "value": "={{ $json.doctor_id }}", "type": "number" },
+            { "id": "a9", "name": "doctorName", "value": "={{ $json.doctor_name }}", "type": "string" },
+            { "id": "a10", "name": "doctorSpecialty", "value": "={{ $json.doctor_specialty }}", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-set-context",
+      "name": "Contexto da especialidade",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [1120, 200]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "db", "value": "pubmed" },
+            { "name": "term", "value": "={{ $json.pubmedQuery }}" },
+            { "name": "retmax", "value": "3" },
+            { "name": "sort", "value": "relevance" },
+            { "name": "retmode", "value": "json" },
+            { "name": "api_key", "value": "={{ $env.NCBI_API_KEY }}" }
+          ]
+        },
+        "options": {
+          "response": { "response": { "responseFormat": "json" } }
+        }
+      },
+      "id": "node-pubmed-search",
+      "name": "PubMed — buscar PMIDs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1340, 200],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "db", "value": "pubmed" },
+            { "name": "id", "value": "={{ $json.esearchresult.idlist.join(',') }}" },
+            { "name": "rettype", "value": "abstract" },
+            { "name": "retmode", "value": "json" }
+          ]
+        },
+        "options": {
+          "response": { "response": { "responseFormat": "json" } }
+        }
+      },
+      "id": "node-pubmed-fetch",
+      "name": "PubMed — abstracts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1560, 200],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "node-split-articles",
+      "name": "1 artigo por vez",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [1780, 200]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.unpaywall.org/v2/{{ $json.doi }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "email", "value": "={{ $env.UNPAYWALL_EMAIL }}" }
+          ]
+        },
+        "options": {
+          "response": { "response": { "responseFormat": "json" } }
+        }
+      },
+      "id": "node-unpaywall",
+      "name": "Unpaywall — PDF disponível?",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2000, 200],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.MEDSCRIBE_URL }}/trpc/articles.getByPmid",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "input", "value": "={\"json\":{\"pmid\":\"{{ $json.pmid }}\"}}" }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-N8N-API-KEY", "value": "={{ $env.N8N_MEDSCRIBE_KEY }}" }
+          ]
+        },
+        "options": {
+          "response": { "response": { "responseFormat": "json" } }
+        }
+      },
+      "id": "node-check-article",
+      "name": "Artigo já existe no banco?",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2220, 200],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "cond-exists",
+              "leftValue": "={{ $json.result.data.json }}",
+              "rightValue": "",
+              "operator": { "type": "object", "operation": "notEmpty" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-if-exists",
+      "name": "PMID já cadastrado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2440, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.zotero.org/users/{{ $env.ZOTERO_USER_ID }}/items",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Zotero-API-Key", "value": "={{ $env.ZOTERO_API_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "=[{\n  \"itemType\": \"journalArticle\",\n  \"title\": \"{{ $json.title }}\",\n  \"publicationTitle\": \"{{ $json.journal }}\",\n  \"date\": \"{{ $json.year }}\",\n  \"DOI\": \"{{ $json.doi }}\",\n  \"extra\": \"PMID: {{ $json.pmid }}\",\n  \"abstractNote\": \"{{ $json.abstract }}\",\n  \"tags\": [\n    { \"tag\": \"infectologia\" },\n    { \"tag\": \"{{ $('Contexto da especialidade').item.json.medical_specialty }}\" },\n    { \"tag\": \"medscribe-pipeline\" }\n  ],\n  \"collections\": [\"{{ $env.ZOTERO_COLLECTION_ID }}\"]\n}]",
+        "options": {
+          "response": { "response": { "responseFormat": "json" } }
+        }
+      },
+      "id": "node-zotero-save",
+      "name": "Zotero — salvar referência",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2660, 100],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.MEDSCRIBE_URL }}/trpc/articles.save",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-N8N-API-KEY", "value": "={{ $env.N8N_MEDSCRIBE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"json\": {\n    \"pmid\": \"{{ $json.pmid }}\",\n    \"doi\": \"{{ $json.doi }}\",\n    \"title\": \"{{ $json.title }}\",\n    \"journal\": \"{{ $json.journal }}\",\n    \"year\": {{ $json.year }},\n    \"abstract\": \"{{ $json.abstract }}\",\n    \"zoteroItemKey\": \"{{ $('Zotero — salvar referência').item.json.successful['0'].key }}\",\n    \"pdfAvailable\": {{ $json.pdfAvailable }},\n    \"pdfUrl\": \"{{ $json.pdfUrl }}\"\n  }\n}",
+        "options": {
+          "response": { "response": { "responseFormat": "json" } }
+        }
+      },
+      "id": "node-save-article",
+      "name": "Salvar artigo no banco",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2880, 100],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.MEDSCRIBE_URL }}/trpc/articles.linkToTopic",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-N8N-API-KEY", "value": "={{ $env.N8N_MEDSCRIBE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"json\": {\n    \"pmid\": \"{{ $json.pmid }}\",\n    \"knowledgeTopicId\": {{ $('Contexto da especialidade').item.json.topicId }},\n    \"consultationId\": {{ $('Contexto da especialidade').item.json.consultationId }},\n    \"doctorId\": {{ $('Contexto da especialidade').item.json.doctorId }},\n    \"clinicId\": {{ $env.CLINIC_ID }},\n    \"notePathObsidian\": \"/Knowledge/{{ $('Contexto da especialidade').item.json.specialty_category }}/{{ $('Contexto da especialidade').item.json.medical_specialty }}/{{ $('Contexto da especialidade').item.json.topic }}-{{ $now.format('yyyy-MM-dd') }}.md\"\n  }\n}",
+        "options": {
+          "response": { "response": { "responseFormat": "json" } }
+        }
+      },
+      "id": "node-link-topic",
+      "name": "Registrar link artigo-tópico",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [3100, 200],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"claude-sonnet-4-20250514\",\n  \"max_tokens\": 600,\n  \"messages\": [{\n    \"role\": \"user\",\n    \"content\": \"Você é um médico especialista em {{ $('Contexto da especialidade').item.json.medical_specialty }}.\\nResuma em português em 4-5 linhas o abstract abaixo para uso clínico prático.\\nEste artigo já foi citado {{ $json.total_notes_generated }} vez(es) na clínica.\\nEstruture assim:\\n🎯 Relevância clínica: (1 linha)\\n📋 O que o estudo mostrou: (2 linhas)\\n💊 Implicação prática: (1 linha)\\n📊 Nível de evidência: (se mencionado)\\nEspecialidade: {{ $('Contexto da especialidade').item.json.medical_specialty }}\\nSubtemas: {{ $('Contexto da especialidade').item.json.subtopics.join(', ') }}\\nAbstract: {{ $json.abstract }}\"\n  }]\n}",
+        "options": {
+          "response": { "response": { "responseFormat": "json" } }
+        }
+      },
+      "id": "node-claude-summary",
+      "name": "Claude — resumo clínico",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [3320, 200],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ $env.COUCHDB_URL }}/{{ $env.COUCHDB_DATABASE }}/Knowledge-{{ $('Contexto da especialidade').item.json.medical_specialty }}-{{ $('Contexto da especialidade').item.json.topic.toLowerCase().replace(/\\s+/g, '-') }}-{{ $now.format('yyyy-MM-dd') }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Basic {{ Buffer.from($env.COUCHDB_USER + ':' + $env.COUCHDB_PASSWORD).toString('base64') }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"_id\": \"Knowledge-{{ $('Contexto da especialidade').item.json.medical_specialty }}-{{ $('Contexto da especialidade').item.json.topic.toLowerCase().replace(/\\s+/g, '-') }}-{{ $now.format('yyyy-MM-dd') }}\",\n  \"content\": \"---\\ntags:\\n  - {{ $('Contexto da especialidade').item.json.medical_specialty.toLowerCase() }}\\n  - {{ $('Contexto da especialidade').item.json.specialty_category.toLowerCase() }}\\n  - evidência\\ndata: {{ $now.format('yyyy-MM-dd') }}\\norigem: MedScribe consulta #{{ $('Contexto da especialidade').item.json.consultationId }}\\nmedico_origem: {{ $('Contexto da especialidade').item.json.doctorName }}\\nspecialidade_medico: {{ $('Contexto da especialidade').item.json.doctorSpecialty }}\\npmid: {{ $json.pmid }}\\nzotero: {{ $json.zoteroItemKey }}\\n---\\n\\n# {{ $('Contexto da especialidade').item.json.topic }}\\n**Especialidade:** {{ $('Contexto da especialidade').item.json.medical_specialty }}\\n**Subtemas:** {{ $('Contexto da especialidade').item.json.subtopics.join(', ') }}\\n\\n## Resumo clínico\\n{{ $('Claude — resumo clínico').item.json.content[0].text }}\\n\\n## Artigos encontrados\\n- [{{ $json.title }}](https://pubmed.ncbi.nlm.nih.gov/{{ $json.pmid }})\\n  {{ $json.journal }} | {{ $json.year }}\\n  📎 Zotero: {{ $json.zoteroItemKey }}\\n  🔁 Citado {{ $json.total_notes_generated }}x na clínica\\n  PDF: {{ $json.pdfAvailable ? '✅' : '❌' }}\\n\\n## Conexões sugeridas\\n[[{{ $('Contexto da especialidade').item.json.medical_specialty }}]]\\n\\n---\\n*Médico origem: {{ $('Contexto da especialidade').item.json.doctorName }} ({{ $('Contexto da especialidade').item.json.doctorSpecialty }})*\\n*Gerado automaticamente — MedScribe Pipeline*\"\n}",
+        "options": {
+          "response": { "response": { "responseFormat": "json" } }
+        }
+      },
+      "id": "node-couchdb-note",
+      "name": "CouchDB — nota Obsidian",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [3540, 200],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.MEDSCRIBE_URL }}/trpc/knowledgeTopic.updateStatus",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-N8N-API-KEY", "value": "={{ $env.N8N_MEDSCRIBE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"json\": {\n    \"id\": {{ $('Contexto da especialidade').item.json.topicId }},\n    \"status\": \"done\"\n  }\n}",
+        "options": {
+          "response": { "response": { "responseFormat": "json" } }
+        }
+      },
+      "id": "node-mark-done",
+      "name": "Marcar tópico como done",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [3760, 200],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {},
+      "id": "node-noop-stop",
+      "name": "Sem tópicos — parar",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [680, 460]
+    }
+  ],
+  "connections": {
+    "A cada 1 hora": {
+      "main": [
+        [{ "node": "Buscar tópicos pendentes", "type": "main", "index": 0 }]
+      ]
+    },
+    "Buscar tópicos pendentes": {
+      "main": [
+        [{ "node": "Há tópicos?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Há tópicos?": {
+      "main": [
+        [{ "node": "1 tópico por vez", "type": "main", "index": 0 }],
+        [{ "node": "Sem tópicos — parar", "type": "main", "index": 0 }]
+      ]
+    },
+    "1 tópico por vez": {
+      "main": [
+        [{ "node": "Contexto da especialidade", "type": "main", "index": 0 }]
+      ]
+    },
+    "Contexto da especialidade": {
+      "main": [
+        [{ "node": "PubMed — buscar PMIDs", "type": "main", "index": 0 }]
+      ]
+    },
+    "PubMed — buscar PMIDs": {
+      "main": [
+        [{ "node": "PubMed — abstracts", "type": "main", "index": 0 }]
+      ]
+    },
+    "PubMed — abstracts": {
+      "main": [
+        [{ "node": "1 artigo por vez", "type": "main", "index": 0 }]
+      ]
+    },
+    "1 artigo por vez": {
+      "main": [
+        [{ "node": "Unpaywall — PDF disponível?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Unpaywall — PDF disponível?": {
+      "main": [
+        [{ "node": "Artigo já existe no banco?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Artigo já existe no banco?": {
+      "main": [
+        [{ "node": "PMID já cadastrado?", "type": "main", "index": 0 }]
+      ]
+    },
+    "PMID já cadastrado?": {
+      "main": [
+        [{ "node": "Registrar link artigo-tópico", "type": "main", "index": 0 }],
+        [{ "node": "Zotero — salvar referência", "type": "main", "index": 0 }]
+      ]
+    },
+    "Zotero — salvar referência": {
+      "main": [
+        [{ "node": "Salvar artigo no banco", "type": "main", "index": 0 }]
+      ]
+    },
+    "Salvar artigo no banco": {
+      "main": [
+        [{ "node": "Registrar link artigo-tópico", "type": "main", "index": 0 }]
+      ]
+    },
+    "Registrar link artigo-tópico": {
+      "main": [
+        [{ "node": "Claude — resumo clínico", "type": "main", "index": 0 }]
+      ]
+    },
+    "Claude — resumo clínico": {
+      "main": [
+        [{ "node": "CouchDB — nota Obsidian", "type": "main", "index": 0 }]
+      ]
+    },
+    "CouchDB — nota Obsidian": {
+      "main": [
+        [{ "node": "Marcar tópico como done", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": [
+    { "name": "medscribe" },
+    { "name": "pipeline" },
+    { "name": "pubmed" }
+  ],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}
