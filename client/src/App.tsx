@@ -1,17 +1,17 @@
-import { Component, type ReactNode, useEffect } from 'react'
+import { Component, lazy, Suspense, type ReactNode, useEffect } from 'react'
 import { Route, Switch, useLocation } from 'wouter'
 import { trpc } from './lib/trpc.ts'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createTrpcClient } from './lib/trpc.ts'
 
-// MedScribe pages
+// MedScribe pages — carregadas sob demanda para reduzir bundle inicial
 import Login          from './pages/Login.tsx'
 import ChangePassword from './pages/ChangePassword.tsx'
-import Perfil         from './pages/Perfil.tsx'
-import AdminDashboard from './pages/AdminDashboard.tsx'
-import AdminDoctors   from './pages/AdminDoctors.tsx'
-import AdminBulletin  from './pages/AdminBulletin.tsx'
-import Knowledge      from './pages/Knowledge.tsx'
+const Perfil         = lazy(() => import('./pages/Perfil.tsx'))
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard.tsx'))
+const AdminDoctors   = lazy(() => import('./pages/AdminDoctors.tsx'))
+const AdminBulletin  = lazy(() => import('./pages/AdminBulletin.tsx'))
+const Knowledge      = lazy(() => import('./pages/Knowledge.tsx'))
 
 // Legacy Facilita PrEP components
 import IntakePage          from './components/IntakePage.tsx'
@@ -24,6 +24,14 @@ import TokenEntryPage      from './components/TokenEntryPage.tsx'
 import PesquisaSatisfacao  from './components/PesquisaSatisfacao.tsx'
 import DuvidasPage         from './components/DuvidasPage.tsx'
 import FooterCfm           from './components/FooterCfm.tsx'
+
+function PageLoader() {
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+    </div>
+  )
+}
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
@@ -91,58 +99,60 @@ function AppRoutes() {
   return (
     <div className="min-h-screen flex flex-col">
       <div className="flex-1">
-        <Switch>
-          {/* ── MedScribe routes ─────────────────── */}
-          <Route path="/login"           component={Login} />
-          <Route path="/change-password" component={ChangePassword} />
-          <Route path="/perfil">
-            {me ? <Perfil /> : <Login />}
-          </Route>
-          <Route path="/admin/dashboard">
-            {me?.role === 'admin' ? <AdminDashboard /> : me ? <AdminAccessDenied /> : <Login />}
-          </Route>
-          <Route path="/admin/doctors">
-            {me?.role === 'admin' ? <AdminDoctors /> : me ? <AdminAccessDenied /> : <Login />}
-          </Route>
-          <Route path="/admin/bulletin">
-            {me?.role === 'admin' ? <AdminBulletin /> : me ? <AdminAccessDenied /> : <Login />}
-          </Route>
-          <Route path="/knowledge">
-            {me?.role === 'admin' ? <Knowledge /> : me ? <AdminAccessDenied /> : <Login />}
-          </Route>
-          <Route path="/dashboard">
-            {me ? <DashboardPlaceholder /> : <Login />}
-          </Route>
+        <Suspense fallback={<PageLoader />}>
+          <Switch>
+            {/* ── MedScribe routes ─────────────────── */}
+            <Route path="/login"           component={Login} />
+            <Route path="/change-password" component={ChangePassword} />
+            <Route path="/perfil">
+              {me ? <Perfil /> : <Login />}
+            </Route>
+            <Route path="/admin/dashboard">
+              {me?.role === 'admin' ? <AdminDashboard /> : me ? <AdminAccessDenied /> : <Login />}
+            </Route>
+            <Route path="/admin/doctors">
+              {me?.role === 'admin' ? <AdminDoctors /> : me ? <AdminAccessDenied /> : <Login />}
+            </Route>
+            <Route path="/admin/bulletin">
+              {me?.role === 'admin' ? <AdminBulletin /> : me ? <AdminAccessDenied /> : <Login />}
+            </Route>
+            <Route path="/knowledge">
+              {me?.role === 'admin' ? <Knowledge /> : me ? <AdminAccessDenied /> : <Login />}
+            </Route>
+            <Route path="/dashboard">
+              {me ? <DashboardPlaceholder /> : <Login />}
+            </Route>
 
-          {/* ── Legacy Facilita PrEP routes ──────── */}
-          <Route path="/auth/callback" component={AuthCallback} />
-          <Route path="/cadastro"      component={IntakePage} />
-          <Route path="/acesso/:token" component={TokenEntryPage} />
-          <Route path="/inicio"        component={SegundaParteInicio} />
-          <Route path="/formulario/:pacienteId?">
-            <FormularioPaciente />
-          </Route>
-          <Route path="/medico">
-            {me?.role === 'admin' || me?.role === 'doctor' ? <MedicoDashboard /> : <Login />}
-          </Route>
-          <Route path="/secretaria">
-            <SecretariaDashboard />
-          </Route>
-          <Route path="/admin">
-            {me?.role === 'admin' ? <AuditDashboard /> : <Login />}
-          </Route>
-          <Route path="/duvidas"                       component={DuvidasPage} />
-          <Route path="/pesquisa/:pacienteId/:token"   component={PesquisaSatisfacao} />
-          <Route path="/pagamento/sucesso"             component={PagamentoSucesso} />
-          <Route path="/pagamento/cancelado"           component={PagamentoCancelado} />
-          <Route path="/equipe"                        component={Login} />
+            {/* ── Legacy Facilita PrEP routes ──────── */}
+            <Route path="/auth/callback" component={AuthCallback} />
+            <Route path="/cadastro"      component={IntakePage} />
+            <Route path="/acesso/:token" component={TokenEntryPage} />
+            <Route path="/inicio"        component={SegundaParteInicio} />
+            <Route path="/formulario/:pacienteId?">
+              <FormularioPaciente />
+            </Route>
+            <Route path="/medico">
+              {me?.role === 'admin' || me?.role === 'doctor' ? <MedicoDashboard /> : <Login />}
+            </Route>
+            <Route path="/secretaria">
+              <SecretariaDashboard />
+            </Route>
+            <Route path="/admin">
+              {me?.role === 'admin' ? <AuditDashboard /> : <Login />}
+            </Route>
+            <Route path="/duvidas"                       component={DuvidasPage} />
+            <Route path="/pesquisa/:pacienteId/:token"   component={PesquisaSatisfacao} />
+            <Route path="/pagamento/sucesso"             component={PagamentoSucesso} />
+            <Route path="/pagamento/cancelado"           component={PagamentoCancelado} />
+            <Route path="/equipe"                        component={Login} />
 
-          {/* Root: MedScribe login ou legacy intake */}
-          <Route path="/">
-            {me ? (me.role === 'admin' ? <AdminDashboard /> : <DashboardPlaceholder />) : <Login />}
-          </Route>
-          <Route component={NotFound} />
-        </Switch>
+            {/* Root: MedScribe login ou legacy intake */}
+            <Route path="/">
+              {me ? (me.role === 'admin' ? <AdminDashboard /> : <DashboardPlaceholder />) : <Login />}
+            </Route>
+            <Route component={NotFound} />
+          </Switch>
+        </Suspense>
       </div>
       <FooterCfm />
     </div>
