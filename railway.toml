@@ -1,8 +1,4 @@
-[build]
-buildCommand = "pnpm install --frozen-lockfile && pnpm build"
-
 [deploy]
-startCommand = "tsx server/_core/index.ts"
 healthcheckPath = "/api/health"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
