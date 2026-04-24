@@ -1,6 +1,3 @@
-[variables]
-RAILPACK_NO_SPA = "1"
-
 [build]
 buildCommand = "pnpm install --frozen-lockfile && pnpm build"
 
