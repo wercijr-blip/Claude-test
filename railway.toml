@@ -1,3 +1,6 @@
+[variables]
+RAILPACK_NO_SPA = "1"
+
 [build]
 buildCommand = "pnpm install --frozen-lockfile && pnpm build"
 
@@ -7,6 +10,3 @@ healthcheckPath = "/api/health"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
-
-[deploy.variables]
-RAILPACK_NO_SPA = "1"
