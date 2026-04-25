@@ -15,6 +15,8 @@ import {
   enviarAnaliseHumanaExame,
   enviarExameRejeitadoData,
   enviarNotificacaoMedicoPendente,
+  enviarExameRejeitadoMedico,
+  enviarSolicitacaoReenvio,
 } from '../email.ts'
 import { env } from '../_core/env.ts'
 import { DIAS_VALIDADE_LINK_UPLOAD } from '../../shared/const.ts'
@@ -380,6 +382,7 @@ export const consultaRouter = router({
         const rows = await db
           .select({
             id: consultasInicio.id,
+            tokenId: consultasInicio.tokenId,
             tipoConsulta: consultasInicio.tipoConsulta,
             resultadoIa: consultasInicio.resultadoIa,
             motivoRejeicao: consultasInicio.motivoRejeicao,
@@ -388,41 +391,87 @@ export const consultaRouter = router({
             status: consultasInicio.status,
             createdAt: consultasInicio.createdAt,
             patientEmail: accessTokens.patientEmail,
+            nomeEncrypted: precadastros.nomeEncrypted,
           })
           .from(consultasInicio)
           .leftJoin(accessTokens, eq(accessTokens.id, consultasInicio.tokenId))
+          .leftJoin(precadastros, eq(precadastros.accessTokenId, consultasInicio.tokenId))
           .where(inArray(consultasInicio.status, ['pendente_revisao_medica', 'pendente_revisao_medica_urgente', 'em_validacao_medica']))
           .orderBy(desc(consultasInicio.createdAt))
 
         return Promise.all(
-          rows.map(async (r) => ({
-            ...r,
-            urlExame: r.exameS3Key ? await getPresignedUrl(r.exameS3Key, 600) : null,
-            urgente: r.status === 'pendente_revisao_medica_urgente',
-          })),
+          rows.map(async (r) => {
+            const { nomeEncrypted, ...rest } = r
+            return {
+              ...rest,
+              urlExame: r.exameS3Key ? await getPresignedUrl(r.exameS3Key, 600) : null,
+              urgente: r.status === 'pendente_revisao_medica_urgente',
+              nomePaciente: nomeEncrypted ? decrypt(nomeEncrypted) : (r.patientEmail ?? `#${r.id}`),
+            }
+          }),
         )
       }),
 
     validar: medicoProcedure
       .input(z.object({
         consultaId: z.number(),
-        aprovado: z.boolean(),
+        acao: z.enum([
+          'aprovar',
+          'recusar',
+          'solicitar_reenvio',
+          'recomendar_consulta',
+          'encaminhar_especialista',
+          'solicitar_confirmacao',
+        ]),
         resultadoHiv: z.enum(['reagente', 'nao_reagente']).optional(),
         dataExame: z.string().optional(),
         observacoes: z.string().min(10, 'O comentário deve ter pelo menos 10 caracteres'),
       }))
       .mutation(async ({ input, ctx }) => {
+        const [consulta] = await db
+          .select()
+          .from(consultasInicio)
+          .where(eq(consultasInicio.id, input.consultaId))
+          .limit(1)
+
+        if (!consulta) throw new TRPCError({ code: 'NOT_FOUND' })
+
+        const acaoParaStatus: Record<string, string> = {
+          aprovar: 'aprovado',
+          recusar: 'rejeitado',
+          recomendar_consulta: 'rejeitado',
+          encaminhar_especialista: 'rejeitado',
+          solicitar_reenvio: 'aguardando_upload',
+          solicitar_confirmacao: 'aguardando_upload',
+        }
+
+        const isReenvio = input.acao === 'solicitar_reenvio' || input.acao === 'solicitar_confirmacao'
+
         await db.update(consultasInicio)
           .set({
-            status: input.aprovado ? 'aprovado' : 'rejeitado',
-            validadoPorId: ctx.session.id,
+            status: acaoParaStatus[input.acao],
+            validadoPorId: (ctx.session as { id: number }).id,
             validadoEm: new Date(),
-            resultadoHivValidado: input.resultadoHiv,
-            dataExameValidado: input.dataExame,
+            resultadoHivValidado: input.resultadoHiv ?? undefined,
+            dataExameValidado: input.dataExame ?? undefined,
             observacoesMedico: input.observacoes,
+            ...(isReenvio ? { tentativasReenvio: 0, motivoRejeicao: null } : {}),
             updatedAt: new Date(),
           })
           .where(eq(consultasInicio.id, input.consultaId))
+
+        const info = await getInfoPaciente(consulta.tokenId)
+
+        if (input.acao === 'aprovar') {
+          if (info.email) await enviarExameAprovadoIa(info.email, info.nome, env.APP_URL).catch(console.error)
+          if (info.telefone) await enviarWhatsApp(info.telefone, `Olá ${info.nome}, seu exame foi aprovado pelo médico! Acesse: ${env.APP_URL}/inicio`).catch(console.error)
+        } else if (isReenvio) {
+          if (info.email) await enviarSolicitacaoReenvio(info.email, info.nome, input.observacoes, env.APP_URL).catch(console.error)
+          if (info.telefone) await enviarWhatsApp(info.telefone, `Olá ${info.nome}, nosso médico solicita um novo exame. Motivo: ${input.observacoes}. Acesse: ${env.APP_URL}/inicio`).catch(console.error)
+        } else {
+          if (info.email) await enviarExameRejeitadoMedico(info.email, info.nome, input.observacoes).catch(console.error)
+          if (info.telefone) await enviarWhatsApp(info.telefone, `Olá ${info.nome}, sobre seu exame: ${input.observacoes}. Para mais informações: (61) 4042-7188`).catch(console.error)
+        }
 
         return { ok: true }
       }),

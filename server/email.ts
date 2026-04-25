@@ -271,7 +271,57 @@ export async function enviarExameRejeitadoData(
   })
 }
 
-// Notificação para médicos: exame pendente de revisão
+// ── Sprint 4: Notificações de ação médica ───────────────────────────────────
+
+// Exame rejeitado / encaminhado / consulta recomendada pelo médico
+export async function enviarExameRejeitadoMedico(
+  para: string,
+  nome: string,
+  observacoes: string,
+): Promise<void> {
+  await transporter.sendMail({
+    from: `"Facilita PrEP" <${env.GMAIL_USER}>`,
+    to: para,
+    subject: 'Atualização sobre seu exame — Facilita PrEP',
+    html: baseTemplate(
+      'Avaliação do exame concluída',
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nome}</strong>!</p>
+      <p style="color:#334155;font-size:15px;">Após análise do seu exame pelo médico, não foi possível dar seguimento ao processo PrEP no momento.</p>
+      <div style="background:#fef2f2;border-left:4px solid #ef4444;padding:12px 16px;border-radius:4px;margin:16px 0;">
+        <p style="color:#dc2626;margin:0;font-size:13px;"><strong>Orientação do médico:</strong> ${observacoes}</p>
+      </div>
+      <p style="color:#64748b;font-size:13px;">Para mais informações, entre em contato com a clínica:</p>
+      <p style="color:#64748b;font-size:13px;font-weight:600;">(61) 4042-7188</p>`,
+    ),
+  })
+}
+
+// Médico solicita envio de novo exame (reenvio ou confirmação)
+export async function enviarSolicitacaoReenvio(
+  para: string,
+  nome: string,
+  motivo: string,
+  appUrl: string,
+): Promise<void> {
+  await transporter.sendMail({
+    from: `"Facilita PrEP" <${env.GMAIL_USER}>`,
+    to: para,
+    subject: 'Novo envio de exame necessário — Facilita PrEP',
+    html: baseTemplate(
+      'Envio de novo exame',
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nome}</strong>!</p>
+      <p style="color:#334155;font-size:15px;">Nosso médico avaliou seu exame e solicita o envio de um novo documento:</p>
+      <div style="background:#fefce8;border-left:4px solid #eab308;padding:12px 16px;border-radius:4px;margin:16px 0;">
+        <p style="color:#713f12;margin:0;font-size:13px;"><strong>Solicitação:</strong> ${motivo}</p>
+      </div>
+      <a href="${appUrl}/inicio" style="display:inline-block;background:#1d4ed8;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:600;margin:20px 0;font-size:16px;">
+        Enviar novo exame
+      </a>
+      <p style="color:#64748b;font-size:13px;">Acesse a plataforma e faça o upload do novo documento.</p>`,
+    ),
+  })
+}
+
 export async function enviarNotificacaoMedicoPendente(
   emails: string[],
   urgente: boolean,
