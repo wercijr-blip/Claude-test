@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.env
+logs/*.log
+logs/report_*.json
+logs/optimizer_*.json
+logs/financial_*.json
+logs/financial-state.json
+logs/leads-state.json
+# Vault — auto-generated content (tracked by Obsidian, not git)
+vault/history/*.md
+vault/reports/*.md
+# Vault — briefings authored by owner (optional: remove to track in git)
+vault/briefings/[0-9]*.md
