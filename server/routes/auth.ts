@@ -80,7 +80,7 @@ export const authRouter = router({
       }
 
       const secret = new TextEncoder().encode(env.JWT_SECRET)
-      const token = await new SignJWT({ type: 'staff', userId })
+      const token = await new SignJWT({ type: 'staff', userId, role })
         .setProtectedHeader({ alg: 'HS256' })
         .setSubject(data.openId)
         .setIssuedAt()
@@ -117,7 +117,7 @@ export const authRouter = router({
       }
 
       const secret = new TextEncoder().encode(env.JWT_SECRET)
-      const token = await new SignJWT({ type: 'staff', userId })
+      const token = await new SignJWT({ type: 'staff', userId, role: input.role })
         .setProtectedHeader({ alg: 'HS256' })
         .setSubject(openId)
         .setIssuedAt()
