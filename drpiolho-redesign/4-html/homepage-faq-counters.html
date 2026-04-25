@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<!-- ============================================================
+  SEÇÃO: CURIOSIDADES / CICLO DE VIDA + FAQ
+  Inclui contadores animados CORRIGIDOS (IntersectionObserver)
+  e FAQ em accordion com schema FAQPage
+============================================================ -->
+
+<!-- Contadores animados -->
+<section class="drp-counters" aria-label="Curiosidades sobre o ciclo de vida do piolho">
+  <style>
+    .drp-counters {
+      padding: 80px 20px;
+      background: linear-gradient(135deg, #4c1d95 0%, #6d28d9 100%);
+      text-align: center;
+    }
+    .drp-counters-inner { max-width: 1100px; margin: 0 auto; }
+    .drp-counters-title {
+      font-size: clamp(22px, 4vw, 34px);
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+    .drp-counters-sub {
+      color: #c4b5fd;
+      font-size: 16px;
+      margin-bottom: 56px;
+    }
+    .drp-counters-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 32px;
+    }
+    .drp-counter-item { color: #fff; }
+    .drp-counter-value {
+      font-size: clamp(36px, 6vw, 56px);
+      font-weight: 900;
+      line-height: 1;
+      color: #e9d5ff;
+      display: block;
+      margin-bottom: 8px;
+    }
+    .drp-counter-label {
+      font-size: 14px;
+      color: #c4b5fd;
+      line-height: 1.4;
+    }
+    .drp-counter-icon {
+      font-size: 32px;
+      display: block;
+      margin-bottom: 12px;
+    }
+  </style>
+
+  <div class="drp-counters-inner">
+    <h2 class="drp-counters-title">Você sabia? — O ciclo do piolho</h2>
+    <p class="drp-counters-sub">Entenda por que tratar rápido é fundamental</p>
+
+    <div class="drp-counters-grid">
+      <div class="drp-counter-item">
+        <span class="drp-counter-icon">🥚</span>
+        <span class="drp-counter-value" data-target="10" data-suffix=" ovos/dia">0</span>
+        <span class="drp-counter-label">produzidos por cada fêmea por dia</span>
+      </div>
+      <div class="drp-counter-item">
+        <span class="drp-counter-icon">📅</span>
+        <span class="drp-counter-value" data-target="30" data-suffix=" dias">0</span>
+        <span class="drp-counter-label">de ciclo de vida completo do piolho</span>
+      </div>
+      <div class="drp-counter-item">
+        <span class="drp-counter-icon">⚡</span>
+        <span class="drp-counter-value" data-target="1" data-suffix=" sessão">0</span>
+        <span class="drp-counter-label">para eliminar com o método Dr. Piolho</span>
+      </div>
+      <div class="drp-counter-item">
+        <span class="drp-counter-icon">🌡️</span>
+        <span class="drp-counter-value" data-target="48" data-suffix="h">0</span>
+        <span class="drp-counter-label">piolho sobrevive fora do couro cabeludo</span>
+      </div>
+      <div class="drp-counter-item">
+        <span class="drp-counter-icon">🚫</span>
+        <span class="drp-counter-value" data-target="0" data-prefix="Zero " data-suffix="">0</span>
+        <span class="drp-counter-label">produtos químicos no método Dr. Piolho</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ em accordion -->
+<section class="drp-faq" aria-label="Perguntas frequentes sobre piolhos">
+  <style>
+    .drp-faq {
+      padding: 80px 20px;
+      background: #fff;
+    }
+    .drp-faq-inner { max-width: 800px; margin: 0 auto; }
+    .drp-faq-item {
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .drp-faq-question {
+      width: 100%;
+      background: none;
+      border: none;
+      text-align: left;
+      padding: 20px 0;
+      font-size: 17px;
+      font-weight: 700;
+      color: #1f2937;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
+    .drp-faq-question:hover { color: #7c3aed; }
+    .drp-faq-question[aria-expanded="true"] { color: #7c3aed; }
+    .drp-faq-icon {
+      font-size: 20px;
+      transition: transform 0.2s;
+      flex-shrink: 0;
+    }
+    .drp-faq-question[aria-expanded="true"] .drp-faq-icon {
+      transform: rotate(45deg);
+    }
+    .drp-faq-answer {
+      overflow: hidden;
+      max-height: 0;
+      transition: max-height 0.3s ease, padding 0.2s;
+    }
+    .drp-faq-answer.open {
+      max-height: 400px;
+    }
+    .drp-faq-answer-inner {
+      padding: 0 0 20px;
+      font-size: 15px;
+      color: #4b5563;
+      line-height: 1.7;
+    }
+    .drp-faq-cta {
+      text-align: center;
+      margin-top: 48px;
+    }
+    .drp-faq-nota {
+      text-align: center;
+      font-size: 13px;
+      color: #9ca3af;
+      margin-bottom: 40px;
+      font-style: italic;
+    }
+  </style>
+
+  <div class="drp-faq-inner">
+    <span class="drp-section-label" style="display:block;text-align:center;font-size:13px;font-weight:600;color:#7c3aed;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;">FAQ</span>
+    <h2 style="font-size:clamp(22px,4vw,34px);font-weight:800;color:#1f2937;text-align:center;margin:0 0 12px;">Perguntas Frequentes</h2>
+    <p class="drp-faq-nota">Respostas elaboradas com base na consultoria do Dr. Werciley Junior — Infectologista | CRM-DF 16381</p>
+
+    <div class="drp-faq-list">
+
+      <div class="drp-faq-item" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question">
+        <button
+          class="drp-faq-question"
+          aria-expanded="false"
+          aria-controls="faq-1"
+          itemprop="name"
+        >
+          Quantas sessões são necessárias para eliminar os piolhos?
+          <span class="drp-faq-icon" aria-hidden="true">+</span>
+        </button>
+        <div class="drp-faq-answer" id="faq-1" role="region" itemscope itemprop="acceptedAnswer" itemtype="https://schema.org/Answer">
+          <div class="drp-faq-answer-inner" itemprop="text">
+            Na grande maioria dos casos, <strong>uma única sessão</strong> é suficiente para eliminar
+            piolhos e lêndeas. O método de aspiração remove mecanicamente todos os parasitas em todos
+            os estágios do ciclo de vida. Em casos de infestação muito severa, pode ser recomendada
+            uma sessão de acompanhamento.
+          </div>
+        </div>
+      </div>
+
+      <div class="drp-faq-item" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question">
+        <button
+          class="drp-faq-question"
+          aria-expanded="false"
+          aria-controls="faq-2"
+          itemprop="name"
+        >
+          O tratamento usa produtos químicos?
+          <span class="drp-faq-icon" aria-hidden="true">+</span>
+        </button>
+        <div class="drp-faq-answer" id="faq-2" role="region" itemscope itemprop="acceptedAnswer" itemtype="https://schema.org/Answer">
+          <div class="drp-faq-answer-inner" itemprop="text">
+            <strong>Não.</strong> O protocolo do Instituto Dr. Piolho é 100% natural e não utiliza
+            pediculicidas químicos (permetrina, lindano ou malationa). O método é baseado em remoção
+            mecânica por aspiração, aprovado pela Academia Americana de Pediatria. Isso elimina riscos
+            de reação alérgica e de resistência química dos piolhos.
+          </div>
+        </div>
+      </div>
+
+      <div class="drp-faq-item" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question">
+        <button
+          class="drp-faq-question"
+          aria-expanded="false"
+          aria-controls="faq-3"
+          itemprop="name"
+        >
+          A partir de qual idade a criança pode fazer o tratamento?
+          <span class="drp-faq-icon" aria-hidden="true">+</span>
+        </button>
+        <div class="drp-faq-answer" id="faq-3" role="region" itemscope itemprop="acceptedAnswer" itemtype="https://schema.org/Answer">
+          <div class="drp-faq-answer-inner" itemprop="text">
+            O método é seguro para <strong>todas as idades, inclusive bebês</strong>, justamente por
+            não utilizar nenhum produto químico. Mesmo recém-nascidos podem ser atendidos. O protocolo
+            foi desenvolvido com foco em segurança máxima para o público infantil, sob orientação do
+            Dr. Werciley Junior.
+          </div>
+        </div>
+      </div>
+
+      <div class="drp-faq-item" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question">
+        <button
+          class="drp-faq-question"
+          aria-expanded="false"
+          aria-controls="faq-4"
+          itemprop="name"
+        >
+          Os produtos são enviados para todo o Brasil?
+          <span class="drp-faq-icon" aria-hidden="true">+</span>
+        </button>
+        <div class="drp-faq-answer" id="faq-4" role="region" itemscope itemprop="acceptedAnswer" itemtype="https://schema.org/Answer">
+          <div class="drp-faq-answer-inner" itemprop="text">
+            Sim! Todos os produtos da linha Dr. Piolho são enviados para todo o território nacional
+            pela nossa loja online. O frete é calculado automaticamente no checkout pelo seu CEP.
+            Acesse <a href="/loja/" style="color:#7c3aed;font-weight:600;">drpiolho.com.br/loja</a>
+            e faça já o seu pedido.
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="drp-faq-cta">
+      <a href="/perguntas-frequentes/" style="color:#7c3aed;font-weight:700;font-size:15px;text-decoration:underline;">
+        Ver todas as perguntas frequentes →
+      </a>
+    </div>
+  </div>
+</section>
+
+<script>
+/* ── Contadores Animados — CORRIGIDO ── */
+(function() {
+  'use strict';
+
+  function easeOutQuart(t) {
+    return 1 - Math.pow(1 - t, 4);
+  }
+
+  function animateCounter(el, target, duration, prefix, suffix) {
+    var startTime = null;
+    var startValue = 0;
+
+    function step(timestamp) {
+      if (!startTime) startTime = timestamp;
+      var elapsed = timestamp - startTime;
+      var progress = Math.min(elapsed / duration, 1);
+      var eased = easeOutQuart(progress);
+      var current = Math.round(startValue + (target - startValue) * eased);
+      el.textContent = (prefix || '') + current + (suffix || '');
+      if (progress < 1) {
+        requestAnimationFrame(step);
+      }
+    }
+
+    requestAnimationFrame(step);
+  }
+
+  function initCounters() {
+    var counters = document.querySelectorAll('[data-target]');
+    if (!counters.length) return;
+
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting && !entry.target.dataset.animated) {
+          entry.target.dataset.animated = 'true';
+          var target  = parseInt(entry.target.dataset.target, 10) || 0;
+          var suffix  = entry.target.dataset.suffix  || '';
+          var prefix  = entry.target.dataset.prefix  || '';
+          var duration = parseInt(entry.target.dataset.duration, 10) || 1800;
+          animateCounter(entry.target, target, duration, prefix, suffix);
+        }
+      });
+    }, { threshold: 0.3 });
+
+    counters.forEach(function(counter) { observer.observe(counter); });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initCounters);
+  } else {
+    initCounters();
+  }
+})();
+
+/* ── FAQ Accordion ── */
+(function() {
+  'use strict';
+
+  document.addEventListener('DOMContentLoaded', function() {
+    var buttons = document.querySelectorAll('.drp-faq-question');
+
+    buttons.forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var expanded = this.getAttribute('aria-expanded') === 'true';
+        var answerId = this.getAttribute('aria-controls');
+        var answer   = document.getElementById(answerId);
+
+        /* close all */
+        buttons.forEach(function(b) {
+          b.setAttribute('aria-expanded', 'false');
+          var id = b.getAttribute('aria-controls');
+          var el = document.getElementById(id);
+          if (el) el.classList.remove('open');
+        });
+
+        /* open clicked (toggle) */
+        if (!expanded) {
+          this.setAttribute('aria-expanded', 'true');
+          if (answer) answer.classList.add('open');
+        }
+      });
+    });
+  });
+})();
+</script>

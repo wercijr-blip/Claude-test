@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<!-- ============================================================
+  SEÇÃO: VITRINE DE PRODUTOS — Homepage Dr. Piolho
+  Inserir após a seção "Como Funciona"
+  Requer: WooCommerce ativo para links /produto/ e add_to_cart
+============================================================ -->
+<section class="drp-produtos" aria-label="Nossos produtos antipediculose">
+  <style>
+    .drp-produtos {
+      padding: 80px 20px;
+      background: #faf5ff;
+    }
+    .drp-produtos-inner { max-width: 1100px; margin: 0 auto; }
+    .drp-section-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #7c3aed;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      display: block;
+      margin-bottom: 8px;
+      text-align: center;
+    }
+    .drp-section-title {
+      font-size: clamp(24px, 4vw, 36px);
+      font-weight: 800;
+      color: #1f2937;
+      text-align: center;
+      margin: 0 0 8px;
+    }
+    .drp-section-sub {
+      text-align: center;
+      color: #6b7280;
+      font-size: 16px;
+      margin-bottom: 48px;
+    }
+    .drp-products-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 24px;
+      margin-bottom: 40px;
+    }
+    .drp-product-card {
+      background: #fff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      transition: transform 0.2s, box-shadow 0.2s;
+      display: flex;
+      flex-direction: column;
+    }
+    .drp-product-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 28px rgba(124,58,237,0.18);
+    }
+    .drp-product-card.destaque {
+      border: 2px solid #7c3aed;
+      position: relative;
+    }
+    .drp-destaque-badge {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: #7c3aed;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 99px;
+      letter-spacing: 0.04em;
+    }
+    .drp-product-img {
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: cover;
+      background: #f3f4f6;
+    }
+    .drp-product-body {
+      padding: 16px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    .drp-product-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: #1f2937;
+      margin: 0 0 6px;
+      line-height: 1.3;
+    }
+    .drp-product-desc {
+      font-size: 13px;
+      color: #6b7280;
+      line-height: 1.5;
+      margin-bottom: 16px;
+      flex: 1;
+    }
+    .drp-product-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .drp-product-price {
+      font-size: 20px;
+      font-weight: 800;
+      color: #7c3aed;
+    }
+    .drp-product-old-price {
+      font-size: 13px;
+      color: #9ca3af;
+      text-decoration: line-through;
+      display: block;
+      line-height: 1;
+      margin-bottom: 2px;
+    }
+    .drp-add-cart {
+      background: #7c3aed;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 10px 18px;
+      border-radius: 6px;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+    .drp-add-cart:hover { background: #5b21b6; color: #fff; }
+    .drp-ver-todos {
+      display: flex;
+      justify-content: center;
+    }
+    .drp-btn-outline-purple {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 2px solid #7c3aed;
+      color: #7c3aed;
+      font-size: 15px;
+      font-weight: 700;
+      padding: 14px 32px;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: all 0.15s;
+    }
+    .drp-btn-outline-purple:hover {
+      background: #7c3aed;
+      color: #fff;
+    }
+    @media (max-width: 600px) {
+      .drp-products-grid { grid-template-columns: 1fr 1fr; gap: 14px; }
+      .drp-product-price { font-size: 17px; }
+      .drp-add-cart { padding: 8px 12px; font-size: 12px; }
+    }
+    @media (max-width: 400px) {
+      .drp-products-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+
+  <div class="drp-produtos-inner">
+    <span class="drp-section-label">Linha Antipediculose</span>
+    <h2 class="drp-section-title">Nossos Produtos</h2>
+    <p class="drp-section-sub">100% naturais, sem química. Enviamos para todo o Brasil.</p>
+
+    <div class="drp-products-grid">
+
+      <!-- Produto 1 — Kit Completo (destaque) -->
+      <div class="drp-product-card destaque" itemscope itemtype="https://schema.org/Product">
+        <span class="drp-destaque-badge">🏆 Mais vendido</span>
+        <img
+          class="drp-product-img"
+          src="[URL_KIT_COMPLETO]"
+          alt="Kit Completo de Prevenção Dr. Piolho — Shampoo, Condicionador, Leave-in e Pente de Aço"
+          loading="lazy"
+          width="400" height="400"
+          itemprop="image"
+        >
+        <div class="drp-product-body">
+          <h3 class="drp-product-name" itemprop="name">Kit Completo de Prevenção Dr. Piolho</h3>
+          <p class="drp-product-desc" itemprop="description">
+            Shampoo + Condicionador + Leave-in Proteção em Dobro + Pente de Aço.
+            Economize 25% na compra do kit completo.
+          </p>
+          <div class="drp-product-footer">
+            <div>
+              <span class="drp-product-old-price">de R$ 275,00</span>
+              <span class="drp-product-price" itemprop="price" content="206.70">R$ 206,70</span>
+              <meta itemprop="priceCurrency" content="BRL">
+            </div>
+            <a
+              href="/produto/kit-completo-prevencao/?add-to-cart=[ID_PRODUTO_WOOCOMMERCE]"
+              class="drp-add-cart"
+              onclick="fbq && fbq('track', 'AddToCart', {value: 206.70, currency: 'BRL', content_name: 'kit-completo'})"
+              aria-label="Adicionar Kit Completo Dr. Piolho ao carrinho"
+            >
+              COMPRAR
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Produto 2 — Leave-in Kit Simples -->
+      <div class="drp-product-card" itemscope itemtype="https://schema.org/Product">
+        <img
+          class="drp-product-img"
+          src="[URL_LEAVEIN_SIMPLES]"
+          alt="Leave-in Kit Simples Dr. Piolho — prevenção natural de piolhos uso diário"
+          loading="lazy"
+          width="400" height="400"
+          itemprop="image"
+        >
+        <div class="drp-product-body">
+          <h3 class="drp-product-name" itemprop="name">Leave-in Kit Simples</h3>
+          <p class="drp-product-desc" itemprop="description">
+            Proteção diária contra piolhos. Fórmula 100% natural para uso contínuo,
+            ideal para crianças em idade escolar.
+          </p>
+          <div class="drp-product-footer">
+            <span class="drp-product-price" itemprop="price" content="102.70">R$ 102,70</span>
+            <a
+              href="/produto/leave-in-kit-simples/?add-to-cart=[ID_PRODUTO]"
+              class="drp-add-cart"
+              onclick="fbq && fbq('track', 'AddToCart', {value: 102.70, currency: 'BRL', content_name: 'leavein-simples'})"
+              aria-label="Adicionar Leave-in Kit Simples ao carrinho"
+            >
+              COMPRAR
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Produto 3 — Pente Fino de Aço -->
+      <div class="drp-product-card" itemscope itemtype="https://schema.org/Product">
+        <img
+          class="drp-product-img"
+          src="[URL_PENTE_ACO]"
+          alt="Pente Fino de Aço Dr. Piolho — remoção profissional de piolhos e lêndeas"
+          loading="lazy"
+          width="400" height="400"
+          itemprop="image"
+        >
+        <div class="drp-product-body">
+          <h3 class="drp-product-name" itemprop="name">Pente Fino de Aço Dr. Piolho</h3>
+          <p class="drp-product-desc" itemprop="description">
+            Aço inoxidável profissional para remoção eficiente de lêndeas.
+            Recomendado para uso regular após o tratamento.
+          </p>
+          <div class="drp-product-footer">
+            <span class="drp-product-price" itemprop="price" content="39.90">R$ 39,90</span>
+            <a
+              href="/produto/pente-fino-aco/?add-to-cart=[ID_PRODUTO]"
+              class="drp-add-cart"
+              onclick="fbq && fbq('track', 'AddToCart', {value: 39.90, currency: 'BRL', content_name: 'pente-aco'})"
+              aria-label="Adicionar Pente Fino de Aço ao carrinho"
+            >
+              COMPRAR
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Produto 4 — Voucher Consultoria Online -->
+      <div class="drp-product-card" itemscope itemtype="https://schema.org/Product">
+        <img
+          class="drp-product-img"
+          src="[URL_VOUCHER_CONSULTORIA]"
+          alt="Voucher Consultoria Online Dr. Piolho — orientação especializada à distância"
+          loading="lazy"
+          width="400" height="400"
+          itemprop="image"
+        >
+        <div class="drp-product-body">
+          <h3 class="drp-product-name" itemprop="name">Voucher Consultoria Online</h3>
+          <p class="drp-product-desc" itemprop="description">
+            Orientação especializada à distância. Ideal para quem está fora de Brasília.
+            Agendamento após a compra.
+          </p>
+          <div class="drp-product-footer">
+            <span class="drp-product-price" itemprop="price" content="77.70">R$ 77,70</span>
+            <a
+              href="/produto/voucher-consultoria-online/?add-to-cart=[ID_PRODUTO]"
+              class="drp-add-cart"
+              onclick="fbq && fbq('track', 'AddToCart', {value: 77.70, currency: 'BRL', content_name: 'voucher-online'})"
+              aria-label="Comprar Voucher de Consultoria Online Dr. Piolho"
+            >
+              COMPRAR
+            </a>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /grid -->
+
+    <div class="drp-ver-todos">
+      <a href="/loja/" class="drp-btn-outline-purple" aria-label="Ver todos os produtos na loja Dr. Piolho">
+        🛒 VER TODOS OS PRODUTOS NA LOJA
+      </a>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,107 @@
+{
+  "@context": "https://schema.org",
+  "@type": "LocalBusiness",
+  "@id": "https://drpiolho.com.br/#business",
+  "name": "Dr. Piolho — Instituto Especializado em Pediculose",
+  "alternateName": "Instituto Dr. Piolho",
+  "description": "Instituto especializado no tratamento 100% natural de piolhos e lêndeas em Brasília-DF. Protocolo desenvolvido e supervisionado pelo infectologista Dr. Werciley Junior (CRM-DF 16381). Resultado em até 1 sessão, sem uso de químicos.",
+  "url": "https://drpiolho.com.br",
+  "logo": {
+    "@type": "ImageObject",
+    "url": "https://drpiolho.com.br/wp-content/uploads/logo-dr-piolho.png",
+    "width": 300,
+    "height": 100
+  },
+  "image": "https://drpiolho.com.br/wp-content/uploads/fachada-instituto-dr-piolho.jpg",
+  "telephone": "+556199172-0297",
+  "email": "contato@drpiolho.com.br",
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "SIG Quadra 1, Lote 985, Sala T09 — Centro Empresarial Parque Brasília",
+    "addressLocality": "Brasília",
+    "addressRegion": "DF",
+    "postalCode": "70610-410",
+    "addressCountry": "BR"
+  },
+  "geo": {
+    "@type": "GeoCoordinates",
+    "latitude": -15.7801,
+    "longitude": -47.9292
+  },
+  "hasMap": "https://maps.google.com/?q=SIG+Quadra+1+Lote+985+Sala+T09+Brasilia+DF",
+  "openingHoursSpecification": [
+    {
+      "@type": "OpeningHoursSpecification",
+      "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+      "opens": "08:00",
+      "closes": "18:00"
+    },
+    {
+      "@type": "OpeningHoursSpecification",
+      "dayOfWeek": "Saturday",
+      "opens": "08:00",
+      "closes": "13:00"
+    }
+  ],
+  "sameAs": [
+    "https://www.instagram.com/dr_piolho",
+    "https://www.facebook.com/profile.php?id=100086200435477",
+    "https://www.youtube.com/channel/UCXaZ52IKMbDOeITELvFfESw",
+    "https://www.tiktok.com/@dr.piolho"
+  ],
+  "priceRange": "$$",
+  "currenciesAccepted": "BRL",
+  "paymentAccepted": "Dinheiro, Cartão de Crédito, Débito, PIX",
+  "areaServed": [
+    {
+      "@type": "City",
+      "name": "Brasília",
+      "sameAs": "https://www.wikidata.org/wiki/Q5586"
+    },
+    {
+      "@type": "State",
+      "name": "Distrito Federal"
+    }
+  ],
+  "knowsAbout": ["pediculose", "piolhos", "lêndeas", "tratamento natural de piolhos"],
+  "founder": {
+    "@type": "Person",
+    "name": "Dr. Werciley Junior",
+    "jobTitle": "Infectologista — Consultor Médico",
+    "description": "Especialista em pediculose e doenças infecciosas. CRM-DF 16381 | RQE 14486"
+  },
+  "hasOfferCatalog": {
+    "@type": "OfferCatalog",
+    "name": "Serviços e Produtos Dr. Piolho",
+    "itemListElement": [
+      {
+        "@type": "Offer",
+        "itemOffered": {
+          "@type": "Service",
+          "name": "Sessão de Tratamento Presencial",
+          "description": "Tratamento de piolhos e lêndeas com método de aspiração, 100% natural, sem química."
+        }
+      },
+      {
+        "@type": "Offer",
+        "itemOffered": {
+          "@type": "Service",
+          "name": "Consultoria Online",
+          "description": "Consultoria especializada para casos à distância.",
+          "offers": {
+            "@type": "Offer",
+            "price": "77.70",
+            "priceCurrency": "BRL"
+          }
+        }
+      }
+    ]
+  },
+  "legalName": "Saraiva e Dornelas Instituto",
+  "taxID": "46.454.188/0001-49",
+  "numberOfEmployees": {
+    "@type": "QuantitativeValue",
+    "minValue": 1,
+    "maxValue": 10
+  }
+}

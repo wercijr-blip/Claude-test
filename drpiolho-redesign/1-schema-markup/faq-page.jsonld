@@ -1,0 +1,72 @@
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "name": "Perguntas Frequentes — Dr. Piolho",
+  "description": "Respostas elaboradas com base na consultoria do infectologista Dr. Werciley Junior (CRM-DF 16381), especialista em pediculose.",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Quantas sessões são necessárias para eliminar os piolhos?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Na grande maioria dos casos, uma única sessão é suficiente para eliminar piolhos e lêndeas. O método de aspiração utilizado no Instituto Dr. Piolho remove mecanicamente todos os parasitas de forma segura e eficaz. Em casos de infestação muito severa, pode ser recomendada uma segunda sessão de acompanhamento. Resposta baseada na consultoria do Dr. Werciley Junior, Infectologista | CRM-DF 16381."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "O tratamento usa produtos químicos?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Não. O protocolo do Instituto Dr. Piolho é 100% natural e não utiliza pediculicidas químicos (permetrina, lindano ou malationa). O método é baseado na remoção mecânica por aspiração, aprovado pela Academia Americana de Pediatria e validado pelo infectologista Dr. Werciley Junior. Isso elimina riscos de reação alérgica e de resistência química dos piolhos."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "O piolho pode voltar após o tratamento?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "O tratamento elimina todos os piolhos e lêndeas presentes no momento da sessão. No entanto, como a pediculose é altamente contagiosa, a reinfestação pode ocorrer por contato com pessoas infestadas na escola, família ou ambiente social. Por isso recomendamos o uso preventivo dos produtos da linha Dr. Piolho (leave-in e shampoo antipediculose) e o pente fino de aço regularmente."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "A partir de qual idade a criança pode fazer o tratamento?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "O método é seguro para todas as idades, inclusive bebês e crianças pequenas, justamente por não utilizar nenhum produto químico. Mesmo recém-nascidos podem ser atendidos. O protocolo foi desenvolvido com foco em segurança máxima para o público infantil, sob orientação do Dr. Werciley Junior, infectologista especialista em pediculose."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Adultos também podem contrair piolhos?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Sim. Embora seja mais comum em crianças em idade escolar, qualquer pessoa pode contrair piolhos por contato direto com cabelo infestado. Adultos que têm contato próximo com crianças — pais, professores, cuidadores — têm risco aumentado. O Instituto Dr. Piolho atende pacientes de todas as idades."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Qual é o endereço e horário de atendimento?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "O Instituto Dr. Piolho está localizado no Centro Empresarial Parque Brasília, SIG Quadra 1, Lote 985, Sala T09 — Asa Sul, Brasília-DF. Atendemos de segunda a sexta das 8h às 18h e aos sábados das 8h às 13h. Para agendar, entre em contato pelo WhatsApp (61) 99172-0297 ou pelo formulário online em drpiolho.com.br."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Os produtos Dr. Piolho são enviados para todo o Brasil?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Sim. Todos os produtos da linha Dr. Piolho — shampoo antipediculose, condicionador, leave-in preventivo, kits e pente fino de aço — são enviados para todo o território nacional através de nossa loja online em drpiolho.com.br/loja. O frete é calculado no checkout conforme o CEP de destino."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Como funciona a consultoria online?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "A consultoria online Dr. Piolho (R$ 77,70) é indicada para quem está fora de Brasília ou prefere orientação à distância. Após a compra do voucher na loja online, você agenda o horário e recebe orientações personalizadas sobre tratamento, prevenção e uso correto dos produtos. A consultoria é realizada por especialistas treinados sob supervisão do Dr. Werciley Junior."
+      }
+    }
+  ]
+}

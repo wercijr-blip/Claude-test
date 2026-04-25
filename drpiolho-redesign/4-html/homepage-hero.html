@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<!-- ============================================================
+  SEÇÃO: HERO — Instituto Dr. Piolho
+  Inserir no WordPress via: bloco HTML customizado / Elementor HTML widget
+  Dependências: nenhuma (CSS inline completo)
+  Responsivo: sim (flex column em mobile)
+============================================================ -->
+<section class="drp-hero" aria-label="Seção principal — Tratamento de Piolhos em Brasília">
+  <style>
+    .drp-hero {
+      background: linear-gradient(135deg, #3b0764 0%, #6d28d9 60%, #7c3aed 100%);
+      padding: 80px 20px;
+      position: relative;
+      overflow: hidden;
+    }
+    .drp-hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: url('[URL_TEXTURA_OU_FOTO_BACKGROUND]') center/cover no-repeat;
+      opacity: 0.08;
+    }
+    .drp-hero-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 60px;
+      position: relative;
+      z-index: 1;
+    }
+    .drp-hero-text { flex: 1; }
+    .drp-hero-image { flex: 0 0 420px; }
+
+    .drp-hero-eyebrow {
+      display: inline-block;
+      background: rgba(255,255,255,0.15);
+      color: #e9d5ff;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 6px 14px;
+      border-radius: 99px;
+      margin-bottom: 20px;
+    }
+    .drp-hero h1 {
+      font-size: clamp(28px, 5vw, 48px);
+      font-weight: 900;
+      color: #ffffff;
+      line-height: 1.15;
+      margin: 0 0 20px;
+    }
+    .drp-hero h1 span { color: #d8b4fe; }
+    .drp-hero-sub {
+      font-size: clamp(16px, 2.5vw, 19px);
+      color: #e9d5ff;
+      line-height: 1.6;
+      margin-bottom: 36px;
+      max-width: 520px;
+    }
+    .drp-hero-ctas {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 32px;
+    }
+    .drp-btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #ffffff;
+      color: #6d28d9;
+      font-size: 16px;
+      font-weight: 800;
+      padding: 16px 28px;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: transform 0.15s, box-shadow 0.15s;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+      white-space: nowrap;
+    }
+    .drp-btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px rgba(0,0,0,0.3);
+      color: #5b21b6;
+    }
+    .drp-btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: transparent;
+      color: #ffffff;
+      font-size: 16px;
+      font-weight: 700;
+      padding: 15px 28px;
+      border-radius: 8px;
+      border: 2px solid rgba(255,255,255,0.6);
+      text-decoration: none;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .drp-btn-secondary:hover {
+      background: rgba(255,255,255,0.1);
+      border-color: #fff;
+    }
+    .drp-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .drp-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: #e9d5ff;
+    }
+    .drp-hero-image img {
+      width: 100%;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    }
+
+    /* ── Mobile ── */
+    @media (max-width: 768px) {
+      .drp-hero { padding: 60px 16px; }
+      .drp-hero-inner { flex-direction: column; gap: 40px; }
+      .drp-hero-image { flex: unset; width: 100%; order: -1; }
+      .drp-btn-primary, .drp-btn-secondary { width: 100%; justify-content: center; }
+      .drp-hero-ctas { flex-direction: column; }
+    }
+  </style>
+
+  <div class="drp-hero-inner">
+    <div class="drp-hero-text">
+      <span class="drp-hero-eyebrow">🔬 Protocolo do Infectologista Dr. Werciley Junior</span>
+
+      <h1>
+        Tratamento de Piolhos em Brasília<br>
+        <span>Sem Química — Resultado em 1 Sessão</span>
+      </h1>
+
+      <p class="drp-hero-sub">
+        Método 100% natural, aprovado pela Academia Americana de Pediatria.
+        Eliminamos piolhos e lêndeas em todos os estágios do ciclo — sem dor,
+        sem pediculicidas, com materiais descartáveis.
+      </p>
+
+      <div class="drp-hero-ctas">
+        <a
+          href="/agendar/"
+          class="drp-btn-primary"
+          onclick="fbq && fbq('track', 'Lead', {content_name: 'hero_agendar'})"
+          aria-label="Agendar sessão presencial de tratamento de piolhos em Brasília"
+        >
+          📅 AGENDAR SESSÃO — PRESENCIAL
+        </a>
+        <a
+          href="/loja/"
+          class="drp-btn-secondary"
+          onclick="fbq && fbq('track', 'ViewContent', {content_name: 'hero_loja'})"
+          aria-label="Ver kits antipediculose na loja online Dr. Piolho"
+        >
+          🛒 COMPRAR KIT ONLINE
+        </a>
+      </div>
+
+      <div class="drp-badges" role="list" aria-label="Selos de credibilidade">
+        <span class="drp-badge" role="listitem">✅ Certificação Americana de Pediatria</span>
+        <span class="drp-badge" role="listitem">✅ 100% Natural — sem química</span>
+        <span class="drp-badge" role="listitem">✅ Resultado em até 1 sessão</span>
+        <span class="drp-badge" role="listitem">✅ Materiais descartáveis</span>
+      </div>
+    </div>
+
+    <div class="drp-hero-image">
+      <img
+        src="[URL_FOTO_TRATAMENTO_OU_CLINICA]"
+        alt="Especialista realizando tratamento de piolhos pelo método de aspiração natural no Instituto Dr. Piolho, Brasília-DF"
+        width="520"
+        height="400"
+        loading="eager"
+        fetchpriority="high"
+      >
+    </div>
+  </div>
+</section>
+
+
+<!-- ============================================================
+  SEÇÃO: BARRA DE PROVA SOCIAL
+  Inserir imediatamente após o hero
+============================================================ -->
+<section class="drp-social-proof" aria-label="Prova social — números do Instituto Dr. Piolho">
+  <style>
+    .drp-social-proof {
+      background: #3b0764;
+      padding: 20px;
+    }
+    .drp-social-proof-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: center;
+      gap: 48px;
+      flex-wrap: wrap;
+    }
+    .drp-stat {
+      text-align: center;
+      color: #e9d5ff;
+    }
+    .drp-stat-num {
+      display: block;
+      font-size: 22px;
+      font-weight: 800;
+      color: #ffffff;
+    }
+    .drp-stat-label {
+      font-size: 13px;
+      opacity: 0.85;
+    }
+    @media (max-width: 600px) {
+      .drp-social-proof-inner { gap: 28px; }
+      .drp-stat-num { font-size: 18px; }
+    }
+  </style>
+
+  <div class="drp-social-proof-inner" role="list">
+    <div class="drp-stat" role="listitem">
+      <span class="drp-stat-num">⭐ +1.000</span>
+      <span class="drp-stat-label">famílias atendidas em Brasília</span>
+    </div>
+    <div class="drp-stat" role="listitem">
+      <span class="drp-stat-num">📦 Todo o Brasil</span>
+      <span class="drp-stat-label">produtos enviados nacionalmente</span>
+    </div>
+    <div class="drp-stat" role="listitem">
+      <span class="drp-stat-num">📱 +26 mil</span>
+      <span class="drp-stat-label">seguidores nas redes sociais</span>
+    </div>
+    <div class="drp-stat" role="listitem">
+      <span class="drp-stat-num">🏆 1 Sessão</span>
+      <span class="drp-stat-label">resultado na maioria dos casos</span>
+    </div>
+  </div>
+</section>

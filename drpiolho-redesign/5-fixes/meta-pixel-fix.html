@@ -1,0 +1,166 @@
+<!-- ============================================================
+  META PIXEL — CONFIGURAÇÃO CORRIGIDA
+
+  PROBLEMA: Dois Pixel IDs duplicados (503982464943008 / 626536716696715)
+  SOLUÇÃO: Manter apenas 1 ID. Definir qual mantém com o cliente.
+
+  IMPLEMENTAÇÃO RECOMENDADA: via Google Tag Manager
+  (permite alterar sem mexer no código-fonte)
+
+  Se instalação direta no WordPress: usar plugin "Pixel Your Site Pro"
+  ou adicionar manualmente no <head> via functions.php.
+============================================================ -->
+
+<!--
+PASSO 1: Remover TODOS os snippets Meta Pixel existentes no site.
+PASSO 2: Decidir qual ID manter (verificar no Meta Events Manager qual tem mais dados).
+PASSO 3: Inserir apenas o código abaixo, com o ID correto.
+-->
+
+<!-- Meta Pixel Code — ÚNICO pixel, ID correto -->
+<script>
+  !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+  n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+  n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+  t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+  document,'script','https://connect.facebook.net/en_US/fbevents.js');
+
+  /* ── Substituir [SEU_PIXEL_ID] pelo ID escolhido ── */
+  fbq('init', '[SEU_PIXEL_ID]');
+  fbq('track', 'PageView');
+</script>
+<noscript>
+  <img height="1" width="1" style="display:none"
+    src="https://www.facebook.com/tr?id=[SEU_PIXEL_ID]&ev=PageView&noscript=1" alt="">
+</noscript>
+<!-- End Meta Pixel Code -->
+
+
+<!-- ============================================================
+  EVENTOS CUSTOMIZADOS — Adicionar inline nos elementos
+  Copiar o atributo onclick no elemento HTML correspondente
+============================================================ -->
+
+<!--
+  1. Clique em qualquer botão "Agendar Sessão" → evento Lead
+     onclick="fbq('track', 'Lead', {content_name: 'cta_agendar'})"
+
+  2. Visualização de página de produto → ViewContent
+     Adicionar no <head> da página de produto individual:
+     fbq('track', 'ViewContent', {
+       content_ids: ['[SKU_DO_PRODUTO]'],
+       content_type: 'product',
+       value: [PRECO],
+       currency: 'BRL'
+     });
+
+  3. Adicionar ao carrinho → AddToCart
+     onclick="fbq('track', 'AddToCart', {
+       value: [PRECO],
+       currency: 'BRL',
+       content_name: '[NOME_PRODUTO]'
+     })"
+
+  4. Início do checkout → InitiateCheckout
+     Adicionar na página /checkout/ do WooCommerce:
+     fbq('track', 'InitiateCheckout');
+
+  5. Compra finalizada → Purchase
+     Adicionar na página de agradecimento /checkout/order-received/:
+     fbq('track', 'Purchase', {
+       value: [VALOR_TOTAL_PEDIDO],
+       currency: 'BRL',
+       content_ids: [ARRAY_DE_SKUS],
+       content_type: 'product'
+     });
+
+     → Melhor via plugin WooCommerce: "Pixel Your Site" integra automaticamente
+       todos os eventos de e-commerce sem código manual.
+-->
+
+
+<!-- ============================================================
+  CONFIGURAÇÃO VIA GOOGLE TAG MANAGER (RECOMENDADO)
+
+  Vantagens:
+  - Controle centralizado de todos os pixels e scripts
+  - Sem conflito entre Meta Pixel e Google Ads
+  - Alterações sem deploy de código
+  - Debugging via GTM Preview
+
+  Passos:
+  1. Criar conta em tagmanager.google.com
+  2. Criar container para drpiolho.com.br
+  3. Instalar snippet GTM no WordPress (plugin "GTM4WP")
+  4. Criar tag "Meta Pixel — All Pages" com trigger "All Pages"
+  5. Criar tags de eventos separadas com triggers customizados
+  6. Publicar container
+  7. Remover todos os snippets de pixel do código PHP/WordPress
+============================================================ -->
+
+
+<!-- ============================================================
+  NEWSLETTER — CORREÇÃO DO ERRO NO CARREGAMENTO
+
+  PROBLEMA: "Sua assinatura não pôde ser validada" aparece antes
+  de qualquer interação do usuário.
+
+  CAUSA COMUM: Script de validação executando imediatamente ao
+  carregar a página, sem esperar pela submissão do formulário.
+
+  SOLUÇÃO: Adicionar ao CSS/style do formulário de newsletter:
+============================================================ -->
+<style>
+  /* Ocultar mensagem de erro/sucesso no estado inicial */
+  .mc4wp-response,
+  .mailchimp-response,
+  .newsletter-response,
+  [class*="newsletter"][class*="error"],
+  [class*="newsletter"][class*="message"],
+  .wpcf7-response-output,
+  .subscription-error {
+    display: none !important;
+  }
+
+  /* Mostrar apenas após interação (classe adicionada via JS) */
+  .newsletter-submitted .mc4wp-response,
+  .newsletter-submitted .mailchimp-response,
+  .newsletter-submitted .newsletter-response,
+  .newsletter-submitted .subscription-error {
+    display: block !important;
+  }
+</style>
+
+<script>
+/* Newsletter — suprimir erro até primeira submissão */
+(function() {
+  'use strict';
+
+  document.addEventListener('DOMContentLoaded', function() {
+    /* Selecionar formulários de newsletter — ajustar seletor conforme plugin usado */
+    var forms = document.querySelectorAll(
+      '.mc4wp-form, .newsletter-form, [class*="newsletter"] form, #newsletter-form'
+    );
+
+    forms.forEach(function(form) {
+      /* Esconder mensagem de erro existente no DOM */
+      var errorMsg = form.querySelector(
+        '.mc4wp-response, .response, .error-msg, [class*="error"], [class*="message"]'
+      );
+      if (errorMsg) {
+        errorMsg.style.display = 'none';
+        errorMsg.setAttribute('aria-hidden', 'true');
+      }
+
+      /* Ao submeter, permitir que a resposta apareça */
+      form.addEventListener('submit', function() {
+        form.classList.add('newsletter-submitted');
+        if (errorMsg) {
+          errorMsg.style.display = '';
+          errorMsg.removeAttribute('aria-hidden');
+        }
+      });
+    });
+  });
+})();
+</script>

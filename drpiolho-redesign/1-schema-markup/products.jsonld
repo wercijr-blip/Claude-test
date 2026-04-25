@@ -1,0 +1,172 @@
+[
+  {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "@id": "https://drpiolho.com.br/produto/kit-completo-prevencao/#product",
+    "name": "Kit Completo de Prevenção Dr. Piolho",
+    "description": "Kit completo com Shampoo Antipediculose + Condicionador + Leave-in Proteção em Dobro + Pente Fino de Aço. Tudo que você precisa para tratar e prevenir a pediculose em família. Protocolo desenvolvido pelo infectologista Dr. Werciley Junior.",
+    "brand": {
+      "@type": "Brand",
+      "name": "Dr. Piolho",
+      "logo": "https://drpiolho.com.br/wp-content/uploads/logo-dr-piolho.png"
+    },
+    "manufacturer": {
+      "@type": "Organization",
+      "name": "Saraiva e Dornelas Instituto",
+      "url": "https://drpiolho.com.br"
+    },
+    "image": [
+      "https://drpiolho.com.br/wp-content/uploads/kit-completo-dr-piolho-1.jpg",
+      "https://drpiolho.com.br/wp-content/uploads/kit-completo-dr-piolho-2.jpg"
+    ],
+    "sku": "KIT-COMPLETO-001",
+    "category": "Cuidados com o Cabelo / Antipediculose",
+    "material": "100% Natural — sem parabenos, sem sulfatos, sem pediculicidas químicos",
+    "audience": {
+      "@type": "PeopleAudience",
+      "suggestedAge": "Todas as idades"
+    },
+    "offers": {
+      "@type": "Offer",
+      "url": "https://drpiolho.com.br/produto/kit-completo-prevencao/",
+      "price": "206.70",
+      "priceCurrency": "BRL",
+      "priceValidUntil": "2025-12-31",
+      "availability": "https://schema.org/InStock",
+      "itemCondition": "https://schema.org/NewCondition",
+      "seller": {
+        "@type": "Organization",
+        "name": "Instituto Dr. Piolho"
+      },
+      "shippingDetails": {
+        "@type": "OfferShippingDetails",
+        "shippingDestination": {
+          "@type": "DefinedRegion",
+          "addressCountry": "BR"
+        },
+        "deliveryTime": {
+          "@type": "ShippingDeliveryTime",
+          "businessDays": {
+            "@type": "OpeningHoursSpecification",
+            "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday"]
+          },
+          "cutoffTime": "14:00-03:00",
+          "handlingTime": {
+            "@type": "QuantitativeValue",
+            "minValue": 1,
+            "maxValue": 2,
+            "unitCode": "DAY"
+          },
+          "transitTime": {
+            "@type": "QuantitativeValue",
+            "minValue": 2,
+            "maxValue": 7,
+            "unitCode": "DAY"
+          }
+        }
+      }
+    },
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": "4.9",
+      "bestRating": "5",
+      "worstRating": "1",
+      "reviewCount": "47"
+    }
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "@id": "https://drpiolho.com.br/produto/pente-fino-aco/#product",
+    "name": "Pente Fino de Aço Dr. Piolho",
+    "description": "Pente profissional de aço inoxidável com dentes finos e espaçamento preciso para remoção eficiente de piolhos e lêndeas. Recomendado para uso diário na prevenção e como complemento do tratamento.",
+    "brand": {
+      "@type": "Brand",
+      "name": "Dr. Piolho"
+    },
+    "sku": "PENTE-ACO-001",
+    "offers": {
+      "@type": "Offer",
+      "price": "39.90",
+      "priceCurrency": "BRL",
+      "availability": "https://schema.org/InStock",
+      "itemCondition": "https://schema.org/NewCondition"
+    }
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "@id": "https://drpiolho.com.br/produto/kit-2-pentes/#product",
+    "name": "Kit 2 Pentes Finos de Aço Dr. Piolho",
+    "description": "Kit com 2 pentes finos de aço inoxidável Dr. Piolho. Ideal para famílias com mais de uma criança ou para manter um pente extra na escola ou na avó.",
+    "brand": {
+      "@type": "Brand",
+      "name": "Dr. Piolho"
+    },
+    "sku": "KIT-2-PENTES-001",
+    "offers": {
+      "@type": "Offer",
+      "price": "72.70",
+      "priceCurrency": "BRL",
+      "availability": "https://schema.org/InStock",
+      "itemCondition": "https://schema.org/NewCondition"
+    }
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "@id": "https://drpiolho.com.br/produto/leave-in-kit-simples/#product",
+    "name": "Leave-in Kit Simples Dr. Piolho",
+    "description": "Leave-in preventivo com fórmula natural para uso diário. Protege os fios e dificulta a fixação dos piolhos. Indicado para crianças em idade escolar e adultos em contato frequente com crianças.",
+    "brand": {
+      "@type": "Brand",
+      "name": "Dr. Piolho"
+    },
+    "sku": "LEAVEIN-SIMPLES-001",
+    "offers": {
+      "@type": "Offer",
+      "price": "102.70",
+      "priceCurrency": "BRL",
+      "availability": "https://schema.org/InStock",
+      "itemCondition": "https://schema.org/NewCondition"
+    }
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "@id": "https://drpiolho.com.br/produto/leave-in-protecao-em-dobro/#product",
+    "name": "Leave-in Proteção em Dobro Dr. Piolho",
+    "description": "Versão concentrada do leave-in preventivo com proteção ampliada. Fórmula natural de uso contínuo, ideal para famílias que já passaram por tratamento e querem garantir proteção máxima.",
+    "brand": {
+      "@type": "Brand",
+      "name": "Dr. Piolho"
+    },
+    "sku": "LEAVEIN-DUPLO-001",
+    "offers": {
+      "@type": "Offer",
+      "price": "132.70",
+      "priceCurrency": "BRL",
+      "availability": "https://schema.org/InStock",
+      "itemCondition": "https://schema.org/NewCondition"
+    }
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "@id": "https://drpiolho.com.br/produto/voucher-consultoria-online/#product",
+    "name": "Voucher Consultoria Online Dr. Piolho",
+    "description": "Consultoria especializada online com orientações personalizadas sobre tratamento e prevenção de pediculose. Atendimento com especialistas treinados sob supervisão do infectologista Dr. Werciley Junior.",
+    "brand": {
+      "@type": "Brand",
+      "name": "Dr. Piolho"
+    },
+    "sku": "VOUCHER-ONLINE-001",
+    "offers": {
+      "@type": "Offer",
+      "price": "77.70",
+      "priceCurrency": "BRL",
+      "availability": "https://schema.org/InStock",
+      "itemCondition": "https://schema.org/NewCondition"
+    }
+  }
+]
