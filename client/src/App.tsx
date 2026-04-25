@@ -1,4 +1,4 @@
-import { Component, type ReactNode } from 'react'
+import { Component, useEffect, useRef, type ReactNode } from 'react'
 import { Route, Switch } from 'wouter'
 import { useAuth, parseJwtPayload } from './_core/hooks/useAuth.ts'
 import IntakePage from './components/IntakePage.tsx'
@@ -92,6 +92,8 @@ function AuthCallback() {
   const params = new URLSearchParams(window.location.search)
   const code = params.get('code') ?? ''
 
+  const hasAttempted = useRef(false)
+
   const callbackMutation = trpc.auth.callback.useMutation({
     onSuccess: (data: { token: string }) => {
       setToken(data.token)
@@ -99,8 +101,32 @@ function AuthCallback() {
     },
   })
 
-  if (code && !callbackMutation.isPending) {
-    callbackMutation.mutate({ code })
+  useEffect(() => {
+    if (code && !hasAttempted.current) {
+      hasAttempted.current = true
+      callbackMutation.mutate({ code })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code])
+
+  if (callbackMutation.isError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-slate-700 mb-2">Falha na autenticação</h1>
+          <p className="text-slate-500 mb-4">Não foi possível completar o login. Tente novamente.</p>
+          <button
+            className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-medium hover:bg-blue-700 transition-colors"
+            onClick={() => {
+              hasAttempted.current = false
+              callbackMutation.mutate({ code })
+            }}
+          >
+            Tentar novamente
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
