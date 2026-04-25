@@ -143,6 +143,49 @@ export async function enviarPesquisaSatisfacao(
   })
 }
 
+export async function enviarNotificacaoNovoPlano(
+  emails: string[],
+  nomePaciente: string,
+  plano: string,
+  dashboardUrl: string,
+): Promise<void> {
+  if (!emails.length) return
+  await transporter.sendMail({
+    from: `"Facilita PrEP" <${env.GMAIL_USER}>`,
+    to: emails.join(', '),
+    subject: `Novo paciente aguardando validação — ${plano}`,
+    html: baseTemplate(
+      'Novo paciente para validação',
+      `<p style="color:#334155;font-size:15px;">Um novo paciente se cadastrou via <strong>plano de saúde</strong> e aguarda validação dos documentos.</p>
+      <table style="border-collapse:collapse;width:100%;margin:16px 0;">
+        <tr><td style="padding:8px 0;color:#64748b;font-size:13px;width:140px;">Paciente:</td><td style="padding:8px 0;color:#1e293b;font-size:13px;font-weight:600;">${nomePaciente}</td></tr>
+        <tr><td style="padding:8px 0;color:#64748b;font-size:13px;">Plano:</td><td style="padding:8px 0;color:#1e293b;font-size:13px;">${plano}</td></tr>
+      </table>
+      <a href="${dashboardUrl}" style="display:inline-block;background:#1d4ed8;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin:8px 0;">
+        Ir para o painel de secretaria
+      </a>
+      <p style="color:#64748b;font-size:12px;margin-top:16px;">Acesse a aba "Planos de Saúde" para visualizar os documentos e aprovar ou rejeitar o cadastro.</p>`,
+    ),
+  })
+}
+
+export async function enviarConfirmacaoPlano(para: string, nomePaciente: string): Promise<void> {
+  await transporter.sendMail({
+    from: `"Facilita PrEP" <${env.GMAIL_USER}>`,
+    to: para,
+    subject: 'Cadastro recebido — aguardando validação — Facilita PrEP',
+    html: baseTemplate(
+      'Cadastro recebido',
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nomePaciente}</strong>!</p>
+      <p style="color:#334155;font-size:15px;">Recebemos seus documentos com sucesso. Nossa equipe irá verificar suas informações e entrará em contato.</p>
+      <div style="background:#fefce8;border-left:4px solid #eab308;padding:12px 16px;border-radius:4px;margin:16px 0;">
+        <p style="color:#713f12;margin:0;font-size:13px;"><strong>Prazo de retorno:</strong> Em horário comercial (seg.–sex. 08h–18h), até 2 horas. Fora desse horário, até 12 horas.</p>
+      </div>
+      <p style="color:#64748b;font-size:13px;">Você receberá um novo e-mail com o link de acesso assim que seus documentos forem validados.</p>`,
+    ),
+  })
+}
+
 export async function enviarResultadoRejeitado(para: string, nomePaciente: string, motivo: string): Promise<void> {
   await transporter.sendMail({
     from: `"Facilita PrEP" <${env.GMAIL_USER}>`,

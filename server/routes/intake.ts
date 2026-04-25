@@ -3,13 +3,14 @@ import { randomBytes, createHash } from 'crypto'
 import { router, publicProcedure, staffProcedure } from '../_core/trpc.ts'
 import { TRPCError } from '@trpc/server'
 import { db } from '../db.ts'
-import { precadastros, accessTokens } from '../../drizzle/schema.ts'
-import { eq, desc } from 'drizzle-orm'
+import { precadastros, accessTokens, users } from '../../drizzle/schema.ts'
+import { eq, desc, inArray } from 'drizzle-orm'
 import { encrypt, decrypt, hashCpf } from '../_core/encryption.ts'
 import { validarCpf, normalizarCpf } from '../_core/cpfValidator.ts'
 import { criarCheckoutIntake } from '../stripe/products.ts'
-import { enviarLinkAcessoIntake } from '../email.ts'
+import { enviarLinkAcessoIntake, enviarNotificacaoNovoPlano, enviarConfirmacaoPlano } from '../email.ts'
 import { enviarWhatsApp } from '../whatsapp.ts'
+import { getPresignedUrl } from '../storage.ts'
 import { env } from '../_core/env.ts'
 import { TOKEN_EXPIRY_DAYS } from '../../shared/security-constants.ts'
 import { ERROR_MESSAGES, HORARIO_ATENDIMENTO } from '../../shared/const.ts'
@@ -120,6 +121,20 @@ export const intakeRouter = router({
         .orderBy(desc(precadastros.createdAt))
         .limit(1)
 
+      // Notify all secretárias/admins when a plano patient registers
+      if (input.tipo === 'plano') {
+        const staffUsers = await db
+          .select({ email: users.email })
+          .from(users)
+          .where(inArray(users.role, ['secretaria', 'admin']))
+
+        const emails = staffUsers.map(u => u.email).filter(Boolean) as string[]
+        const dashboardUrl = `${env.APP_URL}/secretaria`
+
+        await enviarNotificacaoNovoPlano(emails, input.nome, input.plano!, dashboardUrl).catch(console.error)
+        await enviarConfirmacaoPlano(input.email, input.nome).catch(console.error)
+      }
+
       return { precadastroId: inserted.id }
     }),
 
@@ -164,6 +179,17 @@ export const intakeRouter = router({
         documentoS3Key: r.documentoS3Key,
         createdAt: r.createdAt,
       }))
+    }),
+
+  // Gerar URL pré-assinada para visualizar documento de intake (secretaria)
+  urlDocumento: staffProcedure
+    .input(z.object({ s3Key: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      if (!input.s3Key.startsWith('intake/')) {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Acesso negado.' })
+      }
+      const url = await getPresignedUrl(input.s3Key, 3600)
+      return { url }
     }),
 
   // Secretaria: aprovar plano e enviar link

@@ -4,7 +4,10 @@ import { env } from '../_core/env.ts'
 import { db } from '../db.ts'
 import { pagamentos, precadastros } from '../../drizzle/schema.ts'
 import { eq } from 'drizzle-orm'
+import { decrypt } from '../_core/encryption.ts'
 import { gerarEEnviarLinkAcesso } from '../routes/intake.ts'
+import { emitirNfse } from '../focusnfe.ts'
+import { VALOR_CONSULTA_CENTAVOS } from '../../shared/const.ts'
 
 export async function handleWebhook(req: Request, res: Response): Promise<void> {
   const sig = req.headers['stripe-signature']
@@ -28,20 +31,37 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
     const pacienteId = parseInt(session.metadata?.pacienteId ?? '0')
 
     if (precadastroId) {
-      // Fluxo intake: gerar token e enviar link por e-mail + WhatsApp
       const [precad] = await db.select().from(precadastros).where(eq(precadastros.id, precadastroId)).limit(1)
+
       if (precad && precad.status !== 'link_enviado') {
         await gerarEEnviarLinkAcesso(precadastroId).catch(console.error)
+
+        // Emit NFSe only for particular (plano has no payment)
+        if (precad.tipo === 'particular') {
+          const nomeCliente = decrypt(precad.nomeEncrypted)
+          const valorCentavos = session.amount_total ?? VALOR_CONSULTA_CENTAVOS
+          await emitirNfse({ precadastroId, nomeCliente, valorCentavos }).catch((err) => {
+            console.error('[webhook] Falha ao emitir NFSe para precadastro', precadastroId, err)
+          })
+        }
       }
     } else if (pacienteId) {
-      // Fluxo legado: registrar pagamento
-      await db.insert(pagamentos).values({
-        pacienteId,
-        stripePaymentId: session.payment_intent as string,
-        stripeSessionId: session.id,
-        status: 'pago',
-        valorCentavos: session.amount_total ?? 0,
-      })
+      // Idempotency: skip if payment for this session already recorded
+      const existing = await db
+        .select({ id: pagamentos.id })
+        .from(pagamentos)
+        .where(eq(pagamentos.stripeSessionId, session.id))
+        .limit(1)
+
+      if (!existing.length) {
+        await db.insert(pagamentos).values({
+          pacienteId,
+          stripePaymentId: session.payment_intent as string,
+          stripeSessionId: session.id,
+          status: 'pago',
+          valorCentavos: session.amount_total ?? 0,
+        })
+      }
     }
   }
 
