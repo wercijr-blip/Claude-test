@@ -121,6 +121,8 @@ export const exames = mysqlTable('exames', {
   resultadoIa: json('resultado_ia'),
   revisadoPorId: int('revisado_por_id'),
   revisadoEm: datetime('revisado_em'),
+  liberadoPorMedicoId: int('liberado_por_medico_id'),
+  liberadoEm: datetime('liberado_em'),
   createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (t) => ({
   pacienteIdx: index('idx_exames_paciente').on(t.pacienteId),
