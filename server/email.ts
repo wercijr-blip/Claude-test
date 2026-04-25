@@ -202,3 +202,111 @@ export async function enviarResultadoRejeitado(para: string, nomePaciente: strin
     ),
   })
 }
+
+// ── Sprint 3: Templates de exame ────────────────────────────────────────────
+
+// TEMPLATE-1 — Aprovação automática por IA
+export async function enviarExameAprovadoIa(para: string, nome: string, appUrl: string): Promise<void> {
+  await transporter.sendMail({
+    from: `"Facilita PrEP" <${env.GMAIL_USER}>`,
+    to: para,
+    subject: 'Exame aprovado — Facilita PrEP',
+    html: baseTemplate(
+      'Exame aprovado',
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nome}</strong>!</p>
+      <p style="color:#334155;font-size:15px;">Seu exame foi <strong style="color:#16a34a;">aprovado automaticamente</strong>!</p>
+      <p style="color:#334155;font-size:15px;">Acesse o link abaixo para prosseguir com seus documentos para PrEP:</p>
+      <a href="${appUrl}/inicio" style="display:inline-block;background:#16a34a;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:600;margin:20px 0;font-size:16px;">
+        Continuar o processo
+      </a>
+      <p style="color:#64748b;font-size:13px;">Se já estiver logado, basta acessar a plataforma normalmente.</p>`,
+    ),
+  })
+}
+
+// TEMPLATE-2 — Exame encaminhado para análise humana
+export async function enviarAnaliseHumanaExame(para: string, nome: string): Promise<void> {
+  await transporter.sendMail({
+    from: `"Facilita PrEP" <${env.GMAIL_USER}>`,
+    to: para,
+    subject: 'Seu exame está em análise — Facilita PrEP',
+    html: baseTemplate(
+      'Exame em análise',
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nome}</strong>!</p>
+      <p style="color:#334155;font-size:15px;">Seu exame não pôde ser validado automaticamente e será avaliado por um profissional de saúde.</p>
+      <div style="background:#fefce8;border-left:4px solid #eab308;padding:12px 16px;border-radius:4px;margin:16px 0;">
+        <p style="color:#713f12;margin:0 0 8px;font-size:13px;font-weight:600;">Prazo de resposta:</p>
+        <p style="color:#713f12;margin:0;font-size:13px;">📋 Em horário comercial (seg.–sex., 08h–18h): até 2 horas</p>
+        <p style="color:#713f12;margin:4px 0 0;font-size:13px;">🌙 Fora do horário comercial: até 12 horas</p>
+      </div>
+      <p style="color:#64748b;font-size:13px;">Você receberá um novo e-mail assim que a avaliação for concluída.</p>`,
+    ),
+  })
+}
+
+// TEMPLATE-3 — Exame rejeitado por data inválida
+export async function enviarExameRejeitadoData(
+  para: string,
+  nome: string,
+  tentativaAtual: number,
+  appUrl: string,
+): Promise<void> {
+  await transporter.sendMail({
+    from: `"Facilita PrEP" <${env.GMAIL_USER}>`,
+    to: para,
+    subject: 'Exame rejeitado — necessário enviar novo exame',
+    html: baseTemplate(
+      'Exame rejeitado — data inválida',
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nome}</strong>!</p>
+      <p style="color:#334155;font-size:15px;">Seu exame foi recebido, mas não pode ser aceito porque foi realizado há mais de 7 dias.</p>
+      <div style="background:#fef2f2;border-left:4px solid #ef4444;padding:12px 16px;border-radius:4px;margin:16px 0;">
+        <p style="color:#dc2626;margin:0;font-size:13px;"><strong>Motivo:</strong> Para garantir a segurança do tratamento PrEP, o exame de HIV deve ter sido realizado há no máximo 7 dias.</p>
+      </div>
+      <p style="color:#334155;font-size:15px;">Por favor, faça um novo exame e envie pelo nosso portal:</p>
+      <a href="${appUrl}/inicio" style="display:inline-block;background:#1d4ed8;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:600;margin:20px 0;font-size:16px;">
+        Enviar novo exame
+      </a>
+      <p style="color:#64748b;font-size:13px;">Tentativa ${tentativaAtual}/2.</p>`,
+    ),
+  })
+}
+
+// Notificação para médicos: exame pendente de revisão
+export async function enviarNotificacaoMedicoPendente(
+  emails: string[],
+  urgente: boolean,
+  nomePaciente: string,
+  motivo: string,
+  dashboardUrl: string,
+): Promise<void> {
+  if (!emails.length) return
+  const subject = urgente
+    ? `🚨 URGENTE: Exame HIV reagente — ${nomePaciente} — Facilita PrEP`
+    : `Exame aguardando revisão — ${nomePaciente} — Facilita PrEP`
+
+  const corBorda = urgente ? '#ef4444' : '#eab308'
+  const corFundo = urgente ? '#fef2f2' : '#fefce8'
+  const corTexto = urgente ? '#dc2626' : '#713f12'
+  const alerta = urgente
+    ? '🚨 <strong>ATENÇÃO URGENTE:</strong> Resultado HIV possivelmente reagente. Requer avaliação imediata.'
+    : `Motivo: <strong>${motivo}</strong>`
+
+  await transporter.sendMail({
+    from: `"Facilita PrEP" <${env.GMAIL_USER}>`,
+    to: emails.join(', '),
+    subject,
+    html: baseTemplate(
+      urgente ? 'Exame URGENTE para revisão' : 'Exame pendente de revisão',
+      `<p style="color:#334155;font-size:15px;">Um exame de HIV necessita de revisão médica.</p>
+      <table style="border-collapse:collapse;width:100%;margin:16px 0;">
+        <tr><td style="padding:8px 0;color:#64748b;font-size:13px;width:120px;">Paciente:</td><td style="padding:8px 0;color:#1e293b;font-size:13px;font-weight:600;">${nomePaciente}</td></tr>
+      </table>
+      <div style="background:${corFundo};border-left:4px solid ${corBorda};padding:12px 16px;border-radius:4px;margin:16px 0;">
+        <p style="color:${corTexto};margin:0;font-size:13px;">${alerta}</p>
+      </div>
+      <a href="${dashboardUrl}" style="display:inline-block;background:#1d4ed8;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin:8px 0;">
+        Revisar no painel médico
+      </a>`,
+    ),
+  })
+}
