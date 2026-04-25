@@ -7,6 +7,7 @@ import { adminRouter } from './routes/admin.ts'
 import { intakeRouter } from './routes/intake.ts'
 import { consultaRouter } from './routes/consulta.ts'
 import { pesquisaRouter } from './routes/pesquisa.ts'
+import { configRouter } from './routes/config.ts'
 
 export const appRouter = router({
   auth: authRouter,
@@ -17,6 +18,7 @@ export const appRouter = router({
   intake: intakeRouter,
   consulta: consultaRouter,
   pesquisa: pesquisaRouter,
+  config: configRouter,
 })
 
 export type AppRouter = typeof appRouter

@@ -5,7 +5,6 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(32),
   GOOGLE_CLIENT_ID: z.string().min(1),
   GOOGLE_CLIENT_SECRET: z.string().min(1),
-  VITE_GOOGLE_CLIENT_ID: z.string().min(1),
   OWNER_OPEN_ID: z.string().min(1),
 
   ENCRYPTION_KEY: z.string().length(64),
