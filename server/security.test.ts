@@ -56,13 +56,13 @@ describe('CPF Validator', () => {
 
 describe('Open Redirect Validator', () => {
   it('permite origens da whitelist', () => {
-    expect(isAllowedRedirectUri('https://facilitaprep.manus.space/callback')).toBe(true)
+    expect(isAllowedRedirectUri('https://facilitaprep.com.br/callback')).toBe(true)
     expect(isAllowedRedirectUri('http://localhost:5173/callback')).toBe(true)
   })
 
   it('bloqueia redirecionamento para domínios externos', () => {
     expect(isAllowedRedirectUri('https://malicioso.com/phishing')).toBe(false)
-    expect(isAllowedRedirectUri('https://facilitaprep.manus.space.evil.com/')).toBe(false)
+    expect(isAllowedRedirectUri('https://facilitaprep.com.br.evil.com/')).toBe(false)
     expect(isAllowedRedirectUri('javascript:alert(1)')).toBe(false)
   })
 

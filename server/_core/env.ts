@@ -10,7 +10,7 @@ const envSchema = z.object({
   // Anthropic (Claude — para chat de evidências e insights)
   ANTHROPIC_API_KEY: z.string().optional(),
 
-  // Legacy Forge/Manus API (mantido para compatibilidade)
+  // Legacy Forge API (mantido para compatibilidade)
   BUILT_IN_FORGE_API_URL: z.string().url().default('https://api.openai.com'),
   BUILT_IN_FORGE_API_KEY: z.string().optional(),
 

@@ -111,7 +111,7 @@ export async function gerarCadastroPdf(dados: DadosCadastro): Promise<Buffer> {
 
   // Rodapé
   const emitido = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-  page.drawText(`Facilita PrEP · facilitaprep.manus.space · Emitido em ${emitido}`, {
+  page.drawText(`Facilita PrEP · facilitaprep.com.br · Emitido em ${emitido}`, {
     x: m, y: 28, font, size: 7, color: rgb(0.7, 0.7, 0.7),
   })
 
