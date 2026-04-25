@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { trpc } from '../lib/trpc.ts'
-import { Copy, Link, Trash2 } from 'lucide-react'
+import { Copy, Link, Trash2, ExternalLink, CheckCircle, XCircle } from 'lucide-react'
 
-type Tab = 'links' | 'documentos'
+type Tab = 'links' | 'planos' | 'documentos'
 type StatusFiltro = 'todos' | 'pendente' | 'validado' | 'rejeitado' | 'liberado'
 
 const STATUS_LABELS: Record<StatusFiltro, string> = {
@@ -22,8 +22,147 @@ const STATUS_COLORS: Record<string, string> = {
   liberado_manualmente: 'bg-blue-100 text-blue-700',
 }
 
+function PlanosTab() {
+  const [motivoRejeicao, setMotivoRejeicao] = useState<Record<number, string>>({})
+  const [expandedId, setExpandedId] = useState<number | null>(null)
+
+  const { data: pendentes, refetch } = trpc.intake.listarPendentes.useQuery()
+  const urlDocumento = trpc.intake.urlDocumento.useMutation()
+  const aprovar = trpc.intake.aprovar.useMutation({ onSuccess: () => refetch() })
+  const rejeitar = trpc.intake.rejeitar.useMutation({ onSuccess: () => refetch() })
+
+  async function abrirDocumento(s3Key: string) {
+    const { url } = await urlDocumento.mutateAsync({ s3Key })
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto p-6 space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-800">Planos de saúde — aguardando validação</h2>
+          <p className="text-sm text-slate-500 mt-0.5">Verifique os documentos e aprove ou rejeite o cadastro.</p>
+        </div>
+        <span className="bg-amber-100 text-amber-700 text-xs font-semibold px-3 py-1 rounded-full">
+          {pendentes?.length ?? 0} pendente{(pendentes?.length ?? 0) !== 1 ? 's' : ''}
+        </span>
+      </div>
+
+      {!pendentes?.length && (
+        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
+          <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <CheckCircle className="w-6 h-6 text-green-600" />
+          </div>
+          <p className="text-slate-600 font-medium">Nenhum plano aguardando validação</p>
+          <p className="text-slate-400 text-sm mt-1">Todos os cadastros foram processados.</p>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {pendentes?.map((p) => (
+          <div key={p.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            {/* Header */}
+            <div
+              className="flex items-center justify-between p-5 cursor-pointer hover:bg-slate-50 transition-colors"
+              onClick={() => setExpandedId(expandedId === p.id ? null : p.id)}
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center shrink-0">
+                  <span className="text-blue-700 font-bold text-sm">{p.nome.charAt(0).toUpperCase()}</span>
+                </div>
+                <div>
+                  <p className="font-semibold text-slate-800">{p.nome}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {p.plano} · {p.email} · {p.telefone}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-slate-400">
+                  {new Date(p.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                </span>
+                <svg
+                  className={`w-5 h-5 text-slate-400 transition-transform ${expandedId === p.id ? 'rotate-180' : ''}`}
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
+
+            {expandedId === p.id && (
+              <div className="border-t border-slate-100 p-5 space-y-4">
+                {/* Documentos */}
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => p.carteirinhaS3Key && abrirDocumento(p.carteirinhaS3Key)}
+                    disabled={!p.carteirinhaS3Key || urlDocumento.isPending}
+                    className="flex items-center gap-2 border border-blue-200 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed text-blue-700 rounded-xl px-4 py-3 text-sm font-medium transition-colors"
+                  >
+                    <ExternalLink className="w-4 h-4 shrink-0" />
+                    Ver carteirinha do plano
+                  </button>
+                  <button
+                    onClick={() => p.documentoS3Key && abrirDocumento(p.documentoS3Key)}
+                    disabled={!p.documentoS3Key || urlDocumento.isPending}
+                    className="flex items-center gap-2 border border-blue-200 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed text-blue-700 rounded-xl px-4 py-3 text-sm font-medium transition-colors"
+                  >
+                    <ExternalLink className="w-4 h-4 shrink-0" />
+                    Ver documento de identidade
+                  </button>
+                </div>
+
+                {/* Motivo de rejeição */}
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                    Motivo de rejeição (obrigatório para rejeitar)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ex: Carteirinha ilegível, documento vencido..."
+                    value={motivoRejeicao[p.id] ?? ''}
+                    onChange={(e) => setMotivoRejeicao(prev => ({ ...prev, [p.id]: e.target.value }))}
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* Ações */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => aprovar.mutate({ precadastroId: p.id })}
+                    disabled={aprovar.isPending}
+                    className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl px-5 py-2.5 text-sm font-semibold transition-colors"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    {aprovar.isPending ? 'Aprovando…' : 'Aprovar e enviar link'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      const obs = motivoRejeicao[p.id]
+                      if (!obs?.trim()) {
+                        alert('Informe o motivo da rejeição.')
+                        return
+                      }
+                      rejeitar.mutate({ precadastroId: p.id, observacoes: obs })
+                    }}
+                    disabled={rejeitar.isPending}
+                    className="flex items-center gap-2 border border-red-200 hover:bg-red-50 disabled:opacity-50 text-red-600 rounded-xl px-5 py-2.5 text-sm font-semibold transition-colors"
+                  >
+                    <XCircle className="w-4 h-4" />
+                    {rejeitar.isPending ? 'Rejeitando…' : 'Rejeitar'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function SecretariaDashboard() {
-  const [tab, setTab] = useState<Tab>('links')
+  const [tab, setTab] = useState<Tab>('planos')
   const [email, setEmail] = useState('')
   const [tipo, setTipo] = useState<'privado' | 'convenio'>('privado')
   const [convenio, setConvenio] = useState('')
@@ -32,12 +171,14 @@ export default function SecretariaDashboard() {
 
   const { data: tokens, refetch } = trpc.token.listar.useQuery()
   const { data: documentos } = trpc.secretaria.listarDocumentos.useQuery({ status: statusFiltro })
+  const { data: pendentes } = trpc.intake.listarPendentes.useQuery()
   const criar = trpc.token.criar.useMutation({
     onSuccess: (data) => { setNovoToken(data.token); refetch() },
   })
   const revogar = trpc.token.revogar.useMutation({ onSuccess: () => refetch() })
 
   const linkAcesso = novoToken ? `${window.location.origin}/acesso/${novoToken}` : null
+  const qtdPendentes = pendentes?.length ?? 0
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -45,6 +186,17 @@ export default function SecretariaDashboard() {
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-blue-700">Dashboard Secretaria — Facilita PrEP</h1>
           <div className="flex gap-2">
+            <button
+              onClick={() => setTab('planos')}
+              className={`relative px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === 'planos' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+            >
+              Planos de saúde
+              {qtdPendentes > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-amber-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                  {qtdPendentes > 9 ? '9+' : qtdPendentes}
+                </span>
+              )}
+            </button>
             <button
               onClick={() => setTab('links')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === 'links' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
@@ -55,11 +207,14 @@ export default function SecretariaDashboard() {
               onClick={() => setTab('documentos')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === 'documentos' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
             >
-              Documentos enviados
+              Exames enviados
             </button>
           </div>
         </div>
       </header>
+
+      {/* ── Aba: Planos de saúde ── */}
+      {tab === 'planos' && <PlanosTab />}
 
       {/* ── Aba: Links de acesso ── */}
       {tab === 'links' && (
@@ -146,7 +301,7 @@ export default function SecretariaDashboard() {
         </div>
       )}
 
-      {/* ── Aba: Documentos enviados ── */}
+      {/* ── Aba: Exames enviados ── */}
       {tab === 'documentos' && (
         <div className="max-w-5xl mx-auto p-6 space-y-4">
           {/* Filtro por status */}
