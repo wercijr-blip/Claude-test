@@ -183,7 +183,8 @@ export const securityEvents = mysqlTable('security_events', {
 
 export const nfseRegistros = mysqlTable('nfse_registros', {
   id: int('id').primaryKey().autoincrement(),
-  pacienteId: int('paciente_id').notNull(),
+  pacienteId: int('paciente_id'),
+  precadastroId: int('precadastro_id'),
   numeroNfse: varchar('numero_nfse', { length: 50 }),
   status: varchar('status', { length: 50 }).notNull().default('pendente'),
   valorCentavos: int('valor_centavos').notNull(),
@@ -193,6 +194,7 @@ export const nfseRegistros = mysqlTable('nfse_registros', {
   createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (t) => ({
   pacienteIdx: index('idx_nfse_paciente').on(t.pacienteId),
+  precadastroIdx: index('idx_nfse_precadastro').on(t.precadastroId),
 }))
 
 // ── Consultas Início (segunda parte — validação de exame HIV) ──

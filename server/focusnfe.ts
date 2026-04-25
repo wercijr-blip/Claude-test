@@ -13,19 +13,21 @@ const TOKEN = env.FOCUSNFE_ENVIRONMENT === 'producao'
   : env.FOCUSNFE_TOKEN_HOMOLOGACAO
 
 interface DadosNfse {
-  pacienteId: number
+  pacienteId?: number
+  precadastroId?: number
   nomeCliente: string
   valorCentavos: number
   descricaoServico?: string
 }
 
 export async function emitirNfse(dados: DadosNfse): Promise<void> {
+  const idRef = dados.pacienteId ?? dados.precadastroId ?? 0
   const valorReais = dados.valorCentavos / 100
-  const refNfse = `fp-${dados.pacienteId}-${Date.now()}`
+  const refNfse = `fp-${idRef}-${Date.now()}`
 
-  // Registrar como pendente
   const [result] = await db.insert(nfseRegistros).values({
-    pacienteId: dados.pacienteId,
+    pacienteId: dados.pacienteId ?? null,
+    precadastroId: dados.precadastroId ?? null,
     status: 'enviando',
     valorCentavos: dados.valorCentavos,
     focusnfeRef: refNfse,
