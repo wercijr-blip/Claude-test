@@ -16,7 +16,16 @@ export default function LoginPage() {
     const state = crypto.randomUUID()
     sessionStorage.setItem('oauth_state', state)
     const redirectUri = `${window.location.origin}/auth/callback`
-    window.location.href = `${import.meta.env.VITE_OAUTH_SERVER_URL}/auth?app_id=${import.meta.env.VITE_APP_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`
+    const params = new URLSearchParams({
+      client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+      redirect_uri: redirectUri,
+      response_type: 'code',
+      scope: 'openid email profile',
+      state,
+      access_type: 'offline',
+      prompt: 'consent',
+    })
+    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
   }
 
   const devLogin = trpc.auth.devLogin.useMutation()
