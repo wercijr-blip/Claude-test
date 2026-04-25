@@ -1,5 +1,5 @@
 import { Component, useEffect, useRef, type ReactNode } from 'react'
-import { Route, Switch } from 'wouter'
+import { Route, Switch, useLocation } from 'wouter'
 import { useAuth, parseJwtPayload } from './_core/hooks/useAuth.ts'
 import IntakePage from './components/IntakePage.tsx'
 import SegundaParteInicio from './components/SegundaParteInicio.tsx'
@@ -90,6 +90,7 @@ export default function App() {
 
 function AuthCallback() {
   const { setToken } = useAuth()
+  const [, navigate] = useLocation()
 
   const params = new URLSearchParams(window.location.search)
   const code = params.get('code') ?? ''
@@ -102,13 +103,13 @@ function AuthCallback() {
       const session = parseJwtPayload(data.token)
       const role = session?.type === 'staff' ? session.role : null
       if (role === 'admin') {
-        window.location.href = '/equipe'
+        navigate('/equipe')
       } else if (role === 'medico') {
-        window.location.href = '/medico'
+        navigate('/medico')
       } else if (role === 'secretaria') {
-        window.location.href = '/secretaria'
+        navigate('/secretaria')
       } else {
-        window.location.href = '/'
+        navigate('/')
       }
     },
   })
