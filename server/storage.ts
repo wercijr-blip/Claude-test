@@ -6,6 +6,7 @@ import { env } from './_core/env.ts'
 import { db } from './db.ts'
 import { exames } from '../drizzle/schema.ts'
 import { MAX_UPLOAD_SIZE_BYTES, ALLOWED_MIME_TYPES } from '../shared/security-constants.ts'
+import { enqueueAnalisarExame } from './examQueue.ts'
 
 const s3 = new S3Client({
   region: env.AWS_REGION,
@@ -84,13 +85,20 @@ export function uploadExame(req: Request, res: Response): Promise<void> {
       try {
         await uploadBuffer(s3Key, req.file.buffer, req.file.mimetype)
 
-        await db.insert(exames).values({
+        const [inserted] = await db.insert(exames).values({
           pacienteId,
           s3Key,
           nomeArquivo: req.file.originalname,
           tipoExame,
           mimeType: req.file.mimetype,
           tamanhoBytes: req.file.size,
+        })
+
+        // Queue async AI analysis — returns immediately, analysis runs in background
+        const exameId = inserted.insertId
+        await enqueueAnalisarExame(exameId).catch((queueErr) => {
+          // Non-fatal: log and continue. Exam is saved; analysis can be retried manually.
+          console.error(`[storage] Falha ao enfileirar análise do exame ${exameId}:`, queueErr)
         })
 
         res.json({ ok: true, s3Key })
