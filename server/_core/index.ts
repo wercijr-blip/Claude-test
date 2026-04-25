@@ -14,6 +14,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const app = express()
 
+// Trust Railway's reverse proxy so X-Forwarded-For is recognized
+// (necessário para express-rate-limit identificar o IP correto do usuário)
+app.set('trust proxy', 1)
+
 // Servir assets estáticos ANTES do middleware de segurança para evitar que o
 // CORS rejeite requisições same-origin sem cabeçalho Origin (JS/CSS do browser)
 if (env.NODE_ENV === 'production') {
@@ -35,7 +39,6 @@ app.use(
   '/trpc/token.validar',
   tokenValidateLimiter,
 )
-
 app.use(
   '/trpc',
   createExpressMiddleware({
