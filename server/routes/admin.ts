@@ -2,15 +2,54 @@ import { z } from 'zod'
 import { router, adminProcedure } from '../_core/trpc.ts'
 import { TRPCError } from '@trpc/server'
 import { db } from '../db.ts'
-import { users, securityEvents } from '../../drizzle/schema.ts'
-import { eq, desc } from 'drizzle-orm'
+import { users, securityEvents, pacientes, exames } from '../../drizzle/schema.ts'
+import { eq, desc, inArray } from 'drizzle-orm'
 import type { Role } from '../../shared/types.ts'
+import { decrypt } from '../_core/encryption.ts'
+
+type ResultadoIaJson = {
+  status?: string
+  [key: string]: unknown
+}
 
 export const adminRouter = router({
+  // ── Gestão de equipe ──────────────────────────────────────────
+
   // Listar equipe
   listarUsuarios: adminProcedure.query(async () => {
     return db.select().from(users).orderBy(users.createdAt)
   }),
+
+  // Cadastrar novo usuário da equipe
+  cadastrarUsuario: adminProcedure
+    .input(z.object({
+      email: z.string().email(),
+      nome: z.string().min(2),
+      role: z.enum(['secretaria', 'medico', 'admin']),
+    }))
+    .mutation(async ({ input }) => {
+      // Verificar se já existe usuário com esse e-mail
+      const existing = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.email, input.email))
+        .limit(1)
+
+      if (existing.length > 0) {
+        throw new TRPCError({ code: 'CONFLICT', message: 'Já existe um usuário com esse e-mail.' })
+      }
+
+      // openId será preenchido no primeiro login via SSO; usamos e-mail como placeholder
+      await db.insert(users).values({
+        openId: `pending:${input.email}`,
+        email: input.email,
+        nome: input.nome,
+        role: input.role as Role,
+        ativo: true,
+      })
+
+      return { ok: true }
+    }),
 
   // Alterar role de usuário
   alterarRole: adminProcedure
@@ -38,6 +77,160 @@ export const adminRouter = router({
       return { ok: true }
     }),
 
+  // ── Pacientes ─────────────────────────────────────────────────
+
+  // Listar todos os pacientes do sistema
+  listarTodosPacientes: adminProcedure
+    .input(z.object({ busca: z.string().optional() }).optional())
+    .query(async ({ input }) => {
+      const rows = await db.select().from(pacientes).orderBy(desc(pacientes.createdAt))
+
+      const decrypted = rows.map((p) => ({
+        id: p.id,
+        nome: decrypt(p.nomeEncrypted),
+        cpfHash: p.cpfHash,
+        status: p.status,
+        tipoAtendimento: p.tipoAtendimento,
+        convenio: p.convenio,
+        currentStep: p.currentStep,
+        createdAt: p.createdAt,
+        updatedAt: p.updatedAt,
+      }))
+
+      if (input?.busca) {
+        const termo = input.busca.toLowerCase()
+        return decrypted.filter(
+          (p) => p.nome.toLowerCase().includes(termo) || p.cpfHash.includes(termo),
+        )
+      }
+
+      return decrypted
+    }),
+
+  // ── Documentos / Exames ───────────────────────────────────────
+
+  // Listar todos os documentos enviados por pacientes (poder de secretaria)
+  listarDocumentos: adminProcedure
+    .input(
+      z.object({
+        status: z.enum(['todos', 'pendente', 'validado', 'rejeitado', 'liberado']).default('todos'),
+      }).optional(),
+    )
+    .query(async ({ input }) => {
+      const rows = await db
+        .select({
+          id: exames.id,
+          pacienteId: exames.pacienteId,
+          nomeArquivo: exames.nomeArquivo,
+          tipoExame: exames.tipoExame,
+          mimeType: exames.mimeType,
+          resultadoIa: exames.resultadoIa,
+          revisadoEm: exames.revisadoEm,
+          liberadoEm: exames.liberadoEm,
+          createdAt: exames.createdAt,
+          pacienteNomeEncrypted: pacientes.nomeEncrypted,
+          pacienteEmailEncrypted: pacientes.emailEncrypted,
+          pacienteStatus: pacientes.status,
+          pacienteTipoAtendimento: pacientes.tipoAtendimento,
+        })
+        .from(exames)
+        .leftJoin(pacientes, eq(pacientes.id, exames.pacienteId))
+        .orderBy(desc(exames.createdAt))
+
+      const statusFiltro = input?.status ?? 'todos'
+
+      return rows
+        .filter((r) => {
+          if (statusFiltro === 'todos') return true
+          const ia = r.resultadoIa as { status?: string } | null
+          const iaStatus = ia?.status ?? 'pendente'
+          if (statusFiltro === 'pendente') return !ia || iaStatus === 'pendente'
+          if (statusFiltro === 'validado') return iaStatus === 'aprovado' || iaStatus === 'validado'
+          if (statusFiltro === 'rejeitado') return iaStatus === 'rejeitado' || iaStatus === 'rejeitado_ia'
+          if (statusFiltro === 'liberado') return iaStatus === 'liberado_manualmente'
+          return true
+        })
+        .map((r) => ({
+          id: r.id,
+          pacienteId: r.pacienteId,
+          nomeArquivo: r.nomeArquivo,
+          tipoExame: r.tipoExame,
+          mimeType: r.mimeType,
+          resultadoIa: r.resultadoIa,
+          revisadoEm: r.revisadoEm,
+          liberadoEm: r.liberadoEm,
+          createdAt: r.createdAt,
+          paciente: {
+            nome: r.pacienteNomeEncrypted ? decrypt(r.pacienteNomeEncrypted) : null,
+            email: r.pacienteEmailEncrypted ? decrypt(r.pacienteEmailEncrypted) : null,
+            status: r.pacienteStatus,
+            tipoAtendimento: r.pacienteTipoAtendimento,
+          },
+        }))
+    }),
+
+  // Liberar exame rejeitado pela IA (poder de médico)
+  liberarExameSemValidacao: adminProcedure
+    .input(z.object({
+      exameId: z.number(),
+      observacoes: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const [exame] = await db.select().from(exames).where(eq(exames.id, input.exameId)).limit(1)
+      if (!exame) throw new TRPCError({ code: 'NOT_FOUND', message: 'Exame não encontrado.' })
+
+      const resultadoAtual = exame.resultadoIa as ResultadoIaJson | null
+      if (
+        resultadoAtual?.status !== 'rejeitado_ia' &&
+        resultadoAtual?.status !== 'rejeitado'
+      ) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Apenas exames rejeitados pela IA podem ser liberados manualmente.',
+        })
+      }
+
+      const novoResultado: ResultadoIaJson = {
+        ...resultadoAtual,
+        status: 'liberado_manualmente',
+        observacoesMedico: input.observacoes ?? null,
+        liberadoEm: new Date().toISOString(),
+      }
+
+      await db
+        .update(exames)
+        .set({
+          resultadoIa: novoResultado,
+          liberadoPorMedicoId: ctx.session.id,
+          liberadoEm: new Date(),
+          revisadoPorId: ctx.session.id,
+          revisadoEm: new Date(),
+        })
+        .where(eq(exames.id, input.exameId))
+
+      return { ok: true }
+    }),
+
+  // Listar pacientes pendentes de revisão médica (poder de médico)
+  listarPendentes: adminProcedure.query(async () => {
+    const rows = await db
+      .select()
+      .from(pacientes)
+      .where(inArray(pacientes.status, ['pendente', 'em_revisao']))
+      .orderBy(pacientes.createdAt)
+
+    return rows.map((p) => ({
+      id: p.id,
+      nome: decrypt(p.nomeEncrypted),
+      status: p.status,
+      currentStep: p.currentStep,
+      tipoAtendimento: p.tipoAtendimento,
+      createdAt: p.createdAt,
+    }))
+  }),
+
+  // ── Auditoria ─────────────────────────────────────────────────
+
   // Log de eventos de segurança
   listarEventos: adminProcedure
     .input(z.object({ limit: z.number().max(200).default(50) }))
@@ -48,4 +241,28 @@ export const adminRouter = router({
         .orderBy(desc(securityEvents.createdAt))
         .limit(input.limit)
     }),
+
+  // Exportar auditoria como CSV (retorna string CSV)
+  exportarAuditoria: adminProcedure.query(async () => {
+    const eventos = await db
+      .select()
+      .from(securityEvents)
+      .orderBy(desc(securityEvents.createdAt))
+      .limit(5000)
+
+    const header = 'id,tipoEvento,userId,ipAddress,createdAt,detalhes'
+    const linhas = eventos.map((e) => {
+      const detalhes = e.detalhes ? JSON.stringify(e.detalhes).replace(/"/g, '""') : ''
+      return [
+        e.id,
+        e.tipoEvento,
+        e.userId ?? '',
+        e.ipAddress ?? '',
+        e.createdAt.toISOString(),
+        `"${detalhes}"`,
+      ].join(',')
+    })
+
+    return { csv: [header, ...linhas].join('\n') }
+  }),
 })
