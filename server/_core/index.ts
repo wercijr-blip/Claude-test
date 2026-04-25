@@ -14,6 +14,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const app = express()
 
+// Servir assets estáticos ANTES do middleware de segurança para evitar que o
+// CORS rejeite requisições same-origin sem cabeçalho Origin (JS/CSS do browser)
+if (env.NODE_ENV === 'production') {
+  const clientDist = path.resolve(__dirname, '../../dist/client')
+  app.use(express.static(clientDist))
+}
+
 applySecurityMiddleware(app)
 app.use(cookieParser())
 app.use(express.json({ limit: '2mb' }))
@@ -63,10 +70,9 @@ app.post(
   },
 )
 
-// Servir frontend em produção
+// Catch-all: servir index.html para rotas do SPA em produção
 if (env.NODE_ENV === 'production') {
   const clientDist = path.resolve(__dirname, '../../dist/client')
-  app.use(express.static(clientDist))
   app.get('*', (_req, res) => {
     res.sendFile(path.join(clientDist, 'index.html'))
   })
