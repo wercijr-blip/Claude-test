@@ -118,6 +118,14 @@ export const exames = mysqlTable('exames', {
   tipoExame: varchar('tipo_exame', { length: 100 }),
   mimeType: varchar('mime_type', { length: 100 }),
   tamanhoBytes: int('tamanho_bytes'),
+  // resultadoIa JSON shape (see shared/types.ts ResultadoIa):
+  //   tipoExame: TipoExame
+  //   resultado: 'reagente' | 'nao_reagente' | 'inconclusivo' | 'nao_identificado'
+  //   confianca: number (0–1)
+  //   observacoes?: string
+  //   processadoEm: ISO timestamp (set by analisarExame)
+  //   status: 'pendente' | 'aprovado_automaticamente' | 'rejeitado_ia' | 'pendente_revisao'
+  //           (set by examQueue worker after auto-approval logic)
   resultadoIa: json('resultado_ia'),
   revisadoPorId: int('revisado_por_id'),
   revisadoEm: datetime('revisado_em'),

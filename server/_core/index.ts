@@ -109,6 +109,8 @@ app.listen(env.PORT, async () => {
   startLembreteWorker()
   startPesquisaWorker()
   await agendarLembreteDiario()
+  const { startExamWorker } = await import('../examQueue.ts')
+  startExamWorker()
 })
 
 export default app
