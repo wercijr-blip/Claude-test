@@ -14,20 +14,44 @@ export const authRouter = router({
   callback: publicProcedure
     .input(z.object({ code: z.string(), state: z.string().optional() }))
     .mutation(async ({ input }) => {
-      // Trocar code por dados do usuário no servidor OAuth
-      const resp = await fetch(`${env.OAUTH_SERVER_URL}/token`, {
+      // Trocar code por tokens do Google
+      const redirectUri = `${env.APP_URL}/auth/callback`
+      const tokenResp = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: input.code, app_id: env.VITE_APP_ID }),
+        body: JSON.stringify({
+          code: input.code,
+          client_id: env.GOOGLE_CLIENT_ID,
+          client_secret: env.GOOGLE_CLIENT_SECRET,
+          redirect_uri: redirectUri,
+          grant_type: 'authorization_code',
+        }),
         signal: AbortSignal.timeout(10000),
       })
 
-      if (!resp.ok) throw new Error('Falha ao obter token OAuth')
+      if (!tokenResp.ok) throw new Error('Falha ao obter token OAuth do Google')
 
-      const data = (await resp.json()) as {
-        openId: string
+      const tokenData = (await tokenResp.json()) as { access_token: string }
+
+      // Buscar dados do usuário com o access_token
+      const userResp = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: `Bearer ${tokenData.access_token}` },
+        signal: AbortSignal.timeout(10000),
+      })
+
+      if (!userResp.ok) throw new Error('Falha ao obter dados do usuário Google')
+
+      const googleUser = (await userResp.json()) as {
+        sub: string
         email: string
         name: string
+        picture?: string
+      }
+
+      const data = {
+        openId: googleUser.sub,
+        email: googleUser.email,
+        name: googleUser.name,
       }
 
       // Upsert do usuário

@@ -3,9 +3,10 @@ import { z } from 'zod'
 const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
   JWT_SECRET: z.string().min(32),
-  OAUTH_SERVER_URL: z.string().url(),
+  GOOGLE_CLIENT_ID: z.string().min(1),
+  GOOGLE_CLIENT_SECRET: z.string().min(1),
+  VITE_GOOGLE_CLIENT_ID: z.string().min(1),
   OWNER_OPEN_ID: z.string().min(1),
-  VITE_APP_ID: z.string().default('facilita-prep'),
 
   ENCRYPTION_KEY: z.string().length(64),
   CPF_HASH_SALT: z.string().min(32),
