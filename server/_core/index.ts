@@ -44,6 +44,16 @@ app.use(
   createExpressMiddleware({
     router: appRouter,
     createContext: ({ req }) => createContext({ req }),
+    onError({ error, path, input }) {
+      if (error.code === 'INTERNAL_SERVER_ERROR') {
+        console.error(`[tRPC] Internal error on procedure "${path}"`)
+        console.error('[tRPC] Input:', JSON.stringify(input))
+        console.error('[tRPC] Error:', error.message)
+        console.error('[tRPC] Stack:', error.stack)
+      } else {
+        console.warn(`[tRPC] Error "${error.code}" on procedure "${path}": ${error.message}`)
+      }
+    },
   }),
 )
 
@@ -80,6 +90,16 @@ if (env.NODE_ENV === 'production') {
     res.sendFile(path.join(clientDist, 'index.html'))
   })
 }
+
+// Global error handler — captura erros não tratados em middlewares e rotas Express
+app.use((err: Error, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error(`[Express] Unhandled error on ${req.method} ${req.path}`)
+  console.error('[Express] Error:', err.message)
+  console.error('[Express] Stack:', err.stack)
+  if (!res.headersSent) {
+    res.status(500).json({ error: 'Internal Server Error' })
+  }
+})
 
 app.listen(env.PORT, async () => {
   console.log(`🚀 Facilita PrEP rodando na porta ${env.PORT} [${env.NODE_ENV}]`)
