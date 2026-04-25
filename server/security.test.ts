@@ -18,6 +18,7 @@ vi.mock('./_core/env.ts', () => ({
     REDIS_URL: 'redis://localhost:6379',
     FOCUSNFE_ENVIRONMENT: 'homologacao',
     BUILT_IN_FORGE_API_URL: 'https://api.anthropic.com',
+    APP_URL: 'https://claude-test-production-8672.up.railway.app',
     PORT: 3000,
   },
 }))
@@ -56,13 +57,13 @@ describe('CPF Validator', () => {
 
 describe('Open Redirect Validator', () => {
   it('permite origens da whitelist', () => {
-    expect(isAllowedRedirectUri('https://facilitaprep.manus.space/callback')).toBe(true)
+    expect(isAllowedRedirectUri('https://claude-test-production-8672.up.railway.app/callback')).toBe(true)
     expect(isAllowedRedirectUri('http://localhost:5173/callback')).toBe(true)
   })
 
   it('bloqueia redirecionamento para domínios externos', () => {
     expect(isAllowedRedirectUri('https://malicioso.com/phishing')).toBe(false)
-    expect(isAllowedRedirectUri('https://facilitaprep.manus.space.evil.com/')).toBe(false)
+    expect(isAllowedRedirectUri('https://claude-test-production-8672.up.railway.app.evil.com/')).toBe(false)
     expect(isAllowedRedirectUri('javascript:alert(1)')).toBe(false)
   })
 

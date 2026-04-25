@@ -23,7 +23,6 @@ export const ALLOWED_MIME_TYPES = [
 export const ALLOWED_ORIGINS = [
   'http://localhost:5173',
   'http://localhost:3000',
-  'https://facilitaprep.manus.space',
   'https://claude-test-production-8672.up.railway.app',
 ] as const
 
