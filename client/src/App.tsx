@@ -75,7 +75,9 @@ export default function App() {
             <Route path="/pesquisa/:pacienteId/:token" component={PesquisaSatisfacao} />
             <Route path="/pagamento/sucesso" component={PagamentoSucesso} />
             <Route path="/pagamento/cancelado" component={PagamentoCancelado} />
-            <Route path="/equipe" component={LoginPage} />
+            <Route path="/equipe">
+              {role === 'admin' ? <AuditDashboard /> : <LoginPage />}
+            </Route>
             <Route path="/" component={IntakePage} />
             <Route component={NotFound} />
           </Switch>
@@ -97,7 +99,17 @@ function AuthCallback() {
   const callbackMutation = trpc.auth.callback.useMutation({
     onSuccess: (data: { token: string }) => {
       setToken(data.token)
-      window.location.href = '/'
+      const session = parseJwtPayload(data.token)
+      const role = session?.type === 'staff' ? session.role : null
+      if (role === 'admin') {
+        window.location.href = '/equipe'
+      } else if (role === 'medico') {
+        window.location.href = '/medico'
+      } else if (role === 'secretaria') {
+        window.location.href = '/secretaria'
+      } else {
+        window.location.href = '/'
+      }
     },
   })
 
