@@ -1,6 +1,28 @@
 import type { Request, Response, NextFunction } from 'express'
-import { ALLOWED_ORIGINS } from '../../shared/security-constants.ts'
 import { env } from './env.ts'
+
+function buildAllowedOrigins(): string[] {
+  const origins = new Set<string>()
+
+  origins.add(env.APP_URL)
+
+  if (env.ALLOWED_ORIGINS) {
+    for (const o of env.ALLOWED_ORIGINS.split(',')) {
+      const trimmed = o.trim()
+      if (trimmed) origins.add(trimmed)
+    }
+  }
+
+  return Array.from(origins)
+}
+
+const allowedOrigins = buildAllowedOrigins()
+
+function isOriginAllowed(value: string): boolean {
+  if (!value) return false
+  if (/^https?:\/\/localhost(:\d+)?/.test(value)) return true
+  return allowedOrigins.some((o) => value === o || value.startsWith(o))
+}
 
 export function validateOrigin(req: Request, res: Response, next: NextFunction): void {
   const origin = req.headers.origin ?? ''
@@ -11,11 +33,7 @@ export function validateOrigin(req: Request, res: Response, next: NextFunction):
     return
   }
 
-  const allowed = ALLOWED_ORIGINS as readonly string[]
-  const originOk = allowed.some((o) => origin.startsWith(o))
-  const refererOk = allowed.some((o) => referer.startsWith(o))
-
-  if (!originOk && !refererOk) {
+  if (!isOriginAllowed(origin) && !isOriginAllowed(referer)) {
     res.status(403).json({ error: 'Origin não permitida' })
     return
   }
@@ -34,10 +52,10 @@ export function validateOAuthState(state: string, expected: string): boolean {
 }
 
 export function isAllowedRedirectUri(uri: string): boolean {
-  const allowed = ALLOWED_ORIGINS as readonly string[]
   try {
     const parsed = new URL(uri)
-    return allowed.some((o) => {
+    if (/^localhost(:\d+)?$/.test(parsed.host)) return true
+    return allowedOrigins.some((o) => {
       const base = new URL(o)
       return parsed.origin === base.origin
     })

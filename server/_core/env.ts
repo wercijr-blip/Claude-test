@@ -34,6 +34,7 @@ const envSchema = z.object({
   ZAPI_TOKEN: z.string().optional(),
 
   APP_URL: z.string().url().default('https://facilitaprep.manus.space'),
+  ALLOWED_ORIGINS: z.string().optional(),
 
   PORT: z.coerce.number().default(3000),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
