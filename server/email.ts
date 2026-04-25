@@ -25,7 +25,7 @@ function baseTemplate(titulo: string, corpo: string): string {
     </div>
     <div style="padding:16px 32px;background:#f8fafc;border-top:1px solid #e2e8f0;">
       <p style="margin:0;font-size:11px;color:#94a3b8;">
-        Facilita PrEP · facilitaprep.manus.space<br>
+        Facilita PrEP · claude-test-production-8672.up.railway.app<br>
         Este e-mail é confidencial e destina-se exclusivamente ao destinatário.
       </p>
     </div>
