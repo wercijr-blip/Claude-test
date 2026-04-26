@@ -5,6 +5,13 @@ import { logger } from '../utils/logger.js'
 export async function router(phone, text) {
   const session = await getSession(phone)
 
+  // Pesquisa de satisfação tem prioridade — não interromper com palavras de reinício
+  if (session?.flow === 'PESQUISA') {
+    const { run } = await import('../flows/pesquisa-flow.js')
+    await run(phone, text, session)
+    return
+  }
+
   if (!session || session.step === 'START' || isRestartKeyword(text)) {
     await clearSession(phone)
     const { run } = await import('../flows/menu-flow.js')
@@ -42,6 +49,11 @@ export async function router(phone, text) {
     }
     case 'FAQ': {
       const { run } = await import('../flows/autorizacao-faq.js')
+      await run(phone, text, session)
+      break
+    }
+    case 'PESQUISA': {
+      const { run } = await import('../flows/pesquisa-flow.js')
       await run(phone, text, session)
       break
     }

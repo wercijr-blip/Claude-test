@@ -8,6 +8,7 @@ import { mkdirSync, existsSync } from 'fs'
 import db from './src/services/db.js'
 import { logger } from './src/utils/logger.js'
 import { seedKnowledgeBase } from './src/services/knowledge.js'
+import { initScheduler } from './src/services/scheduler.js'
 import webhookRouter from './src/webhook/index.js'
 import apiRouter from './src/panel/routes/index.js'
 
@@ -20,6 +21,7 @@ if (!existsSync(uploadsDir)) mkdirSync(uploadsDir, { recursive: true })
 logger.info('Banco de dados inicializado')
 
 await seedKnowledgeBase()
+initScheduler()
 
 const app = express()
 app.use(express.json())

@@ -3,7 +3,7 @@ import multer from 'multer'
 import { mkdirSync, existsSync } from 'fs'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
-import { getAgendamentos, deactivateKnowledge, getKnowledge } from '../../services/db.js'
+import { getAgendamentos, deactivateKnowledge, getKnowledge, getSatisfactionResponses } from '../../services/db.js'
 import db from '../../services/db.js'
 import { generateExcel } from '../../services/export.js'
 import { ingestDocument } from '../../services/knowledge.js'
@@ -55,6 +55,22 @@ apiRouter.get('/stats', (req, res) => {
 apiRouter.get('/medication-requests', (req, res) => {
   const rows = db.prepare('SELECT * FROM medication_requests ORDER BY created_at DESC').all()
   res.json({ total: rows.length, data: rows })
+})
+
+// GET /api/satisfaction
+apiRouter.get('/satisfaction', (req, res) => {
+  const rows = getSatisfactionResponses()
+  const stats = db.prepare(`
+    SELECT
+      ROUND(AVG(nota), 1) as media,
+      COUNT(*) as total,
+      COUNT(CASE WHEN nota = 5 THEN 1 END) as excelente,
+      COUNT(CASE WHEN nota = 4 THEN 1 END) as bom,
+      COUNT(CASE WHEN nota = 3 THEN 1 END) as regular,
+      COUNT(CASE WHEN nota <= 2 THEN 1 END) as ruim
+    FROM satisfaction_responses
+  `).get()
+  res.json({ data: rows, stats })
 })
 
 // POST /api/export

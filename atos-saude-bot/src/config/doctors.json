@@ -6,6 +6,7 @@
       "crm": "CRM 16.381-DF",
       "especialidade": "Infectologia",
       "calendarId": "PREENCHER",
+      "whatsapp": "PREENCHER_NUMERO_COM_DDI",
       "slotDurationMinutes": 30,
       "active": true
     },
@@ -15,6 +16,7 @@
       "crm": "PREENCHER",
       "especialidade": "Reumatologia",
       "calendarId": "PREENCHER",
+      "whatsapp": "PREENCHER_NUMERO_COM_DDI",
       "slotDurationMinutes": 30,
       "active": false
     }

@@ -78,7 +78,29 @@ db.exec(`
     active INTEGER DEFAULT 1,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
+
+  CREATE TABLE IF NOT EXISTS reminders_sent (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    agendamento_id INTEGER NOT NULL,
+    tipo TEXT NOT NULL,
+    sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(agendamento_id, tipo)
+  );
+
+  CREATE TABLE IF NOT EXISTS satisfaction_responses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    phone TEXT,
+    agendamento_id INTEGER,
+    medico_nome TEXT,
+    especialidade TEXT,
+    nota INTEGER,
+    comentario TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
 `)
+
+// Adiciona coluna agendamento_id à tabela sessions se ainda não existir
+try { db.exec('ALTER TABLE sessions ADD COLUMN agendamento_id TEXT') } catch {}
 
 // Sessions
 export function getSession(phone) {
@@ -170,6 +192,40 @@ export function markExported(ids) {
 
 export function cleanOldSessions(maxAgeMinutes = 30) {
   db.prepare(`DELETE FROM sessions WHERE updated_at < datetime('now', '-${maxAgeMinutes} minutes')`).run()
+}
+
+// Reminders
+export function wasReminderSent(agendamentoId, tipo) {
+  const row = db.prepare('SELECT id FROM reminders_sent WHERE agendamento_id = ? AND tipo = ?').get(agendamentoId, tipo)
+  return !!row
+}
+
+export function markReminderSent(agendamentoId, tipo) {
+  db.prepare('INSERT OR IGNORE INTO reminders_sent (agendamento_id, tipo) VALUES (?, ?)').run(agendamentoId, tipo)
+}
+
+// Consultas com slot_datetime para o scheduler
+export function getAgendamentosComSlot({ dateMin, dateMax } = {}) {
+  let query = `SELECT * FROM agendamentos WHERE slot_datetime IS NOT NULL AND status != 'CANCELADO'`
+  const params = []
+  if (dateMin) { query += ' AND slot_datetime >= ?'; params.push(dateMin) }
+  if (dateMax) { query += ' AND slot_datetime <= ?'; params.push(dateMax) }
+  query += ' ORDER BY slot_datetime ASC'
+  return db.prepare(query).all(...params)
+}
+
+// Pesquisa de satisfação
+export function insertSatisfactionResponse(data) {
+  const keys = Object.keys(data)
+  const stmt = db.prepare(
+    `INSERT INTO satisfaction_responses (${keys.join(', ')}) VALUES (${keys.map(k => '@' + k).join(', ')})`
+  )
+  const result = stmt.run(data)
+  return result.lastInsertRowid
+}
+
+export function getSatisfactionResponses() {
+  return db.prepare('SELECT * FROM satisfaction_responses ORDER BY created_at DESC').all()
 }
 
 export default db
