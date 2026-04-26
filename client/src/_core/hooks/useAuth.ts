@@ -17,7 +17,9 @@ export function useAuth() {
 
   const logout = useCallback(() => setToken(null), [setToken])
 
-  const getToken = useCallback(() => token, [token])
+  // Read directly from localStorage so the reference is stable and the tRPC
+  // client (created once via useState) always gets the current token.
+  const getToken = useCallback(() => localStorage.getItem(TOKEN_KEY), [])
 
   return { token, setToken, logout, getToken, isAuthenticated: !!token }
 }
