@@ -18,15 +18,27 @@ export const PESQUISA_QUEUE_NAME = 'pesquisa-satisfacao'
 
 const connection = new IORedis(env.REDIS_URL, { maxRetriesPerRequest: null })
 
-// Upstash Redis has a 500k/month request limit on the free plan.
-// BullMQ default polling (stalledInterval=30s, drainDelay=5s) burns through
-// that budget in days with multiple workers. These settings reduce polling
-// to ~3k requests/day without affecting job throughput — jobs are still
-// processed immediately when enqueued via LPUSH notification.
-const WORKER_DEFAULTS = {
-  stalledInterval: 5 * 60 * 1000,  // check stalled jobs every 5 min (was 30s)
-  drainDelay: 30 * 1000,           // wait 30s between empty-queue polls (was 5s)
+// Upstash Redis free tier: 500k commands/month.
+// BullMQ defaults burn through it in ~4 days with 3 active workers:
+//   stalledInterval=30s × 3 workers = 6 stall-checks/min = ~260k checks/month
+//   drainDelay=5s       × 3 workers = 36 polls/min       = ~1.5M polls/month
+//
+// drainDelay unit is SECONDS in BullMQ (not ms).
+// Tuned per worker urgency — target: <80k commands/month total.
+const SHARED_WORKER_SETTINGS = {
+  lockDuration: 60_000,           // 60s lock (default 30s) — halves renewal RPCs
+  stalledInterval: 60_000,        // stall check every 60s (default 30s)
+  maxStalledCount: 1,             // move to failed after 1 stall (BullMQ default, explicit)
+  removeOnComplete: { count: 10 }, // don't accumulate finished jobs in Redis
+  removeOnFail: { count: 50 },
 } as const
+
+// Real-time: patient waits for docs — keep drainDelay short
+const PDF_WORKER_OPTS    = { ...SHARED_WORKER_SETTINGS, drainDelay: 15 }  // 15s
+// Delayed 24h: no urgency — poll infrequently
+const PESQUISA_WORKER_OPTS = { ...SHARED_WORKER_SETTINGS, drainDelay: 120 } // 2min
+// Daily cron at 11h: poll very infrequently
+const LEMBRETE_WORKER_OPTS = { ...SHARED_WORKER_SETTINGS, drainDelay: 300 } // 5min
 
 export const pdfQueue = new Queue(PDF_QUEUE_NAME, { connection })
 export const lembreteQueue = new Queue(LEMBRETE_QUEUE_NAME, { connection })
@@ -175,7 +187,7 @@ export function startPdfWorker() {
 
       return { pdfsGerados: gerados.length }
     },
-    { connection, concurrency: 3, ...WORKER_DEFAULTS },
+    { connection, concurrency: 3, ...PDF_WORKER_OPTS },
   )
 
   worker.on('failed', (job, err) => {
@@ -211,7 +223,7 @@ export function startPesquisaWorker() {
         await enviarWhatsApp(telefone, msg).catch(console.error)
       }
     },
-    { connection, ...WORKER_DEFAULTS },
+    { connection, ...PESQUISA_WORKER_OPTS },
   )
 
   worker.on('failed', (job, err) => {
@@ -270,7 +282,7 @@ export function startLembreteWorker() {
 
       return { enviados: pendentes.length }
     },
-    { connection, ...WORKER_DEFAULTS },
+    { connection, ...LEMBRETE_WORKER_OPTS },
   )
 
   worker.on('failed', (job, err) => {
