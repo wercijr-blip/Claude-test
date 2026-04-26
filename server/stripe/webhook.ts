@@ -31,7 +31,7 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
   // ------------------------------------------------------------------
   // 1. Pre-flight: signature header + secret must be present
   // ------------------------------------------------------------------
-  if (!sig) {
+ log('INFO', `req.body type: ${typeof req.body}, isBuffer: ${Buffer.isBuffer(req.body)}, length: ${(req.body as Buffer)?.length || 'N/A'}`) if (!sig) {
     log('ERROR', 'Missing stripe-signature header — returning 400')
     res.status(400).json({ error: 'stripe-signature header ausente' })
     return
