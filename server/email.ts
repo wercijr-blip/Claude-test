@@ -4,7 +4,7 @@ import { env } from './_core/env.ts'
 const resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null
 
 async function send(opts: {
-  to: string
+  to: string | string[]
   subject: string
   html: string
   attachments?: { filename: string; content: Buffer }[]
@@ -14,7 +14,7 @@ async function send(opts: {
     return
   }
   const { error } = await resend.emails.send({
-    from: env.RESEND_FROM,
+    from: env.EMAIL_FROM,
     to: opts.to,
     subject: opts.subject,
     html: opts.html,
@@ -23,26 +23,8 @@ async function send(opts: {
   if (error) throw new Error(`Resend: ${error.message}`)
 }
 
-async function sendMultiple(opts: {
-  to: string[]
-  subject: string
-  html: string
-}): Promise<void> {
-  if (!resend) {
-    console.warn('[email] RESEND_API_KEY não configurado — e-mail não enviado:', opts.subject)
-    return
-  }
-  const { error } = await resend.emails.send({
-    from: env.RESEND_FROM,
-    to: opts.to,
-    subject: opts.subject,
-    html: opts.html,
-  })
-  if (error) throw new Error(`Resend: ${error.message}`)
-}
-
 function baseTemplate(titulo: string, corpo: string): string {
-  const dominio = (env.APP_URL ?? 'https://facilitaprep.com.br').replace('https://', '').replace('http://', '')
+  const dominio = env.APP_URL.replace('https://', '').replace('http://', '')
   return `
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -212,7 +194,7 @@ export async function enviarNotificacaoNovoPlano(
   dashboardUrl: string,
 ): Promise<void> {
   if (!emails.length) return
-  await sendMultiple({
+  await send({
     to: emails,
     subject: `Novo paciente aguardando validação — ${plano}`,
     html: baseTemplate(
@@ -395,7 +377,7 @@ export async function enviarNotificacaoMedicoPendente(
     ? '<strong>ATENÇÃO URGENTE:</strong> Resultado HIV possivelmente reagente. Requer avaliação imediata.'
     : `Motivo: <strong>${motivo}</strong>`
 
-  await sendMultiple({
+  await send({
     to: emails,
     subject,
     html: baseTemplate(

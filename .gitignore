@@ -47,5 +47,5 @@ desktop.ini
 # ── Drizzle (arquivos gerados) ────────────────────────────
 drizzle/meta/
 
-# ── PDFs de teste ──────────────────────────────────────────
+# ── PDFs de teste/preview (gerados localmente) ────────────
 pdf-preview/
