@@ -7,8 +7,10 @@ import { getAgendamentos, getAgendamentoById, updateAgendamentoStatus, deactivat
 import db from '../../services/db.js'
 import { generateExcel } from '../../services/export.js'
 import { ingestDocument } from '../../services/knowledge.js'
-import { deleteEvent, createBlockEvent } from '../../services/calendar.js'
+import { deleteEvent, createBlockEvent, createEvent, getDoctorSlots } from '../../services/calendar.js'
 import { sendText } from '../../services/whatsapp.js'
+import { msg } from '../../utils/messages.js'
+import { fmtHora, fmtData } from '../../services/scheduler.js'
 import { readFileSync } from 'fs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -149,6 +151,99 @@ apiRouter.post('/calendar/bloquear', async (req, res) => {
     pacientesNotificados: resultados.length,
     detalhes: resultados
   })
+})
+
+// GET /api/slots?doctorId=X&date=YYYY-MM-DD  (horários disponíveis para marcação manual)
+apiRouter.get('/slots', async (req, res) => {
+  const { doctorId, date } = req.query
+  if (!doctorId || !date) return res.status(400).json({ error: 'doctorId e date são obrigatórios.' })
+  try {
+    const slots = await getDoctorSlots(doctorId, 30, 50)
+    const filtered = slots.filter(s => {
+      const d = new Date(s.datetime)
+      const slotDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      return slotDate === date
+    })
+    res.json(filtered.map(s => ({
+      iso: new Date(s.datetime).toISOString(),
+      hora: fmtHora(s.datetime),
+      doctorId: s.doctorId,
+      doctorNome: s.doctorNome,
+      especialidade: s.especialidade
+    })))
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// POST /api/agendamentos/manual  (marcação manual pela secretária)
+apiRouter.post('/agendamentos/manual', async (req, res) => {
+  const { doctorId, slotISO, nome, nascimento, telefone, tipoAtendimento, convenio, phone } = req.body
+  if (!doctorId || !slotISO || !nome || !nascimento || !telefone) {
+    return res.status(400).json({ error: 'Campos obrigatórios: doctorId, slotISO, nome, nascimento, telefone.' })
+  }
+
+  const doctorsConfig = JSON.parse(readFileSync(
+    new URL('../../config/doctors.json', import.meta.url), 'utf-8'
+  ))
+  const doctor = doctorsConfig.doctors.find(d => d.id === doctorId)
+  if (!doctor) return res.status(404).json({ error: 'Médico não encontrado.' })
+
+  // Cria evento no Google Calendar
+  const patientData = { nome, nascimento, telefone_contato: telefone, convenio_informado: convenio, especialidade: doctor.especialidade }
+  const googleEventId = await createEvent(doctorId, new Date(slotISO), patientData)
+
+  // Salva no banco
+  const agId = insertAgendamento({
+    phone: phone || null,
+    tipo: 'CONSULTA',
+    especialidade: doctor.especialidade,
+    medico_nome: doctor.nome,
+    medico_id: doctorId,
+    slot_datetime: new Date(slotISO).toISOString(),
+    tipo_atendimento: tipoAtendimento || 'CONVENIO',
+    convenio_informado: convenio || null,
+    nome,
+    nascimento,
+    telefone_contato: telefone,
+    google_event_id: googleEventId,
+    status: 'CONFIRMADO'
+  })
+
+  // Envia confirmação ao paciente (se tiver WhatsApp)
+  if (phone) {
+    const { diaSemana, data } = fmtData(slotISO)
+    const hora = fmtHora(slotISO)
+    await sendText(phone, msg('confirmacao_marcacao_manual', {
+      nome, medico: doctor.nome, especialidade: doctor.especialidade, diaSemana, data, hora
+    }))
+  }
+
+  res.json({ ok: true, agId, googleEventId })
+})
+
+// GET /api/messages  (leitura das mensagens configuráveis)
+apiRouter.get('/messages', (req, res) => {
+  try {
+    const m = JSON.parse(readFileSync(
+      new URL('../../config/messages.json', import.meta.url), 'utf-8'
+    ))
+    res.json(m)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// PUT /api/messages  (salva mensagens editadas)
+apiRouter.put('/messages', async (req, res) => {
+  try {
+    const { writeFileSync } = await import('fs')
+    const filePath = new URL('../../config/messages.json', import.meta.url)
+    writeFileSync(filePath, JSON.stringify(req.body, null, 2), 'utf-8')
+    res.json({ ok: true })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
 })
 
 // GET /api/doctors

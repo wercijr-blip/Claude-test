@@ -1,5 +1,6 @@
 import { sendText } from '../services/whatsapp.js'
 import { upsertSession, clearSession, getSession, insertSatisfactionResponse } from '../services/db.js'
+import { msg } from '../utils/messages.js'
 import { logger } from '../utils/logger.js'
 
 const NOTAS = {
@@ -28,19 +29,8 @@ export async function run(phone, text, session) {
 
       await upsertSession(phone, { step: 'AGUARDANDO_COMENTARIO', slots_json: opt })
 
-      if (opt === '5' || opt === '4') {
-        await sendText(phone,
-          `${nota.emoji} Que ótimo! Ficamos muito felizes com sua avaliação *${nota.label}*!\n\n` +
-          `Gostaria de deixar algum comentário? (opcional)\n\n` +
-          `Envie seu comentário ou *0* para encerrar.`
-        )
-      } else {
-        await sendText(phone,
-          `${nota.emoji} Obrigado pelo retorno. Lamentamos que sua experiência tenha sido *${nota.label}*.\n\n` +
-          `Poderia nos contar o que aconteceu? Seu feedback é muito importante para melhorarmos! 🙏\n\n` +
-          `Envie seu comentário ou *0* para encerrar.`
-        )
-      }
+      const chave = (opt === '4' || opt === '5') ? 'pesquisa_positiva_comentario' : 'pesquisa_negativa_comentario'
+      await sendText(phone, msg(chave, { emoji: nota.emoji, label: nota.label }))
       break
     }
 
@@ -63,21 +53,8 @@ export async function run(phone, text, session) {
       logger.info({ phone, nota: notaNum, agendamentoId: fresh?.agendamento_id }, 'Pesquisa de satisfação salva')
       await clearSession(phone)
 
-      if (notaNum >= 4) {
-        await sendText(phone,
-          `${notaInfo.emoji} *Muito obrigado pela sua avaliação!*\n\n` +
-          `É um prazer cuidar da sua saúde!\n\n` +
-          `Se precisar de algo, estamos sempre aqui. 😊\n` +
-          `*Atos Saúde Integrada* 🏥`
-        )
-      } else {
-        await sendText(phone,
-          `${notaInfo.emoji} *Obrigado pelo seu feedback!*\n\n` +
-          `Vamos analisar sua avaliação para melhorar nosso atendimento.\n\n` +
-          `Se quiser falar com nossa equipe, envie *oi*. 😊\n` +
-          `*Atos Saúde Integrada* | (61) 4042-7188 🏥`
-        )
-      }
+      const chaveAgrad = notaNum >= 4 ? 'pesquisa_agradecimento_positivo' : 'pesquisa_agradecimento_negativo'
+      await sendText(phone, msg(chaveAgrad, { emoji: notaInfo.emoji }))
       break
     }
 
