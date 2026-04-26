@@ -209,9 +209,13 @@ export const consultasInicio = mysqlTable('consultas_inicio', {
   pedidoIstS3Key: varchar('pedido_ist_s3_key', { length: 500 }),
   pedidoHivS3Key: varchar('pedido_hiv_s3_key', { length: 500 }),
   pedidoDensitometriaS3Key: varchar('pedido_densitometria_s3_key', { length: 500 }),
+  // status values: aguardando_escolha | aguardando_upload | em_validacao_ia |
+  //   rejeitado_data_invalida | pendente_revisao_medica | pendente_revisao_medica_urgente |
+  //   aprovado_ia | aprovado | rejeitado | em_validacao_medica | expirado
   status: varchar('status', { length: 50 }).notNull().default('aguardando_escolha'),
   resultadoIa: json('resultado_ia'),
   motivoRejeicao: varchar('motivo_rejeicao', { length: 200 }),
+  tentativasReenvio: int('tentativas_reenvio').notNull().default(0),
   validadoPorId: int('validado_por_id'),
   validadoEm: datetime('validado_em'),
   dataExameValidado: varchar('data_exame_validado', { length: 20 }),

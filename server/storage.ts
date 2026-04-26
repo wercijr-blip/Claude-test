@@ -79,15 +79,20 @@ export function uploadExame(req: Request, res: Response): Promise<void> {
         return
       }
 
-      // Intake document upload (carteirinha, RG/CNH) — no pacienteId required
-      if (req.body.tipo === 'documento_intake') {
+      // Uploads that don't require a pacienteId — returns s3Key only (no DB insert)
+      const unauthTypes: Record<string, string> = {
+        'documento_intake': 'intake/documentos',
+        'exame_hiv': 'exames-inicio',
+      }
+      const unauthFolder = unauthTypes[req.body.tipo as string]
+      if (unauthFolder) {
         const ext = MIME_TO_EXT[req.file.mimetype] ?? 'bin'
-        const s3Key = `intake/documentos/${randomUUID()}.${ext}`
+        const s3Key = `${unauthFolder}/${randomUUID()}.${ext}`
         try {
           await uploadBuffer(s3Key, req.file.buffer, req.file.mimetype)
           res.json({ ok: true, s3Key })
         } catch (err) {
-          console.error('[storage] Erro no upload de documento intake:', err)
+          console.error(`[storage] Erro no upload (${req.body.tipo}):`, err)
           res.status(500).json({ error: 'Erro ao salvar arquivo' })
         }
         resolve()
