@@ -164,6 +164,50 @@ export async function createEvent(doctorId, slotDatetime, patientData) {
   }
 }
 
+// Remove um evento existente do Google Calendar
+export async function deleteEvent(doctorId, eventId) {
+  const cal = getCalendarClient()
+  const doctor = doctorsConfig.doctors.find(d => d.id === doctorId)
+  if (!cal || !doctor || doctor.calendarId === 'PREENCHER' || !eventId) return false
+
+  try {
+    await cal.events.delete({ calendarId: doctor.calendarId, eventId })
+    logger.info({ doctorId, eventId }, 'Evento removido do Google Calendar')
+    return true
+  } catch (err) {
+    // 410 = já deletado
+    if (err.code === 410) return true
+    logger.error({ doctorId, eventId, err: err.message }, 'Erro ao deletar evento do Google Calendar')
+    return false
+  }
+}
+
+// Cria um evento de bloqueio no Google Calendar (impede novos agendamentos)
+export async function createBlockEvent(doctorId, startISO, endISO, motivo = 'BLOQUEADO') {
+  const cal = getCalendarClient()
+  const doctor = doctorsConfig.doctors.find(d => d.id === doctorId)
+  if (!cal || !doctor || doctor.calendarId === 'PREENCHER') return null
+
+  try {
+    const event = await cal.events.insert({
+      calendarId: doctor.calendarId,
+      requestBody: {
+        summary: `🚫 ${motivo}`,
+        description: `Período bloqueado pela clínica.\nMédico: ${doctor.nome}`,
+        start: { dateTime: startISO },
+        end: { dateTime: endISO },
+        colorId: '11',
+        transparency: 'opaque'
+      }
+    })
+    logger.info({ doctorId, start: startISO, end: endISO, motivo }, 'Bloqueio criado no Google Calendar')
+    return event.data.id
+  } catch (err) {
+    logger.error({ doctorId, err: err.message }, 'Erro ao criar bloqueio no Google Calendar')
+    return null
+  }
+}
+
 export function formatSlots(slots) {
   const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
   const nums = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣']

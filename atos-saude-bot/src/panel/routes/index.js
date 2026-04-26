@@ -3,10 +3,13 @@ import multer from 'multer'
 import { mkdirSync, existsSync } from 'fs'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
-import { getAgendamentos, deactivateKnowledge, getKnowledge, getSatisfactionResponses } from '../../services/db.js'
+import { getAgendamentos, getAgendamentoById, updateAgendamentoStatus, deactivateKnowledge, getKnowledge, getSatisfactionResponses } from '../../services/db.js'
 import db from '../../services/db.js'
 import { generateExcel } from '../../services/export.js'
 import { ingestDocument } from '../../services/knowledge.js'
+import { deleteEvent, createBlockEvent } from '../../services/calendar.js'
+import { sendText } from '../../services/whatsapp.js'
+import { readFileSync } from 'fs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const UPLOADS_DIR = join(__dirname, '../../../uploads')
@@ -55,6 +58,110 @@ apiRouter.get('/stats', (req, res) => {
 apiRouter.get('/medication-requests', (req, res) => {
   const rows = db.prepare('SELECT * FROM medication_requests ORDER BY created_at DESC').all()
   res.json({ total: rows.length, data: rows })
+})
+
+// POST /api/agendamentos/:id/cancelar
+apiRouter.post('/agendamentos/:id/cancelar', async (req, res) => {
+  const ag = getAgendamentoById(Number(req.params.id))
+  if (!ag) return res.status(404).json({ error: 'Agendamento não encontrado.' })
+  if (ag.status === 'CANCELADO') return res.json({ ok: true, msg: 'Já estava cancelado.' })
+
+  // 1. Atualiza status no banco
+  updateAgendamentoStatus(ag.id, 'CANCELADO')
+
+  // 2. Remove evento do Google Calendar (se existir)
+  let gcalRemovido = false
+  if (ag.google_event_id && ag.medico_id) {
+    gcalRemovido = await deleteEvent(ag.medico_id, ag.google_event_id)
+  }
+
+  // 3. Notifica o paciente via WhatsApp (se tiver telefone)
+  let pacienteNotificado = false
+  if (ag.phone) {
+    let dataHora = ''
+    if (ag.slot_datetime) {
+      const d = new Date(ag.slot_datetime)
+      const pad = n => String(n).padStart(2, '0')
+      dataHora = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} às ${pad(d.getHours())}h${pad(d.getMinutes())}`
+    }
+    const msg =
+      `⚠️ Olá, *${ag.nome}*!\n\n` +
+      `Precisamos informar que sua consulta foi *cancelada*:\n\n` +
+      `🩺 ${ag.especialidade || 'Consulta médica'}\n` +
+      `👨‍⚕️ ${ag.medico_nome || 'Médico da Atos Saúde'}\n` +
+      (dataHora ? `📅 ${dataHora}\n` : '') +
+      `\nPor favor, entre em contato para reagendar:\n` +
+      `📞 *(61) 4042-7188*\n` +
+      `_Pedimos desculpas pelo transtorno._ 🙏\n` +
+      `*Atos Saúde Integrada* 🏥`
+    pacienteNotificado = await sendText(ag.phone, msg)
+  }
+
+  res.json({ ok: true, gcalRemovido, pacienteNotificado })
+})
+
+// POST /api/calendar/bloquear
+apiRouter.post('/calendar/bloquear', async (req, res) => {
+  const { doctorId, startISO, endISO, motivo } = req.body
+  if (!doctorId || !startISO || !endISO) {
+    return res.status(400).json({ error: 'doctorId, startISO e endISO são obrigatórios.' })
+  }
+
+  // Cancela e notifica todos os agendamentos de CONSULTA do médico naquele período
+  const afetados = db.prepare(`
+    SELECT * FROM agendamentos
+    WHERE medico_id = ? AND slot_datetime >= ? AND slot_datetime <= ?
+    AND tipo = 'CONSULTA' AND status != 'CANCELADO'
+  `).all(doctorId, startISO, endISO)
+
+  const resultados = []
+  for (const ag of afetados) {
+    updateAgendamentoStatus(ag.id, 'CANCELADO')
+    if (ag.google_event_id) await deleteEvent(ag.medico_id, ag.google_event_id)
+
+    if (ag.phone) {
+      let dataHora = ''
+      if (ag.slot_datetime) {
+        const d = new Date(ag.slot_datetime)
+        const pad = n => String(n).padStart(2, '0')
+        dataHora = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} às ${pad(d.getHours())}h${pad(d.getMinutes())}`
+      }
+      const msg =
+        `⚠️ Olá, *${ag.nome}*!\n\n` +
+        `Infelizmente a agenda do *${ag.medico_nome || 'médico'}* ` +
+        `precisou ser *cancelada*${motivo ? ` (${motivo})` : ''}.\n\n` +
+        (dataHora ? `📅 Sua consulta: *${dataHora}*\n\n` : '') +
+        `Por favor, entre em contato para reagendar:\n` +
+        `📞 *(61) 4042-7188*\n` +
+        `_Pedimos desculpas pelo inconveniente._ 🙏\n` +
+        `*Atos Saúde Integrada* 🏥`
+      await sendText(ag.phone, msg)
+    }
+    resultados.push({ id: ag.id, nome: ag.nome })
+  }
+
+  // Cria evento de bloqueio no Google Calendar
+  const blockEventId = await createBlockEvent(doctorId, startISO, endISO, motivo || 'BLOQUEADO')
+
+  res.json({
+    ok: true,
+    blockEventId,
+    pacientesNotificados: resultados.length,
+    detalhes: resultados
+  })
+})
+
+// GET /api/doctors
+apiRouter.get('/doctors', (req, res) => {
+  try {
+    const config = JSON.parse(readFileSync(
+      new URL('../../config/doctors.json', import.meta.url),
+      'utf-8'
+    ))
+    res.json(config.doctors.filter(d => d.active))
+  } catch {
+    res.json([])
+  }
 })
 
 // GET /api/satisfaction

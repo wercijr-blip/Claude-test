@@ -126,6 +126,14 @@ export function clearSession(phone) {
 }
 
 // Agendamentos
+export function getAgendamentoById(id) {
+  return db.prepare('SELECT * FROM agendamentos WHERE id = ?').get(id) || null
+}
+
+export function updateAgendamentoStatus(id, status) {
+  db.prepare('UPDATE agendamentos SET status = ? WHERE id = ?').run(status, id)
+}
+
 export function insertAgendamento(data) {
   const keys = Object.keys(data)
   const stmt = db.prepare(
