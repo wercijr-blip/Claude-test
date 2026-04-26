@@ -3,6 +3,7 @@ import { readFile } from 'fs/promises'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import forge from 'node-forge'
+import { env } from './_core/env.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const CERTS_DIR = path.join(__dirname, 'certs')
@@ -66,6 +67,14 @@ export async function gerarPrescricaoPdf(paciente: Paciente): Promise<Buffer> {
     page.drawText(prescricao.observacoes, { x: margin, y, font, size: 9, color: rgb(0.2, 0.2, 0.2), maxWidth: width - margin * 2 })
     y -= 30
   }
+
+  // Validade (4 meses)
+  y -= 20
+  const validadeDate = new Date()
+  validadeDate.setMonth(validadeDate.getMonth() + 4)
+  const dataValidade = validadeDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+  page.drawText('Validade da Receita:', { x: margin, y, font: fontBold, size: 10, color: rgb(0.07, 0.27, 0.52) })
+  page.drawText(`Até ${dataValidade} (4 meses)`, { x: margin + 120, y, font, size: 10, color: rgb(0.1, 0.1, 0.1) })
 
   // Rodapé
   const dataEmissao = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -206,15 +215,26 @@ export async function gerarFormularioPdf(paciente: PacienteCompleto): Promise<Bu
 }
 
 export async function assinarPdf(pdfBuffer: Buffer, titulo = 'Documento PrEP — Facilita PrEP'): Promise<PdfSignResult> {
-  const pfxPath = path.join(CERTS_DIR, 'werciley.pfx')
+  const pfxPassword = env.ICP_PFX_PASSWORD ?? ''
 
-  // Modo desenvolvimento: se o certificado não existir, devolve o PDF
-  // sem assinatura (com aviso visual de DEMO) para permitir validação local.
-  try {
-    await readFile(pfxPath)
-  } catch {
-    if (process.env.NODE_ENV !== 'production') {
-      const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib')
+  // Prioridade 1: env var ICP_PFX_BASE64 (Railway/produção)
+  // Prioridade 2: arquivo local server/certs/werciley.pfx (desenvolvimento)
+  let pfxData: Buffer | null = null
+
+  if (env.ICP_PFX_BASE64) {
+    pfxData = Buffer.from(env.ICP_PFX_BASE64, 'base64')
+  } else {
+    const pfxPath = path.join(CERTS_DIR, 'werciley.pfx')
+    try {
+      pfxData = await readFile(pfxPath)
+    } catch {
+      // Certificado não encontrado
+    }
+  }
+
+  // Sem certificado: modo DEMO (apenas em desenvolvimento)
+  if (!pfxData) {
+    if (env.NODE_ENV !== 'production') {
       const doc = await PDFDocument.load(pdfBuffer)
       const font = await doc.embedFont(StandardFonts.HelveticaBold)
       doc.getPages().forEach(p => {
@@ -227,14 +247,12 @@ export async function assinarPdf(pdfBuffer: Buffer, titulo = 'Documento PrEP —
       const buf = Buffer.from(await doc.save())
       return { buffer: buf, certificadoSerial: 'DEMO-LOCAL', assinadoEm: new Date() }
     }
-    throw new Error('Certificado ICP-Brasil não encontrado em server/certs/werciley.pfx')
+    throw new Error('Certificado ICP-Brasil não configurado. Defina ICP_PFX_BASE64 no Railway ou coloque werciley.pfx em server/certs/')
   }
 
-  const pfxBuffer = await readFile(pfxPath)
-
-  const pfxDer = pfxBuffer.toString('binary')
+  const pfxDer = pfxData.toString('binary')
   const pfxAsn1 = forge.asn1.fromDer(pfxDer)
-  const pfxObj = forge.pkcs12.pkcs12FromAsn1(pfxAsn1, '')
+  const pfxObj = forge.pkcs12.pkcs12FromAsn1(pfxAsn1, pfxPassword)
 
   // Extrair certificado e chave privada
   const certBags = pfxObj.getBags({ bagType: forge.pki.oids.certBag })

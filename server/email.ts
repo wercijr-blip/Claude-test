@@ -122,6 +122,50 @@ export async function enviarDocumentosAssinados(
   })
 }
 
+// TEMPLATE-4 — Receita PrEP pronta com assinatura ICP-Brasil
+export async function enviarPrescricaoPronta(
+  para: string,
+  nomePaciente: string,
+  anexos: { filename: string; buffer: Buffer }[],
+): Promise<void> {
+  const validadeDate = new Date()
+  validadeDate.setMonth(validadeDate.getMonth() + 4)
+  const dataValidade = validadeDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+
+  await transporter.sendMail({
+    from: `"Facilita PrEP" <${env.GMAIL_USER}>`,
+    to: para,
+    subject: 'Sua receita PrEP está pronta — Facilita PrEP',
+    html: baseTemplate(
+      'Receita PrEP pronta',
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nomePaciente}</strong>!</p>
+      <p style="color:#334155;font-size:15px;">Sua receita de PrEP foi emitida e assinada digitalmente pelo médico responsável. Todos os documentos estão em anexo neste e-mail.</p>
+      <div style="background:#f0fdf4;border-left:4px solid #16a34a;padding:16px;border-radius:4px;margin:20px 0;">
+        <p style="color:#15803d;margin:0 0 8px;font-size:14px;font-weight:600;">💊 Receita emitida com sucesso</p>
+        <p style="color:#166534;margin:0;font-size:13px;">Validade: até <strong>${dataValidade}</strong> (4 meses)</p>
+      </div>
+      <p style="color:#334155;font-size:14px;font-weight:600;">Próximos passos:</p>
+      <ol style="color:#334155;font-size:13px;line-height:1.8;padding-left:20px;margin:8px 0 16px;">
+        <li>Apresente a receita em uma farmácia ou drogaria de sua preferência</li>
+        <li>Ou retire gratuitamente em uma UDM (Unidade Dispensadora de Medicamentos) do SUS</li>
+        <li>Tome 1 comprimido de Tenofovir/Emtricitabina por dia, no mesmo horário</li>
+      </ol>
+      <div style="background:#eff6ff;border-left:4px solid #3b82f6;padding:12px 16px;border-radius:4px;margin:16px 0;">
+        <p style="color:#1e40af;margin:0;font-size:12px;">
+          Documentos assinados digitalmente com certificado ICP-Brasil conforme CFM 2.299/2021.
+          Têm validade jurídica e são aceitos em todo o território nacional.
+        </p>
+      </div>
+      <p style="color:#64748b;font-size:12px;">Guarde estes arquivos para seu controle. Em caso de dúvidas, entre em contato: <strong>(61) 4042-7188</strong></p>`,
+    ),
+    attachments: anexos.map((a) => ({
+      filename: a.filename,
+      content: a.buffer,
+      contentType: 'application/pdf',
+    })),
+  })
+}
+
 export async function enviarPesquisaSatisfacao(
   para: string,
   nomePaciente: string,

@@ -8,7 +8,7 @@ import { decrypt } from './_core/encryption.ts'
 import { gerarPrescricaoPdf, gerarFormularioPdf, assinarPdf } from './pdfSigner.ts'
 import { gerarCadastroPdf } from './pdfCadastro.ts'
 import { uploadBuffer, getBuffer } from './storage.ts'
-import { enviarLinkAcessoIntake, enviarDocumentosAssinados, enviarPesquisaSatisfacao } from './email.ts'
+import { enviarLinkAcessoIntake, enviarPrescricaoPronta, enviarPesquisaSatisfacao } from './email.ts'
 import { enviarWhatsApp } from './whatsapp.ts'
 import { gerarTokenPesquisa } from './routes/pesquisa.ts'
 
@@ -139,7 +139,21 @@ export function startPdfWorker() {
         .then(([r]) => r?.patientEmail ?? null))
 
       if (emailAddr) {
-        await enviarDocumentosAssinados(emailAddr, nome, gerados).catch(console.error)
+        await enviarPrescricaoPronta(emailAddr, nome, gerados).catch(console.error)
+      }
+
+      // WA-4: WhatsApp quando receita está pronta
+      if (telefone) {
+        const primeiroNome = nome.split(' ')[0]
+        const validadeDate = new Date()
+        validadeDate.setMonth(validadeDate.getMonth() + 4)
+        const dataValidade = validadeDate.toLocaleDateString('pt-BR')
+        const msg =
+          `Olá ${primeiroNome}! 💊 Sua receita PrEP está pronta e assinada digitalmente.\n\n` +
+          `📧 Enviamos todos os documentos para o seu e-mail com validade até ${dataValidade}.\n\n` +
+          `Apresente a receita em qualquer farmácia ou retire gratuitamente numa UDM do SUS.\n\n` +
+          `_Facilita PrEP_`
+        await enviarWhatsApp(telefone, msg).catch(console.error)
       }
 
       // Agendar pesquisa de satisfação para 24h depois

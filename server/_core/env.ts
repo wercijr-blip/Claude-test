@@ -30,6 +30,10 @@ const envSchema = z.object({
 
   REDIS_URL: z.string().default('redis://localhost:6379'),
 
+  // Certificado ICP-Brasil (Railway: base64 do .pfx; dev: arquivo em server/certs/)
+  ICP_PFX_BASE64: z.string().optional(),
+  ICP_PFX_PASSWORD: z.string().optional(),
+
   ZAPI_INSTANCE_ID: z.string().optional(),
   ZAPI_TOKEN: z.string().optional(),
 
