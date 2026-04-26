@@ -4,16 +4,24 @@ import { dirname, join } from 'path'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const MESSAGES_PATH = join(__dirname, '../config/messages.json')
+const CACHE_TTL_MS = 5000
 
-// Lê o arquivo a cada chamada para permitir edição em produção sem reiniciar
+let _cache = null
+let _cacheAt = 0
+
 function load() {
-  return JSON.parse(readFileSync(MESSAGES_PATH, 'utf-8'))
+  const now = Date.now()
+  if (!_cache || now - _cacheAt > CACHE_TTL_MS) {
+    _cache = JSON.parse(readFileSync(MESSAGES_PATH, 'utf-8'))
+    _cacheAt = now
+  }
+  return _cache
 }
 
-/**
- * Retorna a mensagem com as variáveis substituídas.
- * Uso: msg('lembrete_24h', { nome: 'João', medico: 'Dr. Werciley', ... })
- */
+export function invalidateCache() {
+  _cache = null
+}
+
 export function msg(chave, vars = {}) {
   const msgs = load()
   let texto = msgs[chave] ?? `[mensagem '${chave}' não encontrada]`

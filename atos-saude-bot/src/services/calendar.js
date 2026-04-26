@@ -5,9 +5,11 @@ import { dirname, join } from 'path'
 import { logger } from '../utils/logger.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const doctorsConfig = JSON.parse(
-  readFileSync(join(__dirname, '../config/doctors.json'), 'utf-8')
-)
+const DOCTORS_PATH = join(__dirname, '../config/doctors.json')
+
+function getDoctorsConfig() {
+  return JSON.parse(readFileSync(DOCTORS_PATH, 'utf-8'))
+}
 
 let calendar = null
 
@@ -50,7 +52,8 @@ function generateSlots(date, startTime, endTime, durationMin) {
 
 export async function getAvailableSlots(doctorId, daysAhead = 14, count = 3) {
   const cal = getCalendarClient()
-  const doctor = doctorsConfig.doctors.find(d => d.id === doctorId)
+  const cfg = getDoctorsConfig()
+  const doctor = cfg.doctors.find(d => d.id === doctorId)
   if (!doctor || !doctor.active) return []
 
   const now = new Date()
@@ -73,6 +76,10 @@ export async function getAvailableSlots(doctorId, daysAhead = 14, count = 3) {
     }
   }
 
+  // Per-doctor schedule takes priority over global working hours
+  const sched = doctor.schedule
+  const duration = sched?.duracaoConsulta || doctor.slotDurationMinutes || 30
+
   const allSlots = []
   for (let d = 0; d < daysAhead; d++) {
     const date = new Date(now)
@@ -81,20 +88,26 @@ export async function getAvailableSlots(doctorId, daysAhead = 14, count = 3) {
     const dow = date.getDay()
 
     let startTime, endTime
-    if (doctorsConfig.workingHours.weekdays.includes(dow)) {
-      startTime = doctorsConfig.workingHours.start
-      endTime = doctorsConfig.workingHours.end
-    } else if (dow === 6 && doctorsConfig.workingHours.saturday.active) {
-      startTime = doctorsConfig.workingHours.saturday.start
-      endTime = doctorsConfig.workingHours.saturday.end
+    if (sched) {
+      if (!sched.diasSemana?.includes(dow)) continue
+      startTime = sched.horarioInicio
+      endTime = sched.horarioFim
     } else {
-      continue
+      if (cfg.workingHours.weekdays.includes(dow)) {
+        startTime = cfg.workingHours.start
+        endTime = cfg.workingHours.end
+      } else if (dow === 6 && cfg.workingHours.saturday?.active) {
+        startTime = cfg.workingHours.saturday.start
+        endTime = cfg.workingHours.saturday.end
+      } else {
+        continue
+      }
     }
 
-    const daySlots = generateSlots(date, startTime, endTime, doctor.slotDurationMinutes)
+    const daySlots = generateSlots(date, startTime, endTime, duration)
     for (const slot of daySlots) {
       if (slot < minStart) continue
-      const slotEnd = new Date(slot.getTime() + doctor.slotDurationMinutes * 60 * 1000)
+      const slotEnd = new Date(slot.getTime() + duration * 60 * 1000)
       const isBusy = busyPeriods.some(b => {
         const bs = new Date(b.start)
         const be = new Date(b.end)
@@ -117,7 +130,7 @@ export async function getAvailableSlots(doctorId, daysAhead = 14, count = 3) {
 }
 
 export async function getEarliestSlots(especialidade, daysAhead = 14, count = 3) {
-  const doctors = doctorsConfig.doctors.filter(d => {
+  const doctors = getDoctorsConfig().doctors.filter(d => {
     if (!d.active) return false
     if (especialidade && especialidade !== 'Outra') {
       return d.especialidade.toLowerCase().includes(especialidade.toLowerCase())
@@ -141,7 +154,7 @@ export async function getDoctorSlots(doctorId, daysAhead = 14, count = 5) {
 
 export async function createEvent(doctorId, slotDatetime, patientData) {
   const cal = getCalendarClient()
-  const doctor = doctorsConfig.doctors.find(d => d.id === doctorId)
+  const doctor = getDoctorsConfig().doctors.find(d => d.id === doctorId)
   if (!cal || !doctor || doctor.calendarId === 'PREENCHER') return null
 
   try {
@@ -167,7 +180,7 @@ export async function createEvent(doctorId, slotDatetime, patientData) {
 // Remove um evento existente do Google Calendar
 export async function deleteEvent(doctorId, eventId) {
   const cal = getCalendarClient()
-  const doctor = doctorsConfig.doctors.find(d => d.id === doctorId)
+  const doctor = getDoctorsConfig().doctors.find(d => d.id === doctorId)
   if (!cal || !doctor || doctor.calendarId === 'PREENCHER' || !eventId) return false
 
   try {
@@ -185,7 +198,7 @@ export async function deleteEvent(doctorId, eventId) {
 // Cria um evento de bloqueio no Google Calendar (impede novos agendamentos)
 export async function createBlockEvent(doctorId, startISO, endISO, motivo = 'BLOQUEADO') {
   const cal = getCalendarClient()
-  const doctor = doctorsConfig.doctors.find(d => d.id === doctorId)
+  const doctor = getDoctorsConfig().doctors.find(d => d.id === doctorId)
   if (!cal || !doctor || doctor.calendarId === 'PREENCHER') return null
 
   try {

@@ -87,6 +87,17 @@ db.exec(`
     UNIQUE(agendamento_id, tipo)
   );
 
+  CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    name TEXT NOT NULL,
+    role TEXT NOT NULL CHECK(role IN ('admin','secretaria','faturamento')),
+    active INTEGER DEFAULT 1,
+    first_login INTEGER DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
   CREATE TABLE IF NOT EXISTS satisfaction_responses (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     phone TEXT,
@@ -107,14 +118,22 @@ export function getSession(phone) {
   return db.prepare('SELECT * FROM sessions WHERE phone = ?').get(phone) || null
 }
 
+const SESSION_COLUMNS = new Set([
+  'step','flow','especialidade','medico_id','medico_nome','slot_escolhido','slots_json',
+  'tipo_atendimento','convenio_informado','nome','nascimento','telefone_contato',
+  'tentativas','agendamento_id'
+])
+
 export function upsertSession(phone, data) {
+  const safe = Object.fromEntries(Object.entries(data).filter(([k]) => SESSION_COLUMNS.has(k)))
   const existing = getSession(phone)
   if (existing) {
-    const fields = Object.keys(data).map(k => `${k} = @${k}`).join(', ')
+    if (Object.keys(safe).length === 0) return
+    const fields = Object.keys(safe).map(k => `${k} = @${k}`).join(', ')
     db.prepare(`UPDATE sessions SET ${fields}, updated_at = CURRENT_TIMESTAMP WHERE phone = @phone`)
-      .run({ ...data, phone })
+      .run({ ...safe, phone })
   } else {
-    const allData = { phone, step: 'START', tentativas: 0, ...data }
+    const allData = { phone, step: 'START', tentativas: 0, ...safe }
     const keys = Object.keys(allData)
     db.prepare(`INSERT INTO sessions (${keys.join(', ')}) VALUES (${keys.map(k => '@' + k).join(', ')})`)
       .run(allData)
@@ -234,6 +253,35 @@ export function insertSatisfactionResponse(data) {
 
 export function getSatisfactionResponses() {
   return db.prepare('SELECT * FROM satisfaction_responses ORDER BY created_at DESC').all()
+}
+
+// Users
+export function getUserByUsername(username) {
+  return db.prepare('SELECT * FROM users WHERE username = ? AND active = 1').get(username) || null
+}
+
+export function getAllUsers() {
+  return db.prepare('SELECT id, username, name, role, active, first_login, created_at FROM users ORDER BY role, name').all()
+}
+
+export function insertUser(data) {
+  const { username, password_hash, name, role } = data
+  const result = db.prepare(
+    'INSERT INTO users (username, password_hash, name, role) VALUES (?, ?, ?, ?)'
+  ).run(username, password_hash, name, role)
+  return result.lastInsertRowid
+}
+
+export function updateUserPassword(id, password_hash) {
+  db.prepare('UPDATE users SET password_hash = ?, first_login = 0 WHERE id = ?').run(password_hash, id)
+}
+
+export function toggleUserActive(id, active) {
+  db.prepare('UPDATE users SET active = ? WHERE id = ?').run(active ? 1 : 0, id)
+}
+
+export function userCount() {
+  return db.prepare('SELECT COUNT(*) as c FROM users').get()?.c || 0
 }
 
 export default db

@@ -7,9 +7,10 @@ import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const doctorsConfig = JSON.parse(
-  readFileSync(join(__dirname, '../config/doctors.json'), 'utf-8')
-)
+
+function getDoctorsConfig() {
+  return JSON.parse(readFileSync(join(__dirname, '../config/doctors.json'), 'utf-8'))
+}
 
 const ESPECIALIDADES = [
   'Infectologia', 'Reumatologia', 'Nutrologia',
@@ -93,7 +94,7 @@ export async function run(phone, text, session) {
     case 'MOSTRAR_LISTA_MEDICOS': {
       const fresh = await getSession(phone)
       const esp = fresh?.especialidade
-      const doctors = doctorsConfig.doctors.filter(d => {
+      const doctors = getDoctorsConfig().doctors.filter(d => {
         if (!d.active) return false
         if (esp && esp !== 'Outra') return d.especialidade.toLowerCase().includes(esp.toLowerCase())
         return true
@@ -162,14 +163,8 @@ export async function run(phone, text, session) {
         await sendText(phone, `Escolha 1, 2 ou 3.`)
         return
       }
-      await upsertSession(phone, { slot_escolhido: JSON.stringify(slots[idx]), step: 'VERIFICAR_CONVENIO' })
+      await upsertSession(phone, { slot_escolhido: JSON.stringify(slots[idx]), step: 'AGUARDANDO_RESP_CONVENIO' })
       await sendText(phone, 'Você possui convênio médico?\n\n1️⃣ Sim, tenho convênio\n2️⃣ Não, prefiro particular')
-      break
-    }
-
-    case 'VERIFICAR_CONVENIO': {
-      await sendText(phone, 'Você possui convênio médico?\n\n1️⃣ Sim, tenho convênio\n2️⃣ Não, prefiro particular')
-      await upsertSession(phone, { step: 'AGUARDANDO_RESP_CONVENIO' })
       break
     }
 
@@ -187,7 +182,7 @@ export async function run(phone, text, session) {
     case 'RECEBENDO_CONVENIO': {
       const aceito = checkConvenio(text)
       if (aceito) {
-        await upsertSession(phone, { tipo_atendimento: 'CONVENIO', convenio_informado: text.trim(), step: 'AGUARDANDO_NOME', tentativas: 0 })
+        await upsertSession(phone, { tipo_atendimento: 'CONVENIO', convenio_informado: text.trim(), step: 'RECEBENDO_NOME', tentativas: 0 })
         await sendText(phone, 'Por favor, seu *nome completo*:')
       } else {
         await sendText(phone,
@@ -216,7 +211,7 @@ export async function run(phone, text, session) {
 
     case 'CONFIRMAR_PARTICULAR': {
       if (text.trim() === '1') {
-        await upsertSession(phone, { tipo_atendimento: 'PARTICULAR', step: 'AGUARDANDO_NOME', tentativas: 0 })
+        await upsertSession(phone, { tipo_atendimento: 'PARTICULAR', step: 'RECEBENDO_NOME', tentativas: 0 })
         await sendText(phone, 'Por favor, seu *nome completo*:')
       } else {
         await sendText(phone, 'Tudo bem! Se precisar, é só chamar. 😊')
@@ -225,16 +220,10 @@ export async function run(phone, text, session) {
       break
     }
 
-    case 'AGUARDANDO_NOME': {
-      await sendText(phone, 'Por favor, seu *nome completo*:')
-      await upsertSession(phone, { step: 'RECEBENDO_NOME' })
-      break
-    }
-
     case 'RECEBENDO_NOME': {
       const fresh = await getSession(phone)
       if (isValidName(text)) {
-        await upsertSession(phone, { nome: text.trim(), step: 'AGUARDANDO_NASCIMENTO', tentativas: 0 })
+        await upsertSession(phone, { nome: text.trim(), step: 'RECEBENDO_NASCIMENTO', tentativas: 0 })
         await sendText(phone, 'Sua *data de nascimento*:\n_(Formato: DD/MM/AAAA)_')
       } else {
         const tentativas = (fresh?.tentativas || 0) + 1
@@ -245,16 +234,10 @@ export async function run(phone, text, session) {
       break
     }
 
-    case 'AGUARDANDO_NASCIMENTO': {
-      await sendText(phone, 'Sua *data de nascimento*:\n_(Formato: DD/MM/AAAA)_')
-      await upsertSession(phone, { step: 'RECEBENDO_NASCIMENTO' })
-      break
-    }
-
     case 'RECEBENDO_NASCIMENTO': {
       const fresh = await getSession(phone)
       if (isValidDate(text)) {
-        await upsertSession(phone, { nascimento: text.trim(), step: 'AGUARDANDO_TELEFONE', tentativas: 0 })
+        await upsertSession(phone, { nascimento: text.trim(), step: 'RECEBENDO_TELEFONE', tentativas: 0 })
         await sendText(phone, 'Seu *telefone de contato* com DDD:\n_(Ex: 61999999999)_')
       } else {
         const tentativas = (fresh?.tentativas || 0) + 1
@@ -262,12 +245,6 @@ export async function run(phone, text, session) {
         await upsertSession(phone, { tentativas })
         await sendText(phone, 'Data inválida. Use *DD/MM/AAAA*. Ex: 15/03/1985')
       }
-      break
-    }
-
-    case 'AGUARDANDO_TELEFONE': {
-      await sendText(phone, 'Seu *telefone de contato* com DDD:\n_(Ex: 61999999999)_')
-      await upsertSession(phone, { step: 'RECEBENDO_TELEFONE' })
       break
     }
 
