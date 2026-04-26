@@ -15,11 +15,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
 
 // Trust Railway's reverse proxy so X-Forwarded-For is recognized
-// (necessário para express-rate-limit identificar o IP correto do usuário)
 app.set('trust proxy', 1)
 
-// Servir assets estáticos ANTES do middleware de segurança para evitar que o
-// CORS rejeite requisições same-origin sem cabeçalho Origin (JS/CSS do browser)
+// Servir assets estáticos ANTES do middleware de segurança
 if (env.NODE_ENV === 'production') {
   const clientDist = path.resolve(__dirname, '../../dist/client')
   app.use(express.static(clientDist))
@@ -28,10 +26,8 @@ if (env.NODE_ENV === 'production') {
 applySecurityMiddleware(app)
 app.use(cookieParser())
 
-// Stripe webhook MUST be registered before express.json() so it receives the
-// raw request body as a Buffer. express.json() consumes the stream and parses
-// it into a JS object, which destroys the original bytes that Stripe's HMAC
-// signature verification requires.
+// ⚠️ Stripe webhook DEVE vir ANTES de express.json() para receber raw body
+// (Stripe valida assinatura usando os bytes brutos do payload)
 app.post(
   '/api/stripe/webhook',
   express.raw({ type: 'application/json' }),
@@ -41,6 +37,7 @@ app.post(
   },
 )
 
+// Body parsers globais (depois do webhook)
 app.use(express.json({ limit: '2mb' }))
 app.use(express.urlencoded({ extended: true }))
 
@@ -58,16 +55,6 @@ app.use(
   createExpressMiddleware({
     router: appRouter,
     createContext: ({ req }) => createContext({ req }),
-    onError({ error, path, input }) {
-      if (error.code === 'INTERNAL_SERVER_ERROR') {
-        console.error(`[tRPC] Internal error on procedure "${path}"`)
-        console.error('[tRPC] Input:', JSON.stringify(input))
-        console.error('[tRPC] Error:', error.message)
-        console.error('[tRPC] Stack:', error.stack)
-      } else {
-        console.warn(`[tRPC] Error "${error.code}" on procedure "${path}": ${error.message}`)
-      }
-    },
   }),
 )
 
@@ -95,16 +82,6 @@ if (env.NODE_ENV === 'production') {
   })
 }
 
-// Global error handler — captura erros não tratados em middlewares e rotas Express
-app.use((err: Error, req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error(`[Express] Unhandled error on ${req.method} ${req.path}`)
-  console.error('[Express] Error:', err.message)
-  console.error('[Express] Stack:', err.stack)
-  if (!res.headersSent) {
-    res.status(500).json({ error: 'Internal Server Error' })
-  }
-})
-
 app.listen(env.PORT, async () => {
   console.log(`🚀 Facilita PrEP rodando na porta ${env.PORT} [${env.NODE_ENV}]`)
   // Iniciar workers de fila em background
@@ -113,8 +90,6 @@ app.listen(env.PORT, async () => {
   startLembreteWorker()
   startPesquisaWorker()
   await agendarLembreteDiario()
-  const { startExamWorker } = await import('../examQueue.ts')
-  startExamWorker()
 })
 
 export default app
