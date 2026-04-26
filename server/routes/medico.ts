@@ -6,6 +6,11 @@ import { pacientes, exames } from '../../drizzle/schema.ts'
 import { eq, inArray } from 'drizzle-orm'
 import { decrypt } from '../_core/encryption.ts'
 
+type ResultadoIaJson = {
+  status?: string
+  [key: string]: unknown
+}
+
 export const medicoRouter = router({
   // Listar pacientes pendentes de revisão
   listarPendentes: medicoProcedure.query(async () => {
@@ -99,6 +104,66 @@ export const medicoRouter = router({
           updatedAt: new Date(),
         })
         .where(eq(pacientes.id, input.pacienteId))
+
+      return { ok: true }
+    }),
+
+  // Listar exames com rejeição de IA (status rejeitado_ia no resultadoIa)
+  listarExamesRejeitadosIa: medicoProcedure.query(async () => {
+    const rows = await db.select().from(exames).orderBy(exames.createdAt)
+    return rows.filter((e) => {
+      const r = e.resultadoIa as ResultadoIaJson | null
+      return r?.status === 'rejeitado_ia' || r?.status === 'rejeitado'
+    }).map((e) => ({
+      id: e.id,
+      pacienteId: e.pacienteId,
+      nomeArquivo: e.nomeArquivo,
+      tipoExame: e.tipoExame,
+      resultadoIa: e.resultadoIa,
+      liberadoPorMedicoId: e.liberadoPorMedicoId,
+      liberadoEm: e.liberadoEm,
+      createdAt: e.createdAt,
+    }))
+  }),
+
+  // Liberar exame que foi rejeitado pela IA (aprovação manual pelo médico)
+  liberarExameSemValidacao: medicoProcedure
+    .input(z.object({
+      exameId: z.number(),
+      observacoes: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const [exame] = await db.select().from(exames).where(eq(exames.id, input.exameId)).limit(1)
+      if (!exame) throw new TRPCError({ code: 'NOT_FOUND', message: 'Exame não encontrado.' })
+
+      const resultadoAtual = exame.resultadoIa as ResultadoIaJson | null
+      if (
+        resultadoAtual?.status !== 'rejeitado_ia' &&
+        resultadoAtual?.status !== 'rejeitado'
+      ) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Apenas exames rejeitados pela IA podem ser liberados manualmente.',
+        })
+      }
+
+      const novoResultado: ResultadoIaJson = {
+        ...resultadoAtual,
+        status: 'liberado_manualmente',
+        observacoesMedico: input.observacoes ?? null,
+        liberadoEm: new Date().toISOString(),
+      }
+
+      await db
+        .update(exames)
+        .set({
+          resultadoIa: novoResultado,
+          liberadoPorMedicoId: ctx.session.id,
+          liberadoEm: new Date(),
+          revisadoPorId: ctx.session.id,
+          revisadoEm: new Date(),
+        })
+        .where(eq(exames.id, input.exameId))
 
       return { ok: true }
     }),

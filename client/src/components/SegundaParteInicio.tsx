@@ -3,7 +3,7 @@ import { trpc } from '../lib/trpc.ts'
 import { useLocation } from 'wouter'
 import { LogoWordmark } from './Logo.tsx'
 
-type Etapa = 'tipo_consulta' | 'tem_exame' | 'upload_exame' | 'gerar_pedido' | 'aguardando_ia' | 'em_revisao_medica' | 'aprovado' | 'rejeitado' | 'expirado'
+type Etapa = 'tipo_consulta' | 'tem_exame' | 'upload_exame' | 'gerar_pedido' | 'aguardando_ia' | 'em_revisao_medica' | 'aprovado' | 'rejeitado' | 'rejeitado_data_invalida' | 'expirado'
 type TipoConsulta = 'primeiro_atendimento' | 'ja_faco_prep'
 
 const btnPrimary = 'w-full bg-brand text-white py-3.5 rounded-2xl font-semibold hover:bg-brand-dark disabled:opacity-50 transition-all shadow-md hover:shadow-lg text-sm'
@@ -60,9 +60,14 @@ export default function SegundaParteInicio() {
   useEffect(() => {
     const s = statusQuery.data
     if (!s) return
-    if (s.status === 'aprovado') { setEtapa('aprovado'); return }
+    if (s.status === 'aprovado' || s.status === 'aprovado_ia') { setEtapa('aprovado'); return }
     if (s.status === 'rejeitado') { setEtapa('rejeitado'); return }
-    if (s.status === 'em_validacao_medica') { setEtapa('em_revisao_medica'); return }
+    if (s.status === 'rejeitado_data_invalida') { setEtapa('rejeitado_data_invalida'); return }
+    if (
+      s.status === 'pendente_revisao_medica' ||
+      s.status === 'pendente_revisao_medica_urgente' ||
+      s.status === 'em_validacao_medica'
+    ) { setEtapa('em_revisao_medica'); return }
     if (s.status === 'em_validacao_ia') { setEtapa('aguardando_ia'); return }
     if (s.status === 'aguardando_upload') {
       setTipoConsulta(s.tipoConsulta as TipoConsulta)
@@ -86,13 +91,19 @@ export default function SegundaParteInicio() {
     try {
       const fd = new FormData()
       fd.append('file', file)
-      fd.append('tipoExame', 'exame_hiv')
+      fd.append('tipo', 'exame_hiv')
       const res = await fetch('/api/upload', { method: 'POST', body: fd })
       if (!res.ok) throw new Error('Falha no upload')
       const { s3Key } = (await res.json()) as { s3Key: string }
       setEtapa('aguardando_ia')
       const result = await uploadMut.mutateAsync({ s3Key })
-      setEtapa(result.status === 'aprovado' ? 'aprovado' : 'em_revisao_medica')
+      if (result.status === 'aprovado_ia' || result.status === 'aprovado') {
+        setEtapa('aprovado')
+      } else if (result.status === 'rejeitado_data_invalida') {
+        setEtapa('rejeitado_data_invalida')
+      } else {
+        setEtapa('em_revisao_medica')
+      }
     } catch {
       setUploadError('Erro ao enviar o exame. Tente novamente.')
       setEtapa('upload_exame')
@@ -159,6 +170,40 @@ export default function SegundaParteInicio() {
         title="Verificando seu exame…"
         subtitle="Estamos analisando seu resultado com cuidado. Isso costuma levar apenas alguns instantes — aguarde."
       />
+    )
+  }
+
+  // ── Exame com data inválida (pode reenviar) ───────────────────
+  if (etapa === 'rejeitado_data_invalida') {
+    const tentativas = statusQuery.data?.tentativasReenvio ?? 1
+    const restantes = 2 - tentativas
+    return (
+      <StatusCard
+        icon={
+          <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+        }
+        iconBg="bg-honey-light" iconColor="text-honey"
+        title="Exame fora da validade"
+        subtitle="O exame enviado foi realizado há mais de 7 dias. Para iniciar a PrEP com segurança, precisamos de um exame recente."
+      >
+        <div className="bg-honey-light border border-honey-light rounded-2xl p-4 mb-4 text-left">
+          <p className="text-honey-dark text-sm font-medium mb-1">Tentativa {tentativas} de 2</p>
+          <p className="text-honey text-sm">
+            {restantes > 0
+              ? `Você ainda tem ${restantes} tentativa${restantes > 1 ? 's' : ''} disponível${restantes > 1 ? '' : ''}.`
+              : 'Seu caso será analisado por um de nossos médicos.'}
+          </p>
+        </div>
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-4 text-left">
+          <p className="text-slate-700 text-sm font-medium mb-1">O que fazer agora:</p>
+          <p className="text-slate-500 text-sm">Realize um novo exame Anti-HIV (4ª geração) em qualquer laboratório e envie o resultado aqui assim que obtiver — ele precisa ter menos de 7 dias.</p>
+        </div>
+        <button onClick={() => setEtapa('upload_exame')} className={btnPrimary}>
+          Enviar novo exame →
+        </button>
+      </StatusCard>
     )
   }
 

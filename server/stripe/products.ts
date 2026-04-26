@@ -6,7 +6,7 @@ export const stripe = new Stripe(env.STRIPE_SECRET_KEY ?? '', { apiVersion: '202
 
 export async function criarCheckout(pacienteId: number, valorCentavos: number, emailCliente?: string) {
   const session = await stripe.checkout.sessions.create({
-    payment_method_types: ['card', 'pix'],
+    payment_method_types: ['card'],
     mode: 'payment',
     customer_email: emailCliente,
     line_items: [
@@ -29,7 +29,7 @@ export async function criarCheckout(pacienteId: number, valorCentavos: number, e
 
 export async function criarCheckoutIntake(precadastroId: number, emailCliente?: string) {
   const session = await stripe.checkout.sessions.create({
-    payment_method_types: ['card', 'pix'],
+    payment_method_types: ['card'],
     mode: 'payment',
     customer_email: emailCliente,
     line_items: [

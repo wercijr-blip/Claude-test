@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto'
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import multer from 'multer'
@@ -6,6 +7,14 @@ import { env } from './_core/env.ts'
 import { db } from './db.ts'
 import { exames } from '../drizzle/schema.ts'
 import { MAX_UPLOAD_SIZE_BYTES, ALLOWED_MIME_TYPES } from '../shared/security-constants.ts'
+import { enqueueAnalisarExame } from './examQueue.ts'
+
+const MIME_TO_EXT: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'application/pdf': 'pdf',
+}
 
 const s3 = new S3Client({
   region: env.AWS_REGION,
@@ -70,6 +79,26 @@ export function uploadExame(req: Request, res: Response): Promise<void> {
         return
       }
 
+      // Uploads that don't require a pacienteId — returns s3Key only (no DB insert)
+      const unauthTypes: Record<string, string> = {
+        'documento_intake': 'intake/documentos',
+        'exame_hiv': 'exames-inicio',
+      }
+      const unauthFolder = unauthTypes[req.body.tipo as string]
+      if (unauthFolder) {
+        const ext = MIME_TO_EXT[req.file.mimetype] ?? 'bin'
+        const s3Key = `${unauthFolder}/${randomUUID()}.${ext}`
+        try {
+          await uploadBuffer(s3Key, req.file.buffer, req.file.mimetype)
+          res.json({ ok: true, s3Key })
+        } catch (err) {
+          console.error(`[storage] Erro no upload (${req.body.tipo}):`, err)
+          res.status(500).json({ error: 'Erro ao salvar arquivo' })
+        }
+        resolve()
+        return
+      }
+
       const pacienteId = parseInt(req.body.pacienteId as string)
       const tipoExame = req.body.tipoExame as string
 
@@ -79,18 +108,26 @@ export function uploadExame(req: Request, res: Response): Promise<void> {
         return
       }
 
-      const s3Key = `exames/${pacienteId}/${Date.now()}-${req.file.originalname}`
+      const ext = MIME_TO_EXT[req.file.mimetype] ?? 'bin'
+      const s3Key = `exames/${pacienteId}/${randomUUID()}.${ext}`
 
       try {
         await uploadBuffer(s3Key, req.file.buffer, req.file.mimetype)
 
-        await db.insert(exames).values({
+        const [inserted] = await db.insert(exames).values({
           pacienteId,
           s3Key,
           nomeArquivo: req.file.originalname,
           tipoExame,
           mimeType: req.file.mimetype,
           tamanhoBytes: req.file.size,
+        })
+
+        // Queue async AI analysis — returns immediately, analysis runs in background
+        const exameId = inserted.insertId
+        await enqueueAnalisarExame(exameId).catch((queueErr) => {
+          // Non-fatal: log and continue. Exam is saved; analysis can be retried manually.
+          console.error(`[storage] Falha ao enfileirar análise do exame ${exameId}:`, queueErr)
         })
 
         res.json({ ok: true, s3Key })

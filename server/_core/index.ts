@@ -14,8 +14,30 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const app = express()
 
+// Trust Railway's reverse proxy so X-Forwarded-For is recognized
+app.set('trust proxy', 1)
+
+// Servir assets estáticos ANTES do middleware de segurança
+if (env.NODE_ENV === 'production') {
+  const clientDist = path.resolve(__dirname, '../../dist/client')
+  app.use(express.static(clientDist))
+}
+
 applySecurityMiddleware(app)
 app.use(cookieParser())
+
+// ⚠️ Stripe webhook DEVE vir ANTES de express.json() para receber raw body
+// (Stripe valida assinatura usando os bytes brutos do payload)
+app.post(
+  '/api/stripe/webhook',
+  express.raw({ type: 'application/json' }),
+  async (req, res) => {
+    const { handleWebhook } = await import('../stripe/webhook.ts')
+    await handleWebhook(req, res)
+  },
+)
+
+// Body parsers globais (depois do webhook)
 app.use(express.json({ limit: '2mb' }))
 app.use(express.urlencoded({ extended: true }))
 
@@ -28,7 +50,6 @@ app.use(
   '/trpc/token.validar',
   tokenValidateLimiter,
 )
-
 app.use(
   '/trpc',
   createExpressMiddleware({
@@ -53,20 +74,9 @@ app.post('/api/upload', uploadLimiter, async (req, res) => {
   await uploadExame(req, res)
 })
 
-// Stripe webhook (raw body necessário para validação de assinatura)
-app.post(
-  '/api/stripe/webhook',
-  express.raw({ type: 'application/json' }),
-  async (req, res) => {
-    const { handleWebhook } = await import('../stripe/webhook.ts')
-    await handleWebhook(req, res)
-  },
-)
-
-// Servir frontend em produção
+// Catch-all: servir index.html para rotas do SPA em produção
 if (env.NODE_ENV === 'production') {
   const clientDist = path.resolve(__dirname, '../../dist/client')
-  app.use(express.static(clientDist))
   app.get('*', (_req, res) => {
     res.sendFile(path.join(clientDist, 'index.html'))
   })

@@ -118,9 +118,19 @@ export const exames = mysqlTable('exames', {
   tipoExame: varchar('tipo_exame', { length: 100 }),
   mimeType: varchar('mime_type', { length: 100 }),
   tamanhoBytes: int('tamanho_bytes'),
+  // resultadoIa JSON shape (see shared/types.ts ResultadoIa):
+  //   tipoExame: TipoExame
+  //   resultado: 'reagente' | 'nao_reagente' | 'inconclusivo' | 'nao_identificado'
+  //   confianca: number (0–1)
+  //   observacoes?: string
+  //   processadoEm: ISO timestamp (set by analisarExame)
+  //   status: 'pendente' | 'aprovado_automaticamente' | 'rejeitado_ia' | 'pendente_revisao'
+  //           (set by examQueue worker after auto-approval logic)
   resultadoIa: json('resultado_ia'),
   revisadoPorId: int('revisado_por_id'),
   revisadoEm: datetime('revisado_em'),
+  liberadoPorMedicoId: int('liberado_por_medico_id'),
+  liberadoEm: datetime('liberado_em'),
   createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (t) => ({
   pacienteIdx: index('idx_exames_paciente').on(t.pacienteId),
@@ -173,7 +183,8 @@ export const securityEvents = mysqlTable('security_events', {
 
 export const nfseRegistros = mysqlTable('nfse_registros', {
   id: int('id').primaryKey().autoincrement(),
-  pacienteId: int('paciente_id').notNull(),
+  pacienteId: int('paciente_id'),
+  precadastroId: int('precadastro_id'),
   numeroNfse: varchar('numero_nfse', { length: 50 }),
   status: varchar('status', { length: 50 }).notNull().default('pendente'),
   valorCentavos: int('valor_centavos').notNull(),
@@ -183,6 +194,7 @@ export const nfseRegistros = mysqlTable('nfse_registros', {
   createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (t) => ({
   pacienteIdx: index('idx_nfse_paciente').on(t.pacienteId),
+  precadastroIdx: index('idx_nfse_precadastro').on(t.precadastroId),
 }))
 
 // ── Consultas Início (segunda parte — validação de exame HIV) ──
@@ -197,9 +209,13 @@ export const consultasInicio = mysqlTable('consultas_inicio', {
   pedidoIstS3Key: varchar('pedido_ist_s3_key', { length: 500 }),
   pedidoHivS3Key: varchar('pedido_hiv_s3_key', { length: 500 }),
   pedidoDensitometriaS3Key: varchar('pedido_densitometria_s3_key', { length: 500 }),
+  // status values: aguardando_escolha | aguardando_upload | em_validacao_ia |
+  //   rejeitado_data_invalida | pendente_revisao_medica | pendente_revisao_medica_urgente |
+  //   aprovado_ia | aprovado | rejeitado | em_validacao_medica | expirado
   status: varchar('status', { length: 50 }).notNull().default('aguardando_escolha'),
   resultadoIa: json('resultado_ia'),
   motivoRejeicao: varchar('motivo_rejeicao', { length: 200 }),
+  tentativasReenvio: int('tentativas_reenvio').notNull().default(0),
   validadoPorId: int('validado_por_id'),
   validadoEm: datetime('validado_em'),
   dataExameValidado: varchar('data_exame_validado', { length: 20 }),

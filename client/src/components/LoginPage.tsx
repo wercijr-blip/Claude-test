@@ -12,11 +12,23 @@ export default function LoginPage() {
   const { setToken } = useAuth()
   const isDev = import.meta.env.DEV
 
+  const { data: publicConfig, isLoading: isConfigLoading } = trpc.config.getPublicConfig.useQuery()
+
   const handleLogin = () => {
+    if (!publicConfig?.googleClientId) return
     const state = crypto.randomUUID()
     sessionStorage.setItem('oauth_state', state)
     const redirectUri = `${window.location.origin}/auth/callback`
-    window.location.href = `${import.meta.env.VITE_OAUTH_SERVER_URL}/auth?app_id=${import.meta.env.VITE_APP_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`
+    const params = new URLSearchParams({
+      client_id: publicConfig.googleClientId,
+      redirect_uri: redirectUri,
+      response_type: 'code',
+      scope: 'openid email profile',
+      state,
+      access_type: 'offline',
+      prompt: 'consent',
+    })
+    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
   }
 
   const devLogin = trpc.auth.devLogin.useMutation()
@@ -42,9 +54,10 @@ export default function LoginPage() {
 
         <button
           onClick={handleLogin}
-          className="w-full bg-fp-accent hover:bg-fp-dark-soft text-white font-medium py-3 px-4 rounded-full transition-colors shadow-sm"
+          disabled={isConfigLoading || !publicConfig?.googleClientId}
+          className="w-full bg-fp-accent hover:bg-fp-dark-soft text-white font-medium py-3 px-4 rounded-full transition-colors shadow-sm disabled:opacity-50"
         >
-          Entrar com conta institucional
+          {isConfigLoading ? 'Carregando…' : 'Entrar com conta institucional'}
         </button>
 
         {isDev && (

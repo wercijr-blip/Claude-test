@@ -18,6 +18,8 @@ node_modules/
 dist/
 build/
 .vite/
+.next/
+web/.next/
 
 # ── Logs ──────────────────────────────────────────────────
 *.log
