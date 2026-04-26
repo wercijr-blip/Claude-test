@@ -18,6 +18,16 @@ export const PESQUISA_QUEUE_NAME = 'pesquisa-satisfacao'
 
 const connection = new IORedis(env.REDIS_URL, { maxRetriesPerRequest: null })
 
+// Upstash Redis has a 500k/month request limit on the free plan.
+// BullMQ default polling (stalledInterval=30s, drainDelay=5s) burns through
+// that budget in days with multiple workers. These settings reduce polling
+// to ~3k requests/day without affecting job throughput — jobs are still
+// processed immediately when enqueued via LPUSH notification.
+const WORKER_DEFAULTS = {
+  stalledInterval: 5 * 60 * 1000,  // check stalled jobs every 5 min (was 30s)
+  drainDelay: 30 * 1000,           // wait 30s between empty-queue polls (was 5s)
+} as const
+
 export const pdfQueue = new Queue(PDF_QUEUE_NAME, { connection })
 export const lembreteQueue = new Queue(LEMBRETE_QUEUE_NAME, { connection })
 export const pesquisaQueue = new Queue(PESQUISA_QUEUE_NAME, { connection })
@@ -165,7 +175,7 @@ export function startPdfWorker() {
 
       return { pdfsGerados: gerados.length }
     },
-    { connection, concurrency: 3 },
+    { connection, concurrency: 3, ...WORKER_DEFAULTS },
   )
 
   worker.on('failed', (job, err) => {
@@ -201,7 +211,7 @@ export function startPesquisaWorker() {
         await enviarWhatsApp(telefone, msg).catch(console.error)
       }
     },
-    { connection },
+    { connection, ...WORKER_DEFAULTS },
   )
 
   worker.on('failed', (job, err) => {
@@ -260,7 +270,7 @@ export function startLembreteWorker() {
 
       return { enviados: pendentes.length }
     },
-    { connection },
+    { connection, ...WORKER_DEFAULTS },
   )
 
   worker.on('failed', (job, err) => {
