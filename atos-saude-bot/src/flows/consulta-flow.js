@@ -17,9 +17,23 @@ const ESPECIALIDADES = [
   'Fisioterapia', 'Vacinas', 'Medicina do Viajante', 'Outra'
 ]
 
-async function transferir(phone, msg = '👩‍⚕️ Transferindo para nossa equipe! Um momento.') {
-  await sendText(phone, msg)
-  await clearSession(phone)
+function _formatSlotShort(slotStr) {
+  try {
+    const slot = JSON.parse(slotStr || '{}')
+    if (!slot.datetime) return ''
+    const dt = new Date(slot.datetime)
+    const days = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb']
+    return `\n📅 *${days[dt.getDay()]}, ${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')} às ${String(dt.getHours()).padStart(2,'0')}h${String(dt.getMinutes()).padStart(2,'0')}*${slot.doctorNome ? ' · ' + slot.doctorNome : ''}\n`
+  } catch { return '' }
+}
+
+async function transferir(phone, message = '👩‍⚕️ Transferindo para nossa equipe! Um momento.') {
+  await sendText(phone, message)
+  await upsertSession(phone, {
+    flow: 'HUMANO',
+    step: 'AGUARDANDO_HUMANO',
+    human_transfer_at: new Date().toISOString()
+  })
 }
 
 function formatSlotDatetime(slotStr) {
@@ -185,38 +199,42 @@ export async function run(phone, text, session) {
         await upsertSession(phone, { tipo_atendimento: 'CONVENIO', convenio_informado: text.trim(), step: 'RECEBENDO_NOME', tentativas: 0 })
         await sendText(phone, 'Por favor, seu *nome completo*:')
       } else {
+        const freshSlot = await getSession(phone)
+        const slotInfo = _formatSlotShort(freshSlot?.slot_escolhido)
         await sendText(phone,
           `Infelizmente não trabalhamos com o *${text.trim()}*. 😕\n\n` +
-          'Mas você pode nos consultar como *particular*!\n\n' +
-          '💰 *Valores da consulta:*\n' +
-          '💳 Cartão de crédito: *R$ 800,00*\n' +
-          '💵 PIX ou à vista: *R$ 650,00*\n\n' +
-          'Gostaria de prosseguir como particular?\n1️⃣ Sim, quero agendar\n2️⃣ Não, obrigado'
+          '💳 Mas temos *atendimento particular* disponível!\n' +
+          slotInfo +
+          'Nossa equipe informará os valores e confirmará o agendamento com *prioridade*. 🌟\n\n' +
+          '👩‍⚕️ Transferindo para atendimento prioritário…'
         )
-        await upsertSession(phone, { convenio_informado: text.trim(), step: 'CONFIRMAR_PARTICULAR' })
+        await upsertSession(phone, {
+          convenio_informado: text.trim(),
+          tipo_atendimento: 'PARTICULAR',
+          flow: 'HUMANO',
+          step: 'AGUARDANDO_HUMANO',
+          human_transfer_at: new Date().toISOString()
+        })
       }
       break
     }
 
     case 'INFORMAR_VALORES_PARTICULAR': {
+      const freshSlot2 = await getSession(phone)
+      const slotInfo2 = _formatSlotShort(freshSlot2?.slot_escolhido)
       await sendText(phone,
-        '💰 *Valores da consulta particular:*\n' +
-        '💳 Cartão de crédito: *R$ 800,00*\n' +
-        '💵 PIX ou à vista: *R$ 650,00*\n\n' +
-        'Deseja prosseguir?\n1️⃣ Sim, quero agendar\n2️⃣ Não, obrigado'
+        '💳 *Atendimento Particular — Atos Saúde*\n\n' +
+        'Temos disponibilidade para consultas particulares! 😊\n' +
+        slotInfo2 +
+        'Nossa equipe informará os valores e confirmará o agendamento com *prioridade*. 🌟\n\n' +
+        '👩‍⚕️ Transferindo para atendimento prioritário…'
       )
-      await upsertSession(phone, { step: 'CONFIRMAR_PARTICULAR' })
-      break
-    }
-
-    case 'CONFIRMAR_PARTICULAR': {
-      if (text.trim() === '1') {
-        await upsertSession(phone, { tipo_atendimento: 'PARTICULAR', step: 'RECEBENDO_NOME', tentativas: 0 })
-        await sendText(phone, 'Por favor, seu *nome completo*:')
-      } else {
-        await sendText(phone, 'Tudo bem! Se precisar, é só chamar. 😊')
-        await clearSession(phone)
-      }
+      await upsertSession(phone, {
+        tipo_atendimento: 'PARTICULAR',
+        flow: 'HUMANO',
+        step: 'AGUARDANDO_HUMANO',
+        human_transfer_at: new Date().toISOString()
+      })
       break
     }
 

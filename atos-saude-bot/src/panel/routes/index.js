@@ -1,16 +1,22 @@
 import { Router } from 'express'
 import multer from 'multer'
+import axios from 'axios'
 import { mkdirSync, existsSync } from 'fs'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
-import { getAgendamentos, getAgendamentoById, updateAgendamentoStatus, deactivateKnowledge, getKnowledge, getSatisfactionResponses, insertAgendamento } from '../../services/db.js'
+import {
+  getAgendamentos, getAgendamentoById, updateAgendamentoStatus, deactivateKnowledge,
+  getKnowledge, getSatisfactionResponses, insertAgendamento,
+  getEncaixeQueue, insertEncaixe, removeEncaixe,
+  getHumanWaitingSessions, clearSession
+} from '../../services/db.js'
 import db from '../../services/db.js'
 import { generateExcel } from '../../services/export.js'
 import { ingestDocument } from '../../services/knowledge.js'
-import { deleteEvent, createBlockEvent, createEvent, getDoctorSlots } from '../../services/calendar.js'
+import { deleteEvent, createBlockEvent, createEvent, getDoctorSlots, createDoctorCalendar } from '../../services/calendar.js'
 import { sendText } from '../../services/whatsapp.js'
 import { msg, invalidateCache } from '../../utils/messages.js'
-import { fmtHora, fmtData } from '../../services/scheduler.js'
+import { fmtHora, fmtData, notificarEncaixe } from '../../services/scheduler.js'
 import { requireAuth } from '../../services/auth.js'
 import { readFileSync } from 'fs'
 
@@ -276,18 +282,28 @@ apiRouter.get('/doctors/all', requireAuth(['admin']), (req, res) => {
   } catch { res.json({ doctors: [], workingHours: {} }) }
 })
 
-// POST /api/doctors  (admin — criar médico)
+// POST /api/doctors  (admin — criar médico + cria Google Calendar automaticamente)
 apiRouter.post('/doctors', requireAuth(['admin']), async (req, res) => {
   try {
     const { writeFileSync } = await import('fs')
     const filePath = new URL('../../config/doctors.json', import.meta.url)
     const config = JSON.parse(readFileSync(filePath, 'utf-8'))
-    const { nome, crm, especialidade, whatsapp, calendarId, slotDurationMinutes } = req.body
+    const { nome, crm, especialidade, whatsapp, email, calendarId, slotDurationMinutes } = req.body
     if (!nome || !especialidade) return res.status(400).json({ error: 'nome e especialidade são obrigatórios.' })
+
+    // Cria Google Calendar automaticamente via Service Account
+    let resolvedCalendarId = calendarId || null
+    let calendarCriado = false
+    if (!resolvedCalendarId || resolvedCalendarId === 'PREENCHER') {
+      resolvedCalendarId = await createDoctorCalendar(nome, especialidade, email || null)
+      calendarCriado = !!resolvedCalendarId
+    }
+
     const doctor = {
       id: 'dr_' + Date.now(),
       nome, crm: crm || '', especialidade,
-      calendarId: calendarId || 'PREENCHER',
+      email: email || '',
+      calendarId: resolvedCalendarId || 'PREENCHER',
       whatsapp: whatsapp || '',
       slotDurationMinutes: Number(slotDurationMinutes) || 30,
       schedule: null,
@@ -295,7 +311,7 @@ apiRouter.post('/doctors', requireAuth(['admin']), async (req, res) => {
     }
     config.doctors.push(doctor)
     writeFileSync(filePath, JSON.stringify(config, null, 2), 'utf-8')
-    res.json({ ok: true, doctor })
+    res.json({ ok: true, doctor, calendarCriado, calendarId: resolvedCalendarId })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
@@ -409,6 +425,114 @@ apiRouter.post('/knowledge/upload', upload.single('file'), async (req, res) => {
 apiRouter.delete('/knowledge/:id', (req, res) => {
   deactivateKnowledge(Number(req.params.id))
   res.json({ ok: true })
+})
+
+// ─── Fila de Encaixe ────────────────────────────────────────────────────────
+
+// GET /api/encaixe
+apiRouter.get('/encaixe', (req, res) => {
+  res.json(getEncaixeQueue())
+})
+
+// POST /api/encaixe  (inscrever paciente na fila)
+apiRouter.post('/encaixe', (req, res) => {
+  const { phone, nome, especialidade, medico_id } = req.body
+  if (!phone) return res.status(400).json({ error: 'phone é obrigatório.' })
+  const id = insertEncaixe({ phone, nome, especialidade, medico_id })
+  res.json({ ok: true, id })
+})
+
+// DELETE /api/encaixe/:id
+apiRouter.delete('/encaixe/:id', (req, res) => {
+  removeEncaixe(Number(req.params.id))
+  res.json({ ok: true })
+})
+
+// ─── Atendimento humano aguardando ─────────────────────────────────────────
+
+// GET /api/human-waiting
+apiRouter.get('/human-waiting', (req, res) => {
+  const sessions = getHumanWaitingSessions(10)
+  res.json({ total: sessions.length, data: sessions })
+})
+
+// ─── Cancelamento com notificação de encaixe ──────────────────────────────
+apiRouter.post('/agendamentos/:id/cancelar-encaixe', async (req, res) => {
+  const ag = getAgendamentoById(Number(req.params.id))
+  if (!ag) return res.status(404).json({ error: 'Agendamento não encontrado.' })
+  if (ag.status !== 'CANCELADO') return res.status(400).json({ error: 'Agendamento não está cancelado.' })
+  await notificarEncaixe(ag).catch(() => {})
+  res.json({ ok: true })
+})
+
+// POST /api/sessions/:phone/encerrar  (secretaria/admin marca atendimento humano como assumido)
+apiRouter.post('/sessions/:phone/encerrar', (req, res) => {
+  if (!['admin','secretaria'].includes(req.user?.role)) {
+    return res.status(403).json({ error: 'Sem permissão.' })
+  }
+  clearSession(req.params.phone)
+  res.json({ ok: true })
+})
+
+// ─── WhatsApp / Evolution API ──────────────────────────────────────────────
+
+function evolutionHeaders() {
+  return { apikey: process.env.EVOLUTION_API_KEY }
+}
+const EVO_URL = () => process.env.EVOLUTION_URL
+const EVO_INSTANCE = () => process.env.INSTANCE_NAME || 'atos-saude'
+
+// GET /api/whatsapp/status
+apiRouter.get('/whatsapp/status', requireAuth(['admin']), async (req, res) => {
+  try {
+    const r = await axios.get(
+      `${EVO_URL()}/instance/connectionState/${EVO_INSTANCE()}`,
+      { headers: evolutionHeaders() }
+    )
+    res.json(r.data)
+  } catch (err) {
+    res.status(502).json({ error: err.response?.data?.message || err.message })
+  }
+})
+
+// GET /api/whatsapp/qr
+apiRouter.get('/whatsapp/qr', requireAuth(['admin']), async (req, res) => {
+  try {
+    const r = await axios.get(
+      `${EVO_URL()}/instance/connect/${EVO_INSTANCE()}`,
+      { headers: evolutionHeaders() }
+    )
+    res.json(r.data)
+  } catch (err) {
+    res.status(502).json({ error: err.response?.data?.message || err.message })
+  }
+})
+
+// POST /api/whatsapp/logout
+apiRouter.post('/whatsapp/logout', requireAuth(['admin']), async (req, res) => {
+  try {
+    const r = await axios.delete(
+      `${EVO_URL()}/instance/logout/${EVO_INSTANCE()}`,
+      { headers: evolutionHeaders() }
+    )
+    res.json(r.data)
+  } catch (err) {
+    res.status(502).json({ error: err.response?.data?.message || err.message })
+  }
+})
+
+// POST /api/whatsapp/restart
+apiRouter.post('/whatsapp/restart', requireAuth(['admin']), async (req, res) => {
+  try {
+    const r = await axios.put(
+      `${EVO_URL()}/instance/restart/${EVO_INSTANCE()}`,
+      {},
+      { headers: evolutionHeaders() }
+    )
+    res.json(r.data)
+  } catch (err) {
+    res.status(502).json({ error: err.response?.data?.message || err.message })
+  }
 })
 
 export default apiRouter

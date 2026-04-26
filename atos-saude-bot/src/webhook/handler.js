@@ -1,7 +1,10 @@
 import { sendText } from '../services/whatsapp.js'
 import { checkLimit } from '../utils/rate-limiter.js'
+import { getSession } from '../services/db.js'
 import { logger } from '../utils/logger.js'
 import { router } from '../handlers/router.js'
+
+const MEDIA_TYPES = new Set(['imageMessage','documentMessage','audioMessage','videoMessage','stickerMessage','documentWithCaptionMessage'])
 
 export async function handleWebhook(req, res) {
   res.sendStatus(200)
@@ -20,10 +23,20 @@ export async function handleWebhook(req, res) {
     const rawPhone = msg.key?.remoteJid || ''
     const phone = rawPhone.replace('@s.whatsapp.net', '')
 
+    const pushName = msg.pushName || msg.verifiedBizName || ''
+
     const msgType = msg.message ? Object.keys(msg.message)[0] : null
     const isText = msgType === 'conversation' || msgType === 'extendedTextMessage'
+    const isMedia = MEDIA_TYPES.has(msgType)
 
     if (!isText) {
+      if (isMedia) {
+        const session = await getSession(phone)
+        if (session?.flow === 'HUMANO') {
+          logger.info({ phone, msgType }, 'Mídia recebida em atendimento humano — aguardando operador')
+          return
+        }
+      }
       await sendText(phone, 'Por favor, envie apenas mensagens de texto. 😊')
       return
     }
@@ -37,7 +50,7 @@ export async function handleWebhook(req, res) {
     }
 
     logger.info({ phone, text }, 'Mensagem recebida')
-    await router(phone, text)
+    await router(phone, text, pushName)
   } catch (err) {
     logger.error({ err: err.message }, 'Erro no webhook')
     const rawPhone = req.body?.data?.messages?.[0]?.key?.remoteJid || ''

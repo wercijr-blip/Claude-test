@@ -54,18 +54,18 @@ export const ROLES = {
 
 export const PERMISSIONS = {
   admin: {
-    tabs: ['agenda','medicacoes','conhecimento','satisfacao','marcacao','medicos','textos','usuarios'],
+    tabs: ['agenda','atendimento','encaixe','medicacoes','conhecimento','satisfacao','marcacao','medicos','textos','usuarios','whatsapp'],
     canCancel: true, canBlock: true, canExport: true,
-    canUploadKnowledge: true, canEditTextos: true, canManageUsers: true, canManageDoctors: true
+    canUploadKnowledge: true, canEditTextos: true, canManageUsers: true, canManageDoctors: true, canManageWhatsapp: true
   },
   secretaria: {
-    tabs: ['agenda','medicacoes','satisfacao','marcacao'],
+    tabs: ['agenda','atendimento','encaixe','medicacoes','satisfacao','marcacao'],
     canCancel: true, canBlock: true, canExport: false,
-    canUploadKnowledge: false, canEditTextos: false, canManageUsers: false, canManageDoctors: false
+    canUploadKnowledge: false, canEditTextos: false, canManageUsers: false, canManageDoctors: false, canManageWhatsapp: false
   },
   faturamento: {
     tabs: ['agenda','medicacoes','satisfacao'],
     canCancel: false, canBlock: false, canExport: true,
-    canUploadKnowledge: false, canEditTextos: false, canManageUsers: false, canManageDoctors: false
+    canUploadKnowledge: false, canEditTextos: false, canManageUsers: false, canManageDoctors: false, canManageWhatsapp: false
   }
 }

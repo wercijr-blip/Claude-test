@@ -1,11 +1,17 @@
 import cron from 'node-cron'
+import { randomBytes } from 'crypto'
 import { readFileSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 import { sendText } from './whatsapp.js'
-import { upsertSession, getAgendamentosComSlot, wasReminderSent, markReminderSent } from './db.js'
+import {
+  upsertSession, getAgendamentosComSlot, wasReminderSent, markReminderSent,
+  insertRescheduleToken, getEncaixeByEspecialidade, markEncaixeNotificado
+} from './db.js'
 import { logger } from '../utils/logger.js'
 import { msg } from '../utils/messages.js'
+
+const BASE_URL = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -92,13 +98,23 @@ async function verificarLembretes() {
     }
 
     if (slotMs >= min24h.getTime() && slotMs <= max24h.getTime() && !wasReminderSent(ag.id, 'PATIENT_24H')) {
-      await sendText(ag.phone, msg('lembrete_24h', vars))
+      const token = randomBytes(16).toString('hex')
+      insertRescheduleToken(token, ag.id)
+      const linkRemarcar = `${BASE_URL}/remarcar/${token}`
+      const msgKey = msg('lembrete_24h_remarcar') !== `[mensagem 'lembrete_24h_remarcar' não encontrada]`
+        ? 'lembrete_24h_remarcar' : 'lembrete_24h'
+      await sendText(ag.phone, msg(msgKey, { ...vars, linkRemarcar }))
       markReminderSent(ag.id, 'PATIENT_24H')
       logger.info({ agId: ag.id, phone: ag.phone }, 'Lembrete 24h enviado ao paciente')
     }
 
     if (slotMs >= min2h.getTime() && slotMs <= max2h.getTime() && !wasReminderSent(ag.id, 'PATIENT_2H')) {
-      await sendText(ag.phone, msg('lembrete_2h', vars))
+      const token = randomBytes(16).toString('hex')
+      insertRescheduleToken(token, ag.id)
+      const linkRemarcar = `${BASE_URL}/remarcar/${token}`
+      const msgKey = msg('lembrete_2h_remarcar') !== `[mensagem 'lembrete_2h_remarcar' não encontrada]`
+        ? 'lembrete_2h_remarcar' : 'lembrete_2h'
+      await sendText(ag.phone, msg(msgKey, { ...vars, linkRemarcar }))
       markReminderSent(ag.id, 'PATIENT_2H')
       logger.info({ agId: ag.id, phone: ag.phone }, 'Lembrete 2h enviado ao paciente')
     }
@@ -132,6 +148,40 @@ async function verificarPesquisas() {
     })
     markReminderSent(ag.id, 'PESQUISA_3H')
     logger.info({ agId: ag.id, phone: ag.phone }, 'Pesquisa de satisfação enviada')
+  }
+}
+
+// ─── 4. Notificar fila de encaixe quando slot cancelado ──────────────────────
+// Chamado externamente quando um agendamento é cancelado
+export async function notificarEncaixe(agendamento) {
+  if (!agendamento?.especialidade && !agendamento?.medico_id) return
+  const candidatos = getEncaixeByEspecialidade(agendamento.especialidade, agendamento.medico_id)
+  if (candidatos.length === 0) return
+
+  const { diaSemana, data } = fmtData(agendamento.slot_datetime)
+  const hora = fmtHora(agendamento.slot_datetime)
+  const { doctors } = getDoctorsConfig()
+  const doc = doctors.find(d => d.id === agendamento.medico_id)
+
+  for (const candidato of candidatos) {
+    await sendText(candidato.phone, msg('encaixe_vaga_disponivel', {
+      nome: candidato.nome || 'paciente',
+      especialidade: agendamento.especialidade || 'Consulta',
+      medico: doc?.nome || agendamento.medico_nome || 'Médico',
+      diaSemana, data, hora
+    }))
+    await upsertSession(candidato.phone, {
+      flow: 'ENCAIXE',
+      step: 'AGUARDANDO_ENCAIXE',
+      especialidade: agendamento.especialidade,
+      medico_id: agendamento.medico_id,
+      medico_nome: doc?.nome || agendamento.medico_nome,
+      slot_escolhido: agendamento.slot_datetime,
+      agendamento_id: String(agendamento.id)
+    })
+    markEncaixeNotificado(candidato.id)
+    logger.info({ phone: candidato.phone, agId: agendamento.id }, 'Fila de encaixe notificada')
+    break // notifica apenas o primeiro da fila; outros aguardam próxima vaga
   }
 }
 

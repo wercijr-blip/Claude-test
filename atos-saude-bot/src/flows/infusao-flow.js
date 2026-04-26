@@ -2,9 +2,13 @@ import { sendText } from '../services/whatsapp.js'
 import { upsertSession, clearSession, getSession, insertAgendamento } from '../services/db.js'
 import { isValidName, isValidDate, isValidPhone, checkConvenio } from '../utils/validators.js'
 
-async function transferir(phone) {
-  await sendText(phone, '👩‍⚕️ Encaminhando para nossa equipe!')
-  await clearSession(phone)
+async function transferirHumano(phone, msg) {
+  if (msg) await sendText(phone, msg)
+  await upsertSession(phone, {
+    flow: 'HUMANO',
+    step: 'AGUARDANDO_HUMANO',
+    human_transfer_at: new Date().toISOString()
+  })
 }
 
 export async function run(phone, text, session) {
@@ -13,10 +17,10 @@ export async function run(phone, text, session) {
   switch (step) {
     case 'START': {
       await sendText(phone,
-        '🏥 *Infusão / Medicação — Hospital Dia Atos Saúde*\n\n' +
+        '🏥 *Infusão — Hospital Dia Atos Saúde*\n\n' +
         'Você possui convênio que cobre o procedimento?\n\n' +
         '1️⃣ Sim, tenho convênio\n' +
-        '2️⃣ Prefiro atendimento particular'
+        '2️⃣ Atendimento particular'
       )
       await upsertSession(phone, { flow: 'INFUSAO', step: 'AGUARDANDO_TIPO' })
       break
@@ -27,10 +31,14 @@ export async function run(phone, text, session) {
         await sendText(phone, 'Qual o nome do seu convênio?')
         await upsertSession(phone, { step: 'RECEBENDO_CONVENIO_INF' })
       } else if (text.trim() === '2') {
-        await upsertSession(phone, { step: 'INFUSAO_PARTICULAR_INFO' })
-        await run(phone, '', { ...session, step: 'INFUSAO_PARTICULAR_INFO' })
+        await transferirHumano(phone,
+          '💛 *Infusão Particular — Hospital Dia*\n\n' +
+          'Temos disponibilidade para procedimentos particulares!\n\n' +
+          'Nossa equipe informará valores e disponibilidade com *prioridade*. 🌟\n\n' +
+          '👩‍⚕️ Transferindo para atendimento prioritário…'
+        )
       } else {
-        await sendText(phone, 'Escolha *1* ou *2*.')
+        await sendText(phone, 'Escolha *1* (convênio) ou *2* (particular).')
       }
       break
     }
@@ -45,94 +53,44 @@ export async function run(phone, text, session) {
           '📄 Guia de autorização (se já tiver)\n\n' +
           'Vou registrar sua solicitação. 😊'
         )
-        await upsertSession(phone, { tipo_atendimento: 'CONVENIO', convenio_informado: text.trim(), step: 'AGUARDANDO_NOME_INF', tentativas: 0 })
+        await upsertSession(phone, { tipo_atendimento: 'CONVENIO', convenio_informado: text.trim(), step: 'RECEBENDO_NOME_INF', tentativas: 0 })
         await sendText(phone, 'Por favor, seu *nome completo*:')
       } else {
-        await sendText(phone,
-          `Infelizmente não trabalhamos com o *${text.trim()}*\npara infusões. 😕\n\n` +
-          'Posso encaminhar para nossa equipe que\napresentará as opções particulares. 👩‍⚕️\n\n' +
-          'Deseja ser atendido?\n1️⃣ Sim\n2️⃣ Não, obrigado'
+        await transferirHumano(phone,
+          `Infelizmente não trabalhamos com o *${text.trim()}* para infusões. 😕\n\n` +
+          '💛 Mas temos *atendimento particular* disponível!\n\n' +
+          'Nossa equipe informará os valores com *prioridade*. 🌟\n\n' +
+          '👩‍⚕️ Transferindo para atendimento prioritário…'
         )
-        await upsertSession(phone, { convenio_informado: text.trim(), step: 'INFUSAO_ENCAMINHAR' })
       }
-      break
-    }
-
-    case 'INFUSAO_ENCAMINHAR': {
-      if (text.trim() === '1') {
-        await transferir(phone)
-      } else {
-        await sendText(phone, 'Tudo bem! 😊')
-        await clearSession(phone)
-      }
-      break
-    }
-
-    case 'INFUSAO_PARTICULAR_INFO': {
-      await sendText(phone,
-        '💊 *Infusão Particular — Hospital Dia*\n\n' +
-        'Os valores variam conforme o medicamento\ne duração do procedimento.\n\n' +
-        'Nossa equipe informará o valor exato após\nanálise do pedido médico. 📋\n\n' +
-        'Posso pegar seus dados de contato?\n1️⃣ Sim\n2️⃣ Não, obrigado'
-      )
-      await upsertSession(phone, { step: 'INFUSAO_PARTICULAR_CONFIRMAR' })
-      break
-    }
-
-    case 'INFUSAO_PARTICULAR_CONFIRMAR': {
-      if (text.trim() === '1') {
-        await upsertSession(phone, { tipo_atendimento: 'PARTICULAR', step: 'AGUARDANDO_NOME_INF', tentativas: 0 })
-        await sendText(phone, 'Por favor, seu *nome completo*:')
-      } else {
-        await sendText(phone, 'Tudo bem! 😊')
-        await clearSession(phone)
-      }
-      break
-    }
-
-    case 'AGUARDANDO_NOME_INF': {
-      await sendText(phone, 'Por favor, seu *nome completo*:')
-      await upsertSession(phone, { step: 'RECEBENDO_NOME_INF' })
       break
     }
 
     case 'RECEBENDO_NOME_INF': {
       const fresh = await getSession(phone)
       if (isValidName(text)) {
-        await upsertSession(phone, { nome: text.trim(), step: 'AGUARDANDO_NASCIMENTO_INF', tentativas: 0 })
+        await upsertSession(phone, { nome: text.trim(), step: 'RECEBENDO_NASCIMENTO_INF', tentativas: 0 })
         await sendText(phone, 'Sua *data de nascimento*:\n_(Formato: DD/MM/AAAA)_')
       } else {
         const tentativas = (fresh?.tentativas || 0) + 1
-        if (tentativas >= 3) { await transferir(phone); return }
+        if (tentativas >= 3) { await transferirHumano(phone, '👩‍⚕️ Encaminhando para nossa equipe!'); return }
         await upsertSession(phone, { tentativas })
         await sendText(phone, 'Por favor, informe nome e sobrenome completos.')
       }
       break
     }
 
-    case 'AGUARDANDO_NASCIMENTO_INF': {
-      await sendText(phone, 'Sua *data de nascimento*:\n_(Formato: DD/MM/AAAA)_')
-      await upsertSession(phone, { step: 'RECEBENDO_NASCIMENTO_INF' })
-      break
-    }
-
     case 'RECEBENDO_NASCIMENTO_INF': {
       const fresh = await getSession(phone)
       if (isValidDate(text)) {
-        await upsertSession(phone, { nascimento: text.trim(), step: 'AGUARDANDO_TELEFONE_INF', tentativas: 0 })
+        await upsertSession(phone, { nascimento: text.trim(), step: 'RECEBENDO_TELEFONE_INF', tentativas: 0 })
         await sendText(phone, 'Seu *telefone de contato* com DDD:\n_(Ex: 61999999999)_')
       } else {
         const tentativas = (fresh?.tentativas || 0) + 1
-        if (tentativas >= 3) { await transferir(phone); return }
+        if (tentativas >= 3) { await transferirHumano(phone, '👩‍⚕️ Encaminhando para nossa equipe!'); return }
         await upsertSession(phone, { tentativas })
         await sendText(phone, 'Data inválida. Use *DD/MM/AAAA*. Ex: 15/03/1985')
       }
-      break
-    }
-
-    case 'AGUARDANDO_TELEFONE_INF': {
-      await sendText(phone, 'Seu *telefone de contato* com DDD:\n_(Ex: 61999999999)_')
-      await upsertSession(phone, { step: 'RECEBENDO_TELEFONE_INF' })
       break
     }
 
@@ -143,7 +101,7 @@ export async function run(phone, text, session) {
         await run(phone, '', { ...fresh, telefone_contato: text.trim(), step: 'CONFIRMACAO_INFUSAO' })
       } else {
         const tentativas = (fresh?.tentativas || 0) + 1
-        if (tentativas >= 3) { await transferir(phone); return }
+        if (tentativas >= 3) { await transferirHumano(phone, '👩‍⚕️ Encaminhando para nossa equipe!'); return }
         await upsertSession(phone, { tentativas })
         await sendText(phone, 'Telefone inválido. Ex: *61999999999*')
       }
@@ -162,7 +120,6 @@ export async function run(phone, text, session) {
         nascimento: fresh?.nascimento,
         telefone_contato: fresh?.telefone_contato
       })
-      await clearSession(phone)
 
       const tipoStr = fresh?.tipo_atendimento === 'CONVENIO'
         ? `💳 Convênio: *${fresh?.convenio_informado}*`
@@ -176,10 +133,19 @@ export async function run(phone, text, session) {
         `🎂 Nascimento: *${fresh?.nascimento}*\n` +
         `📱 Telefone: *${fresh?.telefone_contato}*\n` +
         `${tipoStr}\n\n` +
-        '⚠️ Tenha o pedido médico em mãos.\n' +
-        'Nossa equipe entrará em contato para confirmar\ndata, horário e valores. ⏰\n\n' +
+        '📄 *Próximo passo importante:*\n' +
+        'Envie agora, neste mesmo chat, a *solicitação médica* (pedido do seu médico) como imagem ou PDF.\n' +
+        'Nossa equipe irá analisá-la e dar andamento ao processo. 😊\n\n' +
+        '⏰ Nossa equipe entrará em contato para confirmar data, horário e valores.\n' +
         '*Atos Saúde Hospital Dia* 🏥'
       )
+
+      // Mantém em HUMANO para receber o documento do paciente
+      await upsertSession(phone, {
+        flow: 'HUMANO',
+        step: 'AGUARDANDO_HUMANO',
+        human_transfer_at: new Date().toISOString()
+      })
       break
     }
 

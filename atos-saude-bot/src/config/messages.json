@@ -23,5 +23,17 @@
 
   "cancelamento_bloqueio": "⚠️ Olá, *{nome}*!\n\nInfelizmente a agenda do *{medico}* precisou ser *cancelada*{motivo}.\n\n{data_hora}Por favor, entre em contato para reagendar:\n📞 *(61) 4042-7188*\n_Pedimos desculpas pelo inconveniente._ 🙏\n*Atos Saúde Integrada* 🏥",
 
-  "confirmacao_marcacao_manual": "✅ *Consulta agendada!*\n\n📋 *Resumo:*\n🩺 {especialidade}\n👨‍⚕️ {medico}\n📅 *{diaSemana}, {data}* às *{hora}*\n👤 {nome}\n\nNossa recepção confirmará em breve. ⏰\n*Atos Saúde Integrada* 🏥"
+  "confirmacao_marcacao_manual": "✅ *Consulta agendada!*\n\n📋 *Resumo:*\n🩺 {especialidade}\n👨‍⚕️ {medico}\n📅 *{diaSemana}, {data}* às *{hora}*\n👤 {nome}\n\nNossa recepção confirmará em breve. ⏰\n*Atos Saúde Integrada* 🏥",
+
+  "lembrete_24h_remarcar": "👋 Olá, *{nome}*!\n\nLembrando que você tem consulta *amanhã*:\n\n🩺 {especialidade}\n👨‍⚕️ {medico}\n📅 *{diaSemana}, {data}* às *{hora}*\n📍 Setor Hospitalar Sul 716, Conj. A — Asa Sul\n\nLembre-se de trazer:\n📋 Pedido médico (se houver)\n💳 Carteirinha do convênio (se tiver)\n🪪 Documento com foto e CPF\n\n🔄 *Precisa remarcar?* Acesse: {linkRemarcar}\n\n*Atos Saúde Integrada* | (61) 4042-7188 🏥",
+
+  "lembrete_2h_remarcar": "⏰ Olá, *{nome}*!\n\nSua consulta é *daqui a 2 horas*!\n\n👨‍⚕️ {medico}\n🕐 Hoje às *{hora}*\n📍 Setor Hospitalar Sul 716, Conj. A — Asa Sul, Brasília-DF\n\nChegue com 10 minutos de antecedência. 😊\n\n🔄 *Precisou remarcar?* Acesse: {linkRemarcar}\n\n*Atos Saúde Integrada* 🏥",
+
+  "encaixe_vaga_disponivel": "🎉 Olá, *{nome}*!\n\nUma vaga ficou disponível na sua fila de encaixe!\n\n🩺 {especialidade}\n👨‍⚕️ {medico}\n📅 *{diaSemana}, {data}* às *{hora}*\n\nDeseja confirmar este horário?\n\n1️⃣ *Sim, quero este horário!*\n2️⃣ *Não, manter consulta atual*\n\n⚠️ Esta vaga é exclusiva por 15 minutos.",
+
+  "encaixe_confirmado": "✅ *Ótimo! Consulta remarcada com sucesso!*\n\n🩺 {especialidade}\n👨‍⚕️ {medico}\n📅 *{diaSemana}, {data}* às *{hora}*\n📍 Setor Hospitalar Sul 716, Conj. A — Asa Sul\n\n*Atos Saúde Integrada* 🏥",
+
+  "encaixe_recusado": "👍 Entendido! Você permanece na sua consulta original.\n\nContinuaremos verificando outras vagas para você. 😊\n\n*Atos Saúde Integrada* 🏥",
+
+  "remarcar_slot_cancelado": "✅ Sua consulta foi *cancelada* e você está pronto para remarcar!\n\nDigite *oi* para iniciar o processo de remarcação e escolher um novo horário. 😊\n\n*Atos Saúde Integrada* 🏥"
 }

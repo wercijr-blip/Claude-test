@@ -108,10 +108,30 @@ db.exec(`
     comentario TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
+
+  CREATE TABLE IF NOT EXISTS encaixe_queue (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    phone TEXT NOT NULL,
+    nome TEXT,
+    especialidade TEXT,
+    medico_id TEXT,
+    notificado INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS reschedule_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    token TEXT UNIQUE NOT NULL,
+    agendamento_id INTEGER NOT NULL,
+    used INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
 `)
 
 // Adiciona coluna agendamento_id à tabela sessions se ainda não existir
 try { db.exec('ALTER TABLE sessions ADD COLUMN agendamento_id TEXT') } catch {}
+// Adiciona coluna human_transfer_at para rastrear espera humana
+try { db.exec('ALTER TABLE sessions ADD COLUMN human_transfer_at DATETIME') } catch {}
 
 // Sessions
 export function getSession(phone) {
@@ -121,7 +141,7 @@ export function getSession(phone) {
 const SESSION_COLUMNS = new Set([
   'step','flow','especialidade','medico_id','medico_nome','slot_escolhido','slots_json',
   'tipo_atendimento','convenio_informado','nome','nascimento','telefone_contato',
-  'tentativas','agendamento_id'
+  'tentativas','agendamento_id','human_transfer_at'
 ])
 
 export function upsertSession(phone, data) {
@@ -282,6 +302,60 @@ export function toggleUserActive(id, active) {
 
 export function userCount() {
   return db.prepare('SELECT COUNT(*) as c FROM users').get()?.c || 0
+}
+
+// SESSION_COLUMNS update to include human_transfer_at
+const _SESSION_EXTRA = 'human_transfer_at'
+
+// Encaixe queue
+export function getEncaixeQueue() {
+  return db.prepare('SELECT * FROM encaixe_queue ORDER BY created_at ASC').all()
+}
+
+export function insertEncaixe(data) {
+  const { phone, nome, especialidade, medico_id } = data
+  const result = db.prepare(
+    'INSERT INTO encaixe_queue (phone, nome, especialidade, medico_id) VALUES (?, ?, ?, ?)'
+  ).run(phone, nome || null, especialidade || null, medico_id || null)
+  return result.lastInsertRowid
+}
+
+export function removeEncaixe(id) {
+  db.prepare('DELETE FROM encaixe_queue WHERE id = ?').run(id)
+}
+
+export function getEncaixeByEspecialidade(especialidade, medicoId) {
+  let q = 'SELECT * FROM encaixe_queue WHERE notificado = 0'
+  const params = []
+  if (especialidade) { q += ' AND (especialidade = ? OR especialidade IS NULL)'; params.push(especialidade) }
+  if (medicoId) { q += ' AND (medico_id = ? OR medico_id IS NULL)'; params.push(medicoId) }
+  q += ' ORDER BY created_at ASC'
+  return db.prepare(q).all(...params)
+}
+
+export function markEncaixeNotificado(id) {
+  db.prepare('UPDATE encaixe_queue SET notificado = 1 WHERE id = ?').run(id)
+}
+
+// Reschedule tokens
+export function insertRescheduleToken(token, agendamentoId) {
+  db.prepare('INSERT INTO reschedule_tokens (token, agendamento_id) VALUES (?, ?)').run(token, agendamentoId)
+}
+
+export function getRescheduleToken(token) {
+  return db.prepare('SELECT * FROM reschedule_tokens WHERE token = ? AND used = 0').get(token) || null
+}
+
+export function markRescheduleTokenUsed(token) {
+  db.prepare('UPDATE reschedule_tokens SET used = 1 WHERE token = ?').run(token)
+}
+
+// Human wait sessions (transferred to human flow)
+export function getHumanWaitingSessions(minMinutes = 10) {
+  return db.prepare(
+    `SELECT * FROM sessions WHERE flow = 'HUMANO' AND human_transfer_at IS NOT NULL
+     AND human_transfer_at <= datetime('now', '-${minMinutes} minutes')`
+  ).all()
 }
 
 export default db

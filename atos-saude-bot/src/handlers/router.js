@@ -2,7 +2,7 @@ import { getSession, clearSession } from '../services/db.js'
 import { isRestartKeyword } from '../utils/validators.js'
 import { logger } from '../utils/logger.js'
 
-export async function router(phone, text) {
+export async function router(phone, text, pushName = '') {
   const session = await getSession(phone)
 
   // Pesquisa de satisfação tem prioridade — não interromper com palavras de reinício
@@ -12,10 +12,23 @@ export async function router(phone, text) {
     return
   }
 
+  // "atendente" força transferência humana imediata de qualquer fluxo
+  if (text.trim().toLowerCase() === 'atendente') {
+    const { sendText } = await import('../services/whatsapp.js')
+    const { upsertSession } = await import('../services/db.js')
+    await sendText(phone, '👩‍⚕️ Transferindo para nossa equipe agora! Um momento. 😊')
+    await upsertSession(phone, {
+      flow: 'HUMANO',
+      step: 'AGUARDANDO_HUMANO',
+      human_transfer_at: new Date().toISOString()
+    })
+    return
+  }
+
   if (!session || session.step === 'START' || isRestartKeyword(text)) {
     await clearSession(phone)
     const { run } = await import('../flows/menu-flow.js')
-    await run(phone, text, null)
+    await run(phone, text, null, pushName)
     return
   }
 
@@ -24,7 +37,7 @@ export async function router(phone, text) {
   switch (session.flow) {
     case 'MENU': {
       const { run } = await import('../flows/menu-flow.js')
-      await run(phone, text, session)
+      await run(phone, text, session, pushName)
       break
     }
     case 'CONHECER': {
@@ -57,10 +70,24 @@ export async function router(phone, text) {
       await run(phone, text, session)
       break
     }
+    case 'ENCAIXE': {
+      const { run } = await import('../flows/encaixe-flow.js')
+      await run(phone, text, session)
+      break
+    }
+    case 'EXAMES': {
+      const { run } = await import('../flows/exames-flow.js')
+      await run(phone, text, session)
+      break
+    }
+    case 'HUMANO': {
+      logger.info({ phone }, 'Mensagem recebida em atendimento humano — aguardando operador')
+      break
+    }
     default: {
       await clearSession(phone)
       const { run } = await import('../flows/menu-flow.js')
-      await run(phone, text, null)
+      await run(phone, text, null, pushName)
     }
   }
 }

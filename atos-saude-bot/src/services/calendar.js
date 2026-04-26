@@ -221,6 +221,42 @@ export async function createBlockEvent(doctorId, startISO, endISO, motivo = 'BLO
   }
 }
 
+// Cria um calendário Google para o médico e compartilha com o e-mail dele (se informado)
+export async function createDoctorCalendar(doctorNome, especialidade, doctorEmail) {
+  const cal = getCalendarClient()
+  if (!cal) return null
+
+  try {
+    const created = await cal.calendars.insert({
+      requestBody: {
+        summary: `${doctorNome} — ${especialidade}`,
+        description: `Agenda gerada automaticamente pelo sistema Atos Saúde`,
+        timeZone: 'America/Sao_Paulo'
+      }
+    })
+    const calendarId = created.data.id
+    logger.info({ doctorNome, calendarId }, 'Google Calendar criado para médico')
+
+    // Compartilha com o e-mail do médico (role: writer) se informado
+    if (doctorEmail) {
+      try {
+        await cal.acl.insert({
+          calendarId,
+          requestBody: { role: 'writer', scope: { type: 'user', value: doctorEmail } }
+        })
+        logger.info({ doctorNome, doctorEmail }, 'Calendário compartilhado com o médico')
+      } catch (err) {
+        logger.warn({ doctorEmail, err: err.message }, 'Não foi possível compartilhar o calendário')
+      }
+    }
+
+    return calendarId
+  } catch (err) {
+    logger.error({ doctorNome, err: err.message }, 'Erro ao criar Google Calendar para médico')
+    return null
+  }
+}
+
 export function formatSlots(slots) {
   const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
   const nums = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣']

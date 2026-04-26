@@ -16,6 +16,65 @@
 </head>
 <body class="bg-gray-100 min-h-screen" x-data="painel()" x-init="init()">
 
+<!-- ═══════════════════ TELA DE LOGIN ═══════════════════ -->
+<div x-show="!autenticado" x-cloak class="min-h-screen flex items-center justify-center bg-[#1E3A5F]">
+  <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm mx-4">
+    <div class="text-center mb-6">
+      <div class="text-5xl mb-2">🏥</div>
+      <h1 class="text-xl font-bold text-[#1E3A5F]">Atos Saúde Integrada</h1>
+      <p class="text-xs text-gray-400 mt-1">Painel Administrativo</p>
+    </div>
+    <div class="space-y-4">
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Usuário</label>
+        <input type="text" x-model="login.username" @keydown.enter="fazerLogin()"
+          placeholder="seu.usuario"
+          class="w-full border rounded-lg px-4 py-3 text-sm focus:border-[#1E3A5F] focus:outline-none">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Senha</label>
+        <input type="password" x-model="login.password" @keydown.enter="fazerLogin()"
+          placeholder="••••••••"
+          class="w-full border rounded-lg px-4 py-3 text-sm focus:border-[#1E3A5F] focus:outline-none">
+      </div>
+      <div x-show="login.erro" x-text="login.erro" class="text-red-600 text-xs text-center bg-red-50 p-2 rounded"></div>
+      <button @click="fazerLogin()" :disabled="login.loading"
+        class="w-full bg-[#1E3A5F] text-white py-3 rounded-lg font-semibold text-sm hover:opacity-90 disabled:opacity-50">
+        <span x-show="!login.loading">Entrar</span>
+        <span x-show="login.loading">Autenticando…</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ MODAL TROCA DE SENHA (first login) ═══════════════════ -->
+<div x-show="autenticado && showChangePwd" x-cloak class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+  <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm mx-4">
+    <div class="text-center mb-5">
+      <div class="text-4xl mb-2">🔐</div>
+      <h2 class="text-lg font-bold text-[#1E3A5F]">Troque sua senha</h2>
+      <p class="text-xs text-gray-500 mt-1">Por segurança, defina uma senha pessoal antes de continuar.</p>
+    </div>
+    <div class="space-y-3">
+      <input type="password" x-model="changePwd.current" placeholder="Senha atual"
+        class="w-full border rounded-lg px-4 py-2 text-sm focus:border-[#1E3A5F] focus:outline-none">
+      <input type="password" x-model="changePwd.new1" placeholder="Nova senha (mín. 6 caracteres)"
+        class="w-full border rounded-lg px-4 py-2 text-sm focus:border-[#1E3A5F] focus:outline-none">
+      <input type="password" x-model="changePwd.new2" placeholder="Confirmar nova senha"
+        class="w-full border rounded-lg px-4 py-2 text-sm focus:border-[#1E3A5F] focus:outline-none">
+      <div x-show="changePwd.erro" x-text="changePwd.erro" class="text-red-600 text-xs bg-red-50 p-2 rounded"></div>
+      <div x-show="changePwd.ok" class="text-green-600 text-xs bg-green-50 p-2 rounded">✅ Senha alterada com sucesso!</div>
+      <button @click="trocarSenha()" :disabled="changePwd.loading"
+        class="w-full bg-[#1E3A5F] text-white py-2 rounded-lg font-semibold text-sm hover:opacity-90 disabled:opacity-50">
+        Salvar nova senha
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ PAINEL PRINCIPAL ═══════════════════ -->
+<div x-show="autenticado && !showChangePwd" x-cloak>
+
 <!-- Header -->
 <header class="bg-[#1E3A5F] text-white px-6 py-4 flex items-center justify-between shadow-md">
   <div class="flex items-center gap-3">
@@ -25,9 +84,20 @@
       <p class="text-xs text-blue-200">Painel de Atendimento</p>
     </div>
   </div>
-  <div class="text-right text-sm">
-    <p x-text="currentDate" class="font-medium"></p>
-    <p x-text="currentTime" class="text-blue-200 text-xs"></p>
+  <div class="flex items-center gap-4">
+    <div class="text-right text-sm">
+      <p x-text="currentDate" class="font-medium"></p>
+      <p x-text="currentTime" class="text-blue-200 text-xs"></p>
+    </div>
+    <div class="text-right border-l border-blue-400 pl-4">
+      <p class="text-sm font-semibold" x-text="currentUser?.name"></p>
+      <span class="text-xs px-2 py-0.5 rounded-full font-medium"
+        :class="{'bg-red-400':currentUser?.role==='admin','bg-blue-400':currentUser?.role==='secretaria','bg-green-400':currentUser?.role==='faturamento'}"
+        x-text="{'admin':'Admin','secretaria':'Secretaria','faturamento':'Faturamento'}[currentUser?.role]"></span>
+    </div>
+    <button @click="sairSessao()" class="text-xs bg-white bg-opacity-20 hover:bg-opacity-30 px-3 py-1 rounded-lg transition-colors">
+      Sair
+    </button>
   </div>
 </header>
 
@@ -43,12 +113,12 @@
 
 <!-- Tabs -->
 <div class="px-6">
-  <div class="flex gap-2 border-b border-gray-300">
-    <template x-for="tab in tabs" :key="tab.id">
+  <div class="flex gap-2 border-b border-gray-300 overflow-x-auto">
+    <template x-for="tab in tabs.filter(t => permissions?.tabs?.includes(t.id))" :key="tab.id">
       <button
         @click="activeTab = tab.id"
         :class="activeTab === tab.id ? 'border-[#1E3A5F] text-[#1E3A5F] font-semibold' : 'border-transparent text-gray-500 hover:text-gray-700'"
-        class="px-4 py-2 border-b-2 text-sm transition-colors"
+        class="px-4 py-2 border-b-2 text-sm transition-colors whitespace-nowrap"
         x-text="tab.label">
       </button>
     </template>
@@ -83,9 +153,9 @@
     </div>
     <button @click="loadAgendamentos()" class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700">🔍 Filtrar</button>
     <div class="ml-auto flex gap-2">
-      <button @click="abrirModalBloqueio()" class="bg-red-700 text-white px-3 py-1 rounded text-sm hover:bg-red-800">🚫 Bloquear Agenda</button>
-      <button @click="exportar(false)" class="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700">📥 Exportar Pendentes</button>
-      <button @click="exportar(true)" class="bg-gray-600 text-white px-3 py-1 rounded text-sm hover:bg-gray-700">📋 Exportar Todos</button>
+      <button x-show="permissions?.canBlock" @click="abrirModalBloqueio()" class="bg-red-700 text-white px-3 py-1 rounded text-sm hover:bg-red-800">🚫 Bloquear Agenda</button>
+      <button x-show="permissions?.canExport" @click="exportar(false)" class="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700">📥 Exportar Pendentes</button>
+      <button x-show="permissions?.canExport" @click="exportar(true)" class="bg-gray-600 text-white px-3 py-1 rounded text-sm hover:bg-gray-700">📋 Exportar Todos</button>
       <button @click="loadAll()" class="bg-[#1E3A5F] text-white px-3 py-1 rounded text-sm hover:opacity-90">🔄 Atualizar</button>
     </div>
   </div>
@@ -130,7 +200,7 @@
             <td class="px-3 py-2 text-xs" x-text="formatDate(row.created_at)"></td>
             <td class="px-3 py-2">
               <button
-                x-show="row.status !== 'CANCELADO'"
+                x-show="permissions?.canCancel && row.status !== 'CANCELADO'"
                 @click="cancelarAgendamento(row)"
                 class="bg-red-100 text-red-700 hover:bg-red-200 px-2 py-0.5 rounded text-xs font-medium">
                 ✕ Cancelar
@@ -473,6 +543,372 @@
   </div>
 </div>
 
+<!-- Tab: Atendimento Humano -->
+<div class="px-6 py-4" x-show="activeTab === 'atendimento'" x-cloak>
+  <div class="bg-white rounded-lg shadow overflow-auto">
+    <div class="p-4 flex justify-between items-center border-b">
+      <div class="flex items-center gap-3">
+        <h2 class="font-semibold text-[#1E3A5F]">👩‍⚕️ Aguardando Atendimento Humano</h2>
+        <span x-show="humanWaiting.length > 0"
+          class="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full animate-pulse"
+          x-text="humanWaiting.length + ' na fila'"></span>
+      </div>
+      <button @click="loadHumanWaiting()" class="bg-[#1E3A5F] text-white px-3 py-1 rounded text-sm">🔄 Atualizar</button>
+    </div>
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 text-gray-600">
+        <tr>
+          <th class="px-3 py-2 text-left">WhatsApp</th>
+          <th class="px-3 py-2 text-left">Nome</th>
+          <th class="px-3 py-2 text-left">Fluxo</th>
+          <th class="px-3 py-2 text-left">Aguardando desde</th>
+          <th class="px-3 py-2 text-left">Tempo</th>
+          <th class="px-3 py-2 text-left">Ação</th>
+        </tr>
+      </thead>
+      <tbody>
+        <template x-if="humanWaiting.length === 0">
+          <tr><td colspan="6" class="text-center py-8 text-gray-400">Nenhum paciente aguardando. ✅</td></tr>
+        </template>
+        <template x-for="row in humanWaiting" :key="row.phone">
+          <tr class="border-b"
+            :class="(new Date() - new Date(row.human_transfer_at)) > 600000 ? 'bg-red-50' : 'bg-white hover:bg-gray-50'">
+            <td class="px-3 py-2 font-mono text-xs" x-text="row.phone"></td>
+            <td class="px-3 py-2 font-medium text-xs" x-text="row.nome || '—'"></td>
+            <td class="px-3 py-2"><span class="px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-800" x-text="row.flow || '—'"></span></td>
+            <td class="px-3 py-2 text-xs" x-text="formatDate(row.human_transfer_at)"></td>
+            <td class="px-3 py-2 text-xs font-medium"
+              :class="(new Date() - new Date(row.human_transfer_at)) > 600000 ? 'text-red-600 font-bold' : 'text-gray-600'"
+              x-text="Math.floor((new Date() - new Date(row.human_transfer_at)) / 60000) + ' min'">
+            </td>
+            <td class="px-3 py-2">
+              <button @click="assumirAtendimento(row.phone)"
+                class="bg-green-600 text-white hover:bg-green-700 px-3 py-1 rounded text-xs font-medium">
+                ✅ Assumir
+              </button>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Tab: Encaixe -->
+<div class="px-6 py-4" x-show="activeTab === 'encaixe'" x-cloak>
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <!-- Form -->
+    <div class="bg-white rounded-xl shadow p-5">
+      <h2 class="font-bold text-[#1E3A5F] mb-4">➕ Adicionar à Fila de Encaixe</h2>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">WhatsApp <span class="text-red-500">*</span></label>
+          <input type="text" x-model="novoEncaixe.phone" placeholder="556199999999" class="w-full border rounded px-3 py-2 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Nome do paciente</label>
+          <input type="text" x-model="novoEncaixe.nome" placeholder="Nome completo" class="w-full border rounded px-3 py-2 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Especialidade desejada</label>
+          <input type="text" x-model="novoEncaixe.especialidade" placeholder="Ex: Infectologia" class="w-full border rounded px-3 py-2 text-sm">
+        </div>
+        <div x-show="novoEncaixe.msg" x-text="novoEncaixe.msg"
+          class="text-xs p-2 rounded" :class="novoEncaixe.erro ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'"></div>
+        <button @click="adicionarEncaixe()"
+          class="w-full bg-[#1E3A5F] text-white py-2 rounded font-medium text-sm hover:opacity-90">
+          Adicionar à Fila
+        </button>
+      </div>
+    </div>
+    <!-- Queue table -->
+    <div class="md:col-span-2 bg-white rounded-lg shadow overflow-auto">
+      <div class="p-4 flex justify-between items-center border-b">
+        <h2 class="font-semibold text-[#1E3A5F]">🔄 Fila de Encaixe
+          <span x-show="encaixeQueue.length > 0" class="ml-2 bg-orange-500 text-white text-xs px-2 py-0.5 rounded-full" x-text="encaixeQueue.length"></span>
+        </h2>
+        <button @click="loadEncaixe()" class="bg-[#1E3A5F] text-white px-3 py-1 rounded text-sm">🔄 Atualizar</button>
+      </div>
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50 text-gray-600">
+          <tr>
+            <th class="px-3 py-2 text-left">#</th>
+            <th class="px-3 py-2 text-left">WhatsApp</th>
+            <th class="px-3 py-2 text-left">Nome</th>
+            <th class="px-3 py-2 text-left">Especialidade</th>
+            <th class="px-3 py-2 text-left">Adicionado</th>
+            <th class="px-3 py-2 text-left">Ação</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-if="encaixeQueue.length === 0">
+            <tr><td colspan="6" class="text-center py-8 text-gray-400">Fila de encaixe vazia.</td></tr>
+          </template>
+          <template x-for="(row, idx) in encaixeQueue" :key="row.id || idx">
+            <tr class="border-b hover:bg-gray-50">
+              <td class="px-3 py-2 text-xs font-mono" x-text="(idx + 1) + 'º'"></td>
+              <td class="px-3 py-2 text-xs" x-text="row.phone"></td>
+              <td class="px-3 py-2 font-medium text-xs" x-text="row.nome || '—'"></td>
+              <td class="px-3 py-2 text-xs" x-text="row.especialidade || '—'"></td>
+              <td class="px-3 py-2 text-xs" x-text="formatDate(row.created_at)"></td>
+              <td class="px-3 py-2">
+                <button @click="removerEncaixe(row.id)"
+                  class="text-red-500 hover:text-red-700 text-xs underline">Remover</button>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Tab: Médicos -->
+<div class="px-6 py-4" x-show="activeTab === 'medicos'" x-cloak>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <!-- Form cadastro -->
+    <div class="bg-white rounded-xl shadow p-5">
+      <h2 class="font-bold text-[#1E3A5F] mb-1">👨‍⚕️ Cadastrar Novo Médico</h2>
+      <p class="text-xs text-gray-500 mb-4">O Google Calendar será criado automaticamente.</p>
+      <div class="space-y-3">
+        <div class="grid grid-cols-2 gap-3">
+          <div class="col-span-2">
+            <label class="block text-xs font-medium text-gray-700 mb-1">Nome completo <span class="text-red-500">*</span></label>
+            <input type="text" x-model="novoMedico.nome" placeholder="Dr. João Silva" class="w-full border rounded px-3 py-2 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">CRM</label>
+            <input type="text" x-model="novoMedico.crm" placeholder="DF-123456" class="w-full border rounded px-3 py-2 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">Especialidade <span class="text-red-500">*</span></label>
+            <input type="text" x-model="novoMedico.especialidade" placeholder="Infectologia" class="w-full border rounded px-3 py-2 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">E-mail</label>
+            <input type="email" x-model="novoMedico.email" placeholder="dr@clinica.com" class="w-full border rounded px-3 py-2 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">WhatsApp</label>
+            <input type="text" x-model="novoMedico.whatsapp" placeholder="556199999999" class="w-full border rounded px-3 py-2 text-sm">
+          </div>
+        </div>
+        <div class="border-t pt-3">
+          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Grade de Horários</p>
+          <div class="flex flex-wrap gap-1 mb-3">
+            <template x-for="(dia, idx) in ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb']" :key="idx">
+              <button @click="toggleDia(idx)"
+                :class="novoMedico.diasSemana.includes(idx) ? 'bg-[#1E3A5F] text-white' : 'bg-gray-100 text-gray-600'"
+                class="px-2 py-1 rounded text-xs font-medium transition-colors" x-text="dia">
+              </button>
+            </template>
+          </div>
+          <div class="grid grid-cols-3 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-gray-700 mb-1">Início</label>
+              <input type="time" x-model="novoMedico.horarioInicio" class="w-full border rounded px-3 py-2 text-sm">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-700 mb-1">Fim</label>
+              <input type="time" x-model="novoMedico.horarioFim" class="w-full border rounded px-3 py-2 text-sm">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-700 mb-1">Duração (min)</label>
+              <input type="number" x-model.number="novoMedico.slotDurationMinutes" min="15" max="120" step="15" class="w-full border rounded px-3 py-2 text-sm">
+            </div>
+          </div>
+        </div>
+        <div x-show="novoMedico.msg" x-text="novoMedico.msg"
+          class="text-xs p-2 rounded" :class="novoMedico.erro ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'"></div>
+        <button @click="salvarMedico()" :disabled="novoMedico.loading"
+          class="w-full bg-[#1E3A5F] text-white py-2 rounded font-semibold text-sm hover:opacity-90 disabled:opacity-50">
+          <span x-show="!novoMedico.loading">✅ Cadastrar Médico</span>
+          <span x-show="novoMedico.loading">Cadastrando…</span>
+        </button>
+      </div>
+    </div>
+    <!-- List -->
+    <div class="bg-white rounded-lg shadow overflow-auto">
+      <div class="p-4 flex justify-between items-center border-b">
+        <h2 class="font-semibold text-[#1E3A5F]">📋 Médicos Cadastrados</h2>
+        <button @click="loadDoctorsAll()" class="bg-[#1E3A5F] text-white px-3 py-1 rounded text-sm">🔄 Atualizar</button>
+      </div>
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50 text-gray-600">
+          <tr>
+            <th class="px-3 py-2 text-left">Nome</th>
+            <th class="px-3 py-2 text-left">Especialidade</th>
+            <th class="px-3 py-2 text-left">CRM</th>
+            <th class="px-3 py-2 text-left">Status</th>
+            <th class="px-3 py-2 text-left">Ação</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-if="doctorsAll.length === 0">
+            <tr><td colspan="5" class="text-center py-8 text-gray-400">Nenhum médico cadastrado.</td></tr>
+          </template>
+          <template x-for="doc in doctorsAll" :key="doc.id">
+            <tr class="border-b hover:bg-gray-50">
+              <td class="px-3 py-2 font-medium text-xs" x-text="doc.nome"></td>
+              <td class="px-3 py-2 text-xs" x-text="doc.especialidade"></td>
+              <td class="px-3 py-2 text-xs font-mono" x-text="doc.crm || '—'"></td>
+              <td class="px-3 py-2">
+                <span class="px-2 py-0.5 rounded text-xs font-medium"
+                  :class="doc.active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500'"
+                  x-text="doc.active ? 'Ativo' : 'Inativo'"></span>
+              </td>
+              <td class="px-3 py-2">
+                <button @click="toggleMedico(doc)"
+                  :class="doc.active ? 'text-red-500 hover:text-red-700' : 'text-green-600 hover:text-green-800'"
+                  class="text-xs underline" x-text="doc.active ? 'Desativar' : 'Ativar'">
+                </button>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Tab: Usuários -->
+<div class="px-6 py-4" x-show="activeTab === 'usuarios'" x-cloak>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <!-- Form -->
+    <div class="bg-white rounded-xl shadow p-5">
+      <h2 class="font-bold text-[#1E3A5F] mb-4">👤 Criar Novo Usuário</h2>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Nome completo <span class="text-red-500">*</span></label>
+          <input type="text" x-model="novoUsuario.name" placeholder="Maria Secretaria" class="w-full border rounded px-3 py-2 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Usuário (login) <span class="text-red-500">*</span></label>
+          <input type="text" x-model="novoUsuario.username" placeholder="maria.secretaria" class="w-full border rounded px-3 py-2 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Função <span class="text-red-500">*</span></label>
+          <select x-model="novoUsuario.role" class="w-full border rounded px-3 py-2 text-sm">
+            <option value="">— selecione —</option>
+            <option value="admin">Admin</option>
+            <option value="secretaria">Secretaria</option>
+            <option value="faturamento">Faturamento</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Senha inicial <span class="text-red-500">*</span></label>
+          <input type="password" x-model="novoUsuario.password" placeholder="mín. 6 caracteres" class="w-full border rounded px-3 py-2 text-sm">
+          <p class="text-xs text-gray-400 mt-1">O usuário deverá trocar a senha no primeiro acesso.</p>
+        </div>
+        <div x-show="novoUsuario.msg" x-text="novoUsuario.msg"
+          class="text-xs p-2 rounded" :class="novoUsuario.erro ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'"></div>
+        <button @click="criarUsuario()" :disabled="novoUsuario.loading"
+          class="w-full bg-[#1E3A5F] text-white py-2 rounded font-semibold text-sm hover:opacity-90 disabled:opacity-50">
+          <span x-show="!novoUsuario.loading">✅ Criar Usuário</span>
+          <span x-show="novoUsuario.loading">Criando…</span>
+        </button>
+      </div>
+    </div>
+    <!-- List -->
+    <div class="bg-white rounded-lg shadow overflow-auto">
+      <div class="p-4 flex justify-between items-center border-b">
+        <h2 class="font-semibold text-[#1E3A5F]">👥 Usuários do Sistema</h2>
+        <button @click="loadUsuarios()" class="bg-[#1E3A5F] text-white px-3 py-1 rounded text-sm">🔄 Atualizar</button>
+      </div>
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50 text-gray-600">
+          <tr>
+            <th class="px-3 py-2 text-left">Nome</th>
+            <th class="px-3 py-2 text-left">Usuário</th>
+            <th class="px-3 py-2 text-left">Função</th>
+            <th class="px-3 py-2 text-left">Status</th>
+            <th class="px-3 py-2 text-left">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-if="usuarios.length === 0">
+            <tr><td colspan="5" class="text-center py-8 text-gray-400">Nenhum usuário encontrado.</td></tr>
+          </template>
+          <template x-for="usr in usuarios" :key="usr.id">
+            <tr class="border-b hover:bg-gray-50">
+              <td class="px-3 py-2 font-medium text-xs" x-text="usr.name"></td>
+              <td class="px-3 py-2 text-xs font-mono" x-text="usr.username"></td>
+              <td class="px-3 py-2">
+                <span class="px-2 py-0.5 rounded text-xs font-medium"
+                  :class="{'bg-red-100 text-red-800': usr.role==='admin','bg-blue-100 text-blue-800': usr.role==='secretaria','bg-green-100 text-green-800': usr.role==='faturamento'}"
+                  x-text="{'admin':'Admin','secretaria':'Secretaria','faturamento':'Faturamento'}[usr.role] || usr.role"></span>
+              </td>
+              <td class="px-3 py-2">
+                <span class="px-2 py-0.5 rounded text-xs"
+                  :class="usr.active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500'"
+                  x-text="usr.active ? 'Ativo' : 'Inativo'"></span>
+              </td>
+              <td class="px-3 py-2 flex gap-2">
+                <button @click="toggleUsuario(usr)"
+                  :class="usr.active ? 'text-red-500 hover:text-red-700' : 'text-green-600 hover:text-green-800'"
+                  class="text-xs underline" x-text="usr.active ? 'Bloquear' : 'Ativar'">
+                </button>
+                <button @click="resetarSenha(usr)" class="text-blue-500 hover:text-blue-700 text-xs underline">Resetar senha</button>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Tab: WhatsApp -->
+<div class="px-6 py-4" x-show="activeTab === 'whatsapp'" x-cloak>
+  <div class="max-w-lg mx-auto">
+    <div class="bg-white rounded-xl shadow p-6">
+      <h2 class="text-lg font-bold text-[#1E3A5F] mb-5">📱 Status WhatsApp</h2>
+
+      <!-- Status badge -->
+      <div class="flex items-center gap-3 mb-6 p-4 rounded-lg" :class="whatsapp.connected ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'">
+        <div class="w-3 h-3 rounded-full" :class="whatsapp.connected ? 'bg-green-500 animate-pulse' : 'bg-red-500'"></div>
+        <div>
+          <p class="font-semibold text-sm" :class="whatsapp.connected ? 'text-green-800' : 'text-red-800'"
+            x-text="whatsapp.connected ? '✅ WhatsApp Conectado' : '❌ WhatsApp Desconectado'">
+          </p>
+          <p x-show="whatsapp.statusDetail" x-text="whatsapp.statusDetail" class="text-xs text-gray-500 mt-0.5"></p>
+        </div>
+        <button @click="loadWhatsappStatus()" class="ml-auto text-xs text-gray-400 hover:text-gray-700 underline">Verificar</button>
+      </div>
+
+      <!-- QR Code -->
+      <div x-show="whatsapp.qr" class="text-center mb-5">
+        <p class="text-sm text-gray-600 mb-3">Escaneie com o WhatsApp do celular:</p>
+        <img :src="'data:image/png;base64,' + whatsapp.qr" alt="QR Code WhatsApp"
+          class="mx-auto rounded-lg shadow border w-56 h-56 object-contain">
+        <p class="text-xs text-gray-400 mt-2">O QR Code expira em 60 segundos</p>
+      </div>
+
+      <!-- Feedback -->
+      <div x-show="whatsapp.msg" x-text="whatsapp.msg"
+        class="mb-4 p-3 rounded text-sm font-medium"
+        :class="whatsapp.erro ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'"></div>
+
+      <!-- Buttons -->
+      <div class="space-y-2">
+        <button @click="gerarQR()" :disabled="whatsapp.loading || whatsapp.connected"
+          class="w-full bg-[#1E3A5F] text-white py-2 rounded font-medium text-sm hover:opacity-90 disabled:opacity-50">
+          <span x-show="!whatsapp.loading">📲 Gerar QR Code para Conectar</span>
+          <span x-show="whatsapp.loading">Aguarde…</span>
+        </button>
+        <button @click="reconectarWhatsapp()" :disabled="whatsapp.loading"
+          class="w-full bg-orange-500 text-white py-2 rounded font-medium text-sm hover:bg-orange-600 disabled:opacity-50">
+          🔄 Reiniciar Instância
+        </button>
+        <button @click="desconectarWhatsapp()" :disabled="whatsapp.loading || !whatsapp.connected"
+          class="w-full bg-red-600 text-white py-2 rounded font-medium text-sm hover:bg-red-700 disabled:opacity-50">
+          🔌 Desconectar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Tab: Satisfação -->
 <div class="px-6 py-4" x-show="activeTab === 'satisfacao'" x-cloak>
   <!-- Cards de resumo -->
@@ -538,26 +974,45 @@
   </div>
 </div>
 
+</div><!-- /painel principal -->
+
 <script>
 function painel() {
   return {
+    // ── Auth ──────────────────────────────────────────────────────────────
+    autenticado: false,
+    currentUser: null,
+    permissions: null,
+    token: null,
+    showChangePwd: false,
+    login: { username: '', password: '', loading: false, erro: '' },
+    changePwd: { current: '', new1: '', new2: '', loading: false, erro: '', ok: false },
+
+    // ── UI ────────────────────────────────────────────────────────────────
     activeTab: 'agenda',
     tabs: [
-      { id: 'agenda', label: '📋 Agenda' },
-      { id: 'medicacoes', label: '💊 Medicações' },
-      { id: 'conhecimento', label: '📚 Base de Conhecimento' },
-      { id: 'satisfacao', label: '⭐ Satisfação' },
-      { id: 'marcacao', label: '📝 Nova Marcação' },
-      { id: 'textos', label: '✏️ Editar Textos' }
+      { id: 'agenda',       label: '📋 Agenda' },
+      { id: 'atendimento',  label: '👩‍⚕️ Atendimento' },
+      { id: 'encaixe',      label: '🔄 Encaixe' },
+      { id: 'medicacoes',   label: '💊 Medicações' },
+      { id: 'conhecimento', label: '📚 Conhecimento' },
+      { id: 'satisfacao',   label: '⭐ Satisfação' },
+      { id: 'marcacao',     label: '📝 Nova Marcação' },
+      { id: 'medicos',      label: '👨‍⚕️ Médicos' },
+      { id: 'textos',       label: '✏️ Textos' },
+      { id: 'usuarios',     label: '👥 Usuários' },
+      { id: 'whatsapp',     label: '📱 WhatsApp' }
     ],
     statCards: [
-      { key: 'hoje', label: 'Total hoje', color: '#1E3A5F' },
-      { key: 'consultas', label: 'Consultas', color: '#1976D2' },
-      { key: 'infusoes', label: 'Infusões', color: '#7B1FA2' },
-      { key: 'medicacoes', label: 'Medicações', color: '#388E3C' },
-      { key: 'particulares', label: 'Particulares', color: '#F57C00' },
-      { key: 'pendentes', label: 'Pendentes', color: '#D32F2F' }
+      { key: 'hoje',         label: 'Total hoje',    color: '#1E3A5F' },
+      { key: 'consultas',    label: 'Consultas',     color: '#1976D2' },
+      { key: 'infusoes',     label: 'Infusões',      color: '#7B1FA2' },
+      { key: 'medicacoes',   label: 'Medicações',    color: '#388E3C' },
+      { key: 'particulares', label: 'Particulares',  color: '#F57C00' },
+      { key: 'pendentes',    label: 'Pendentes',     color: '#D32F2F' }
     ],
+
+    // ── Dados ─────────────────────────────────────────────────────────────
     stats: {},
     agendamentos: [],
     medicacoes: [],
@@ -566,6 +1021,13 @@ function painel() {
     satisfacaoRows: [],
     satisfacaoStats: { media: 0, total: 0, excelente: 0, bom: 0, regular: 0, ruim: 0 },
     doctors: [],
+    doctorsAll: [],
+    humanWaiting: [],
+    encaixeQueue: [],
+    usuarios: [],
+    textos: {}, textosEditados: {}, textosSaving: false, textosSaved: false,
+    filters: { tipo: '', especialidade: '', data: '', status: '' },
+    uploading: false, uploadMsg: '', uploadError: false,
     modalBloqueio: false,
     bloqueio: { doctorId: '', inicio: '', fim: '', motivo: '', loading: false, msg: '', erro: false },
     marcacao: {
@@ -574,19 +1036,87 @@ function painel() {
       tipo: 'CONVENIO', convenio: '',
       loading: false, loadingSlots: false, msg: '', erro: false
     },
-    textos: {}, textosEditados: {}, textosSaving: false, textosSaved: false,
-    filters: { tipo: '', especialidade: '', data: '', status: '' },
-    uploading: false,
-    uploadMsg: '',
-    uploadError: false,
-    currentDate: '',
-    currentTime: '',
+    novoMedico: {
+      nome: '', crm: '', especialidade: '', email: '', whatsapp: '',
+      slotDurationMinutes: 30, diasSemana: [1,2,3,4,5],
+      horarioInicio: '08:00', horarioFim: '17:00',
+      loading: false, msg: '', erro: false
+    },
+    novoUsuario: { name: '', username: '', role: '', password: '', loading: false, msg: '', erro: false },
+    novoEncaixe: { phone: '', nome: '', especialidade: '', msg: '', erro: false },
+    whatsapp: { connected: false, qr: '', statusDetail: '', loading: false, msg: '', erro: false },
+    currentDate: '', currentTime: '',
 
+    // ── Auth helpers ──────────────────────────────────────────────────────
+    api(url, opts = {}) {
+      const headers = { ...(opts.headers || {}) }
+      if (this.token) headers['Authorization'] = 'Bearer ' + this.token
+      return fetch(url, { ...opts, headers })
+    },
+
+    async fazerLogin() {
+      this.login.loading = true; this.login.erro = ''
+      try {
+        const r = await fetch('/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: this.login.username, password: this.login.password })
+        })
+        const data = await r.json()
+        if (!r.ok) { this.login.erro = data.error || 'Usuário ou senha inválidos.'; return }
+        this.token = data.token
+        this.currentUser = data.user
+        this.permissions = data.permissions
+        localStorage.setItem('token', data.token)
+        this.autenticado = true
+        if (data.user.first_login) this.showChangePwd = true
+        else await this.loadAll()
+      } catch { this.login.erro = 'Erro de conexão. Tente novamente.' }
+      finally { this.login.loading = false }
+    },
+
+    sairSessao() {
+      localStorage.removeItem('token')
+      this.token = null; this.currentUser = null; this.permissions = null
+      this.autenticado = false; this.showChangePwd = false
+      this.login = { username: '', password: '', loading: false, erro: '' }
+    },
+
+    async trocarSenha() {
+      const { current, new1, new2 } = this.changePwd
+      if (!current || !new1 || !new2) { this.changePwd.erro = 'Preencha todos os campos.'; return }
+      if (new1.length < 6) { this.changePwd.erro = 'Nova senha deve ter pelo menos 6 caracteres.'; return }
+      if (new1 !== new2) { this.changePwd.erro = 'As senhas não coincidem.'; return }
+      this.changePwd.loading = true; this.changePwd.erro = ''
+      const r = await this.api('/auth/change-password', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword: current, newPassword: new1 })
+      }).then(r => r.json()).catch(() => null)
+      this.changePwd.loading = false
+      if (r?.ok) {
+        this.changePwd.ok = true
+        setTimeout(() => { this.showChangePwd = false; this.loadAll() }, 1500)
+      } else { this.changePwd.erro = r?.error || 'Erro ao alterar senha.' }
+    },
+
+    // ── Init ──────────────────────────────────────────────────────────────
     async init() {
       this.updateClock()
       setInterval(() => this.updateClock(), 1000)
-      await this.loadAll()
-      setInterval(() => this.loadAll(), 30000)
+      const saved = localStorage.getItem('token')
+      if (saved) {
+        try {
+          const r = await fetch('/auth/me', { headers: { Authorization: 'Bearer ' + saved } })
+          if (r.ok) {
+            const data = await r.json()
+            this.token = saved; this.currentUser = data.user
+            this.permissions = data.permissions; this.autenticado = true
+            if (data.user.first_login) { this.showChangePwd = true; return }
+            await this.loadAll()
+          } else { localStorage.removeItem('token') }
+        } catch { localStorage.removeItem('token') }
+      }
+      setInterval(() => { if (this.autenticado && !this.showChangePwd) this.loadAll() }, 30000)
     },
 
     updateClock() {
@@ -596,217 +1126,312 @@ function painel() {
     },
 
     async loadAll() {
-      await Promise.all([this.loadStats(), this.loadAgendamentos(), this.loadMedicacoes(), this.loadKnowledge(), this.loadSatisfacao(), this.loadDoctors(), this.loadTextos()])
+      const perms = this.permissions?.tabs || []
+      const tasks = [this.loadStats(), this.loadDoctors()]
+      if (perms.includes('agenda'))       tasks.push(this.loadAgendamentos())
+      if (perms.includes('medicacoes'))   tasks.push(this.loadMedicacoes())
+      if (perms.includes('conhecimento')) tasks.push(this.loadKnowledge())
+      if (perms.includes('satisfacao'))   tasks.push(this.loadSatisfacao())
+      if (perms.includes('textos'))       tasks.push(this.loadTextos())
+      if (perms.includes('atendimento'))  tasks.push(this.loadHumanWaiting())
+      if (perms.includes('encaixe'))      tasks.push(this.loadEncaixe())
+      if (perms.includes('medicos'))      tasks.push(this.loadDoctorsAll())
+      if (perms.includes('usuarios'))     tasks.push(this.loadUsuarios())
+      await Promise.all(tasks)
     },
 
+    // ── Load data ─────────────────────────────────────────────────────────
     async loadStats() {
-      const r = await fetch('/api/stats').then(r => r.json()).catch(() => ({}))
+      const r = await this.api('/api/stats').then(r => r.json()).catch(() => ({}))
       this.stats = r
     },
-
     async loadAgendamentos() {
       const params = new URLSearchParams()
       Object.entries(this.filters).forEach(([k, v]) => { if (v) params.set(k, v) })
-      const r = await fetch('/api/agendamentos?' + params).then(r => r.json()).catch(() => ({ data: [] }))
+      const r = await this.api('/api/agendamentos?' + params).then(r => r.json()).catch(() => ({ data: [] }))
       this.agendamentos = r.data || []
     },
-
     async loadMedicacoes() {
-      const r = await fetch('/api/medication-requests').then(r => r.json()).catch(() => ({ data: [] }))
+      const r = await this.api('/api/medication-requests').then(r => r.json()).catch(() => ({ data: [] }))
       this.medicacoes = r.data || []
     },
-
     async loadKnowledge() {
-      const r = await fetch('/api/knowledge').then(r => r.json()).catch(() => ({ documents: [], stats: {} }))
-      this.documents = r.documents || []
-      this.knowledgeStats = r.stats || {}
+      const r = await this.api('/api/knowledge').then(r => r.json()).catch(() => ({ documents: [], stats: {} }))
+      this.documents = r.documents || []; this.knowledgeStats = r.stats || {}
     },
-
     async loadSatisfacao() {
-      const r = await fetch('/api/satisfaction').then(r => r.json()).catch(() => ({ data: [], stats: {} }))
-      this.satisfacaoRows = r.data || []
-      this.satisfacaoStats = r.stats || {}
+      const r = await this.api('/api/satisfaction').then(r => r.json()).catch(() => ({ data: [], stats: {} }))
+      this.satisfacaoRows = r.data || []; this.satisfacaoStats = r.stats || {}
     },
-
     async loadDoctors() {
-      const r = await fetch('/api/doctors').then(r => r.json()).catch(() => [])
-      this.doctors = r
+      const r = await this.api('/api/doctors').then(r => r.json()).catch(() => [])
+      this.doctors = Array.isArray(r) ? r : []
     },
-
+    async loadDoctorsAll() {
+      const r = await this.api('/api/doctors/all').then(r => r.json()).catch(() => ({ doctors: [] }))
+      this.doctorsAll = r.doctors || []
+    },
     async loadTextos() {
-      const r = await fetch('/api/messages').then(r => r.json()).catch(() => ({}))
-      this.textos = r
-      this.textosEditados = { ...r }
+      const r = await this.api('/api/messages').then(r => r.json()).catch(() => ({}))
+      this.textos = r; this.textosEditados = { ...r }
+    },
+    async loadHumanWaiting() {
+      const r = await this.api('/api/human-waiting').then(r => r.json()).catch(() => ({ data: [] }))
+      this.humanWaiting = r.data || []
+    },
+    async loadEncaixe() {
+      const r = await this.api('/api/encaixe').then(r => r.json()).catch(() => [])
+      this.encaixeQueue = Array.isArray(r) ? r : []
+    },
+    async loadUsuarios() {
+      const r = await this.api('/auth/users').then(r => r.json()).catch(() => [])
+      this.usuarios = Array.isArray(r) ? r : []
+    },
+    async loadWhatsappStatus() {
+      this.whatsapp.loading = true; this.whatsapp.msg = ''
+      const r = await this.api('/api/whatsapp/status').then(r => r.json()).catch(() => null)
+      this.whatsapp.loading = false
+      if (r) {
+        const state = r.state || r.instance?.state || ''
+        this.whatsapp.connected = state === 'open'
+        this.whatsapp.statusDetail = state ? 'Estado: ' + state : ''
+      }
     },
 
+    // ── Actions ───────────────────────────────────────────────────────────
     async buscarSlots() {
       if (!this.marcacao.doctorId || !this.marcacao.date) return
-      this.marcacao.loadingSlots = true
-      this.marcacao.slots = []
-      this.marcacao.slotISO = ''
-      const r = await fetch(`/api/slots?doctorId=${this.marcacao.doctorId}&date=${this.marcacao.date}`)
+      this.marcacao.loadingSlots = true; this.marcacao.slots = []; this.marcacao.slotISO = ''
+      const r = await this.api(`/api/slots?doctorId=${this.marcacao.doctorId}&date=${this.marcacao.date}`)
         .then(r => r.json()).catch(() => [])
       this.marcacao.slots = Array.isArray(r) ? r : []
       this.marcacao.loadingSlots = false
     },
-
     async salvarMarcacao() {
       const m = this.marcacao
       if (!m.doctorId || !m.slotISO || !m.nome || !m.nascimento || !m.telefone) {
         m.erro = true; m.msg = 'Preencha todos os campos obrigatórios.'; return
       }
       m.loading = true; m.msg = ''; m.erro = false
-      const body = {
-        doctorId: m.doctorId, slotISO: m.slotISO,
-        nome: m.nome, nascimento: m.nascimento, telefone: m.telefone,
-        tipoAtendimento: m.tipo, convenio: m.convenio || null,
-        phone: m.phone || null
-      }
-      const r = await fetch('/api/agendamentos/manual', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+      const r = await this.api('/api/agendamentos/manual', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ doctorId: m.doctorId, slotISO: m.slotISO, nome: m.nome, nascimento: m.nascimento, telefone: m.telefone, tipoAtendimento: m.tipo, convenio: m.convenio || null, phone: m.phone || null })
       }).then(r => r.json()).catch(() => null)
       m.loading = false
       if (r?.ok) {
-        m.erro = false
-        m.msg = `✅ Consulta agendada! ID #${r.agId}${r.googleEventId ? ' — evento criado no Google Calendar.' : ''}`
-        this.marcacao = { ...this.marcacao, nome: '', nascimento: '', telefone: '', phone: '', convenio: '', slotISO: '', slots: [] }
+        m.erro = false; m.msg = `✅ Agendado! ID #${r.agId}${r.googleEventId ? ' — Google Calendar atualizado.' : ''}`
+        Object.assign(this.marcacao, { nome: '', nascimento: '', telefone: '', phone: '', convenio: '', slotISO: '', slots: [] })
         await this.loadAgendamentos(); await this.loadStats()
-      } else {
-        m.erro = true; m.msg = 'Erro ao agendar. Verifique os dados e tente novamente.'
-      }
+      } else { m.erro = true; m.msg = 'Erro ao agendar. Verifique os dados.' }
     },
-
+    async cancelarAgendamento(row) {
+      if (!confirm(`Cancelar consulta de ${row.nome}?\n\nO paciente será notificado e o evento removido do Google Calendar.`)) return
+      const r = await this.api(`/api/agendamentos/${row.id}/cancelar`, { method: 'POST' }).then(r => r.json()).catch(() => null)
+      if (r?.ok) {
+        let msg = `✅ Consulta de ${row.nome} cancelada.`
+        if (r.gcalRemovido) msg += ' Evento removido do Google Calendar.'
+        if (r.pacienteNotificado) msg += ' Paciente notificado.'
+        alert(msg); await this.loadAgendamentos(); await this.loadStats()
+      } else { alert('Erro ao cancelar.') }
+    },
+    abrirModalBloqueio() {
+      this.bloqueio = { doctorId: '', inicio: '', fim: '', motivo: '', loading: false, msg: '', erro: false }
+      this.modalBloqueio = true
+    },
+    async confirmarBloqueio() {
+      const { doctorId, inicio, fim, motivo } = this.bloqueio
+      if (!doctorId || !inicio || !fim) { this.bloqueio.msg = 'Preencha todos os campos.'; this.bloqueio.erro = true; return }
+      if (new Date(inicio) >= new Date(fim)) { this.bloqueio.msg = 'Início deve ser anterior ao fim.'; this.bloqueio.erro = true; return }
+      this.bloqueio.loading = true; this.bloqueio.msg = ''
+      const r = await this.api('/api/calendar/bloquear', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ doctorId, startISO: new Date(inicio).toISOString(), endISO: new Date(fim).toISOString(), motivo })
+      }).then(r => r.json()).catch(() => null)
+      this.bloqueio.loading = false
+      if (r?.ok) {
+        this.bloqueio.erro = false; this.bloqueio.msg = `✅ Bloqueado! ${r.pacientesNotificados} paciente(s) notificado(s).`
+        await this.loadAgendamentos(); await this.loadStats()
+      } else { this.bloqueio.erro = true; this.bloqueio.msg = 'Erro ao bloquear.' }
+    },
+    async exportar(all) {
+      try {
+        const r = await this.api('/api/export' + (all ? '?all=true' : ''), { method: 'POST' })
+        if (!r.ok) { alert('Erro ao exportar.'); return }
+        const blob = await r.blob()
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
+        a.download = 'agendamentos.xlsx'; a.click(); URL.revokeObjectURL(a.href)
+      } catch { alert('Erro ao exportar.') }
+    },
     async salvarTextos() {
       this.textosSaving = true; this.textosSaved = false
-      const r = await fetch('/api/messages', {
+      const r = await this.api('/api/messages', {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(this.textosEditados)
       }).then(r => r.json()).catch(() => null)
       this.textosSaving = false
       if (r?.ok) { this.textosSaved = true; this.textos = { ...this.textosEditados } }
     },
-
-    async cancelarAgendamento(row) {
-      if (!confirm(`Cancelar a consulta de ${row.nome}?\n\nO paciente será notificado pelo WhatsApp e o evento será removido do Google Calendar.`)) return
-      const r = await fetch(`/api/agendamentos/${row.id}/cancelar`, { method: 'POST' }).then(r => r.json()).catch(() => null)
-      if (r?.ok) {
-        let msg = `✅ Consulta de ${row.nome} cancelada.`
-        if (r.gcalRemovido) msg += ' Evento removido do Google Calendar.'
-        if (r.pacienteNotificado) msg += ' Paciente notificado pelo WhatsApp.'
-        alert(msg)
-        await this.loadAgendamentos()
-        await this.loadStats()
-      } else {
-        alert('Erro ao cancelar. Tente novamente.')
-      }
-    },
-
-    abrirModalBloqueio() {
-      this.bloqueio = { doctorId: '', inicio: '', fim: '', motivo: '', loading: false, msg: '', erro: false }
-      this.modalBloqueio = true
-    },
-
-    async confirmarBloqueio() {
-      const { doctorId, inicio, fim, motivo } = this.bloqueio
-      if (!doctorId || !inicio || !fim) {
-        this.bloqueio.msg = 'Preencha médico, data de início e fim.'
-        this.bloqueio.erro = true
-        return
-      }
-      if (new Date(inicio) >= new Date(fim)) {
-        this.bloqueio.msg = 'A data de início deve ser anterior à data de fim.'
-        this.bloqueio.erro = true
-        return
-      }
-      this.bloqueio.loading = true
-      this.bloqueio.msg = ''
-      const r = await fetch('/api/calendar/bloquear', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ doctorId, startISO: new Date(inicio).toISOString(), endISO: new Date(fim).toISOString(), motivo })
-      }).then(r => r.json()).catch(() => null)
-      this.bloqueio.loading = false
-      if (r?.ok) {
-        this.bloqueio.erro = false
-        this.bloqueio.msg = `✅ Agenda bloqueada! ${r.pacientesNotificados} paciente(s) notificado(s).`
-        await this.loadAgendamentos()
-        await this.loadStats()
-      } else {
-        this.bloqueio.erro = true
-        this.bloqueio.msg = 'Erro ao bloquear. Verifique o Google Calendar e tente novamente.'
-      }
-    },
-
-    async exportar(all) {
-      const url = '/api/export' + (all ? '?all=true' : '')
-      const a = document.createElement('a')
-      a.href = url
-      a.click()
-    },
-
     async desativarDoc(id) {
       if (!confirm('Desativar este documento?')) return
-      await fetch(`/api/knowledge/${id}`, { method: 'DELETE' })
-      await this.loadKnowledge()
+      await this.api(`/api/knowledge/${id}`, { method: 'DELETE' }); await this.loadKnowledge()
     },
-
-    async handleFileSelect(e) {
-      const file = e.target.files[0]
-      if (file) await this.uploadFile(file)
-    },
-
-    async handleDrop(e) {
-      e.target.classList.remove('drag-over')
-      const file = e.dataTransfer.files[0]
-      if (file) await this.uploadFile(file)
-    },
-
+    async handleFileSelect(e) { const f = e.target.files[0]; if (f) await this.uploadFile(f) },
+    async handleDrop(e) { e.target.classList.remove('drag-over'); const f = e.dataTransfer.files[0]; if (f) await this.uploadFile(f) },
     async uploadFile(file) {
-      this.uploading = true
-      this.uploadMsg = ''
-      this.uploadError = false
-      const fd = new FormData()
-      fd.append('file', file)
+      this.uploading = true; this.uploadMsg = ''; this.uploadError = false
+      const fd = new FormData(); fd.append('file', file)
       try {
-        const r = await fetch('/api/knowledge/upload', { method: 'POST', body: fd })
+        const r = await this.api('/api/knowledge/upload', { method: 'POST', body: fd })
         const data = await r.json()
         if (!r.ok) throw new Error(data.error || 'Erro no upload')
-        this.uploadMsg = `✅ "${data.filename}" indexado com sucesso! (${data.charCount} caracteres)`
+        this.uploadMsg = `✅ "${data.filename}" indexado! (${data.charCount} caracteres)`
         await this.loadKnowledge()
-      } catch (err) {
-        this.uploadMsg = '❌ Erro: ' + err.message
-        this.uploadError = true
-      } finally {
-        this.uploading = false
-      }
+      } catch (err) { this.uploadMsg = '❌ ' + err.message; this.uploadError = true }
+      finally { this.uploading = false }
     },
 
+    // ── Atendimento humano ────────────────────────────────────────────────
+    async assumirAtendimento(phone) {
+      if (!confirm('Marcar como assumido e encerrar sessão deste paciente?')) return
+      await this.api(`/api/sessions/${encodeURIComponent(phone)}/encerrar`, { method: 'POST' }).catch(() => null)
+      await this.loadHumanWaiting()
+    },
+
+    // ── Encaixe ───────────────────────────────────────────────────────────
+    async adicionarEncaixe() {
+      if (!this.novoEncaixe.phone) { this.novoEncaixe.erro = true; this.novoEncaixe.msg = 'WhatsApp é obrigatório.'; return }
+      const r = await this.api('/api/encaixe', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(this.novoEncaixe)
+      }).then(r => r.json()).catch(() => null)
+      if (r?.ok) {
+        this.novoEncaixe = { phone: '', nome: '', especialidade: '', msg: '✅ Adicionado à fila.', erro: false }
+        await this.loadEncaixe()
+      } else { this.novoEncaixe.erro = true; this.novoEncaixe.msg = 'Erro ao adicionar.' }
+    },
+    async removerEncaixe(id) {
+      if (!confirm('Remover da fila?')) return
+      await this.api(`/api/encaixe/${id}`, { method: 'DELETE' }); await this.loadEncaixe()
+    },
+
+    // ── Médicos ───────────────────────────────────────────────────────────
+    toggleDia(idx) {
+      const pos = this.novoMedico.diasSemana.indexOf(idx)
+      if (pos >= 0) this.novoMedico.diasSemana.splice(pos, 1)
+      else this.novoMedico.diasSemana.push(idx)
+    },
+    async salvarMedico() {
+      if (!this.novoMedico.nome || !this.novoMedico.especialidade) {
+        this.novoMedico.erro = true; this.novoMedico.msg = 'Nome e especialidade são obrigatórios.'; return
+      }
+      this.novoMedico.loading = true; this.novoMedico.msg = ''; this.novoMedico.erro = false
+      const r = await this.api('/api/doctors', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nome: this.novoMedico.nome, crm: this.novoMedico.crm,
+          especialidade: this.novoMedico.especialidade, email: this.novoMedico.email,
+          whatsapp: this.novoMedico.whatsapp, slotDurationMinutes: this.novoMedico.slotDurationMinutes,
+          schedule: { diasSemana: this.novoMedico.diasSemana, horarioInicio: this.novoMedico.horarioInicio, horarioFim: this.novoMedico.horarioFim, duracaoConsulta: this.novoMedico.slotDurationMinutes }
+        })
+      }).then(r => r.json()).catch(() => null)
+      this.novoMedico.loading = false
+      if (r?.ok) {
+        this.novoMedico.erro = false
+        this.novoMedico.msg = '✅ Médico cadastrado!' + (r.calendarCriado ? ' Google Calendar criado automaticamente.' : '')
+        Object.assign(this.novoMedico, { nome: '', crm: '', especialidade: '', email: '', whatsapp: '', slotDurationMinutes: 30, diasSemana: [1,2,3,4,5], horarioInicio: '08:00', horarioFim: '17:00', loading: false })
+        await this.loadDoctorsAll(); await this.loadDoctors()
+      } else { this.novoMedico.erro = true; this.novoMedico.msg = r?.error || 'Erro ao cadastrar.' }
+    },
+    async toggleMedico(doc) {
+      const r = await this.api(`/api/doctors/${doc.id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active: !doc.active })
+      }).then(r => r.json()).catch(() => null)
+      if (r?.ok) await this.loadDoctorsAll()
+    },
+
+    // ── Usuários ──────────────────────────────────────────────────────────
+    async criarUsuario() {
+      const { name, username, role, password } = this.novoUsuario
+      if (!name || !username || !role || !password) { this.novoUsuario.erro = true; this.novoUsuario.msg = 'Preencha todos os campos.'; return }
+      if (password.length < 6) { this.novoUsuario.erro = true; this.novoUsuario.msg = 'Senha deve ter pelo menos 6 caracteres.'; return }
+      this.novoUsuario.loading = true; this.novoUsuario.msg = ''; this.novoUsuario.erro = false
+      const r = await this.api('/auth/users', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, username, role, password })
+      }).then(r => r.json()).catch(() => null)
+      this.novoUsuario.loading = false
+      if (r?.ok) {
+        this.novoUsuario = { name: '', username: '', role: '', password: '', loading: false, msg: '✅ Usuário criado!', erro: false }
+        await this.loadUsuarios()
+      } else { this.novoUsuario.erro = true; this.novoUsuario.msg = r?.error || 'Erro ao criar.' }
+    },
+    async toggleUsuario(usr) {
+      const r = await this.api(`/auth/users/${usr.id}/toggle`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active: !usr.active })
+      }).then(r => r.json()).catch(() => null)
+      if (r?.ok) await this.loadUsuarios()
+    },
+    async resetarSenha(usr) {
+      const nova = prompt(`Nova senha para ${usr.name} (mín. 6 caracteres):`)
+      if (!nova || nova.length < 6) { alert('Senha inválida.'); return }
+      const r = await this.api(`/auth/users/${usr.id}/reset-password`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newPassword: nova })
+      }).then(r => r.json()).catch(() => null)
+      if (r?.ok) alert(`✅ Senha de ${usr.name} redefinida.`)
+      else alert('Erro ao redefinir senha.')
+    },
+
+    // ── WhatsApp ──────────────────────────────────────────────────────────
+    async gerarQR() {
+      this.whatsapp.loading = true; this.whatsapp.qr = ''; this.whatsapp.msg = ''
+      const r = await this.api('/api/whatsapp/qr').then(r => r.json()).catch(() => null)
+      this.whatsapp.loading = false
+      if (r?.base64) { this.whatsapp.qr = r.base64; this.whatsapp.connected = false }
+      else if (r?.qrcode?.base64) { this.whatsapp.qr = r.qrcode.base64; this.whatsapp.connected = false }
+      else if (r?.state === 'open' || r?.instance?.state === 'open') { this.whatsapp.connected = true; this.whatsapp.msg = '✅ WhatsApp já conectado!' }
+      else { this.whatsapp.erro = true; this.whatsapp.msg = 'Não foi possível gerar QR Code.' }
+    },
+    async reconectarWhatsapp() {
+      this.whatsapp.loading = true; this.whatsapp.msg = ''
+      const r = await this.api('/api/whatsapp/restart', { method: 'POST' }).then(r => r.json()).catch(() => null)
+      this.whatsapp.loading = false
+      this.whatsapp.msg = r?.ok ? '✅ Reconectando…' : 'Erro ao reconectar.'
+      this.whatsapp.erro = !r?.ok
+      if (r?.ok) setTimeout(() => this.loadWhatsappStatus(), 3000)
+    },
+    async desconectarWhatsapp() {
+      if (!confirm('Desconectar o WhatsApp? O bot parará de enviar mensagens.')) return
+      this.whatsapp.loading = true
+      const r = await this.api('/api/whatsapp/logout', { method: 'POST' }).then(r => r.json()).catch(() => null)
+      this.whatsapp.loading = false
+      if (r?.ok) { this.whatsapp.connected = false; this.whatsapp.qr = ''; this.whatsapp.msg = '✅ Desconectado.' }
+      else { this.whatsapp.erro = true; this.whatsapp.msg = 'Erro ao desconectar.' }
+    },
+
+    // ── Helpers visuais ───────────────────────────────────────────────────
     rowClass(row) {
       if (row.tipo_atendimento === 'PARTICULAR') return 'row-particular'
       if (row.tipo === 'INFUSAO') return 'row-infusao'
       if (row.tipo === 'MEDICACAO') return 'row-medicacao'
       return ''
     },
-
     tipoClass(tipo) {
       if (tipo === 'CONSULTA') return 'bg-blue-100 text-blue-800'
       if (tipo === 'INFUSAO') return 'bg-purple-100 text-purple-800'
       if (tipo === 'MEDICACAO') return 'bg-green-100 text-green-800'
       return 'bg-gray-100 text-gray-800'
     },
-
-    statusClass(status) {
-      if (status === 'CONFIRMADO') return 'bg-green-100 text-green-800'
-      if (status === 'CANCELADO') return 'bg-red-100 text-red-800'
+    statusClass(s) {
+      if (s === 'CONFIRMADO') return 'bg-green-100 text-green-800'
+      if (s === 'CANCELADO')  return 'bg-red-100 text-red-800'
       return 'bg-yellow-100 text-yellow-800'
     },
-
     formatDate(str) {
       if (!str) return '—'
-      try {
-        const d = new Date(str)
-        return d.toLocaleString('pt-BR')
-      } catch { return str }
+      try { return new Date(str).toLocaleString('pt-BR') } catch { return str }
     }
   }
 }
