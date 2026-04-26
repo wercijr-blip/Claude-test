@@ -275,8 +275,8 @@ export async function enviarAnaliseHumanaExame(para: string, nome: string): Prom
       <p style="color:#334155;font-size:15px;">Seu exame não pôde ser validado automaticamente e será avaliado por um profissional de saúde.</p>
       <div style="background:#fefce8;border-left:4px solid #eab308;padding:12px 16px;border-radius:4px;margin:16px 0;">
         <p style="color:#713f12;margin:0 0 8px;font-size:13px;font-weight:600;">Prazo de resposta:</p>
-        <p style="color:#713f12;margin:0;font-size:13px;">📋 Em horário comercial (seg.–sex., 08h–18h): até 2 horas</p>
-        <p style="color:#713f12;margin:4px 0 0;font-size:13px;">🌙 Fora do horário comercial: até 12 horas</p>
+        <p style="color:#713f12;margin:0;font-size:13px;">Em horário comercial (seg.–sex., 08h–18h): até 2 horas</p>
+        <p style="color:#713f12;margin:4px 0 0;font-size:13px;">Fora do horário comercial: até 12 horas</p>
       </div>
       <p style="color:#64748b;font-size:13px;">Você receberá um novo e-mail assim que a avaliação for concluída.</p>`,
     ),
@@ -367,14 +367,14 @@ export async function enviarNotificacaoMedicoPendente(
 ): Promise<void> {
   if (!emails.length) return
   const subject = urgente
-    ? `🚨 URGENTE: Exame HIV reagente — ${nomePaciente} — Facilita PrEP`
+    ? `URGENTE: Exame HIV reagente — ${nomePaciente} — Facilita PrEP`
     : `Exame aguardando revisão — ${nomePaciente} — Facilita PrEP`
 
   const corBorda = urgente ? '#ef4444' : '#eab308'
   const corFundo = urgente ? '#fef2f2' : '#fefce8'
   const corTexto = urgente ? '#dc2626' : '#713f12'
   const alerta = urgente
-    ? '🚨 <strong>ATENÇÃO URGENTE:</strong> Resultado HIV possivelmente reagente. Requer avaliação imediata.'
+    ? '<strong>ATENÇÃO URGENTE:</strong> Resultado HIV possivelmente reagente. Requer avaliação imediata.'
     : `Motivo: <strong>${motivo}</strong>`
 
   await send({
