@@ -27,6 +27,20 @@ if (env.NODE_ENV === 'production') {
 
 applySecurityMiddleware(app)
 app.use(cookieParser())
+
+// Stripe webhook MUST be registered before express.json() so it receives the
+// raw request body as a Buffer. express.json() consumes the stream and parses
+// it into a JS object, which destroys the original bytes that Stripe's HMAC
+// signature verification requires.
+app.post(
+  '/api/stripe/webhook',
+  express.raw({ type: 'application/json' }),
+  async (req, res) => {
+    const { handleWebhook } = await import('../stripe/webhook.ts')
+    await handleWebhook(req, res)
+  },
+)
+
 app.use(express.json({ limit: '2mb' }))
 app.use(express.urlencoded({ extended: true }))
 
@@ -72,16 +86,6 @@ app.post('/api/upload', uploadLimiter, async (req, res) => {
   const { uploadExame } = await import('../storage.ts')
   await uploadExame(req, res)
 })
-
-// Stripe webhook (raw body necessário para validação de assinatura)
-app.post(
-  '/api/stripe/webhook',
-  express.raw({ type: 'application/json' }),
-  async (req, res) => {
-    const { handleWebhook } = await import('../stripe/webhook.ts')
-    await handleWebhook(req, res)
-  },
-)
 
 // Catch-all: servir index.html para rotas do SPA em produção
 if (env.NODE_ENV === 'production') {
