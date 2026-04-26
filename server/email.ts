@@ -1,15 +1,48 @@
-import nodemailer from 'nodemailer'
+import { Resend } from 'resend'
 import { env } from './_core/env.ts'
 
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: env.GMAIL_USER,
-    pass: env.GMAIL_APP_PASSWORD,
-  },
-})
+const resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null
+
+async function send(opts: {
+  to: string
+  subject: string
+  html: string
+  attachments?: { filename: string; content: Buffer }[]
+}): Promise<void> {
+  if (!resend) {
+    console.warn('[email] RESEND_API_KEY não configurado — e-mail não enviado:', opts.subject)
+    return
+  }
+  const { error } = await resend.emails.send({
+    from: env.RESEND_FROM,
+    to: opts.to,
+    subject: opts.subject,
+    html: opts.html,
+    attachments: opts.attachments?.map(a => ({ filename: a.filename, content: a.content })),
+  })
+  if (error) throw new Error(`Resend: ${error.message}`)
+}
+
+async function sendMultiple(opts: {
+  to: string[]
+  subject: string
+  html: string
+}): Promise<void> {
+  if (!resend) {
+    console.warn('[email] RESEND_API_KEY não configurado — e-mail não enviado:', opts.subject)
+    return
+  }
+  const { error } = await resend.emails.send({
+    from: env.RESEND_FROM,
+    to: opts.to,
+    subject: opts.subject,
+    html: opts.html,
+  })
+  if (error) throw new Error(`Resend: ${error.message}`)
+}
 
 function baseTemplate(titulo: string, corpo: string): string {
+  const dominio = (env.APP_URL ?? 'https://facilitaprep.com.br').replace('https://', '').replace('http://', '')
   return `
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -25,7 +58,7 @@ function baseTemplate(titulo: string, corpo: string): string {
     </div>
     <div style="padding:16px 32px;background:#f8fafc;border-top:1px solid #e2e8f0;">
       <p style="margin:0;font-size:11px;color:#94a3b8;">
-        Facilita PrEP · claude-test-production-8672.up.railway.app<br>
+        Facilita PrEP · ${dominio}<br>
         Este e-mail é confidencial e destina-se exclusivamente ao destinatário.
       </p>
     </div>
@@ -36,8 +69,7 @@ function baseTemplate(titulo: string, corpo: string): string {
 
 export async function enviarLinkAcesso(para: string, link: string, expiresAt: Date): Promise<void> {
   const dataExpiracao = expiresAt.toLocaleDateString('pt-BR')
-  await transporter.sendMail({
-    from: `"Facilita PrEP" <${env.GMAIL_USER}>`,
+  await send({
     to: para,
     subject: 'Seu link de acesso ao formulário PrEP',
     html: baseTemplate(
@@ -53,8 +85,7 @@ export async function enviarLinkAcesso(para: string, link: string, expiresAt: Da
 }
 
 export async function enviarConfirmacaoEnvio(para: string, nomePaciente: string): Promise<void> {
-  await transporter.sendMail({
-    from: `"Facilita PrEP" <${env.GMAIL_USER}>`,
+  await send({
     to: para,
     subject: 'Formulário recebido — Facilita PrEP',
     html: baseTemplate(
@@ -67,8 +98,7 @@ export async function enviarConfirmacaoEnvio(para: string, nomePaciente: string)
 }
 
 export async function enviarResultadoAprovado(para: string, nomePaciente: string): Promise<void> {
-  await transporter.sendMail({
-    from: `"Facilita PrEP" <${env.GMAIL_USER}>`,
+  await send({
     to: para,
     subject: 'Prescrição aprovada — Facilita PrEP',
     html: baseTemplate(
@@ -81,8 +111,7 @@ export async function enviarResultadoAprovado(para: string, nomePaciente: string
 
 export async function enviarLinkAcessoIntake(para: string, nome: string, link: string, expiresAt: Date): Promise<void> {
   const dataExpiracao = expiresAt.toLocaleDateString('pt-BR')
-  await transporter.sendMail({
-    from: `"Facilita PrEP" <${env.GMAIL_USER}>`,
+  await send({
     to: para,
     subject: 'Seu acesso ao formulário PrEP está pronto — Facilita PrEP',
     html: baseTemplate(
@@ -103,8 +132,7 @@ export async function enviarDocumentosAssinados(
   nomePaciente: string,
   anexos: { filename: string; buffer: Buffer }[],
 ): Promise<void> {
-  await transporter.sendMail({
-    from: `"Facilita PrEP" <${env.GMAIL_USER}>`,
+  await send({
     to: para,
     subject: 'Seus documentos PrEP estão prontos — Facilita PrEP',
     html: baseTemplate(
@@ -114,11 +142,7 @@ export async function enviarDocumentosAssinados(
       <p style="color:#64748b;font-size:13px;">Estes documentos possuem assinatura digital ICP-Brasil com validade legal conforme CFM 2.299/2021.</p>
       <p style="color:#64748b;font-size:13px;">Guarde estes arquivos para seu controle.</p>`,
     ),
-    attachments: anexos.map((a) => ({
-      filename: a.filename,
-      content: a.buffer,
-      contentType: 'application/pdf',
-    })),
+    attachments: anexos.map(a => ({ filename: a.filename, content: a.buffer })),
   })
 }
 
@@ -132,8 +156,7 @@ export async function enviarPrescricaoPronta(
   validadeDate.setMonth(validadeDate.getMonth() + 4)
   const dataValidade = validadeDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
 
-  await transporter.sendMail({
-    from: `"Facilita PrEP" <${env.GMAIL_USER}>`,
+  await send({
     to: para,
     subject: 'Sua receita PrEP está pronta — Facilita PrEP',
     html: baseTemplate(
@@ -141,7 +164,7 @@ export async function enviarPrescricaoPronta(
       `<p style="color:#334155;font-size:15px;">Olá, <strong>${nomePaciente}</strong>!</p>
       <p style="color:#334155;font-size:15px;">Sua receita de PrEP foi emitida e assinada digitalmente pelo médico responsável. Todos os documentos estão em anexo neste e-mail.</p>
       <div style="background:#f0fdf4;border-left:4px solid #16a34a;padding:16px;border-radius:4px;margin:20px 0;">
-        <p style="color:#15803d;margin:0 0 8px;font-size:14px;font-weight:600;">💊 Receita emitida com sucesso</p>
+        <p style="color:#15803d;margin:0 0 8px;font-size:14px;font-weight:600;">Receita emitida com sucesso</p>
         <p style="color:#166534;margin:0;font-size:13px;">Validade: até <strong>${dataValidade}</strong> (4 meses)</p>
       </div>
       <p style="color:#334155;font-size:14px;font-weight:600;">Próximos passos:</p>
@@ -158,11 +181,7 @@ export async function enviarPrescricaoPronta(
       </div>
       <p style="color:#64748b;font-size:12px;">Guarde estes arquivos para seu controle. Em caso de dúvidas, entre em contato: <strong>(61) 4042-7188</strong></p>`,
     ),
-    attachments: anexos.map((a) => ({
-      filename: a.filename,
-      content: a.buffer,
-      contentType: 'application/pdf',
-    })),
+    attachments: anexos.map(a => ({ filename: a.filename, content: a.buffer })),
   })
 }
 
@@ -171,8 +190,7 @@ export async function enviarPesquisaSatisfacao(
   nomePaciente: string,
   link: string,
 ): Promise<void> {
-  await transporter.sendMail({
-    from: `"Facilita PrEP" <${env.GMAIL_USER}>`,
+  await send({
     to: para,
     subject: 'Como foi sua experiência com a PrEP? — Facilita PrEP',
     html: baseTemplate(
@@ -194,9 +212,8 @@ export async function enviarNotificacaoNovoPlano(
   dashboardUrl: string,
 ): Promise<void> {
   if (!emails.length) return
-  await transporter.sendMail({
-    from: `"Facilita PrEP" <${env.GMAIL_USER}>`,
-    to: emails.join(', '),
+  await sendMultiple({
+    to: emails,
     subject: `Novo paciente aguardando validação — ${plano}`,
     html: baseTemplate(
       'Novo paciente para validação',
@@ -214,8 +231,7 @@ export async function enviarNotificacaoNovoPlano(
 }
 
 export async function enviarConfirmacaoPlano(para: string, nomePaciente: string): Promise<void> {
-  await transporter.sendMail({
-    from: `"Facilita PrEP" <${env.GMAIL_USER}>`,
+  await send({
     to: para,
     subject: 'Cadastro recebido — aguardando validação — Facilita PrEP',
     html: baseTemplate(
@@ -231,8 +247,7 @@ export async function enviarConfirmacaoPlano(para: string, nomePaciente: string)
 }
 
 export async function enviarResultadoRejeitado(para: string, nomePaciente: string, motivo: string): Promise<void> {
-  await transporter.sendMail({
-    from: `"Facilita PrEP" <${env.GMAIL_USER}>`,
+  await send({
     to: para,
     subject: 'Atualização sobre seu pedido — Facilita PrEP',
     html: baseTemplate(
@@ -251,8 +266,7 @@ export async function enviarResultadoRejeitado(para: string, nomePaciente: strin
 
 // TEMPLATE-1 — Aprovação automática por IA
 export async function enviarExameAprovadoIa(para: string, nome: string, appUrl: string): Promise<void> {
-  await transporter.sendMail({
-    from: `"Facilita PrEP" <${env.GMAIL_USER}>`,
+  await send({
     to: para,
     subject: 'Exame aprovado — Facilita PrEP',
     html: baseTemplate(
@@ -270,8 +284,7 @@ export async function enviarExameAprovadoIa(para: string, nome: string, appUrl: 
 
 // TEMPLATE-2 — Exame encaminhado para análise humana
 export async function enviarAnaliseHumanaExame(para: string, nome: string): Promise<void> {
-  await transporter.sendMail({
-    from: `"Facilita PrEP" <${env.GMAIL_USER}>`,
+  await send({
     to: para,
     subject: 'Seu exame está em análise — Facilita PrEP',
     html: baseTemplate(
@@ -280,8 +293,8 @@ export async function enviarAnaliseHumanaExame(para: string, nome: string): Prom
       <p style="color:#334155;font-size:15px;">Seu exame não pôde ser validado automaticamente e será avaliado por um profissional de saúde.</p>
       <div style="background:#fefce8;border-left:4px solid #eab308;padding:12px 16px;border-radius:4px;margin:16px 0;">
         <p style="color:#713f12;margin:0 0 8px;font-size:13px;font-weight:600;">Prazo de resposta:</p>
-        <p style="color:#713f12;margin:0;font-size:13px;">📋 Em horário comercial (seg.–sex., 08h–18h): até 2 horas</p>
-        <p style="color:#713f12;margin:4px 0 0;font-size:13px;">🌙 Fora do horário comercial: até 12 horas</p>
+        <p style="color:#713f12;margin:0;font-size:13px;">Em horário comercial (seg.–sex., 08h–18h): até 2 horas</p>
+        <p style="color:#713f12;margin:4px 0 0;font-size:13px;">Fora do horário comercial: até 12 horas</p>
       </div>
       <p style="color:#64748b;font-size:13px;">Você receberá um novo e-mail assim que a avaliação for concluída.</p>`,
     ),
@@ -295,8 +308,7 @@ export async function enviarExameRejeitadoData(
   tentativaAtual: number,
   appUrl: string,
 ): Promise<void> {
-  await transporter.sendMail({
-    from: `"Facilita PrEP" <${env.GMAIL_USER}>`,
+  await send({
     to: para,
     subject: 'Exame rejeitado — necessário enviar novo exame',
     html: baseTemplate(
@@ -323,8 +335,7 @@ export async function enviarExameRejeitadoMedico(
   nome: string,
   observacoes: string,
 ): Promise<void> {
-  await transporter.sendMail({
-    from: `"Facilita PrEP" <${env.GMAIL_USER}>`,
+  await send({
     to: para,
     subject: 'Atualização sobre seu exame — Facilita PrEP',
     html: baseTemplate(
@@ -347,8 +358,7 @@ export async function enviarSolicitacaoReenvio(
   motivo: string,
   appUrl: string,
 ): Promise<void> {
-  await transporter.sendMail({
-    from: `"Facilita PrEP" <${env.GMAIL_USER}>`,
+  await send({
     to: para,
     subject: 'Novo envio de exame necessário — Facilita PrEP',
     html: baseTemplate(
@@ -375,19 +385,18 @@ export async function enviarNotificacaoMedicoPendente(
 ): Promise<void> {
   if (!emails.length) return
   const subject = urgente
-    ? `🚨 URGENTE: Exame HIV reagente — ${nomePaciente} — Facilita PrEP`
+    ? `URGENTE: Exame HIV reagente — ${nomePaciente} — Facilita PrEP`
     : `Exame aguardando revisão — ${nomePaciente} — Facilita PrEP`
 
   const corBorda = urgente ? '#ef4444' : '#eab308'
   const corFundo = urgente ? '#fef2f2' : '#fefce8'
   const corTexto = urgente ? '#dc2626' : '#713f12'
   const alerta = urgente
-    ? '🚨 <strong>ATENÇÃO URGENTE:</strong> Resultado HIV possivelmente reagente. Requer avaliação imediata.'
+    ? '<strong>ATENÇÃO URGENTE:</strong> Resultado HIV possivelmente reagente. Requer avaliação imediata.'
     : `Motivo: <strong>${motivo}</strong>`
 
-  await transporter.sendMail({
-    from: `"Facilita PrEP" <${env.GMAIL_USER}>`,
-    to: emails.join(', '),
+  await sendMultiple({
+    to: emails,
     subject,
     html: baseTemplate(
       urgente ? 'Exame URGENTE para revisão' : 'Exame pendente de revisão',
