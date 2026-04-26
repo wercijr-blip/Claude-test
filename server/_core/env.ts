@@ -3,9 +3,9 @@ import { z } from 'zod'
 const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
   JWT_SECRET: z.string().min(32),
-  OAUTH_SERVER_URL: z.string().url(),
+  GOOGLE_CLIENT_ID: z.string().min(1),
+  GOOGLE_CLIENT_SECRET: z.string().min(1),
   OWNER_OPEN_ID: z.string().min(1),
-  VITE_APP_ID: z.string().default('facilita-prep'),
 
   ENCRYPTION_KEY: z.string().length(64),
   CPF_HASH_SALT: z.string().min(32),
@@ -33,18 +33,18 @@ const envSchema = z.object({
 
   REDIS_URL: z.string().default('redis://localhost:6379'),
 
-  ZAPI_INSTANCE_ID: z.string().optional(),
-  ZAPI_TOKEN: z.string().optional(),
-
-  // Certificado ICP-Brasil via variável de ambiente (Railway/cloud)
-  // Alternativa ao arquivo em server/certs/werciley.pfx
+  // Certificado ICP-Brasil (Railway: base64 do .pfx; dev: arquivo em server/certs/)
   ICP_PFX_BASE64: z.string().optional(),
   ICP_PFX_PASSWORD: z.string().optional(),
+
+  ZAPI_INSTANCE_ID: z.string().optional(),
+  ZAPI_TOKEN: z.string().optional(),
 
   MEDICO_NOME: z.string().optional(),
   MEDICO_CRM: z.string().optional(),
 
-  APP_URL: z.string().url().default('https://facilitaprep.com.br'),
+  APP_URL: z.string().url().default('https://claude-test-production-8672.up.railway.app'),
+  ALLOWED_ORIGINS: z.string().optional(),
 
   PORT: z.coerce.number().default(3000),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),

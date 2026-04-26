@@ -26,6 +26,7 @@ export const ALLOWED_ORIGINS = [
   'https://facilitaprep.manus.space',
   'https://facilitaprep.com.br',
   'https://www.facilitaprep.com.br',
+  'https://claude-test-production-8672.up.railway.app',
 ] as const
 
 export const CSRF_HEADER = 'x-csrf-token'
