@@ -1,15 +1,30 @@
-import nodemailer from 'nodemailer'
+import { Resend } from 'resend'
 import { env } from './_core/env.ts'
 
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: env.GMAIL_USER,
-    pass: env.GMAIL_APP_PASSWORD,
-  },
-})
+const resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null
+
+async function send(opts: {
+  to: string
+  subject: string
+  html: string
+  attachments?: { filename: string; content: Buffer }[]
+}): Promise<void> {
+  if (!resend) {
+    console.warn('[email] RESEND_API_KEY não configurado — e-mail não enviado:', opts.subject)
+    return
+  }
+  const { error } = await resend.emails.send({
+    from: env.RESEND_FROM,
+    to: opts.to,
+    subject: opts.subject,
+    html: opts.html,
+    attachments: opts.attachments?.map(a => ({ filename: a.filename, content: a.content })),
+  })
+  if (error) throw new Error(`Resend: ${error.message}`)
+}
 
 function baseTemplate(titulo: string, corpo: string): string {
+  const dominio = (env.APP_URL ?? 'https://facilitaprep.com.br').replace('https://', '').replace('http://', '')
   return `
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -25,7 +40,7 @@ function baseTemplate(titulo: string, corpo: string): string {
     </div>
     <div style="padding:16px 32px;background:#f8fafc;border-top:1px solid #e2e8f0;">
       <p style="margin:0;font-size:11px;color:#94a3b8;">
-        Facilita PrEP · facilitaprep.manus.space<br>
+        Facilita PrEP · ${dominio}<br>
         Este e-mail é confidencial e destina-se exclusivamente ao destinatário.
       </p>
     </div>
@@ -36,8 +51,7 @@ function baseTemplate(titulo: string, corpo: string): string {
 
 export async function enviarLinkAcesso(para: string, link: string, expiresAt: Date): Promise<void> {
   const dataExpiracao = expiresAt.toLocaleDateString('pt-BR')
-  await transporter.sendMail({
-    from: `"Facilita PrEP" <${env.GMAIL_USER}>`,
+  await send({
     to: para,
     subject: 'Seu link de acesso ao formulário PrEP',
     html: baseTemplate(
@@ -53,8 +67,7 @@ export async function enviarLinkAcesso(para: string, link: string, expiresAt: Da
 }
 
 export async function enviarConfirmacaoEnvio(para: string, nomePaciente: string): Promise<void> {
-  await transporter.sendMail({
-    from: `"Facilita PrEP" <${env.GMAIL_USER}>`,
+  await send({
     to: para,
     subject: 'Formulário recebido — Facilita PrEP',
     html: baseTemplate(
@@ -67,8 +80,7 @@ export async function enviarConfirmacaoEnvio(para: string, nomePaciente: string)
 }
 
 export async function enviarResultadoAprovado(para: string, nomePaciente: string): Promise<void> {
-  await transporter.sendMail({
-    from: `"Facilita PrEP" <${env.GMAIL_USER}>`,
+  await send({
     to: para,
     subject: 'Prescrição aprovada — Facilita PrEP',
     html: baseTemplate(
@@ -81,8 +93,7 @@ export async function enviarResultadoAprovado(para: string, nomePaciente: string
 
 export async function enviarLinkAcessoIntake(para: string, nome: string, link: string, expiresAt: Date): Promise<void> {
   const dataExpiracao = expiresAt.toLocaleDateString('pt-BR')
-  await transporter.sendMail({
-    from: `"Facilita PrEP" <${env.GMAIL_USER}>`,
+  await send({
     to: para,
     subject: 'Seu acesso ao formulário PrEP está pronto — Facilita PrEP',
     html: baseTemplate(
@@ -103,8 +114,7 @@ export async function enviarDocumentosAssinados(
   nomePaciente: string,
   anexos: { filename: string; buffer: Buffer }[],
 ): Promise<void> {
-  await transporter.sendMail({
-    from: `"Facilita PrEP" <${env.GMAIL_USER}>`,
+  await send({
     to: para,
     subject: 'Seus documentos PrEP estão prontos — Facilita PrEP',
     html: baseTemplate(
@@ -114,11 +124,7 @@ export async function enviarDocumentosAssinados(
       <p style="color:#64748b;font-size:13px;">Estes documentos possuem assinatura digital ICP-Brasil com validade legal conforme CFM 2.299/2021.</p>
       <p style="color:#64748b;font-size:13px;">Guarde estes arquivos para seu controle.</p>`,
     ),
-    attachments: anexos.map((a) => ({
-      filename: a.filename,
-      content: a.buffer,
-      contentType: 'application/pdf',
-    })),
+    attachments: anexos.map(a => ({ filename: a.filename, content: a.buffer })),
   })
 }
 
@@ -127,8 +133,7 @@ export async function enviarPesquisaSatisfacao(
   nomePaciente: string,
   link: string,
 ): Promise<void> {
-  await transporter.sendMail({
-    from: `"Facilita PrEP" <${env.GMAIL_USER}>`,
+  await send({
     to: para,
     subject: 'Como foi sua experiência com a PrEP? — Facilita PrEP',
     html: baseTemplate(
@@ -144,8 +149,7 @@ export async function enviarPesquisaSatisfacao(
 }
 
 export async function enviarResultadoRejeitado(para: string, nomePaciente: string, motivo: string): Promise<void> {
-  await transporter.sendMail({
-    from: `"Facilita PrEP" <${env.GMAIL_USER}>`,
+  await send({
     to: para,
     subject: 'Atualização sobre seu pedido — Facilita PrEP',
     html: baseTemplate(

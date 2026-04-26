@@ -18,6 +18,9 @@ const envSchema = z.object({
   GMAIL_USER: z.string().optional(),
   GMAIL_APP_PASSWORD: z.string().optional(),
 
+  RESEND_API_KEY: z.string().optional(),
+  RESEND_FROM: z.string().default('Facilita PrEP <noreply@facilitaprep.com.br>'),
+
   FOCUSNFE_TOKEN_HOMOLOGACAO: z.string().optional(),
   FOCUSNFE_TOKEN_PRODUCAO: z.string().optional(),
   FOCUSNFE_ENVIRONMENT: z.enum(['homologacao', 'producao']).default('homologacao'),
