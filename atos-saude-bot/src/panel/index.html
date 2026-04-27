@@ -788,6 +788,47 @@
     </div>
     <!-- /Tab Usuários ──────────────────────────────────────── -->
 
+    <!-- Tab Exames ───────────────────────────────────────────── -->
+    <div x-show="tab==='exames'" class="space-y-4">
+      <div class="card overflow-auto">
+        <div class="p-4 flex items-center justify-between border-b border-gray-50">
+          <h2 class="font-bold text-[#3A2169]">🩺 Exames Enviados para Análise</h2>
+          <button @click="loadExames()" class="btn-ghost px-3 py-1.5 text-xs">🔄</button>
+        </div>
+        <table class="w-full">
+          <thead><tr class="tbl-head">
+            <th>#</th><th>Paciente</th><th>Médico</th><th>Tipo</th><th>Arquivo</th><th>Data</th>
+          </tr></thead>
+          <tbody>
+            <template x-if="exames.length===0">
+              <tr><td colspan="6" class="text-center py-10 text-gray-300 text-sm">Nenhum exame enviado ainda.</td></tr>
+            </template>
+            <template x-for="e in exames" :key="e.id">
+              <tr class="tbl-row">
+                <td class="text-xs text-gray-400" x-text="e.id"></td>
+                <td class="font-medium" x-text="e.nome||'—'"></td>
+                <td x-text="e.medico_nome||'—'"></td>
+                <td>
+                  <span class="badge bg-blue-100 text-blue-700 text-xs"
+                    x-text="{'imageMessage':'Imagem','documentMessage':'PDF','documentWithCaptionMessage':'PDF+Legenda'}[e.media_type]||e.media_type||'—'">
+                  </span>
+                </td>
+                <td>
+                  <a x-show="e.file_path"
+                    :href="'/api/exames/'+e.id+'/download'"
+                    class="text-xs text-[#2D8C8C] underline font-medium"
+                    target="_blank">⬇ Baixar</a>
+                  <span x-show="!e.file_path" class="text-xs text-gray-300">Sem arquivo</span>
+                </td>
+                <td class="text-xs text-gray-400" x-text="new Date(e.created_at).toLocaleString('pt-BR')"></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <!-- /Tab Exames ──────────────────────────────────────────── -->
+
     <!-- Tab WhatsApp ─────────────────────────────────────────── -->
     <div x-show="tab==='whatsapp'" class="space-y-5">
       <div class="card p-5">
@@ -989,6 +1030,25 @@
             </div>
           </template>
         </div>
+        <!-- Campo de resposta -->
+        <div class="border-t border-gray-100 p-3">
+          <p class="text-xs text-amber-500 mb-2">⚠️ Ao enviar, a sessão do paciente será assumida como atendimento humano (bot silenciado).</p>
+          <div class="flex gap-2">
+            <input
+              x-model="replyText"
+              @keydown.enter.prevent="sendReply()"
+              class="inp flex-1 text-sm"
+              placeholder="Digite sua resposta…"
+              :disabled="replySending"
+            >
+            <button
+              @click="sendReply()"
+              :disabled="replySending || !replyText.trim()"
+              class="btn-primary px-4 py-2 text-sm disabled:opacity-40"
+              x-text="replySending ? 'Enviando…' : 'Enviar'"
+            ></button>
+          </div>
+        </div>
       </div>
     </div>
     <!-- /Tab Conversas ───────────────────────────────────────── -->
@@ -1019,6 +1079,7 @@ function painel() {
       { id:'encaixe',       icon:'⚡', label:'Encaixe' },
       { id:'medicos',       icon:'👨‍⚕️', label:'Médicos' },
       { id:'usuarios',      icon:'👥', label:'Usuários' },
+      { id:'exames',        icon:'🩺', label:'Exames' },
       { id:'whatsapp',      icon:'📱', label:'WhatsApp' },
       { id:'medicacoes',    icon:'💊', label:'Medicações' },
       { id:'conhecimento',  icon:'📚', label:'Conhecimento' },
@@ -1050,6 +1111,9 @@ function painel() {
     // Usuários
     usuarios: [], novoUsuario: { username:'', name:'', role:'secretaria', password:'' },
 
+    // Exames
+    exames: [],
+
     // WhatsApp
     waStatus: null, qrCode: '', qrTimer: null,
 
@@ -1064,6 +1128,7 @@ function painel() {
 
     // Conversas
     conversas: [], conversaAberta: null, mensagensAbertas: [],
+    replyText: '', replySending: false,
 
     // Stats
     stats: { agenda: 0, humano: 0, encaixe: 0, conversas: 0 },
@@ -1134,7 +1199,7 @@ function painel() {
       this.loadAgenda(); this.loadTextos(); this.loadSessoesHumanas()
       this.loadEncaixe(); this.loadMedicos(); this.loadUsuarios()
       this.loadMedicacoes(); this.loadConhecimento(); this.loadSatisfacao()
-      this.loadConversas(); this.loadWAStatus()
+      this.loadConversas(); this.loadWAStatus(); this.loadExames()
     },
 
     // Agenda
@@ -1352,6 +1417,7 @@ function painel() {
 
     async abrirConversa(c) {
       this.conversaAberta = c
+      this.replyText = ''
       try {
         const d = await this.api('/conversations/'+encodeURIComponent(c.phone))
         this.mensagensAbertas = d.data || d
@@ -1360,6 +1426,25 @@ function painel() {
           if (el) el.scrollTop = el.scrollHeight
         })
       } catch (e) { console.error(e) }
+    },
+
+    async sendReply() {
+      if (!this.replyText.trim() || !this.conversaAberta) return
+      this.replySending = true
+      try {
+        await this.api('/conversations/'+encodeURIComponent(this.conversaAberta.phone)+'/reply', {
+          method: 'POST',
+          body: JSON.stringify({ text: this.replyText.trim() })
+        })
+        this.replyText = ''
+        await this.abrirConversa(this.conversaAberta)
+      } catch (e) { alert('Erro ao enviar: ' + e.message) }
+      finally { this.replySending = false }
+    },
+
+    // Exames
+    async loadExames() {
+      try { const d = await this.api('/exames'); this.exames = d.data || d } catch (e) { console.error(e) }
     },
   }
 }

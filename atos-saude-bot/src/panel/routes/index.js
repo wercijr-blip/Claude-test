@@ -9,7 +9,8 @@ import {
   getKnowledge, getSatisfactionResponses, insertAgendamento,
   getEncaixeQueue, insertEncaixe, removeEncaixe,
   getHumanWaitingSessions, clearSession,
-  getConversations, getConversationByPhone
+  getConversations, getConversationByPhone,
+  getExamSubmissions, insertMessageLog, upsertSession
 } from '../../services/db.js'
 import db from '../../services/db.js'
 import { generateExcel } from '../../services/export.js'
@@ -548,6 +549,40 @@ apiRouter.post('/whatsapp/restart', requireAuth(['admin']), async (req, res) => 
     res.json(r.data)
   } catch (err) {
     res.status(502).json({ error: err.response?.data?.message || err.message })
+  }
+})
+
+// ─── Exames ───────────────────────────────────────────────────────────────────
+
+// GET /api/exames
+apiRouter.get('/exames', requireAuth(['admin','secretaria']), (req, res) => {
+  const rows = getExamSubmissions()
+  res.json({ total: rows.length, data: rows })
+})
+
+// GET /api/exames/:id/download  (serve o arquivo salvo em disco)
+apiRouter.get('/exames/:id/download', requireAuth(['admin','secretaria']), (req, res) => {
+  const rows = getExamSubmissions()
+  const exam = rows.find(e => String(e.id) === String(req.params.id))
+  if (!exam || !exam.file_path) return res.status(404).json({ error: 'Arquivo não encontrado' })
+  res.download(exam.file_path)
+})
+
+// ─── Conversations reply ──────────────────────────────────────────────────────
+
+// POST /api/conversations/:phone/reply
+apiRouter.post('/conversations/:phone/reply', requireAuth(['admin','secretaria']), async (req, res) => {
+  const { phone } = req.params
+  const { text } = req.body
+  if (!text || !text.trim()) return res.status(400).json({ error: 'Texto obrigatório' })
+  try {
+    await sendText(phone, text.trim())
+    // Força sessão para HUMANO para silenciar o bot
+    upsertSession(phone, { flow: 'HUMANO', step: 'HUMANO', human_transfer_at: new Date().toISOString() })
+    insertMessageLog({ phone, direction: 'OUT', text: text.trim(), flow: 'HUMANO', step: 'HUMANO' })
+    res.json({ ok: true })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
   }
 })
 

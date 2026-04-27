@@ -17,7 +17,7 @@ async function sendMenuOpcoes(phone) {
     '1️⃣ Agendar consulta\n' +
     '2️⃣ Solicitar infusão ou medicação\n' +
     '3️⃣ Informações sobre convênios\n' +
-    '4️⃣ Dúvidas e envio de exames para meu médico\n' +
+    '4️⃣ Enviar exame para análise médica\n' +
     '5️⃣ Falar com atendente' +
     RESTART_TIP
   )

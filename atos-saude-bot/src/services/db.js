@@ -136,6 +136,16 @@ db.exec(`
     step       TEXT,
     timestamp  DATETIME DEFAULT CURRENT_TIMESTAMP
   );
+
+  CREATE TABLE IF NOT EXISTS exam_submissions (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    phone       TEXT    NOT NULL,
+    nome        TEXT,
+    medico_nome TEXT,
+    file_path   TEXT,
+    media_type  TEXT,
+    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
 `)
 
 try { db.exec('CREATE INDEX IF NOT EXISTS idx_messages_log_phone ON messages_log(phone)') } catch {}
@@ -410,6 +420,20 @@ export function deleteOldMessageLogs(daysOld = 90) {
   db.prepare(
     `DELETE FROM messages_log WHERE timestamp < datetime('now', '-${daysOld} days')`
   ).run()
+}
+
+// Exam submissions
+export function insertExamSubmission(data) {
+  const keys = Object.keys(data)
+  const stmt = db.prepare(
+    `INSERT INTO exam_submissions (${keys.join(', ')}) VALUES (${keys.map(k => '@' + k).join(', ')})`
+  )
+  const result = stmt.run(data)
+  return result.lastInsertRowid
+}
+
+export function getExamSubmissions() {
+  return db.prepare('SELECT * FROM exam_submissions ORDER BY created_at DESC').all()
 }
 
 export default db

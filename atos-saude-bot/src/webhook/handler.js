@@ -36,6 +36,12 @@ export async function handleWebhook(req, res) {
           logger.info({ phone, msgType }, 'Mídia recebida em atendimento humano — aguardando operador')
           return
         }
+        if (session?.flow === 'EXAMES' && session?.step === 'AGUARDANDO_EXAME') {
+          logger.info({ phone, msgType }, 'Exame recebido — processando')
+          const { runMedia } = await import('../flows/exames-flow.js')
+          await runMedia(phone, msg, session)
+          return
+        }
       }
       await sendText(phone, 'Por favor, envie apenas mensagens de texto. 😊')
       return
