@@ -10,7 +10,8 @@ import {
   getEncaixeQueue, insertEncaixe, removeEncaixe,
   getHumanWaitingSessions, clearSession,
   getConversations, getConversationByPhone,
-  getExamSubmissions, insertMessageLog, upsertSession
+  getExamSubmissions, insertMessageLog, upsertSession,
+  getAllUsers, insertUser, updateUserPassword, toggleUserActive
 } from '../../services/db.js'
 import db from '../../services/db.js'
 import { generateExcel } from '../../services/export.js'
@@ -19,7 +20,7 @@ import { deleteEvent, createBlockEvent, createEvent, getDoctorSlots, createDocto
 import { sendText } from '../../services/whatsapp.js'
 import { msg, invalidateCache } from '../../utils/messages.js'
 import { fmtHora, fmtData, notificarEncaixe } from '../../services/scheduler.js'
-import { requireAuth } from '../../services/auth.js'
+import { requireAuth, hashPassword } from '../../services/auth.js'
 import { readFileSync } from 'fs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -584,6 +585,219 @@ apiRouter.post('/conversations/:phone/reply', requireAuth(['admin','secretaria']
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
+})
+
+// ─── /api/sessions/humanas ────────────────────────────────────────────────────
+
+// GET /api/sessions/humanas — alias de /api/human-waiting
+apiRouter.get('/sessions/humanas', requireAuth(['admin','secretaria']), (req, res) => {
+  const rows = getHumanWaitingSessions(0)
+  res.json({ total: rows.length, data: rows })
+})
+
+// POST /api/sessions/:phone/assume — operador assume o atendimento
+apiRouter.post('/sessions/:phone/assume', requireAuth(['admin','secretaria']), (req, res) => {
+  upsertSession(req.params.phone, {
+    flow: 'HUMANO', step: 'HUMANO',
+    human_transfer_at: new Date().toISOString()
+  })
+  res.json({ ok: true })
+})
+
+// ─── Aliases PT-BR ────────────────────────────────────────────────────────────
+
+// GET /api/medicacoes — alias de /api/medication-requests
+apiRouter.get('/medicacoes', requireAuth(['admin','secretaria','faturamento']), (req, res) => {
+  const rows = db.prepare('SELECT * FROM medication_requests ORDER BY created_at DESC').all()
+  res.json({ total: rows.length, data: rows })
+})
+
+// GET /api/satisfacao — alias de /api/satisfaction
+apiRouter.get('/satisfacao', requireAuth(['admin','secretaria','faturamento']), (req, res) => {
+  const rows = getSatisfactionResponses()
+  res.json({ total: rows.length, data: rows })
+})
+
+// GET /api/conhecimento — alias de /api/knowledge (retorna só documentos)
+apiRouter.get('/conhecimento', requireAuth(['admin','secretaria']), (req, res) => {
+  const docs = getKnowledge()
+  res.json({ total: docs.length, data: docs })
+})
+
+// POST /api/conhecimento — adicionar texto simples (sem upload de arquivo)
+apiRouter.post('/conhecimento', requireAuth(['admin']), async (req, res) => {
+  const { filename, category, content } = req.body
+  if (!filename || !content) return res.status(400).json({ error: 'filename e content são obrigatórios.' })
+  const { insertKnowledge } = await import('../../services/db.js')
+  const id = insertKnowledge({ filename, category: category || 'geral', content })
+  res.json({ ok: true, id })
+})
+
+// DELETE /api/conhecimento/:id — alias de /api/knowledge/:id
+apiRouter.delete('/conhecimento/:id', requireAuth(['admin']), (req, res) => {
+  deactivateKnowledge(Number(req.params.id))
+  res.json({ ok: true })
+})
+
+// PATCH /api/agendamentos/:id/status — confirmar ou cancelar
+apiRouter.patch('/agendamentos/:id/status', requireAuth(['admin','secretaria']), async (req, res) => {
+  const { status } = req.body
+  if (!['CONFIRMADO','CANCELADO','PENDENTE'].includes(status)) {
+    return res.status(400).json({ error: 'status inválido.' })
+  }
+  const ag = getAgendamentoById(Number(req.params.id))
+  if (!ag) return res.status(404).json({ error: 'Agendamento não encontrado.' })
+  updateAgendamentoStatus(Number(req.params.id), status)
+  res.json({ ok: true })
+})
+
+// GET /api/agendamentos/export — alias de POST /api/export
+apiRouter.get('/agendamentos/export', requireAuth(['admin','faturamento']), async (req, res) => {
+  try {
+    const filePath = await generateExcel(req.query.all === 'true')
+    res.download(filePath)
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// POST /api/agenda/bloquear — alias de /api/calendar/bloquear
+apiRouter.post('/agenda/bloquear', requireAuth(['admin','secretaria']), async (req, res) => {
+  const { data, medico_id, obs } = req.body
+  if (!data) return res.status(400).json({ error: 'data é obrigatória.' })
+  const startISO = new Date(data + 'T00:00:00').toISOString()
+  const endISO   = new Date(data + 'T23:59:59').toISOString()
+  try {
+    if (medico_id) await createBlockEvent(medico_id, startISO, endISO, obs || 'BLOQUEADO')
+    res.json({ ok: true })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// ─── /api/textos (alias CRUD sobre messages.json) ────────────────────────────
+
+const MSG_FILE = new URL('../../config/messages.json', import.meta.url)
+function readMessages() {
+  try { return JSON.parse(readFileSync(MSG_FILE, 'utf-8')) } catch { return {} }
+}
+async function writeMessages(data) {
+  const { writeFileSync } = await import('fs')
+  writeFileSync(MSG_FILE, JSON.stringify(data, null, 2), 'utf-8')
+  invalidateCache()
+}
+
+// GET /api/textos — lista como array [{id, nome, conteudo}]
+apiRouter.get('/textos', requireAuth(['admin']), (req, res) => {
+  const m = readMessages()
+  const data = Object.entries(m).map(([nome, conteudo]) => ({ id: nome, nome, conteudo }))
+  res.json({ data })
+})
+
+// POST /api/textos — adicionar/editar uma chave
+apiRouter.post('/textos', requireAuth(['admin']), async (req, res) => {
+  const { nome, conteudo } = req.body
+  if (!nome || !conteudo) return res.status(400).json({ error: 'nome e conteudo são obrigatórios.' })
+  const m = readMessages()
+  m[nome] = conteudo
+  await writeMessages(m)
+  res.json({ ok: true, id: nome })
+})
+
+// DELETE /api/textos/:id — remover uma chave
+apiRouter.delete('/textos/:id', requireAuth(['admin']), async (req, res) => {
+  const m = readMessages()
+  if (!(req.params.id in m)) return res.status(404).json({ error: 'Texto não encontrado.' })
+  delete m[req.params.id]
+  await writeMessages(m)
+  res.json({ ok: true })
+})
+
+// ─── /api/usuarios ────────────────────────────────────────────────────────────
+
+// GET /api/usuarios
+apiRouter.get('/usuarios', requireAuth(['admin']), (req, res) => {
+  const users = getAllUsers()
+  res.json({ data: users })
+})
+
+// POST /api/usuarios — criar usuário
+apiRouter.post('/usuarios', requireAuth(['admin']), (req, res) => {
+  const { username, name, role, password } = req.body
+  if (!username || !name || !role || !password) {
+    return res.status(400).json({ error: 'username, name, role e password são obrigatórios.' })
+  }
+  if (!['admin','secretaria','faturamento'].includes(role)) {
+    return res.status(400).json({ error: 'role inválido.' })
+  }
+  if (password.length < 6) return res.status(400).json({ error: 'Senha mínimo 6 caracteres.' })
+  try {
+    const id = insertUser({ username, password_hash: hashPassword(password), name, role })
+    res.json({ ok: true, id })
+  } catch (err) {
+    if (err.message?.includes('UNIQUE')) return res.status(409).json({ error: 'Usuário já existe.' })
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// PATCH /api/usuarios/:id/toggle — ativar/desativar
+apiRouter.patch('/usuarios/:id/toggle', requireAuth(['admin']), (req, res) => {
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id)
+  if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' })
+  toggleUserActive(req.params.id, !user.active)
+  res.json({ ok: true, active: !user.active })
+})
+
+// PATCH /api/usuarios/:id/reset-senha — redefinir senha
+apiRouter.patch('/usuarios/:id/reset-senha', requireAuth(['admin']), (req, res) => {
+  const { password } = req.body
+  if (!password || password.length < 6) return res.status(400).json({ error: 'Senha mínimo 6 caracteres.' })
+  updateUserPassword(req.params.id, hashPassword(password))
+  res.json({ ok: true })
+})
+
+// ─── /api/medicos (aliases PT-BR de /api/doctors) ────────────────────────────
+
+// GET /api/medicos — lista médicos ativos
+apiRouter.get('/medicos', requireAuth(['admin','secretaria']), (req, res) => {
+  try {
+    const config = JSON.parse(readFileSync(new URL('../../config/doctors.json', import.meta.url), 'utf-8'))
+    const medicos = (config.doctors || []).map(d => ({
+      id: d.id, nome: d.nome, especialidades: d.especialidade,
+      calendarId: d.calendarId, active: d.active
+    }))
+    res.json({ data: medicos })
+  } catch { res.json({ data: [] }) }
+})
+
+// POST /api/medicos — criar médico
+apiRouter.post('/medicos', requireAuth(['admin']), async (req, res) => {
+  try {
+    const { writeFileSync } = await import('fs')
+    const filePath = new URL('../../config/doctors.json', import.meta.url)
+    const config = JSON.parse(readFileSync(filePath, 'utf-8'))
+    const { nome, especialidades, calendarId } = req.body
+    if (!nome) return res.status(400).json({ error: 'nome é obrigatório.' })
+    const doctor = {
+      id: 'dr_' + Date.now(),
+      nome, crm: '', especialidade: especialidades || '',
+      calendarId: calendarId || '', whatsapp: '',
+      slotDurationMinutes: 30, schedule: null, active: true
+    }
+    config.doctors.push(doctor)
+    writeFileSync(filePath, JSON.stringify(config, null, 2), 'utf-8')
+    res.json({ ok: true, data: doctor })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// DELETE /api/medicos/:id — desativar médico
+apiRouter.delete('/medicos/:id', requireAuth(['admin']), async (req, res) => {
+  try {
+    const { writeFileSync } = await import('fs')
+    const filePath = new URL('../../config/doctors.json', import.meta.url)
+    const config = JSON.parse(readFileSync(filePath, 'utf-8'))
+    const idx = config.doctors.findIndex(d => d.id === req.params.id)
+    if (idx === -1) return res.status(404).json({ error: 'Médico não encontrado.' })
+    config.doctors[idx].active = false
+    writeFileSync(filePath, JSON.stringify(config, null, 2), 'utf-8')
+    res.json({ ok: true })
+  } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
 export default apiRouter

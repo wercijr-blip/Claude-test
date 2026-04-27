@@ -14,6 +14,8 @@ function getClient() {
   return client
 }
 
+const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'claude-haiku-4-5-20251001'
+
 export async function answerAuthorizationQuestion(phone, question) {
   const context = searchKnowledge(question)
 
@@ -30,7 +32,7 @@ export async function answerAuthorizationQuestion(phone, question) {
 
   try {
     const response = await getClient().messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: CLAUDE_MODEL,
       max_tokens: 400,
       system: systemPrompt,
       messages: [{ role: 'user', content: question }]
