@@ -3,392 +3,161 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Atos Saúde — Painel</title>
+<title>Atos Hospital Dia — Painel</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 <style>
   [x-cloak] { display: none !important; }
-  .row-particular { background-color: #fff3e0; }
-  .row-infusao { background-color: #f3e5f5; }
-  .row-medicacao { background-color: #e8f5e9; }
-  .drag-over { border-color: #1E3A5F !important; background: #e8f0fe; }
+
+  /* Sidebar */
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px; border-radius: 8px;
+    font-size: 13px; transition: all .15s; cursor: pointer;
+    width: 100%; text-align: left; color: #C4B5E8;
+  }
+  .nav-item:hover { background: #2E1F5E; color: #fff; }
+  .nav-item.active { background: #2D8C8C; color: #fff; font-weight: 600; }
+  .nav-badge {
+    margin-left: auto; background: #ef4444; color: #fff;
+    font-size: 11px; font-weight: 700; border-radius: 999px;
+    min-width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;
+    animation: pulse 2s cubic-bezier(.4,0,.6,1) infinite;
+  }
+
+  /* Cards / Tables */
+  .card { background: #fff; border-radius: 14px; box-shadow: 0 1px 4px rgba(34,23,72,.07); }
+  .tbl-head th { background: #F8F7FC; color: #5B4B8A; font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .05em; padding: 10px 14px; text-align: left; }
+  .tbl-row td { padding: 10px 14px; font-size: 13px; border-bottom: 1px solid #F3F1FB; }
+  .tbl-row:last-child td { border-bottom: none; }
+  .tbl-row:hover td { background: #FAFAFE; }
+
+  /* Buttons */
+  .btn-primary { background: #2D8C8C; color: #fff; border-radius: 8px; padding: 8px 18px;
+    font-size: 13px; font-weight: 600; transition: opacity .15s; }
+  .btn-primary:hover { opacity: .88; }
+  .btn-primary:disabled { opacity: .45; cursor: not-allowed; }
+  .btn-danger { background: #DC2626; color: #fff; border-radius: 8px; padding: 8px 18px;
+    font-size: 13px; font-weight: 600; transition: opacity .15s; }
+  .btn-danger:hover { opacity: .88; }
+  .btn-ghost { background: #F1EEF9; color: #5B4B8A; border-radius: 8px; padding: 8px 18px;
+    font-size: 13px; font-weight: 600; transition: background .15s; }
+  .btn-ghost:hover { background: #E4DFF5; }
+
+  /* Badges */
+  .badge-pendente  { background:#FEF3C7; color:#92400E; }
+  .badge-confirmado{ background:#D1FAE5; color:#065F46; }
+  .badge-cancelado { background:#FEE2E2; color:#991B1B; }
+  .badge-convenio  { background:#DBEAFE; color:#1E40AF; }
+  .badge-particular{ background:#FEF9C3; color:#854D0E; }
+  .badge { border-radius: 999px; padding: 2px 10px; font-size: 11px; font-weight: 600; }
+
+  /* Row colors */
+  .row-particular { background: #FFFBEB; }
+  .row-infusao    { background: #FAF5FF; }
+  .row-medicacao  { background: #F0FDF4; }
+
+  /* Input */
+  .inp { border: 1.5px solid #E5E0F3; border-radius: 8px; padding: 8px 12px;
+    font-size: 13px; width: 100%; transition: border-color .15s; outline: none; }
+  .inp:focus { border-color: #2D8C8C; }
+
+  /* Drag-over */
+  .drag-over { border-color: #2D8C8C !important; background: #E6F7F7; }
+
+  /* Scrollbar sidebar */
+  .sidebar-nav::-webkit-scrollbar { width: 4px; }
+  .sidebar-nav::-webkit-scrollbar-track { background: transparent; }
+  .sidebar-nav::-webkit-scrollbar-thumb { background: #3D2870; border-radius: 4px; }
 </style>
 </head>
-<body class="bg-gray-100 min-h-screen" x-data="painel()" x-init="init()">
+<body class="bg-[#F4F6FB]" x-data="painel()" x-init="init()">
 
 <!-- ═══════════════════ TELA DE LOGIN ═══════════════════ -->
-<div x-show="!autenticado" x-cloak class="min-h-screen flex items-center justify-center bg-[#1E3A5F]">
-  <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm mx-4">
-    <div class="text-center mb-6">
-      <div class="text-5xl mb-2">🏥</div>
-      <h1 class="text-xl font-bold text-[#1E3A5F]">Atos Saúde Integrada</h1>
+<div x-show="!autenticado" x-cloak
+  class="min-h-screen flex items-center justify-center"
+  style="background: linear-gradient(135deg, #221748 0%, #2D8C8C 100%)">
+  <div class="card p-8 w-full max-w-sm mx-4">
+
+    <!-- Logo -->
+    <div class="flex flex-col items-center mb-7">
+      <svg viewBox="0 0 160 56" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-44 mb-1">
+        <!-- Símbolo teal -->
+        <circle cx="18" cy="12" r="9" fill="#2D8C8C" opacity=".9"/>
+        <circle cx="9"  cy="26" r="9" fill="#2D8C8C" opacity=".75"/>
+        <circle cx="27" cy="26" r="9" fill="#8FD4D4" opacity=".65"/>
+        <circle cx="18" cy="40" r="9" fill="#8FD4D4" opacity=".55"/>
+        <!-- Texto ATOS -->
+        <text x="44" y="28" font-family="Arial Black,sans-serif" font-weight="900"
+          font-size="24" fill="#3A2169">ATOS</text>
+        <!-- Texto HOSPITAL DIA -->
+        <text x="44" y="44" font-family="Arial,sans-serif" font-size="9"
+          letter-spacing="2" fill="#2D8C8C">HOSPITAL DIA</text>
+      </svg>
       <p class="text-xs text-gray-400 mt-1">Painel Administrativo</p>
     </div>
+
     <div class="space-y-4">
       <div>
-        <label class="block text-xs font-medium text-gray-600 mb-1">Usuário</label>
+        <label class="block text-xs font-semibold text-gray-500 mb-1">Usuário</label>
         <input type="text" x-model="login.username" @keydown.enter="fazerLogin()"
-          placeholder="seu.usuario"
-          class="w-full border rounded-lg px-4 py-3 text-sm focus:border-[#1E3A5F] focus:outline-none">
+          placeholder="seu.usuario" class="inp">
       </div>
       <div>
-        <label class="block text-xs font-medium text-gray-600 mb-1">Senha</label>
+        <label class="block text-xs font-semibold text-gray-500 mb-1">Senha</label>
         <input type="password" x-model="login.password" @keydown.enter="fazerLogin()"
-          placeholder="••••••••"
-          class="w-full border rounded-lg px-4 py-3 text-sm focus:border-[#1E3A5F] focus:outline-none">
+          placeholder="••••••••" class="inp">
       </div>
-      <div x-show="login.erro" x-text="login.erro" class="text-red-600 text-xs text-center bg-red-50 p-2 rounded"></div>
-      <button @click="fazerLogin()" :disabled="login.loading"
-        class="w-full bg-[#1E3A5F] text-white py-3 rounded-lg font-semibold text-sm hover:opacity-90 disabled:opacity-50">
+      <div x-show="login.erro" x-text="login.erro"
+        class="text-red-600 text-xs text-center bg-red-50 p-2 rounded-lg"></div>
+      <button @click="fazerLogin()" :disabled="login.loading" class="btn-primary w-full py-3 mt-1">
         <span x-show="!login.loading">Entrar</span>
         <span x-show="login.loading">Autenticando…</span>
       </button>
     </div>
   </div>
 </div>
-
-<!-- ═══════════════════ MODAL TROCA DE SENHA (first login) ═══════════════════ -->
-<div x-show="autenticado && showChangePwd" x-cloak class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
-  <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm mx-4">
+<!-- ═══════════════════ MODAL TROCA DE SENHA ═══════════════════ -->
+<div x-show="autenticado && showChangePwd" x-cloak
+  class="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+  <div class="card p-8 w-full max-w-sm mx-4">
     <div class="text-center mb-5">
-      <div class="text-4xl mb-2">🔐</div>
-      <h2 class="text-lg font-bold text-[#1E3A5F]">Troque sua senha</h2>
-      <p class="text-xs text-gray-500 mt-1">Por segurança, defina uma senha pessoal antes de continuar.</p>
+      <div class="w-12 h-12 rounded-full bg-[#EDE9FA] flex items-center justify-center mx-auto mb-3">
+        <span class="text-2xl">🔐</span>
+      </div>
+      <h2 class="text-lg font-bold text-[#3A2169]">Troque sua senha</h2>
+      <p class="text-xs text-gray-400 mt-1">Por segurança, defina uma senha pessoal antes de continuar.</p>
     </div>
     <div class="space-y-3">
-      <input type="password" x-model="changePwd.current" placeholder="Senha atual"
-        class="w-full border rounded-lg px-4 py-2 text-sm focus:border-[#1E3A5F] focus:outline-none">
-      <input type="password" x-model="changePwd.new1" placeholder="Nova senha (mín. 6 caracteres)"
-        class="w-full border rounded-lg px-4 py-2 text-sm focus:border-[#1E3A5F] focus:outline-none">
-      <input type="password" x-model="changePwd.new2" placeholder="Confirmar nova senha"
-        class="w-full border rounded-lg px-4 py-2 text-sm focus:border-[#1E3A5F] focus:outline-none">
-      <div x-show="changePwd.erro" x-text="changePwd.erro" class="text-red-600 text-xs bg-red-50 p-2 rounded"></div>
-      <div x-show="changePwd.ok" class="text-green-600 text-xs bg-green-50 p-2 rounded">✅ Senha alterada com sucesso!</div>
-      <button @click="trocarSenha()" :disabled="changePwd.loading"
-        class="w-full bg-[#1E3A5F] text-white py-2 rounded-lg font-semibold text-sm hover:opacity-90 disabled:opacity-50">
-        Salvar nova senha
+      <input type="password" x-model="changePwd.current" placeholder="Senha atual" class="inp">
+      <input type="password" x-model="changePwd.new1"    placeholder="Nova senha (mín. 6 caracteres)" class="inp">
+      <input type="password" x-model="changePwd.new2"    placeholder="Confirmar nova senha" class="inp">
+      <div x-show="changePwd.erro" x-text="changePwd.erro"
+        class="text-red-600 text-xs bg-red-50 p-2 rounded-lg"></div>
+      <div x-show="changePwd.ok"
+        class="text-green-700 text-xs bg-green-50 p-2 rounded-lg">✅ Senha alterada com sucesso!</div>
+      <button @click="trocarSenha()" :disabled="changePwd.loading" class="btn-primary w-full py-2.5">
+        <span x-show="!changePwd.loading">Salvar nova senha</span>
+        <span x-show="changePwd.loading">Salvando…</span>
       </button>
     </div>
   </div>
 </div>
 
-<!-- ═══════════════════ PAINEL PRINCIPAL ═══════════════════ -->
-<div x-show="autenticado && !showChangePwd" x-cloak>
-
-<!-- Header -->
-<header class="bg-[#1E3A5F] text-white px-6 py-4 flex items-center justify-between shadow-md">
-  <div class="flex items-center gap-3">
-    <div class="text-2xl">🏥</div>
-    <div>
-      <h1 class="text-xl font-bold">Atos Saúde Integrada</h1>
-      <p class="text-xs text-blue-200">Painel de Atendimento</p>
-    </div>
-  </div>
-  <div class="flex items-center gap-4">
-    <div class="text-right text-sm">
-      <p x-text="currentDate" class="font-medium"></p>
-      <p x-text="currentTime" class="text-blue-200 text-xs"></p>
-    </div>
-    <div class="text-right border-l border-blue-400 pl-4">
-      <p class="text-sm font-semibold" x-text="currentUser?.name"></p>
-      <span class="text-xs px-2 py-0.5 rounded-full font-medium"
-        :class="{'bg-red-400':currentUser?.role==='admin','bg-blue-400':currentUser?.role==='secretaria','bg-green-400':currentUser?.role==='faturamento'}"
-        x-text="{'admin':'Admin','secretaria':'Secretaria','faturamento':'Faturamento'}[currentUser?.role]"></span>
-    </div>
-    <button @click="sairSessao()" class="text-xs bg-white bg-opacity-20 hover:bg-opacity-30 px-3 py-1 rounded-lg transition-colors">
-      Sair
-    </button>
-  </div>
-</header>
-
-<!-- Stats -->
-<div class="px-6 py-4 grid grid-cols-2 md:grid-cols-6 gap-3">
-  <template x-for="card in statCards" :key="card.label">
-    <div class="bg-white rounded-lg shadow p-3 text-center border-t-4" :style="'border-color:' + card.color">
-      <p class="text-2xl font-bold" :style="'color:' + card.color" x-text="stats[card.key] ?? 0"></p>
-      <p class="text-xs text-gray-500 mt-1" x-text="card.label"></p>
-    </div>
-  </template>
-</div>
-
-<!-- Tabs -->
-<div class="px-6">
-  <div class="flex gap-2 border-b border-gray-300 overflow-x-auto">
-    <template x-for="tab in tabs.filter(t => permissions?.tabs?.includes(t.id))" :key="tab.id">
-      <button
-        @click="activeTab = tab.id"
-        :class="activeTab === tab.id ? 'border-[#1E3A5F] text-[#1E3A5F] font-semibold' : 'border-transparent text-gray-500 hover:text-gray-700'"
-        class="px-4 py-2 border-b-2 text-sm transition-colors whitespace-nowrap"
-        x-text="tab.label">
-      </button>
-    </template>
-  </div>
-</div>
-
-<!-- Tab: Agenda -->
-<div class="px-6 py-4" x-show="activeTab === 'agenda'" x-cloak>
-  <!-- Filters -->
-  <div class="bg-white rounded-lg shadow p-4 mb-4 flex flex-wrap gap-3 items-end">
-    <div>
-      <label class="block text-xs text-gray-500 mb-1">Tipo</label>
-      <select x-model="filters.tipo" class="border rounded px-2 py-1 text-sm">
-        <option value="">Todos</option>
-        <option>CONSULTA</option><option>INFUSAO</option><option>MEDICACAO</option>
-      </select>
-    </div>
-    <div>
-      <label class="block text-xs text-gray-500 mb-1">Especialidade</label>
-      <input x-model="filters.especialidade" placeholder="Ex: Infectologia" class="border rounded px-2 py-1 text-sm w-40">
-    </div>
-    <div>
-      <label class="block text-xs text-gray-500 mb-1">Data</label>
-      <input type="date" x-model="filters.data" class="border rounded px-2 py-1 text-sm">
-    </div>
-    <div>
-      <label class="block text-xs text-gray-500 mb-1">Status</label>
-      <select x-model="filters.status" class="border rounded px-2 py-1 text-sm">
-        <option value="">Todos</option>
-        <option>PENDENTE</option><option>CONFIRMADO</option><option>CANCELADO</option>
-      </select>
-    </div>
-    <button @click="loadAgendamentos()" class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700">🔍 Filtrar</button>
-    <div class="ml-auto flex gap-2">
-      <button x-show="permissions?.canBlock" @click="abrirModalBloqueio()" class="bg-red-700 text-white px-3 py-1 rounded text-sm hover:bg-red-800">🚫 Bloquear Agenda</button>
-      <button x-show="permissions?.canExport" @click="exportar(false)" class="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700">📥 Exportar Pendentes</button>
-      <button x-show="permissions?.canExport" @click="exportar(true)" class="bg-gray-600 text-white px-3 py-1 rounded text-sm hover:bg-gray-700">📋 Exportar Todos</button>
-      <button @click="loadAll()" class="bg-[#1E3A5F] text-white px-3 py-1 rounded text-sm hover:opacity-90">🔄 Atualizar</button>
-    </div>
-  </div>
-
-  <!-- Table -->
-  <div class="bg-white rounded-lg shadow overflow-auto">
-    <table class="w-full text-sm">
-      <thead class="bg-[#1E3A5F] text-white">
-        <tr>
-          <th class="px-3 py-2 text-left">#</th>
-          <th class="px-3 py-2 text-left">Tipo</th>
-          <th class="px-3 py-2 text-left">Especialidade</th>
-          <th class="px-3 py-2 text-left">Médico</th>
-          <th class="px-3 py-2 text-left">Data/Hora</th>
-          <th class="px-3 py-2 text-left">Ação</th>
-          <th class="px-3 py-2 text-left">Tipo Atend.</th>
-          <th class="px-3 py-2 text-left">Convênio</th>
-          <th class="px-3 py-2 text-left">Nome</th>
-          <th class="px-3 py-2 text-left">Nascimento</th>
-          <th class="px-3 py-2 text-left">Telefone</th>
-          <th class="px-3 py-2 text-left">Status</th>
-          <th class="px-3 py-2 text-left">Cadastrado</th>
-        </tr>
-      </thead>
-      <tbody>
-        <template x-if="agendamentos.length === 0">
-          <tr><td colspan="13" class="text-center py-8 text-gray-400">Nenhum registro encontrado.</td></tr>
-        </template>
-        <template x-for="row in agendamentos" :key="row.id">
-          <tr :class="rowClass(row)" class="border-b hover:opacity-80">
-            <td class="px-3 py-2 font-mono text-xs" x-text="row.id"></td>
-            <td class="px-3 py-2"><span class="px-2 py-0.5 rounded text-xs font-medium" :class="tipoClass(row.tipo)" x-text="row.tipo"></span></td>
-            <td class="px-3 py-2 text-xs" x-text="row.especialidade || '—'"></td>
-            <td class="px-3 py-2 text-xs" x-text="row.medico_nome || '—'"></td>
-            <td class="px-3 py-2 text-xs" x-text="formatDate(row.slot_datetime)"></td>
-            <td class="px-3 py-2 text-xs" x-text="row.tipo_atendimento || '—'"></td>
-            <td class="px-3 py-2 text-xs" x-text="row.convenio_informado || '—'"></td>
-            <td class="px-3 py-2 font-medium text-xs" x-text="row.nome"></td>
-            <td class="px-3 py-2 text-xs" x-text="row.nascimento"></td>
-            <td class="px-3 py-2 text-xs" x-text="row.telefone_contato"></td>
-            <td class="px-3 py-2"><span class="px-2 py-0.5 rounded text-xs" :class="statusClass(row.status)" x-text="row.status"></span></td>
-            <td class="px-3 py-2 text-xs" x-text="formatDate(row.created_at)"></td>
-            <td class="px-3 py-2">
-              <button
-                x-show="permissions?.canCancel && row.status !== 'CANCELADO'"
-                @click="cancelarAgendamento(row)"
-                class="bg-red-100 text-red-700 hover:bg-red-200 px-2 py-0.5 rounded text-xs font-medium">
-                ✕ Cancelar
-              </button>
-              <span x-show="row.status === 'CANCELADO'" class="text-xs text-gray-400">—</span>
-            </td>
-          </tr>
-        </template>
-      </tbody>
-    </table>
-  </div>
-</div>
-
-<!-- Tab: Nova Marcação Manual -->
-<div class="px-6 py-4" x-show="activeTab === 'marcacao'" x-cloak>
-  <div class="max-w-2xl mx-auto bg-white rounded-xl shadow p-6">
-    <h2 class="text-lg font-bold text-[#1E3A5F] mb-1">📝 Nova Marcação Manual</h2>
-    <p class="text-xs text-gray-500 mb-5">Agende uma consulta pela recepção. Os lembretes de 24h, 2h e a pesquisa de satisfação dispararão automaticamente.</p>
-
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <!-- Médico -->
-      <div class="md:col-span-2">
-        <label class="block text-xs font-medium text-gray-700 mb-1">Médico <span class="text-red-500">*</span></label>
-        <select x-model="marcacao.doctorId" @change="marcacao.slots=[]; marcacao.slotISO=''" class="w-full border rounded px-3 py-2 text-sm">
-          <option value="">— selecione o médico —</option>
-          <template x-for="doc in doctors" :key="doc.id">
-            <option :value="doc.id" x-text="doc.nome + ' — ' + doc.especialidade"></option>
-          </template>
-        </select>
-      </div>
-
-      <!-- Data -->
-      <div>
-        <label class="block text-xs font-medium text-gray-700 mb-1">Data da consulta <span class="text-red-500">*</span></label>
-        <div class="flex gap-2">
-          <input type="date" x-model="marcacao.date" class="flex-1 border rounded px-3 py-2 text-sm">
-          <button @click="buscarSlots()" :disabled="!marcacao.doctorId || !marcacao.date || marcacao.loadingSlots"
-            class="bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 disabled:opacity-50">
-            <span x-show="!marcacao.loadingSlots">🔍</span>
-            <span x-show="marcacao.loadingSlots">⏳</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Horários disponíveis -->
-      <div>
-        <label class="block text-xs font-medium text-gray-700 mb-1">Horário disponível <span class="text-red-500">*</span></label>
-        <div x-show="marcacao.slots.length === 0 && !marcacao.loadingSlots" class="text-xs text-gray-400 py-2">Selecione médico e data, depois clique em 🔍</div>
-        <div x-show="marcacao.slots.length === 0 && marcacao.loadingSlots" class="text-xs text-blue-500 py-2">Buscando horários no Google Calendar…</div>
-        <div class="flex flex-wrap gap-2 mt-1">
-          <template x-for="slot in marcacao.slots" :key="slot.iso">
-            <button @click="marcacao.slotISO = slot.iso"
-              :class="marcacao.slotISO === slot.iso ? 'bg-[#1E3A5F] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
-              class="px-3 py-1 rounded text-sm font-medium transition-colors" x-text="slot.hora">
-            </button>
-          </template>
-        </div>
-        <div x-show="marcacao.slots.length > 0 && marcacao.slots.length === 0" class="text-xs text-orange-500 py-2">Nenhuma vaga disponível nesta data.</div>
-      </div>
-
-      <!-- Separador -->
-      <div class="md:col-span-2 border-t pt-4">
-        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Dados do Paciente</p>
-      </div>
-
-      <!-- Nome -->
-      <div class="md:col-span-2">
-        <label class="block text-xs font-medium text-gray-700 mb-1">Nome completo <span class="text-red-500">*</span></label>
-        <input type="text" x-model="marcacao.nome" placeholder="Ex: Maria da Silva" class="w-full border rounded px-3 py-2 text-sm">
-      </div>
-
-      <!-- Nascimento -->
-      <div>
-        <label class="block text-xs font-medium text-gray-700 mb-1">Data de nascimento <span class="text-red-500">*</span></label>
-        <input type="text" x-model="marcacao.nascimento" placeholder="DD/MM/AAAA" maxlength="10" class="w-full border rounded px-3 py-2 text-sm">
-      </div>
-
-      <!-- Telefone de contato -->
-      <div>
-        <label class="block text-xs font-medium text-gray-700 mb-1">Telefone de contato <span class="text-red-500">*</span></label>
-        <input type="text" x-model="marcacao.telefone" placeholder="61999999999" class="w-full border rounded px-3 py-2 text-sm">
-      </div>
-
-      <!-- WhatsApp para lembretes -->
-      <div class="md:col-span-2">
-        <label class="block text-xs font-medium text-gray-700 mb-1">WhatsApp do paciente <span class="text-gray-400">(opcional — para enviar lembretes automáticos)</span></label>
-        <input type="text" x-model="marcacao.phone" placeholder="556199999999 (com DDI 55)" class="w-full border rounded px-3 py-2 text-sm">
-        <p class="text-xs text-gray-400 mt-1">💡 Se preenchido, o paciente receberá lembrete 24h antes, 2h antes e pesquisa de satisfação após a consulta.</p>
-      </div>
-
-      <!-- Tipo -->
-      <div>
-        <label class="block text-xs font-medium text-gray-700 mb-1">Tipo de atendimento</label>
-        <select x-model="marcacao.tipo" class="w-full border rounded px-3 py-2 text-sm">
-          <option value="CONVENIO">Convênio</option>
-          <option value="PARTICULAR">Particular</option>
-        </select>
-      </div>
-
-      <!-- Convênio -->
-      <div x-show="marcacao.tipo === 'CONVENIO'">
-        <label class="block text-xs font-medium text-gray-700 mb-1">Nome do convênio</label>
-        <input type="text" x-model="marcacao.convenio" placeholder="Ex: CAIXA SAÚDE" class="w-full border rounded px-3 py-2 text-sm">
-      </div>
-    </div>
-
-    <!-- Feedback -->
-    <div x-show="marcacao.msg" x-text="marcacao.msg" class="mt-4 p-3 rounded text-sm font-medium"
-      :class="marcacao.erro ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'"></div>
-
-    <!-- Botão salvar -->
-    <div class="mt-5">
-      <button @click="salvarMarcacao()" :disabled="marcacao.loading"
-        class="w-full bg-[#1E3A5F] text-white py-3 rounded-lg font-semibold text-sm hover:opacity-90 disabled:opacity-50">
-        <span x-show="!marcacao.loading">✅ Confirmar Agendamento</span>
-        <span x-show="marcacao.loading">Agendando…</span>
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- Tab: Editar Textos -->
-<div class="px-6 py-4" x-show="activeTab === 'textos'" x-cloak>
-  <div class="max-w-3xl mx-auto">
-    <div class="bg-white rounded-xl shadow p-6 mb-4">
-      <div class="flex justify-between items-start mb-2">
-        <div>
-          <h2 class="text-lg font-bold text-[#1E3A5F]">✏️ Editar Textos do Bot</h2>
-          <p class="text-xs text-gray-500 mt-1">Edite as mensagens enviadas pelo bot. As alterações entram em vigor <strong>imediatamente</strong>, sem precisar reiniciar.</p>
-        </div>
-        <button @click="salvarTextos()" :disabled="textosSaving"
-          class="bg-green-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-green-700 disabled:opacity-50">
-          <span x-show="!textosSaving && !textosSaved">💾 Salvar Alterações</span>
-          <span x-show="textosSaving">Salvando…</span>
-          <span x-show="textosSaved && !textosSaving">✅ Salvo!</span>
-        </button>
-      </div>
-      <div class="bg-blue-50 border border-blue-200 rounded p-3 text-xs text-blue-700">
-        💡 <strong>Variáveis disponíveis:</strong>
-        <code class="mx-1 bg-blue-100 px-1 rounded">{nome}</code> nome do paciente ·
-        <code class="mx-1 bg-blue-100 px-1 rounded">{medico}</code> nome do médico ·
-        <code class="mx-1 bg-blue-100 px-1 rounded">{especialidade}</code> ·
-        <code class="mx-1 bg-blue-100 px-1 rounded">{data}</code> DD/MM/AAAA ·
-        <code class="mx-1 bg-blue-100 px-1 rounded">{hora}</code> HHhMM ·
-        <code class="mx-1 bg-blue-100 px-1 rounded">{diaSemana}</code>
-      </div>
-    </div>
-
-    <template x-for="[chave, valor] in Object.entries(textosEditados).filter(([k]) => !k.startsWith('_'))" :key="chave">
-      <div class="bg-white rounded-lg shadow p-4 mb-3">
-        <div class="flex items-center justify-between mb-2">
-          <code class="text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-600" x-text="chave"></code>
-          <span class="text-xs text-gray-400" x-show="textosEditados[chave] !== textos[chave]">● modificado</span>
-        </div>
-        <textarea
-          x-model="textosEditados[chave]"
-          @input="textosSaved = false"
-          rows="4"
-          class="w-full border rounded px-3 py-2 text-sm font-mono resize-y focus:border-blue-400 focus:outline-none"
-          :class="textosEditados[chave] !== textos[chave] ? 'border-orange-300 bg-orange-50' : 'border-gray-200'">
-        </textarea>
-      </div>
-    </template>
-
-    <div class="sticky bottom-4 flex justify-end">
-      <button @click="salvarTextos()" :disabled="textosSaving"
-        class="bg-green-600 text-white px-6 py-3 rounded-lg text-sm font-semibold shadow-lg hover:bg-green-700 disabled:opacity-50">
-        <span x-show="!textosSaving && !textosSaved">💾 Salvar Todas as Alterações</span>
-        <span x-show="textosSaving">Salvando…</span>
-        <span x-show="textosSaved && !textosSaving">✅ Alterações salvas!</span>
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- Modal: Bloquear Agenda -->
-<div x-show="modalBloqueio" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-  <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4">
-    <h2 class="text-lg font-bold text-red-700 mb-4">🚫 Bloquear Agenda do Médico</h2>
-    <p class="text-xs text-gray-500 mb-4">
-      Isso irá <strong>cancelar todas as consultas</strong> do médico no período selecionado,
-      remover do Google Calendar e <strong>notificar cada paciente</strong> pelo WhatsApp.
+<!-- ═══════════════════ MODAL BLOQUEAR AGENDA ═══════════════════ -->
+<div x-show="modalBloqueio" x-cloak
+  class="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+  <div class="card p-6 w-full max-w-md mx-4">
+    <h2 class="text-base font-bold text-red-700 mb-1">🚫 Bloquear Agenda do Médico</h2>
+    <p class="text-xs text-gray-400 mb-4">
+      Cancela <strong>todas as consultas</strong> do período, remove do Google Calendar
+      e <strong>notifica cada paciente</strong> pelo WhatsApp.
     </p>
-
     <div class="space-y-3">
       <div>
-        <label class="block text-xs font-medium text-gray-700 mb-1">Médico</label>
-        <select x-model="bloqueio.doctorId" class="w-full border rounded px-3 py-2 text-sm">
+        <label class="block text-xs font-semibold text-gray-500 mb-1">Médico</label>
+        <select x-model="bloqueio.doctorId" class="inp">
           <option value="">— selecione —</option>
           <template x-for="doc in doctors" :key="doc.id">
             <option :value="doc.id" x-text="doc.nome + ' — ' + doc.especialidade"></option>
@@ -397,1042 +166,1201 @@
       </div>
       <div class="grid grid-cols-2 gap-3">
         <div>
-          <label class="block text-xs font-medium text-gray-700 mb-1">Data/hora início</label>
-          <input type="datetime-local" x-model="bloqueio.inicio" class="w-full border rounded px-3 py-2 text-sm">
+          <label class="block text-xs font-semibold text-gray-500 mb-1">Início</label>
+          <input type="datetime-local" x-model="bloqueio.inicio" class="inp">
         </div>
         <div>
-          <label class="block text-xs font-medium text-gray-700 mb-1">Data/hora fim</label>
-          <input type="datetime-local" x-model="bloqueio.fim" class="w-full border rounded px-3 py-2 text-sm">
+          <label class="block text-xs font-semibold text-gray-500 mb-1">Fim</label>
+          <input type="datetime-local" x-model="bloqueio.fim" class="inp">
         </div>
       </div>
       <div>
-        <label class="block text-xs font-medium text-gray-700 mb-1">Motivo (aparece para o paciente)</label>
-        <input type="text" x-model="bloqueio.motivo" placeholder="Ex: Congresso médico, Férias…"
-          class="w-full border rounded px-3 py-2 text-sm">
+        <label class="block text-xs font-semibold text-gray-500 mb-1">Motivo (exibido ao paciente)</label>
+        <input type="text" x-model="bloqueio.motivo" placeholder="Ex: Congresso médico, Férias…" class="inp">
       </div>
     </div>
-
     <div x-show="bloqueio.msg" x-text="bloqueio.msg"
-      class="mt-3 text-sm font-medium p-2 rounded"
-      :class="bloqueio.erro ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'">
-    </div>
-
+      class="mt-3 text-xs font-medium p-2 rounded-lg"
+      :class="bloqueio.erro ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'"></div>
     <div class="flex gap-3 mt-5">
-      <button @click="confirmarBloqueio()"
-        :disabled="bloqueio.loading"
-        class="flex-1 bg-red-700 text-white py-2 rounded font-medium text-sm hover:bg-red-800 disabled:opacity-50">
+      <button @click="confirmarBloqueio()" :disabled="bloqueio.loading" class="btn-danger flex-1 py-2">
         <span x-show="!bloqueio.loading">🚫 Confirmar Bloqueio</span>
         <span x-show="bloqueio.loading">Bloqueando…</span>
       </button>
-      <button @click="modalBloqueio = false" class="flex-1 bg-gray-200 text-gray-700 py-2 rounded font-medium text-sm hover:bg-gray-300">
-        Cancelar
+      <button @click="modalBloqueio = false" class="btn-ghost flex-1 py-2">Cancelar</button>
+    </div>
+  </div>
+</div>
+<!-- ═══════════════════ PAINEL PRINCIPAL ═══════════════════ -->
+<div x-show="autenticado && !showChangePwd" x-cloak class="flex min-h-screen">
+
+  <!-- SIDEBAR -->
+  <aside class="fixed left-0 top-0 h-screen w-60 flex flex-col z-30 shadow-xl"
+    style="background:#221748">
+
+    <!-- Logo -->
+    <div class="px-5 py-5 border-b" style="border-color:#2E1F5E">
+      <svg viewBox="0 0 160 52" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full max-w-[148px]">
+        <circle cx="16" cy="11" r="8" fill="#2D8C8C" opacity=".95"/>
+        <circle cx="8"  cy="24" r="8" fill="#2D8C8C" opacity=".8"/>
+        <circle cx="24" cy="24" r="8" fill="#8FD4D4" opacity=".7"/>
+        <circle cx="16" cy="37" r="8" fill="#8FD4D4" opacity=".6"/>
+        <text x="40" y="26" font-family="Arial Black,sans-serif" font-weight="900"
+          font-size="22" fill="white">ATOS</text>
+        <text x="40" y="41" font-family="Arial,sans-serif" font-size="8"
+          letter-spacing="2" fill="#8FD4D4">HOSPITAL DIA</text>
+      </svg>
+    </div>
+
+    <!-- Nav -->
+    <nav class="flex-1 p-3 overflow-y-auto sidebar-nav space-y-0.5">
+      <template x-for="tab in tabs.filter(t => permissions?.tabs?.includes(t.id))" :key="tab.id">
+        <button @click="activeTab = tab.id"
+          :class="activeTab === tab.id ? 'nav-item active' : 'nav-item'">
+          <span x-text="tab.icon" class="text-base w-5 shrink-0 text-center"></span>
+          <span x-text="tab.label" class="truncate"></span>
+          <span x-show="tab.id === 'atendimento' && humanWaiting.length > 0"
+            class="nav-badge" x-text="humanWaiting.length > 9 ? '9+' : humanWaiting.length"></span>
+        </button>
+      </template>
+    </nav>
+
+    <!-- User + logout -->
+    <div class="p-4 border-t" style="border-color:#2E1F5E">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+          style="background:#2D8C8C; color:#fff"
+          x-text="(currentUser?.name || 'U').charAt(0).toUpperCase()">
+        </div>
+        <div class="overflow-hidden">
+          <p class="text-sm font-semibold text-white truncate" x-text="currentUser?.name"></p>
+          <span class="text-xs px-2 py-0.5 rounded-full font-medium"
+            :class="{
+              'bg-red-400/30 text-red-200':    currentUser?.role==='admin',
+              'bg-blue-400/30 text-blue-200':  currentUser?.role==='secretaria',
+              'bg-green-400/30 text-green-200':currentUser?.role==='faturamento'
+            }"
+            x-text="{'admin':'Admin','secretaria':'Secretaria','faturamento':'Faturamento'}[currentUser?.role]">
+          </span>
+        </div>
+      </div>
+      <button @click="sairSessao()"
+        class="w-full text-xs py-2 rounded-lg transition-colors text-center font-medium"
+        style="background:#2E1F5E; color:#C4B5E8"
+        onmouseover="this.style.background='#3D2870'"
+        onmouseout="this.style.background='#2E1F5E'">
+        Sair da conta
       </button>
     </div>
-  </div>
-</div>
+  </aside>
+  <!-- /SIDEBAR -->
 
-<!-- Tab: Medicações -->
-<div class="px-6 py-4" x-show="activeTab === 'medicacoes'" x-cloak>
-  <div class="bg-white rounded-lg shadow overflow-auto">
-    <div class="p-4 flex justify-between items-center border-b">
-      <h2 class="font-semibold text-[#1E3A5F]">💊 Solicitações de Medicação</h2>
-      <button @click="loadMedicacoes()" class="bg-[#1E3A5F] text-white px-3 py-1 rounded text-sm">🔄 Atualizar</button>
-    </div>
-    <table class="w-full text-sm">
-      <thead class="bg-gray-50 text-gray-600">
-        <tr>
-          <th class="px-3 py-2 text-left">#</th>
-          <th class="px-3 py-2 text-left">Nome</th>
-          <th class="px-3 py-2 text-left">Telefone</th>
-          <th class="px-3 py-2 text-left">Convênio/Particular</th>
-          <th class="px-3 py-2 text-left">Status</th>
-          <th class="px-3 py-2 text-left">Data</th>
-        </tr>
-      </thead>
-      <tbody>
-        <template x-if="medicacoes.length === 0">
-          <tr><td colspan="6" class="text-center py-8 text-gray-400">Nenhuma solicitação encontrada.</td></tr>
-        </template>
-        <template x-for="row in medicacoes" :key="row.id">
-          <tr class="border-b bg-green-50 hover:bg-green-100">
-            <td class="px-3 py-2 font-mono text-xs" x-text="row.id"></td>
-            <td class="px-3 py-2 font-medium" x-text="row.nome"></td>
-            <td class="px-3 py-2 text-xs" x-text="row.telefone_contato"></td>
-            <td class="px-3 py-2 text-xs" x-text="row.tipo_atendimento === 'CONVENIO' ? row.convenio_informado : 'Particular'"></td>
-            <td class="px-3 py-2"><span class="px-2 py-0.5 rounded text-xs bg-yellow-100 text-yellow-800" x-text="row.status"></span></td>
-            <td class="px-3 py-2 text-xs" x-text="formatDate(row.created_at)"></td>
-          </tr>
-        </template>
-      </tbody>
-    </table>
-  </div>
-</div>
+  <!-- MAIN CONTENT -->
+  <main class="ml-60 flex-1 min-h-screen flex flex-col">
 
-<!-- Tab: Base de Conhecimento -->
-<div class="px-6 py-4" x-show="activeTab === 'conhecimento'" x-cloak>
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-    <div class="bg-white rounded-lg shadow p-4 text-center border-t-4 border-purple-500">
-      <p class="text-2xl font-bold text-purple-600" x-text="knowledgeStats.perguntasHoje"></p>
-      <p class="text-xs text-gray-500 mt-1">Perguntas respondidas hoje</p>
-    </div>
-    <div class="bg-white rounded-lg shadow p-4 text-center border-t-4 border-green-500">
-      <p class="text-2xl font-bold text-green-600" x-text="knowledgeStats.taxaResolucao + '%'"></p>
-      <p class="text-xs text-gray-500 mt-1">Taxa de resolução automática</p>
-    </div>
-    <div class="bg-white rounded-lg shadow p-4 text-center border-t-4 border-blue-500">
-      <p class="text-2xl font-bold text-blue-600" x-text="documents.length"></p>
-      <p class="text-xs text-gray-500 mt-1">Documentos ativos</p>
-    </div>
-  </div>
-
-  <!-- Upload Area -->
-  <div
-    class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center mb-4 transition-colors cursor-pointer"
-    @dragover.prevent="$el.classList.add('drag-over')"
-    @dragleave="$el.classList.remove('drag-over')"
-    @drop.prevent="handleDrop($event)"
-    @click="$refs.fileInput.click()">
-    <input type="file" x-ref="fileInput" class="hidden" accept=".pdf,.docx,.txt" @change="handleFileSelect($event)">
-    <div class="text-4xl mb-2">📁</div>
-    <p class="text-gray-600 font-medium">Arraste um arquivo ou clique para selecionar</p>
-    <p class="text-xs text-gray-400 mt-1">Aceita: .pdf, .docx, .txt (máx. 10MB)</p>
-    <div x-show="uploading" class="mt-3">
-      <div class="bg-blue-200 rounded-full h-2 w-full">
-        <div class="bg-blue-600 h-2 rounded-full w-1/2 animate-pulse"></div>
+    <!-- TOP BAR -->
+    <header class="bg-white border-b border-gray-100 px-6 py-3 flex items-center justify-between sticky top-0 z-20 shadow-sm">
+      <div class="flex items-center gap-2">
+        <span class="text-lg" x-text="tabs.find(t=>t.id===activeTab)?.icon || '📋'"></span>
+        <h1 class="text-base font-bold text-[#3A2169]"
+          x-text="tabs.find(t=>t.id===activeTab)?.label || 'Painel'"></h1>
       </div>
-      <p class="text-xs text-blue-600 mt-1">Enviando e indexando...</p>
-    </div>
-    <div x-show="uploadMsg" x-text="uploadMsg" class="mt-2 text-sm font-medium" :class="uploadError ? 'text-red-600' : 'text-green-600'"></div>
-  </div>
-
-  <!-- Documents Table -->
-  <div class="bg-white rounded-lg shadow overflow-auto">
-    <div class="p-4 flex justify-between items-center border-b">
-      <h2 class="font-semibold text-[#1E3A5F]">📚 Documentos da Base</h2>
-      <button @click="loadKnowledge()" class="bg-[#1E3A5F] text-white px-3 py-1 rounded text-sm">🔄 Atualizar</button>
-    </div>
-    <table class="w-full text-sm">
-      <thead class="bg-gray-50 text-gray-600">
-        <tr>
-          <th class="px-3 py-2 text-left">#</th>
-          <th class="px-3 py-2 text-left">Arquivo</th>
-          <th class="px-3 py-2 text-left">Categoria</th>
-          <th class="px-3 py-2 text-left">Data</th>
-          <th class="px-3 py-2 text-left">Status</th>
-          <th class="px-3 py-2 text-left">Ação</th>
-        </tr>
-      </thead>
-      <tbody>
-        <template x-if="documents.length === 0">
-          <tr><td colspan="6" class="text-center py-8 text-gray-400">Nenhum documento cadastrado.</td></tr>
-        </template>
-        <template x-for="doc in documents" :key="doc.id">
-          <tr class="border-b hover:bg-gray-50">
-            <td class="px-3 py-2 font-mono text-xs" x-text="doc.id"></td>
-            <td class="px-3 py-2 font-medium text-xs" x-text="doc.filename"></td>
-            <td class="px-3 py-2"><span class="px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-800" x-text="doc.category"></span></td>
-            <td class="px-3 py-2 text-xs" x-text="formatDate(doc.created_at)"></td>
-            <td class="px-3 py-2"><span class="px-2 py-0.5 rounded text-xs bg-green-100 text-green-800">Ativo</span></td>
-            <td class="px-3 py-2">
-              <button @click="desativarDoc(doc.id)" class="text-red-500 hover:text-red-700 text-xs underline">Desativar</button>
-            </td>
-          </tr>
-        </template>
-      </tbody>
-    </table>
-  </div>
-</div>
-
-<!-- Tab: Atendimento Humano -->
-<div class="px-6 py-4" x-show="activeTab === 'atendimento'" x-cloak>
-  <div class="bg-white rounded-lg shadow overflow-auto">
-    <div class="p-4 flex justify-between items-center border-b">
-      <div class="flex items-center gap-3">
-        <h2 class="font-semibold text-[#1E3A5F]">👩‍⚕️ Aguardando Atendimento Humano</h2>
-        <span x-show="humanWaiting.length > 0"
-          class="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full animate-pulse"
-          x-text="humanWaiting.length + ' na fila'"></span>
-      </div>
-      <button @click="loadHumanWaiting()" class="bg-[#1E3A5F] text-white px-3 py-1 rounded text-sm">🔄 Atualizar</button>
-    </div>
-    <table class="w-full text-sm">
-      <thead class="bg-gray-50 text-gray-600">
-        <tr>
-          <th class="px-3 py-2 text-left">WhatsApp</th>
-          <th class="px-3 py-2 text-left">Nome</th>
-          <th class="px-3 py-2 text-left">Fluxo</th>
-          <th class="px-3 py-2 text-left">Aguardando desde</th>
-          <th class="px-3 py-2 text-left">Tempo</th>
-          <th class="px-3 py-2 text-left">Ação</th>
-        </tr>
-      </thead>
-      <tbody>
-        <template x-if="humanWaiting.length === 0">
-          <tr><td colspan="6" class="text-center py-8 text-gray-400">Nenhum paciente aguardando. ✅</td></tr>
-        </template>
-        <template x-for="row in humanWaiting" :key="row.phone">
-          <tr class="border-b"
-            :class="(new Date() - new Date(row.human_transfer_at)) > 600000 ? 'bg-red-50' : 'bg-white hover:bg-gray-50'">
-            <td class="px-3 py-2 font-mono text-xs" x-text="row.phone"></td>
-            <td class="px-3 py-2 font-medium text-xs" x-text="row.nome || '—'"></td>
-            <td class="px-3 py-2"><span class="px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-800" x-text="row.flow || '—'"></span></td>
-            <td class="px-3 py-2 text-xs" x-text="formatDate(row.human_transfer_at)"></td>
-            <td class="px-3 py-2 text-xs font-medium"
-              :class="(new Date() - new Date(row.human_transfer_at)) > 600000 ? 'text-red-600 font-bold' : 'text-gray-600'"
-              x-text="Math.floor((new Date() - new Date(row.human_transfer_at)) / 60000) + ' min'">
-            </td>
-            <td class="px-3 py-2">
-              <button @click="assumirAtendimento(row.phone)"
-                class="bg-green-600 text-white hover:bg-green-700 px-3 py-1 rounded text-xs font-medium">
-                ✅ Assumir
-              </button>
-            </td>
-          </tr>
-        </template>
-      </tbody>
-    </table>
-  </div>
-</div>
-
-<!-- Tab: Encaixe -->
-<div class="px-6 py-4" x-show="activeTab === 'encaixe'" x-cloak>
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-    <!-- Form -->
-    <div class="bg-white rounded-xl shadow p-5">
-      <h2 class="font-bold text-[#1E3A5F] mb-4">➕ Adicionar à Fila de Encaixe</h2>
-      <div class="space-y-3">
-        <div>
-          <label class="block text-xs font-medium text-gray-700 mb-1">WhatsApp <span class="text-red-500">*</span></label>
-          <input type="text" x-model="novoEncaixe.phone" placeholder="556199999999" class="w-full border rounded px-3 py-2 text-sm">
+      <div class="flex items-center gap-5">
+        <!-- Alert fila humana -->
+        <div x-show="humanWaiting.length > 0"
+          @click="activeTab='atendimento'"
+          class="flex items-center gap-2 cursor-pointer bg-red-50 border border-red-200 text-red-700 text-xs font-semibold px-3 py-1.5 rounded-full animate-pulse hover:bg-red-100 transition-colors">
+          <span>🔴</span>
+          <span x-text="humanWaiting.length + ' aguardando atendimento'"></span>
         </div>
-        <div>
-          <label class="block text-xs font-medium text-gray-700 mb-1">Nome do paciente</label>
-          <input type="text" x-model="novoEncaixe.nome" placeholder="Nome completo" class="w-full border rounded px-3 py-2 text-sm">
+        <div class="text-right hidden md:block">
+          <p class="text-xs font-semibold text-gray-600" x-text="currentDate"></p>
+          <p class="text-xs text-gray-400 font-mono" x-text="currentTime"></p>
         </div>
-        <div>
-          <label class="block text-xs font-medium text-gray-700 mb-1">Especialidade desejada</label>
-          <input type="text" x-model="novoEncaixe.especialidade" placeholder="Ex: Infectologia" class="w-full border rounded px-3 py-2 text-sm">
-        </div>
-        <div x-show="novoEncaixe.msg" x-text="novoEncaixe.msg"
-          class="text-xs p-2 rounded" :class="novoEncaixe.erro ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'"></div>
-        <button @click="adicionarEncaixe()"
-          class="w-full bg-[#1E3A5F] text-white py-2 rounded font-medium text-sm hover:opacity-90">
-          Adicionar à Fila
+        <button @click="loadAll()" title="Atualizar"
+          class="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition-colors">
+          🔄
         </button>
       </div>
-    </div>
-    <!-- Queue table -->
-    <div class="md:col-span-2 bg-white rounded-lg shadow overflow-auto">
-      <div class="p-4 flex justify-between items-center border-b">
-        <h2 class="font-semibold text-[#1E3A5F]">🔄 Fila de Encaixe
-          <span x-show="encaixeQueue.length > 0" class="ml-2 bg-orange-500 text-white text-xs px-2 py-0.5 rounded-full" x-text="encaixeQueue.length"></span>
-        </h2>
-        <button @click="loadEncaixe()" class="bg-[#1E3A5F] text-white px-3 py-1 rounded text-sm">🔄 Atualizar</button>
-      </div>
-      <table class="w-full text-sm">
-        <thead class="bg-gray-50 text-gray-600">
-          <tr>
-            <th class="px-3 py-2 text-left">#</th>
-            <th class="px-3 py-2 text-left">WhatsApp</th>
-            <th class="px-3 py-2 text-left">Nome</th>
-            <th class="px-3 py-2 text-left">Especialidade</th>
-            <th class="px-3 py-2 text-left">Adicionado</th>
-            <th class="px-3 py-2 text-left">Ação</th>
-          </tr>
-        </thead>
-        <tbody>
-          <template x-if="encaixeQueue.length === 0">
-            <tr><td colspan="6" class="text-center py-8 text-gray-400">Fila de encaixe vazia.</td></tr>
-          </template>
-          <template x-for="(row, idx) in encaixeQueue" :key="row.id || idx">
-            <tr class="border-b hover:bg-gray-50">
-              <td class="px-3 py-2 text-xs font-mono" x-text="(idx + 1) + 'º'"></td>
-              <td class="px-3 py-2 text-xs" x-text="row.phone"></td>
-              <td class="px-3 py-2 font-medium text-xs" x-text="row.nome || '—'"></td>
-              <td class="px-3 py-2 text-xs" x-text="row.especialidade || '—'"></td>
-              <td class="px-3 py-2 text-xs" x-text="formatDate(row.created_at)"></td>
-              <td class="px-3 py-2">
-                <button @click="removerEncaixe(row.id)"
-                  class="text-red-500 hover:text-red-700 text-xs underline">Remover</button>
-              </td>
-            </tr>
-          </template>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>
+    </header>
 
-<!-- Tab: Médicos -->
-<div class="px-6 py-4" x-show="activeTab === 'medicos'" x-cloak>
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-    <!-- Form cadastro -->
-    <div class="bg-white rounded-xl shadow p-5">
-      <h2 class="font-bold text-[#1E3A5F] mb-1">👨‍⚕️ Cadastrar Novo Médico</h2>
-      <p class="text-xs text-gray-500 mb-4">O Google Calendar será criado automaticamente.</p>
-      <div class="space-y-3">
-        <div class="grid grid-cols-2 gap-3">
-          <div class="col-span-2">
-            <label class="block text-xs font-medium text-gray-700 mb-1">Nome completo <span class="text-red-500">*</span></label>
-            <input type="text" x-model="novoMedico.nome" placeholder="Dr. João Silva" class="w-full border rounded px-3 py-2 text-sm">
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">CRM</label>
-            <input type="text" x-model="novoMedico.crm" placeholder="DF-123456" class="w-full border rounded px-3 py-2 text-sm">
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">Especialidade <span class="text-red-500">*</span></label>
-            <input type="text" x-model="novoMedico.especialidade" placeholder="Infectologia" class="w-full border rounded px-3 py-2 text-sm">
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">E-mail</label>
-            <input type="email" x-model="novoMedico.email" placeholder="dr@clinica.com" class="w-full border rounded px-3 py-2 text-sm">
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">WhatsApp</label>
-            <input type="text" x-model="novoMedico.whatsapp" placeholder="556199999999" class="w-full border rounded px-3 py-2 text-sm">
-          </div>
+    <!-- STATS BAR -->
+    <div class="px-6 pt-5 pb-2 grid grid-cols-2 md:grid-cols-6 gap-3">
+      <template x-for="card in statCards" :key="card.label">
+        <div class="card p-3 text-center border-t-4" :style="'border-color:' + card.color">
+          <p class="text-2xl font-bold" :style="'color:' + card.color" x-text="stats[card.key] ?? 0"></p>
+          <p class="text-xs text-gray-400 mt-0.5" x-text="card.label"></p>
         </div>
-        <div class="border-t pt-3">
-          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Grade de Horários</p>
-          <div class="flex flex-wrap gap-1 mb-3">
-            <template x-for="(dia, idx) in ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb']" :key="idx">
-              <button @click="toggleDia(idx)"
-                :class="novoMedico.diasSemana.includes(idx) ? 'bg-[#1E3A5F] text-white' : 'bg-gray-100 text-gray-600'"
-                class="px-2 py-1 rounded text-xs font-medium transition-colors" x-text="dia">
-              </button>
-            </template>
-          </div>
-          <div class="grid grid-cols-3 gap-3">
-            <div>
-              <label class="block text-xs font-medium text-gray-700 mb-1">Início</label>
-              <input type="time" x-model="novoMedico.horarioInicio" class="w-full border rounded px-3 py-2 text-sm">
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-gray-700 mb-1">Fim</label>
-              <input type="time" x-model="novoMedico.horarioFim" class="w-full border rounded px-3 py-2 text-sm">
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-gray-700 mb-1">Duração (min)</label>
-              <input type="number" x-model.number="novoMedico.slotDurationMinutes" min="15" max="120" step="15" class="w-full border rounded px-3 py-2 text-sm">
-            </div>
-          </div>
-        </div>
-        <div x-show="novoMedico.msg" x-text="novoMedico.msg"
-          class="text-xs p-2 rounded" :class="novoMedico.erro ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'"></div>
-        <button @click="salvarMedico()" :disabled="novoMedico.loading"
-          class="w-full bg-[#1E3A5F] text-white py-2 rounded font-semibold text-sm hover:opacity-90 disabled:opacity-50">
-          <span x-show="!novoMedico.loading">✅ Cadastrar Médico</span>
-          <span x-show="novoMedico.loading">Cadastrando…</span>
-        </button>
-      </div>
+      </template>
     </div>
-    <!-- List -->
-    <div class="bg-white rounded-lg shadow overflow-auto">
-      <div class="p-4 flex justify-between items-center border-b">
-        <h2 class="font-semibold text-[#1E3A5F]">📋 Médicos Cadastrados</h2>
-        <button @click="loadDoctorsAll()" class="bg-[#1E3A5F] text-white px-3 py-1 rounded text-sm">🔄 Atualizar</button>
-      </div>
-      <table class="w-full text-sm">
-        <thead class="bg-gray-50 text-gray-600">
-          <tr>
-            <th class="px-3 py-2 text-left">Nome</th>
-            <th class="px-3 py-2 text-left">Especialidade</th>
-            <th class="px-3 py-2 text-left">CRM</th>
-            <th class="px-3 py-2 text-left">Status</th>
-            <th class="px-3 py-2 text-left">Ação</th>
-          </tr>
-        </thead>
-        <tbody>
-          <template x-if="doctorsAll.length === 0">
-            <tr><td colspan="5" class="text-center py-8 text-gray-400">Nenhum médico cadastrado.</td></tr>
-          </template>
-          <template x-for="doc in doctorsAll" :key="doc.id">
-            <tr class="border-b hover:bg-gray-50">
-              <td class="px-3 py-2 font-medium text-xs" x-text="doc.nome"></td>
-              <td class="px-3 py-2 text-xs" x-text="doc.especialidade"></td>
-              <td class="px-3 py-2 text-xs font-mono" x-text="doc.crm || '—'"></td>
-              <td class="px-3 py-2">
-                <span class="px-2 py-0.5 rounded text-xs font-medium"
-                  :class="doc.active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500'"
-                  x-text="doc.active ? 'Ativo' : 'Inativo'"></span>
-              </td>
-              <td class="px-3 py-2">
-                <button @click="toggleMedico(doc)"
-                  :class="doc.active ? 'text-red-500 hover:text-red-700' : 'text-green-600 hover:text-green-800'"
-                  class="text-xs underline" x-text="doc.active ? 'Desativar' : 'Ativar'">
-                </button>
-              </td>
-            </tr>
-          </template>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>
 
-<!-- Tab: Usuários -->
-<div class="px-6 py-4" x-show="activeTab === 'usuarios'" x-cloak>
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-    <!-- Form -->
-    <div class="bg-white rounded-xl shadow p-5">
-      <h2 class="font-bold text-[#1E3A5F] mb-4">👤 Criar Novo Usuário</h2>
-      <div class="space-y-3">
+    <!-- TAB CONTENT AREA -->
+    <div class="flex-1 px-6 pb-8">
+
+    <!-- ── Tab: Agenda ──────────────────────────────────────── -->
+    <div x-show="activeTab==='agenda'" x-cloak class="pt-4 space-y-4">
+      <!-- Filtros -->
+      <div class="card p-4 flex flex-wrap gap-3 items-end">
         <div>
-          <label class="block text-xs font-medium text-gray-700 mb-1">Nome completo <span class="text-red-500">*</span></label>
-          <input type="text" x-model="novoUsuario.name" placeholder="Maria Secretaria" class="w-full border rounded px-3 py-2 text-sm">
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-gray-700 mb-1">Usuário (login) <span class="text-red-500">*</span></label>
-          <input type="text" x-model="novoUsuario.username" placeholder="maria.secretaria" class="w-full border rounded px-3 py-2 text-sm">
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-gray-700 mb-1">Função <span class="text-red-500">*</span></label>
-          <select x-model="novoUsuario.role" class="w-full border rounded px-3 py-2 text-sm">
-            <option value="">— selecione —</option>
-            <option value="admin">Admin</option>
-            <option value="secretaria">Secretaria</option>
-            <option value="faturamento">Faturamento</option>
+          <label class="block text-xs font-semibold text-gray-400 mb-1">Tipo</label>
+          <select x-model="filters.tipo" class="inp w-32">
+            <option value="">Todos</option>
+            <option>CONSULTA</option><option>INFUSAO</option><option>MEDICACAO</option>
           </select>
         </div>
         <div>
-          <label class="block text-xs font-medium text-gray-700 mb-1">Senha inicial <span class="text-red-500">*</span></label>
-          <input type="password" x-model="novoUsuario.password" placeholder="mín. 6 caracteres" class="w-full border rounded px-3 py-2 text-sm">
-          <p class="text-xs text-gray-400 mt-1">O usuário deverá trocar a senha no primeiro acesso.</p>
+          <label class="block text-xs font-semibold text-gray-400 mb-1">Especialidade</label>
+          <input x-model="filters.especialidade" placeholder="Ex: Infectologia" class="inp w-36">
         </div>
-        <div x-show="novoUsuario.msg" x-text="novoUsuario.msg"
-          class="text-xs p-2 rounded" :class="novoUsuario.erro ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'"></div>
-        <button @click="criarUsuario()" :disabled="novoUsuario.loading"
-          class="w-full bg-[#1E3A5F] text-white py-2 rounded font-semibold text-sm hover:opacity-90 disabled:opacity-50">
-          <span x-show="!novoUsuario.loading">✅ Criar Usuário</span>
-          <span x-show="novoUsuario.loading">Criando…</span>
-        </button>
-      </div>
-    </div>
-    <!-- List -->
-    <div class="bg-white rounded-lg shadow overflow-auto">
-      <div class="p-4 flex justify-between items-center border-b">
-        <h2 class="font-semibold text-[#1E3A5F]">👥 Usuários do Sistema</h2>
-        <button @click="loadUsuarios()" class="bg-[#1E3A5F] text-white px-3 py-1 rounded text-sm">🔄 Atualizar</button>
-      </div>
-      <table class="w-full text-sm">
-        <thead class="bg-gray-50 text-gray-600">
-          <tr>
-            <th class="px-3 py-2 text-left">Nome</th>
-            <th class="px-3 py-2 text-left">Usuário</th>
-            <th class="px-3 py-2 text-left">Função</th>
-            <th class="px-3 py-2 text-left">Status</th>
-            <th class="px-3 py-2 text-left">Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          <template x-if="usuarios.length === 0">
-            <tr><td colspan="5" class="text-center py-8 text-gray-400">Nenhum usuário encontrado.</td></tr>
-          </template>
-          <template x-for="usr in usuarios" :key="usr.id">
-            <tr class="border-b hover:bg-gray-50">
-              <td class="px-3 py-2 font-medium text-xs" x-text="usr.name"></td>
-              <td class="px-3 py-2 text-xs font-mono" x-text="usr.username"></td>
-              <td class="px-3 py-2">
-                <span class="px-2 py-0.5 rounded text-xs font-medium"
-                  :class="{'bg-red-100 text-red-800': usr.role==='admin','bg-blue-100 text-blue-800': usr.role==='secretaria','bg-green-100 text-green-800': usr.role==='faturamento'}"
-                  x-text="{'admin':'Admin','secretaria':'Secretaria','faturamento':'Faturamento'}[usr.role] || usr.role"></span>
-              </td>
-              <td class="px-3 py-2">
-                <span class="px-2 py-0.5 rounded text-xs"
-                  :class="usr.active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500'"
-                  x-text="usr.active ? 'Ativo' : 'Inativo'"></span>
-              </td>
-              <td class="px-3 py-2 flex gap-2">
-                <button @click="toggleUsuario(usr)"
-                  :class="usr.active ? 'text-red-500 hover:text-red-700' : 'text-green-600 hover:text-green-800'"
-                  class="text-xs underline" x-text="usr.active ? 'Bloquear' : 'Ativar'">
-                </button>
-                <button @click="resetarSenha(usr)" class="text-blue-500 hover:text-blue-700 text-xs underline">Resetar senha</button>
-              </td>
-            </tr>
-          </template>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>
-
-<!-- Tab: WhatsApp -->
-<div class="px-6 py-4" x-show="activeTab === 'whatsapp'" x-cloak>
-  <div class="max-w-lg mx-auto">
-    <div class="bg-white rounded-xl shadow p-6">
-      <h2 class="text-lg font-bold text-[#1E3A5F] mb-5">📱 Status WhatsApp</h2>
-
-      <!-- Status badge -->
-      <div class="flex items-center gap-3 mb-6 p-4 rounded-lg" :class="whatsapp.connected ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'">
-        <div class="w-3 h-3 rounded-full" :class="whatsapp.connected ? 'bg-green-500 animate-pulse' : 'bg-red-500'"></div>
         <div>
-          <p class="font-semibold text-sm" :class="whatsapp.connected ? 'text-green-800' : 'text-red-800'"
-            x-text="whatsapp.connected ? '✅ WhatsApp Conectado' : '❌ WhatsApp Desconectado'">
-          </p>
-          <p x-show="whatsapp.statusDetail" x-text="whatsapp.statusDetail" class="text-xs text-gray-500 mt-0.5"></p>
+          <label class="block text-xs font-semibold text-gray-400 mb-1">Data</label>
+          <input type="date" x-model="filters.data" class="inp w-36">
         </div>
-        <button @click="loadWhatsappStatus()" class="ml-auto text-xs text-gray-400 hover:text-gray-700 underline">Verificar</button>
+        <div>
+          <label class="block text-xs font-semibold text-gray-400 mb-1">Status</label>
+          <select x-model="filters.status" class="inp w-32">
+            <option value="">Todos</option>
+            <option>PENDENTE</option><option>CONFIRMADO</option><option>CANCELADO</option>
+          </select>
+        </div>
+        <button @click="loadAgendamentos()" class="btn-primary px-4 py-2">🔍 Filtrar</button>
+        <div class="ml-auto flex gap-2 flex-wrap">
+          <button x-show="permissions?.canBlock" @click="abrirModalBloqueio()"
+            class="btn-danger px-3 py-2 text-xs">🚫 Bloquear Agenda</button>
+          <button x-show="permissions?.canExport" @click="exportar(false)"
+            class="btn-primary px-3 py-2 text-xs" style="background:#059669">📥 Pendentes</button>
+          <button x-show="permissions?.canExport" @click="exportar(true)"
+            class="btn-ghost px-3 py-2 text-xs">📋 Todos</button>
+        </div>
       </div>
-
-      <!-- QR Code -->
-      <div x-show="whatsapp.qr" class="text-center mb-5">
-        <p class="text-sm text-gray-600 mb-3">Escaneie com o WhatsApp do celular:</p>
-        <img :src="'data:image/png;base64,' + whatsapp.qr" alt="QR Code WhatsApp"
-          class="mx-auto rounded-lg shadow border w-56 h-56 object-contain">
-        <p class="text-xs text-gray-400 mt-2">O QR Code expira em 60 segundos</p>
+      <!-- Tabela -->
+      <div class="card overflow-auto">
+        <table class="w-full">
+          <thead><tr class="tbl-head">
+            <th>#</th><th>Tipo</th><th>Especialidade</th><th>Médico</th>
+            <th>Data/Hora</th><th>Tipo Atend.</th><th>Convênio</th>
+            <th>Nome</th><th>Nascimento</th><th>Telefone</th><th>Status</th><th>Ação</th>
+          </tr></thead>
+          <tbody>
+            <template x-if="agendamentos.length===0">
+              <tr><td colspan="12" class="text-center py-10 text-gray-300 text-sm">
+                Nenhum registro encontrado.</td></tr>
+            </template>
+            <template x-for="row in agendamentos" :key="row.id">
+              <tr class="tbl-row" :class="rowClass(row)">
+                <td class="font-mono text-xs text-gray-400" x-text="row.id"></td>
+                <td><span class="badge" :class="tipoClass(row.tipo)" x-text="row.tipo"></span></td>
+                <td x-text="row.especialidade||'—'"></td>
+                <td x-text="row.medico_nome||'—'"></td>
+                <td x-text="formatDate(row.slot_datetime)"></td>
+                <td><span class="badge" :class="row.tipo_atendimento==='PARTICULAR'?'badge-particular':'badge-convenio'"
+                  x-text="row.tipo_atendimento||'—'"></span></td>
+                <td x-text="row.convenio_informado||'—'"></td>
+                <td class="font-medium" x-text="row.nome"></td>
+                <td x-text="row.nascimento"></td>
+                <td x-text="row.telefone_contato"></td>
+                <td><span class="badge" :class="statusClass(row.status)" x-text="row.status"></span></td>
+                <td>
+                  <button x-show="permissions?.canCancel && row.status!=='CANCELADO'"
+                    @click="cancelarAgendamento(row)"
+                    class="text-xs text-red-600 hover:text-red-800 font-semibold underline">Cancelar</button>
+                  <span x-show="row.status==='CANCELADO'" class="text-xs text-gray-300">—</span>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
       </div>
+    </div>
+    <!-- /Tab Agenda ─────────────────────────────────────────── -->
 
-      <!-- Feedback -->
-      <div x-show="whatsapp.msg" x-text="whatsapp.msg"
-        class="mb-4 p-3 rounded text-sm font-medium"
-        :class="whatsapp.erro ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'"></div>
-
-      <!-- Buttons -->
-      <div class="space-y-2">
-        <button @click="gerarQR()" :disabled="whatsapp.loading || whatsapp.connected"
-          class="w-full bg-[#1E3A5F] text-white py-2 rounded font-medium text-sm hover:opacity-90 disabled:opacity-50">
-          <span x-show="!whatsapp.loading">📲 Gerar QR Code para Conectar</span>
-          <span x-show="whatsapp.loading">Aguarde…</span>
-        </button>
-        <button @click="reconectarWhatsapp()" :disabled="whatsapp.loading"
-          class="w-full bg-orange-500 text-white py-2 rounded font-medium text-sm hover:bg-orange-600 disabled:opacity-50">
-          🔄 Reiniciar Instância
-        </button>
-        <button @click="desconectarWhatsapp()" :disabled="whatsapp.loading || !whatsapp.connected"
-          class="w-full bg-red-600 text-white py-2 rounded font-medium text-sm hover:bg-red-700 disabled:opacity-50">
-          🔌 Desconectar
+    <!-- ── Tab: Nova Marcação ───────────────────────────────── -->
+    <div x-show="activeTab==='marcacao'" x-cloak class="pt-4">
+      <div class="card p-6 max-w-2xl mx-auto">
+        <h2 class="text-base font-bold text-[#3A2169] mb-1">📝 Nova Marcação Manual</h2>
+        <p class="text-xs text-gray-400 mb-5">Lembretes de 24h e 2h + pesquisa de satisfação disparam automaticamente.</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="md:col-span-2">
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Médico *</label>
+            <select x-model="marcacao.doctorId" @change="marcacao.slots=[];marcacao.slotISO=''" class="inp">
+              <option value="">— selecione o médico —</option>
+              <template x-for="doc in doctors" :key="doc.id">
+                <option :value="doc.id" x-text="doc.nome + ' — ' + doc.especialidade"></option>
+              </template>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Data da consulta *</label>
+            <div class="flex gap-2">
+              <input type="date" x-model="marcacao.date" class="inp flex-1">
+              <button @click="buscarSlots()" :disabled="!marcacao.doctorId||!marcacao.date||marcacao.loadingSlots"
+                class="btn-primary px-4 disabled:opacity-40">
+                <span x-show="!marcacao.loadingSlots">🔍</span>
+                <span x-show="marcacao.loadingSlots">⏳</span>
+              </button>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Horário *</label>
+            <div x-show="marcacao.slots.length===0&&!marcacao.loadingSlots" class="text-xs text-gray-300 py-2">Selecione médico e data</div>
+            <div x-show="marcacao.loadingSlots" class="text-xs text-[#2D8C8C] py-2">Buscando no Google Calendar…</div>
+            <div class="flex flex-wrap gap-2 mt-1">
+              <template x-for="slot in marcacao.slots" :key="slot.iso">
+                <button @click="marcacao.slotISO=slot.iso"
+                  :class="marcacao.slotISO===slot.iso?'btn-primary':'btn-ghost'"
+                  class="px-3 py-1 text-sm" x-text="slot.hora"></button>
+              </template>
+            </div>
+          </div>
+          <div class="md:col-span-2 border-t pt-4 mt-1">
+            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Dados do Paciente</p>
+          </div>
+          <div class="md:col-span-2">
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Nome completo *</label>
+            <input type="text" x-model="marcacao.nome" placeholder="Ex: Maria da Silva" class="inp">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Nascimento *</label>
+            <input type="text" x-model="marcacao.nascimento" placeholder="DD/MM/AAAA" maxlength="10" class="inp">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Telefone *</label>
+            <input type="text" x-model="marcacao.telefone" placeholder="61999999999" class="inp">
+          </div>
+          <div class="md:col-span-2">
+            <label class="block text-xs font-semibold text-gray-500 mb-1">WhatsApp <span class="font-normal text-gray-300">(opcional — para lembretes)</span></label>
+            <input type="text" x-model="marcacao.phone" placeholder="556199999999 (com DDI 55)" class="inp">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Tipo de atendimento</label>
+            <select x-model="marcacao.tipo" class="inp">
+              <option value="CONVENIO">Convênio</option>
+              <option value="PARTICULAR">Particular</option>
+            </select>
+          </div>
+          <div x-show="marcacao.tipo==='CONVENIO'">
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Nome do convênio</label>
+            <input type="text" x-model="marcacao.convenio" placeholder="Ex: CAIXA SAÚDE" class="inp">
+          </div>
+        </div>
+        <div x-show="marcacao.msg" x-text="marcacao.msg"
+          class="mt-4 p-3 rounded-lg text-sm font-medium"
+          :class="marcacao.erro?'bg-red-50 text-red-700':'bg-green-50 text-green-700'"></div>
+        <button @click="salvarMarcacao()" :disabled="marcacao.loading" class="btn-primary w-full py-3 mt-5">
+          <span x-show="!marcacao.loading">✅ Confirmar Agendamento</span>
+          <span x-show="marcacao.loading">Agendando…</span>
         </button>
       </div>
     </div>
-  </div>
-</div>
+    <!-- /Tab Marcação ──────────────────────────────────────── -->
 
-<!-- Tab: Satisfação -->
-<div class="px-6 py-4" x-show="activeTab === 'satisfacao'" x-cloak>
-  <!-- Cards de resumo -->
-  <div class="grid grid-cols-2 md:grid-cols-6 gap-3 mb-4">
-    <div class="bg-white rounded-lg shadow p-4 text-center border-t-4 border-yellow-400 col-span-2 md:col-span-2">
-      <p class="text-3xl font-bold text-yellow-500" x-text="satisfacaoStats.media ? '⭐ ' + satisfacaoStats.media : '—'"></p>
-      <p class="text-xs text-gray-500 mt-1">Média geral</p>
-    </div>
-    <div class="bg-white rounded-lg shadow p-3 text-center border-t-4 border-gray-300">
-      <p class="text-2xl font-bold text-gray-600" x-text="satisfacaoStats.total || 0"></p>
-      <p class="text-xs text-gray-500 mt-1">Total respostas</p>
-    </div>
-    <div class="bg-white rounded-lg shadow p-3 text-center border-t-4 border-green-500">
-      <p class="text-2xl font-bold text-green-600" x-text="satisfacaoStats.excelente || 0"></p>
-      <p class="text-xs text-gray-500 mt-1">🌟 Excelente</p>
-    </div>
-    <div class="bg-white rounded-lg shadow p-3 text-center border-t-4 border-blue-400">
-      <p class="text-2xl font-bold text-blue-500" x-text="satisfacaoStats.bom || 0"></p>
-      <p class="text-xs text-gray-500 mt-1">😊 Bom</p>
-    </div>
-    <div class="bg-white rounded-lg shadow p-3 text-center border-t-4 border-red-400">
-      <p class="text-2xl font-bold text-red-500" x-text="satisfacaoStats.ruim || 0"></p>
-      <p class="text-xs text-gray-500 mt-1">😕 Ruim/Péssimo</p>
-    </div>
-  </div>
-
-  <!-- Tabela de respostas -->
-  <div class="bg-white rounded-lg shadow overflow-auto">
-    <div class="p-4 flex justify-between items-center border-b">
-      <h2 class="font-semibold text-[#1E3A5F]">⭐ Respostas de Satisfação</h2>
-      <button @click="loadSatisfacao()" class="bg-[#1E3A5F] text-white px-3 py-1 rounded text-sm">🔄 Atualizar</button>
-    </div>
-    <table class="w-full text-sm">
-      <thead class="bg-gray-50 text-gray-600">
-        <tr>
-          <th class="px-3 py-2 text-left">#</th>
-          <th class="px-3 py-2 text-left">Nota</th>
-          <th class="px-3 py-2 text-left">Médico</th>
-          <th class="px-3 py-2 text-left">Especialidade</th>
-          <th class="px-3 py-2 text-left">Comentário</th>
-          <th class="px-3 py-2 text-left">Data</th>
-        </tr>
-      </thead>
-      <tbody>
-        <template x-if="satisfacaoRows.length === 0">
-          <tr><td colspan="6" class="text-center py-8 text-gray-400">Nenhuma avaliação recebida ainda.</td></tr>
+    <!-- ── Tab: Textos ──────────────────────────────────────── -->
+    <div x-show="activeTab==='textos'" x-cloak class="pt-4">
+      <div class="max-w-3xl mx-auto space-y-4">
+        <div class="card p-5">
+          <div class="flex items-start justify-between mb-3">
+            <div>
+              <h2 class="text-base font-bold text-[#3A2169]">✏️ Editar Textos do Bot</h2>
+              <p class="text-xs text-gray-400 mt-0.5">Alterações entram em vigor imediatamente.</p>
+            </div>
+            <div class="flex gap-2">
+              <button @click="novoTextoModal=true"
+                class="btn-ghost px-4 py-2 text-xs">+ Novo Texto</button>
+              <button @click="salvarTextos()" :disabled="textosSaving" class="btn-primary px-4 py-2 text-xs">
+                <span x-show="!textosSaving&&!textosSaved">💾 Salvar</span>
+                <span x-show="textosSaving">Salvando…</span>
+                <span x-show="textosSaved&&!textosSaving">✅ Salvo!</span>
+              </button>
+            </div>
+          </div>
+          <div class="bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-700">
+            💡 <strong>Variáveis:</strong>
+            <code class="mx-1 bg-blue-100 px-1 rounded">{nome}</code>
+            <code class="mx-1 bg-blue-100 px-1 rounded">{medico}</code>
+            <code class="mx-1 bg-blue-100 px-1 rounded">{especialidade}</code>
+            <code class="mx-1 bg-blue-100 px-1 rounded">{data}</code>
+            <code class="mx-1 bg-blue-100 px-1 rounded">{hora}</code>
+            <code class="mx-1 bg-blue-100 px-1 rounded">{diaSemana}</code>
+          </div>
+        </div>
+        <template x-for="[chave, valor] in Object.entries(textosEditados).filter(([k])=>!k.startsWith('_'))" :key="chave">
+          <div class="card p-4">
+            <div class="flex items-center justify-between mb-2">
+              <code class="text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-500" x-text="chave"></code>
+              <span x-show="textosEditados[chave]!==textos[chave]"
+                class="text-xs text-orange-500 font-medium">● modificado</span>
+            </div>
+            <textarea x-model="textosEditados[chave]" @input="textosSaved=false" rows="4"
+              class="inp font-mono resize-y"
+              :class="textosEditados[chave]!==textos[chave]?'border-orange-300 bg-orange-50':''">
+            </textarea>
+          </div>
         </template>
-        <template x-for="row in satisfacaoRows" :key="row.id">
-          <tr class="border-b hover:bg-gray-50" :class="row.nota >= 4 ? 'bg-green-50' : row.nota <= 2 ? 'bg-red-50' : ''">
-            <td class="px-3 py-2 font-mono text-xs" x-text="row.id"></td>
-            <td class="px-3 py-2 text-center text-lg">
-              <span x-text="['','😞','😕','😐','😊','🌟'][row.nota] || row.nota"></span>
-              <span class="text-xs font-bold ml-1" x-text="row.nota + '/5'"></span>
-            </td>
-            <td class="px-3 py-2 text-xs" x-text="row.medico_nome || '—'"></td>
-            <td class="px-3 py-2 text-xs" x-text="row.especialidade || '—'"></td>
-            <td class="px-3 py-2 text-xs italic text-gray-600" x-text="row.comentario || '—'"></td>
-            <td class="px-3 py-2 text-xs" x-text="formatDate(row.created_at)"></td>
-          </tr>
-        </template>
-      </tbody>
-    </table>
-  </div>
-</div>
+        <div class="sticky bottom-4 flex justify-end">
+          <button @click="salvarTextos()" :disabled="textosSaving" class="btn-primary px-6 py-3 shadow-lg">
+            <span x-show="!textosSaving&&!textosSaved">💾 Salvar Todas</span>
+            <span x-show="textosSaving">Salvando…</span>
+            <span x-show="textosSaved&&!textosSaving">✅ Salvas!</span>
+          </button>
+        </div>
+      </div>
+    </div>
+    <!-- /Tab Textos ────────────────────────────────────────── -->
 
-</div><!-- /painel principal -->
+    <!-- ── Tab: Atendimento ─────────────────────────────────── -->
+    <div x-show="activeTab==='atendimento'" x-cloak class="pt-4">
+      <div class="card overflow-auto">
+        <div class="p-4 flex items-center justify-between border-b border-gray-50">
+          <div class="flex items-center gap-3">
+            <h2 class="font-bold text-[#3A2169]">👩‍⚕️ Fila de Atendimento Humano</h2>
+            <span x-show="humanWaiting.length>0"
+              class="nav-badge static animate-pulse" x-text="humanWaiting.length"></span>
+          </div>
+          <button @click="loadHumanWaiting()" class="btn-ghost px-3 py-1.5 text-xs">🔄 Atualizar</button>
+        </div>
+        <table class="w-full">
+          <thead><tr class="tbl-head">
+            <th>WhatsApp</th><th>Nome</th><th>Fluxo</th><th>Desde</th><th>Espera</th><th>Ação</th>
+          </tr></thead>
+          <tbody>
+            <template x-if="humanWaiting.length===0">
+              <tr><td colspan="6" class="text-center py-10 text-gray-300 text-sm">
+                Nenhum paciente aguardando. ✅</td></tr>
+            </template>
+            <template x-for="row in humanWaiting" :key="row.phone">
+              <tr class="tbl-row"
+                :class="(new Date()-new Date(row.human_transfer_at))>600000?'bg-red-50':''">
+                <td class="font-mono text-xs text-gray-500" x-text="row.phone"></td>
+                <td class="font-medium" x-text="row.nome||'—'"></td>
+                <td><span class="badge bg-purple-100 text-purple-700" x-text="row.flow||'—'"></span></td>
+                <td x-text="formatDate(row.human_transfer_at)"></td>
+                <td class="font-semibold"
+                  :class="(new Date()-new Date(row.human_transfer_at))>600000?'text-red-600':'text-gray-600'"
+                  x-text="Math.floor((new Date()-new Date(row.human_transfer_at))/60000)+'min'"></td>
+                <td>
+                  <button @click="assumirAtendimento(row.phone)" class="btn-primary px-3 py-1 text-xs">
+                    ✅ Assumir
+                  </button>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <!-- /Tab Atendimento ───────────────────────────────────── -->
+
+    <!-- ── Tab: Encaixe ─────────────────────────────────────── -->
+    <div x-show="activeTab==='encaixe'" x-cloak class="pt-4">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="card p-5">
+          <h2 class="font-bold text-[#3A2169] mb-4">➕ Adicionar à Fila</h2>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 mb-1">WhatsApp *</label>
+              <input type="text" x-model="novoEncaixe.phone" placeholder="556199999999" class="inp">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 mb-1">Nome do paciente</label>
+              <input type="text" x-model="novoEncaixe.nome" placeholder="Nome completo" class="inp">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 mb-1">Especialidade</label>
+              <input type="text" x-model="novoEncaixe.especialidade" placeholder="Ex: Infectologia" class="inp">
+            </div>
+            <div x-show="novoEncaixe.msg" x-text="novoEncaixe.msg"
+              class="text-xs p-2 rounded-lg"
+              :class="novoEncaixe.erro?'bg-red-50 text-red-700':'bg-green-50 text-green-700'"></div>
+            <button @click="adicionarEncaixe()" class="btn-primary w-full py-2">Adicionar</button>
+          </div>
+        </div>
+        <div class="md:col-span-2 card overflow-auto">
+          <div class="p-4 flex items-center justify-between border-b border-gray-50">
+            <h2 class="font-bold text-[#3A2169]">🔄 Fila de Encaixe
+              <span x-show="encaixeQueue.length>0"
+                class="ml-2 text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-bold"
+                x-text="encaixeQueue.length"></span>
+            </h2>
+            <button @click="loadEncaixe()" class="btn-ghost px-3 py-1.5 text-xs">🔄</button>
+          </div>
+          <table class="w-full">
+            <thead><tr class="tbl-head">
+              <th>#</th><th>WhatsApp</th><th>Nome</th><th>Especialidade</th><th>Adicionado</th><th></th>
+            </tr></thead>
+            <tbody>
+              <template x-if="encaixeQueue.length===0">
+                <tr><td colspan="6" class="text-center py-10 text-gray-300 text-sm">Fila vazia.</td></tr>
+              </template>
+              <template x-for="(row,idx) in encaixeQueue" :key="row.id||idx">
+                <tr class="tbl-row">
+                  <td class="font-semibold text-[#2D8C8C]" x-text="(idx+1)+'º'"></td>
+                  <td class="font-mono text-xs text-gray-500" x-text="row.phone"></td>
+                  <td class="font-medium" x-text="row.nome||'—'"></td>
+                  <td x-text="row.especialidade||'—'"></td>
+                  <td x-text="formatDate(row.created_at)"></td>
+                  <td>
+                    <button @click="removerEncaixe(row.id)"
+                      class="text-xs text-red-500 hover:text-red-700 underline">Remover</button>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <!-- /Tab Encaixe ───────────────────────────────────────── -->
+
+    <!-- ── Tab: Médicos ─────────────────────────────────────── -->
+    <div x-show="activeTab==='medicos'" x-cloak class="pt-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="card p-5">
+          <h2 class="font-bold text-[#3A2169] mb-1">👨‍⚕️ Cadastrar Novo Médico</h2>
+          <p class="text-xs text-gray-400 mb-4">Google Calendar criado automaticamente.</p>
+          <div class="space-y-3">
+            <div class="grid grid-cols-2 gap-3">
+              <div class="col-span-2">
+                <label class="block text-xs font-semibold text-gray-500 mb-1">Nome completo *</label>
+                <input type="text" x-model="novoMedico.nome" placeholder="Dr. João Silva" class="inp">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-gray-500 mb-1">CRM</label>
+                <input type="text" x-model="novoMedico.crm" placeholder="DF-123456" class="inp">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-gray-500 mb-1">Especialidade *</label>
+                <input type="text" x-model="novoMedico.especialidade" placeholder="Infectologia" class="inp">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-gray-500 mb-1">E-mail</label>
+                <input type="email" x-model="novoMedico.email" placeholder="dr@clinica.com" class="inp">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-gray-500 mb-1">WhatsApp</label>
+                <input type="text" x-model="novoMedico.whatsapp" placeholder="556199999999" class="inp">
+              </div>
+            </div>
+            <div class="border-t pt-3">
+              <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Grade de Horários</p>
+              <div class="flex flex-wrap gap-1 mb-3">
+                <template x-for="(dia,idx) in ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb']" :key="idx">
+                  <button @click="toggleDia(idx)"
+                    :class="novoMedico.diasSemana.includes(idx)?'btn-primary':'btn-ghost'"
+                    class="px-2.5 py-1 text-xs" x-text="dia"></button>
+                </template>
+              </div>
+              <div class="grid grid-cols-3 gap-2">
+                <div>
+                  <label class="block text-xs font-semibold text-gray-500 mb-1">Início</label>
+                  <input type="time" x-model="novoMedico.horarioInicio" class="inp">
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-gray-500 mb-1">Fim</label>
+                  <input type="time" x-model="novoMedico.horarioFim" class="inp">
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-gray-500 mb-1">Duração (min)</label>
+                  <input type="number" x-model.number="novoMedico.slotDurationMinutes"
+                    min="15" max="120" step="15" class="inp">
+                </div>
+              </div>
+            </div>
+            <div x-show="novoMedico.msg" x-text="novoMedico.msg"
+              class="text-xs p-2 rounded-lg"
+              :class="novoMedico.erro?'bg-red-50 text-red-700':'bg-green-50 text-green-700'"></div>
+            <button @click="salvarMedico()" :disabled="novoMedico.loading" class="btn-primary w-full py-2.5">
+              <span x-show="!novoMedico.loading">✅ Cadastrar Médico</span>
+              <span x-show="novoMedico.loading">Cadastrando…</span>
+            </button>
+          </div>
+        </div>
+        <div class="card overflow-auto">
+          <div class="p-4 flex items-center justify-between border-b border-gray-50">
+            <h2 class="font-bold text-[#3A2169]">📋 Médicos Cadastrados</h2>
+            <button @click="loadDoctorsAll()" class="btn-ghost px-3 py-1.5 text-xs">🔄</button>
+          </div>
+          <table class="w-full">
+            <thead><tr class="tbl-head">
+              <th>Nome</th><th>Especialidade</th><th>CRM</th><th>Status</th><th></th>
+            </tr></thead>
+            <tbody>
+              <template x-if="doctorsAll.length===0">
+                <tr><td colspan="5" class="text-center py-10 text-gray-300 text-sm">Nenhum médico.</td></tr>
+              </template>
+              <template x-for="doc in doctorsAll" :key="doc.id">
+                <tr class="tbl-row">
+                  <td class="font-medium" x-text="doc.nome"></td>
+                  <td x-text="doc.especialidade"></td>
+                  <td class="font-mono text-xs text-gray-400" x-text="doc.crm||'—'"></td>
+                  <td><span class="badge"
+                    :class="doc.active?'badge-confirmado':'bg-gray-100 text-gray-400'"
+                    x-text="doc.active?'Ativo':'Inativo'"></span></td>
+                  <td>
+                    <button @click="toggleMedico(doc)"
+                      :class="doc.active?'text-red-500 hover:text-red-700':'text-[#2D8C8C] hover:opacity-80'"
+                      class="text-xs underline font-medium"
+                      x-text="doc.active?'Desativar':'Ativar'"></button>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <!-- /Tab Médicos ───────────────────────────────────────── -->
+
+    <!-- ── Tab: Usuários ────────────────────────────────────── -->
+    <div x-show="activeTab==='usuarios'" x-cloak class="pt-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="card p-5">
+          <h2 class="font-bold text-[#3A2169] mb-4">👤 Criar Novo Usuário</h2>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 mb-1">Nome completo *</label>
+              <input type="text" x-model="novoUsuario.name" placeholder="Maria Secretaria" class="inp">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 mb-1">Login *</label>
+              <input type="text" x-model="novoUsuario.username" placeholder="maria.secretaria" class="inp">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 mb-1">Função *</label>
+              <select x-model="novoUsuario.role" class="inp">
+                <option value="">— selecione —</option>
+                <option value="admin">Admin</option>
+                <option value="secretaria">Secretaria</option>
+                <option value="faturamento">Faturamento</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 mb-1">Senha inicial *</label>
+              <input type="password" x-model="novoUsuario.password" placeholder="mín. 6 caracteres" class="inp">
+              <p class="text-xs text-gray-300 mt-1">Usuário trocará no primeiro acesso.</p>
+            </div>
+            <div x-show="novoUsuario.msg" x-text="novoUsuario.msg"
+              class="text-xs p-2 rounded-lg"
+              :class="novoUsuario.erro?'bg-red-50 text-red-700':'bg-green-50 text-green-700'"></div>
+            <button @click="criarUsuario()" :disabled="novoUsuario.loading" class="btn-primary w-full py-2.5">
+              <span x-show="!novoUsuario.loading">✅ Criar Usuário</span>
+              <span x-show="novoUsuario.loading">Criando…</span>
+            </button>
+          </div>
+        </div>
+        <div class="card overflow-auto">
+          <div class="p-4 flex items-center justify-between border-b border-gray-50">
+            <h2 class="font-bold text-[#3A2169]">👥 Usuários do Sistema</h2>
+            <button @click="loadUsuarios()" class="btn-ghost px-3 py-1.5 text-xs">🔄</button>
+          </div>
+          <table class="w-full">
+            <thead><tr class="tbl-head">
+              <th>Nome</th><th>Login</th><th>Função</th><th>Status</th><th>Ações</th>
+            </tr></thead>
+            <tbody>
+              <template x-if="usuarios.length===0">
+                <tr><td colspan="5" class="text-center py-10 text-gray-300 text-sm">Nenhum usuário.</td></tr>
+              </template>
+              <template x-for="usr in usuarios" :key="usr.id">
+                <tr class="tbl-row">
+                  <td class="font-medium" x-text="usr.name"></td>
+                  <td class="font-mono text-xs text-gray-400" x-text="usr.username"></td>
+                  <td><span class="badge"
+                    :class="{'bg-red-100 text-red-700':usr.role==='admin','bg-blue-100 text-blue-700':usr.role==='secretaria','bg-green-100 text-green-700':usr.role==='faturamento'}"
+                    x-text="{'admin':'Admin','secretaria':'Secretaria','faturamento':'Faturamento'}[usr.role]||usr.role">
+                  </span></td>
+                  <td><span class="badge"
+                    :class="usr.active?'badge-confirmado':'bg-gray-100 text-gray-400'"
+                    x-text="usr.active?'Ativo':'Inativo'"></span></td>
+                  <td class="flex gap-2">
+                    <button @click="toggleUsuario(usr)"
+                      :class="usr.active?'text-red-500':'text-[#2D8C8C]'"
+                      class="text-xs underline font-medium"
+                      x-text="usr.active?'Bloquear':'Ativar'"></button>
+                    <button @click="resetarSenha(usr)"
+                      class="text-xs text-blue-500 hover:text-blue-700 underline">Reset senha</button>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <!-- /Tab Usuários ──────────────────────────────────────── -->
+
+    <!-- Tab WhatsApp ─────────────────────────────────────────── -->
+    <div x-show="tab==='whatsapp'" class="space-y-5">
+      <div class="card p-5">
+        <h2 class="font-bold text-[#3A2169] mb-4">📱 Status da Conexão WhatsApp</h2>
+        <div class="flex items-center gap-4 mb-5">
+          <span class="w-3 h-3 rounded-full"
+            :class="{'bg-green-400':waStatus==='open','bg-yellow-400':waStatus==='connecting','bg-red-400':!waStatus||waStatus==='close'}"
+          ></span>
+          <span class="font-semibold text-sm"
+            x-text="{'open':'Conectado','connecting':'Conectando…','close':'Desconectado'}[waStatus]||'Verificando…'"
+          ></span>
+          <button @click="loadWAStatus()" class="btn-ghost px-3 py-1.5 text-xs ml-auto">🔄 Verificar</button>
+        </div>
+        <!-- QR Code -->
+        <div x-show="waStatus!=='open'" class="text-center">
+          <p class="text-sm text-gray-500 mb-3">Escaneie o QR Code com o WhatsApp do celular:</p>
+          <div x-show="qrCode" class="inline-block border-4 border-[#2D8C8C] rounded-xl p-2 bg-white shadow-lg">
+            <img :src="'https://api.qrserver.com/v1/create-qr-code/?data='+encodeURIComponent(qrCode)+'&size=220x220'" alt="QR Code" class="rounded-lg" />
+          </div>
+          <div x-show="!qrCode" class="w-56 h-56 mx-auto flex items-center justify-center bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
+            <span class="text-gray-300 text-sm">Aguardando QR…</span>
+          </div>
+          <p class="text-xs text-gray-400 mt-2">Atualiza automaticamente a cada 25 segundos</p>
+          <button @click="loadQR()" class="btn-primary mt-3 text-sm px-5 py-2">🔄 Gerar novo QR</button>
+        </div>
+        <div x-show="waStatus==='open'" class="text-center py-6">
+          <div class="text-5xl mb-3">✅</div>
+          <p class="text-green-600 font-bold text-lg">WhatsApp conectado!</p>
+          <p class="text-sm text-gray-400 mt-1">O bot está ativo e recebendo mensagens.</p>
+        </div>
+      </div>
+    </div>
+    <!-- /Tab WhatsApp ────────────────────────────────────────── -->
+
+    <!-- Tab Medicações ───────────────────────────────────────── -->
+    <div x-show="tab==='medicacoes'" class="space-y-4">
+      <div class="card overflow-auto">
+        <div class="p-4 flex items-center justify-between border-b border-gray-50">
+          <h2 class="font-bold text-[#3A2169]">💊 Solicitações de Medicação</h2>
+          <button @click="loadMedicacoes()" class="btn-ghost px-3 py-1.5 text-xs">🔄</button>
+        </div>
+        <table class="w-full">
+          <thead><tr class="tbl-head">
+            <th>Nome</th><th>Telefone</th><th>Nascimento</th><th>Convênio</th><th>Observação</th><th>Status</th><th>Data</th>
+          </tr></thead>
+          <tbody>
+            <template x-if="medicacoes.length===0">
+              <tr><td colspan="7" class="text-center py-10 text-gray-300 text-sm">Nenhuma solicitação.</td></tr>
+            </template>
+            <template x-for="m in medicacoes" :key="m.id">
+              <tr class="tbl-row">
+                <td class="font-medium" x-text="m.nome||'—'"></td>
+                <td class="font-mono text-xs" x-text="m.telefone_contato||m.phone"></td>
+                <td x-text="m.nascimento||'—'"></td>
+                <td x-text="m.convenio_informado||'—'"></td>
+                <td class="max-w-xs truncate text-xs text-gray-500" x-text="m.observacao||'—'"></td>
+                <td><span class="badge" :class="m.status==='PENDENTE'?'badge-pendente':'badge-confirmado'" x-text="m.status"></span></td>
+                <td class="text-xs text-gray-400" x-text="new Date(m.created_at).toLocaleString('pt-BR')"></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <!-- /Tab Medicações ──────────────────────────────────────── -->
+
+    <!-- Tab Conhecimento ─────────────────────────────────────── -->
+    <div x-show="tab==='conhecimento'" class="space-y-4">
+      <div class="card p-5">
+        <h2 class="font-bold text-[#3A2169] mb-4">📚 Base de Conhecimento</h2>
+        <div class="flex gap-2 mb-4">
+          <input x-model="novoConhecimento.filename" class="inp flex-1" placeholder="Nome / título">
+          <select x-model="novoConhecimento.category" class="inp w-40">
+            <option value="">Categoria…</option>
+            <option>autorizacao</option><option>convenio</option><option>geral</option>
+          </select>
+        </div>
+        <textarea x-model="novoConhecimento.content" class="inp w-full h-32 mb-3 font-mono text-xs" placeholder="Conteúdo do documento…"></textarea>
+        <button @click="salvarConhecimento()" class="btn-primary text-sm px-5 py-2">💾 Salvar</button>
+      </div>
+      <div class="card overflow-auto">
+        <div class="p-4 flex items-center justify-between border-b border-gray-50">
+          <span class="font-bold text-[#3A2169]">Documentos ativos</span>
+          <button @click="loadConhecimento()" class="btn-ghost px-3 py-1.5 text-xs">🔄</button>
+        </div>
+        <table class="w-full">
+          <thead><tr class="tbl-head"><th>Título</th><th>Categoria</th><th>Criado em</th><th></th></tr></thead>
+          <tbody>
+            <template x-if="conhecimentos.length===0">
+              <tr><td colspan="4" class="text-center py-10 text-gray-300 text-sm">Nenhum documento.</td></tr>
+            </template>
+            <template x-for="k in conhecimentos" :key="k.id">
+              <tr class="tbl-row">
+                <td class="font-medium text-sm" x-text="k.filename"></td>
+                <td><span class="badge bg-purple-100 text-purple-700" x-text="k.category||'geral'"></span></td>
+                <td class="text-xs text-gray-400" x-text="new Date(k.created_at).toLocaleDateString('pt-BR')"></td>
+                <td><button @click="removerConhecimento(k.id)" class="text-xs text-red-500 hover:text-red-700 underline">Remover</button></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <!-- /Tab Conhecimento ────────────────────────────────────── -->
+
+    <!-- Tab Satisfação ───────────────────────────────────────── -->
+    <div x-show="tab==='satisfacao'" class="space-y-4">
+      <div class="grid grid-cols-3 gap-4">
+        <div class="card p-5 text-center">
+          <p class="text-3xl font-black text-[#2D8C8C]" x-text="mediaNotas||'—'"></p>
+          <p class="text-xs text-gray-400 mt-1">Nota média</p>
+        </div>
+        <div class="card p-5 text-center">
+          <p class="text-3xl font-black text-[#3A2169]" x-text="satisfacoes.length"></p>
+          <p class="text-xs text-gray-400 mt-1">Avaliações</p>
+        </div>
+        <div class="card p-5 text-center">
+          <p class="text-3xl font-black text-green-500" x-text="satisfacoes.filter(s=>s.nota>=4).length"></p>
+          <p class="text-xs text-gray-400 mt-1">Nota ≥ 4</p>
+        </div>
+      </div>
+      <div class="card overflow-auto">
+        <div class="p-4 flex items-center justify-between border-b border-gray-50">
+          <h2 class="font-bold text-[#3A2169]">⭐ Pesquisas de Satisfação</h2>
+          <button @click="loadSatisfacao()" class="btn-ghost px-3 py-1.5 text-xs">🔄</button>
+        </div>
+        <table class="w-full">
+          <thead><tr class="tbl-head"><th>Telefone</th><th>Médico</th><th>Especialidade</th><th>Nota</th><th>Comentário</th><th>Data</th></tr></thead>
+          <tbody>
+            <template x-if="satisfacoes.length===0">
+              <tr><td colspan="6" class="text-center py-10 text-gray-300 text-sm">Nenhuma avaliação.</td></tr>
+            </template>
+            <template x-for="s in satisfacoes" :key="s.id">
+              <tr class="tbl-row">
+                <td class="font-mono text-xs" x-text="s.phone"></td>
+                <td x-text="s.medico_nome||'—'"></td>
+                <td x-text="s.especialidade||'—'"></td>
+                <td>
+                  <span class="font-bold" :class="s.nota>=4?'text-green-500':s.nota>=3?'text-yellow-500':'text-red-500'" x-text="'★ '+s.nota"></span>
+                </td>
+                <td class="max-w-xs truncate text-xs text-gray-500" x-text="s.comentario||'—'"></td>
+                <td class="text-xs text-gray-400" x-text="new Date(s.created_at).toLocaleDateString('pt-BR')"></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <!-- /Tab Satisfação ──────────────────────────────────────── -->
+
+    <!-- Tab Conversas ────────────────────────────────────────── -->
+    <div x-show="tab==='conversas'" class="space-y-4">
+      <div x-show="!conversaAberta" class="card overflow-auto">
+        <div class="p-4 flex items-center justify-between border-b border-gray-50">
+          <h2 class="font-bold text-[#3A2169]">💬 Monitor de Conversas</h2>
+          <button @click="loadConversas()" class="btn-ghost px-3 py-1.5 text-xs">🔄</button>
+        </div>
+        <table class="w-full">
+          <thead><tr class="tbl-head"><th>Telefone</th><th>Nome</th><th>Última mensagem</th><th>Fluxo</th><th>Msgs</th><th>Quando</th><th></th></tr></thead>
+          <tbody>
+            <template x-if="conversas.length===0">
+              <tr><td colspan="7" class="text-center py-10 text-gray-300 text-sm">Nenhuma conversa.</td></tr>
+            </template>
+            <template x-for="c in conversas" :key="c.phone">
+              <tr class="tbl-row cursor-pointer hover:bg-[#F0F9F9]" @click="abrirConversa(c)">
+                <td class="font-mono text-xs text-gray-500" x-text="c.phone"></td>
+                <td class="font-medium" x-text="c.nome||'—'"></td>
+                <td class="max-w-xs truncate text-sm"
+                  :class="c.last_direction==='IN'?'text-gray-700':'text-[#2D8C8C]'"
+                  x-text="(c.last_direction==='IN'?'':'▶ ')+c.last_message">
+                </td>
+                <td><span class="badge bg-purple-100 text-purple-700 text-xs" x-text="c.current_flow||c.last_flow||'—'"></span></td>
+                <td class="text-center text-xs font-bold text-[#3A2169]" x-text="c.message_count"></td>
+                <td class="text-xs text-gray-400" x-text="new Date(c.last_timestamp).toLocaleString('pt-BR')"></td>
+                <td><button class="text-xs text-[#2D8C8C] underline">Ver →</button></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+      <!-- Chat detail view -->
+      <div x-show="conversaAberta" class="card flex flex-col" style="height:70vh">
+        <div class="p-4 flex items-center gap-3 border-b border-gray-100">
+          <button @click="conversaAberta=null" class="btn-ghost px-3 py-1.5 text-xs">← Voltar</button>
+          <div>
+            <p class="font-bold text-[#3A2169]" x-text="conversaAberta?.nome||conversaAberta?.phone"></p>
+            <p class="text-xs text-gray-400 font-mono" x-text="conversaAberta?.phone"></p>
+          </div>
+          <span class="ml-auto badge bg-purple-100 text-purple-700" x-text="conversaAberta?.current_flow||'—'"></span>
+        </div>
+        <div class="flex-1 overflow-y-auto p-4 space-y-2" id="chatScroll">
+          <template x-for="m in mensagensAbertas" :key="m.id">
+            <div class="flex" :class="m.direction==='OUT'?'justify-end':'justify-start'">
+              <div class="max-w-xs px-3 py-2 rounded-2xl text-sm shadow-sm"
+                :class="m.direction==='OUT'?'bg-[#2D8C8C] text-white rounded-br-none':'bg-white border border-gray-100 text-gray-700 rounded-bl-none'">
+                <p x-text="m.text"></p>
+                <p class="text-xs mt-1 opacity-60" x-text="new Date(m.timestamp).toLocaleTimeString('pt-BR')"></p>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+    <!-- /Tab Conversas ───────────────────────────────────────── -->
+
+  </main>
+  <!-- /MAIN CONTENT -->
+
+</div>
+<!-- /PAINEL PRINCIPAL ══════════════════════════════════════ -->
 
 <script>
 function painel() {
   return {
-    // ── Auth ──────────────────────────────────────────────────────────────
-    autenticado: false,
-    currentUser: null,
-    permissions: null,
-    token: null,
-    showChangePwd: false,
-    login: { username: '', password: '', loading: false, erro: '' },
-    changePwd: { current: '', new1: '', new2: '', loading: false, erro: '', ok: false },
+    // Auth
+    autenticado: false, showChangePwd: false,
+    loginUser: '', loginPass: '', loginErr: '', loginLoading: false,
+    token: localStorage.getItem('token') || '',
+    user: JSON.parse(localStorage.getItem('user') || 'null'),
+    newPwd: '', newPwd2: '', changePwdErr: '',
 
-    // ── UI ────────────────────────────────────────────────────────────────
-    activeTab: 'agenda',
+    // Navigation
+    tab: 'agenda',
     tabs: [
-      { id: 'agenda',       label: '📋 Agenda' },
-      { id: 'atendimento',  label: '👩‍⚕️ Atendimento' },
-      { id: 'encaixe',      label: '🔄 Encaixe' },
-      { id: 'medicacoes',   label: '💊 Medicações' },
-      { id: 'conhecimento', label: '📚 Conhecimento' },
-      { id: 'satisfacao',   label: '⭐ Satisfação' },
-      { id: 'marcacao',     label: '📝 Nova Marcação' },
-      { id: 'medicos',      label: '👨‍⚕️ Médicos' },
-      { id: 'textos',       label: '✏️ Textos' },
-      { id: 'usuarios',     label: '👥 Usuários' },
-      { id: 'whatsapp',     label: '📱 WhatsApp' }
-    ],
-    statCards: [
-      { key: 'hoje',         label: 'Total hoje',    color: '#1E3A5F' },
-      { key: 'consultas',    label: 'Consultas',     color: '#1976D2' },
-      { key: 'infusoes',     label: 'Infusões',      color: '#7B1FA2' },
-      { key: 'medicacoes',   label: 'Medicações',    color: '#388E3C' },
-      { key: 'particulares', label: 'Particulares',  color: '#F57C00' },
-      { key: 'pendentes',    label: 'Pendentes',     color: '#D32F2F' }
+      { id:'agenda',        icon:'📅', label:'Agenda' },
+      { id:'marcacao',      icon:'➕', label:'Marcação Manual' },
+      { id:'textos',        icon:'✍️',  label:'Textos & Fluxos' },
+      { id:'atendimento',   icon:'🩺', label:'Atendimento' },
+      { id:'encaixe',       icon:'⚡', label:'Encaixe' },
+      { id:'medicos',       icon:'👨‍⚕️', label:'Médicos' },
+      { id:'usuarios',      icon:'👥', label:'Usuários' },
+      { id:'whatsapp',      icon:'📱', label:'WhatsApp' },
+      { id:'medicacoes',    icon:'💊', label:'Medicações' },
+      { id:'conhecimento',  icon:'📚', label:'Conhecimento' },
+      { id:'satisfacao',    icon:'⭐', label:'Satisfação' },
+      { id:'conversas',     icon:'💬', label:'Conversas' },
     ],
 
-    // ── Dados ─────────────────────────────────────────────────────────────
-    stats: {},
-    agendamentos: [],
-    medicacoes: [],
-    documents: [],
-    knowledgeStats: { perguntasHoje: 0, taxaResolucao: 0 },
-    satisfacaoRows: [],
-    satisfacaoStats: { media: 0, total: 0, excelente: 0, bom: 0, regular: 0, ruim: 0 },
-    doctors: [],
-    doctorsAll: [],
-    humanWaiting: [],
+    // Agenda
+    agendamentos: [], agFilter: { status:'', tipo:'', especialidade:'', data:'' },
+    bloqModal: false, bloqData: '', bloqMedico: '', bloqObs: '',
+
+    // Marcação manual
+    marcacaoForm: { especialidade:'', medico_id:'', slot_datetime:'', tipo_atendimento:'', convenio_informado:'', nome:'', nascimento:'', telefone_contato:'' },
+    medicosLista: [],
+
+    // Textos
+    textos: [], novoTextoModal: false,
+    novoTexto: { nome:'', conteudo:'' },
+
+    // Atendimento (sessões humanas)
+    sessoesHumanas: [], humanBadge: 0,
+
+    // Encaixe
     encaixeQueue: [],
-    usuarios: [],
-    textos: {}, textosEditados: {}, textosSaving: false, textosSaved: false,
-    filters: { tipo: '', especialidade: '', data: '', status: '' },
-    uploading: false, uploadMsg: '', uploadError: false,
-    modalBloqueio: false,
-    bloqueio: { doctorId: '', inicio: '', fim: '', motivo: '', loading: false, msg: '', erro: false },
-    marcacao: {
-      doctorId: '', date: '', slots: [], slotISO: '',
-      nome: '', nascimento: '', telefone: '', phone: '',
-      tipo: 'CONVENIO', convenio: '',
-      loading: false, loadingSlots: false, msg: '', erro: false
-    },
-    novoMedico: {
-      nome: '', crm: '', especialidade: '', email: '', whatsapp: '',
-      slotDurationMinutes: 30, diasSemana: [1,2,3,4,5],
-      horarioInicio: '08:00', horarioFim: '17:00',
-      loading: false, msg: '', erro: false
-    },
-    novoUsuario: { name: '', username: '', role: '', password: '', loading: false, msg: '', erro: false },
-    novoEncaixe: { phone: '', nome: '', especialidade: '', msg: '', erro: false },
-    whatsapp: { connected: false, qr: '', statusDetail: '', loading: false, msg: '', erro: false },
-    currentDate: '', currentTime: '',
 
-    // ── Auth helpers ──────────────────────────────────────────────────────
-    api(url, opts = {}) {
-      const headers = { ...(opts.headers || {}) }
-      if (this.token) headers['Authorization'] = 'Bearer ' + this.token
-      return fetch(url, { ...opts, headers })
+    // Médicos
+    medicos: [], novoMedico: { nome:'', especialidades:'' },
+
+    // Usuários
+    usuarios: [], novoUsuario: { username:'', name:'', role:'secretaria', password:'' },
+
+    // WhatsApp
+    waStatus: null, qrCode: '', qrTimer: null,
+
+    // Medicações
+    medicacoes: [],
+
+    // Conhecimento
+    conhecimentos: [], novoConhecimento: { filename:'', category:'', content:'' },
+
+    // Satisfação
+    satisfacoes: [], mediaNotas: null,
+
+    // Conversas
+    conversas: [], conversaAberta: null, mensagensAbertas: [],
+
+    // Stats
+    stats: { agenda: 0, humano: 0, encaixe: 0, conversas: 0 },
+
+    // Clock
+    clockStr: '',
+
+    init() {
+      if (this.token) this.autenticado = true
+      this.tickClock()
+      setInterval(() => this.tickClock(), 1000)
+      if (this.autenticado) this.loadAll()
     },
 
-    async fazerLogin() {
-      this.login.loading = true; this.login.erro = ''
+    tickClock() {
+      this.clockStr = new Date().toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit', second:'2-digit' })
+    },
+
+    api(path, opts = {}) {
+      return fetch('/api' + path, {
+        ...opts,
+        headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+this.token, ...(opts.headers||{}) }
+      }).then(async r => {
+        if (r.status === 401) { this.logout(); throw new Error('Não autorizado') }
+        const j = await r.json()
+        if (!r.ok) throw new Error(j.error || r.statusText)
+        return j
+      })
+    },
+
+    async login() {
+      this.loginErr = ''; this.loginLoading = true
       try {
-        const r = await fetch('/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: this.login.username, password: this.login.password })
-        })
-        const data = await r.json()
-        if (!r.ok) { this.login.erro = data.error || 'Usuário ou senha inválidos.'; return }
-        this.token = data.token
-        this.currentUser = data.user
-        this.permissions = data.permissions
-        localStorage.setItem('token', data.token)
+        const d = await fetch('/api/auth/login', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ username: this.loginUser, password: this.loginPass })
+        }).then(r => r.json())
+        if (!d.token) throw new Error(d.error || 'Credenciais inválidas')
+        this.token = d.token; this.user = d.user
+        localStorage.setItem('token', d.token)
+        localStorage.setItem('user', JSON.stringify(d.user))
         this.autenticado = true
-        if (data.user.first_login) this.showChangePwd = true
-        else await this.loadAll()
-      } catch { this.login.erro = 'Erro de conexão. Tente novamente.' }
-      finally { this.login.loading = false }
+        if (d.user?.first_login) { this.showChangePwd = true; return }
+        this.loadAll()
+      } catch (e) { this.loginErr = e.message }
+      finally { this.loginLoading = false }
     },
 
-    sairSessao() {
-      localStorage.removeItem('token')
-      this.token = null; this.currentUser = null; this.permissions = null
-      this.autenticado = false; this.showChangePwd = false
-      this.login = { username: '', password: '', loading: false, erro: '' }
+    logout() {
+      this.token = ''; this.user = null; this.autenticado = false
+      localStorage.removeItem('token'); localStorage.removeItem('user')
+      clearInterval(this.qrTimer)
     },
 
-    async trocarSenha() {
-      const { current, new1, new2 } = this.changePwd
-      if (!current || !new1 || !new2) { this.changePwd.erro = 'Preencha todos os campos.'; return }
-      if (new1.length < 6) { this.changePwd.erro = 'Nova senha deve ter pelo menos 6 caracteres.'; return }
-      if (new1 !== new2) { this.changePwd.erro = 'As senhas não coincidem.'; return }
-      this.changePwd.loading = true; this.changePwd.erro = ''
-      const r = await this.api('/auth/change-password', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ currentPassword: current, newPassword: new1 })
-      }).then(r => r.json()).catch(() => null)
-      this.changePwd.loading = false
-      if (r?.ok) {
-        this.changePwd.ok = true
-        setTimeout(() => { this.showChangePwd = false; this.loadAll() }, 1500)
-      } else { this.changePwd.erro = r?.error || 'Erro ao alterar senha.' }
+    async salvarNovaSenha() {
+      this.changePwdErr = ''
+      if (this.newPwd !== this.newPwd2) { this.changePwdErr = 'Senhas não conferem'; return }
+      if (this.newPwd.length < 6) { this.changePwdErr = 'Mínimo 6 caracteres'; return }
+      try {
+        await this.api('/auth/change-password', { method:'POST', body: JSON.stringify({ password: this.newPwd }) })
+        this.showChangePwd = false; this.newPwd = ''; this.newPwd2 = ''
+        this.loadAll()
+      } catch (e) { this.changePwdErr = e.message }
     },
 
-    // ── Init ──────────────────────────────────────────────────────────────
-    async init() {
-      this.updateClock()
-      setInterval(() => this.updateClock(), 1000)
-      const saved = localStorage.getItem('token')
-      if (saved) {
-        try {
-          const r = await fetch('/auth/me', { headers: { Authorization: 'Bearer ' + saved } })
-          if (r.ok) {
-            const data = await r.json()
-            this.token = saved; this.currentUser = data.user
-            this.permissions = data.permissions; this.autenticado = true
-            if (data.user.first_login) { this.showChangePwd = true; return }
-            await this.loadAll()
-          } else { localStorage.removeItem('token') }
-        } catch { localStorage.removeItem('token') }
-      }
-      setInterval(() => { if (this.autenticado && !this.showChangePwd) this.loadAll() }, 30000)
+    loadAll() {
+      this.loadAgenda(); this.loadTextos(); this.loadSessoesHumanas()
+      this.loadEncaixe(); this.loadMedicos(); this.loadUsuarios()
+      this.loadMedicacoes(); this.loadConhecimento(); this.loadSatisfacao()
+      this.loadConversas(); this.loadWAStatus()
     },
 
-    updateClock() {
-      const now = new Date()
-      this.currentDate = now.toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
-      this.currentTime = now.toLocaleTimeString('pt-BR')
+    // Agenda
+    async loadAgenda() {
+      try {
+        const p = new URLSearchParams()
+        if (this.agFilter.status) p.set('status', this.agFilter.status)
+        if (this.agFilter.tipo) p.set('tipo', this.agFilter.tipo)
+        if (this.agFilter.especialidade) p.set('especialidade', this.agFilter.especialidade)
+        if (this.agFilter.data) p.set('data', this.agFilter.data)
+        const d = await this.api('/agendamentos?' + p.toString())
+        this.agendamentos = d.data || d
+        this.stats.agenda = this.agendamentos.filter(a => a.status === 'PENDENTE').length
+      } catch (e) { console.error(e) }
     },
 
-    async loadAll() {
-      const perms = this.permissions?.tabs || []
-      const tasks = [this.loadStats(), this.loadDoctors()]
-      if (perms.includes('agenda'))       tasks.push(this.loadAgendamentos())
-      if (perms.includes('medicacoes'))   tasks.push(this.loadMedicacoes())
-      if (perms.includes('conhecimento')) tasks.push(this.loadKnowledge())
-      if (perms.includes('satisfacao'))   tasks.push(this.loadSatisfacao())
-      if (perms.includes('textos'))       tasks.push(this.loadTextos())
-      if (perms.includes('atendimento'))  tasks.push(this.loadHumanWaiting())
-      if (perms.includes('encaixe'))      tasks.push(this.loadEncaixe())
-      if (perms.includes('medicos'))      tasks.push(this.loadDoctorsAll())
-      if (perms.includes('usuarios'))     tasks.push(this.loadUsuarios())
-      await Promise.all(tasks)
+    async confirmarAgendamento(id) {
+      try { await this.api('/agendamentos/'+id+'/status', { method:'PATCH', body: JSON.stringify({ status:'CONFIRMADO' }) }); this.loadAgenda() }
+      catch (e) { alert(e.message) }
     },
 
-    // ── Load data ─────────────────────────────────────────────────────────
-    async loadStats() {
-      const r = await this.api('/api/stats').then(r => r.json()).catch(() => ({}))
-      this.stats = r
-    },
-    async loadAgendamentos() {
-      const params = new URLSearchParams()
-      Object.entries(this.filters).forEach(([k, v]) => { if (v) params.set(k, v) })
-      const r = await this.api('/api/agendamentos?' + params).then(r => r.json()).catch(() => ({ data: [] }))
-      this.agendamentos = r.data || []
-    },
-    async loadMedicacoes() {
-      const r = await this.api('/api/medication-requests').then(r => r.json()).catch(() => ({ data: [] }))
-      this.medicacoes = r.data || []
-    },
-    async loadKnowledge() {
-      const r = await this.api('/api/knowledge').then(r => r.json()).catch(() => ({ documents: [], stats: {} }))
-      this.documents = r.documents || []; this.knowledgeStats = r.stats || {}
-    },
-    async loadSatisfacao() {
-      const r = await this.api('/api/satisfaction').then(r => r.json()).catch(() => ({ data: [], stats: {} }))
-      this.satisfacaoRows = r.data || []; this.satisfacaoStats = r.stats || {}
-    },
-    async loadDoctors() {
-      const r = await this.api('/api/doctors').then(r => r.json()).catch(() => [])
-      this.doctors = Array.isArray(r) ? r : []
-    },
-    async loadDoctorsAll() {
-      const r = await this.api('/api/doctors/all').then(r => r.json()).catch(() => ({ doctors: [] }))
-      this.doctorsAll = r.doctors || []
-    },
-    async loadTextos() {
-      const r = await this.api('/api/messages').then(r => r.json()).catch(() => ({}))
-      this.textos = r; this.textosEditados = { ...r }
-    },
-    async loadHumanWaiting() {
-      const r = await this.api('/api/human-waiting').then(r => r.json()).catch(() => ({ data: [] }))
-      this.humanWaiting = r.data || []
-    },
-    async loadEncaixe() {
-      const r = await this.api('/api/encaixe').then(r => r.json()).catch(() => [])
-      this.encaixeQueue = Array.isArray(r) ? r : []
-    },
-    async loadUsuarios() {
-      const r = await this.api('/auth/users').then(r => r.json()).catch(() => [])
-      this.usuarios = Array.isArray(r) ? r : []
-    },
-    async loadWhatsappStatus() {
-      this.whatsapp.loading = true; this.whatsapp.msg = ''
-      const r = await this.api('/api/whatsapp/status').then(r => r.json()).catch(() => null)
-      this.whatsapp.loading = false
-      if (r) {
-        const state = r.state || r.instance?.state || ''
-        this.whatsapp.connected = state === 'open'
-        this.whatsapp.statusDetail = state ? 'Estado: ' + state : ''
-      }
+    async cancelarAgendamento(id) {
+      if (!confirm('Cancelar este agendamento?')) return
+      try { await this.api('/agendamentos/'+id+'/status', { method:'PATCH', body: JSON.stringify({ status:'CANCELADO' }) }); this.loadAgenda() }
+      catch (e) { alert(e.message) }
     },
 
-    // ── Actions ───────────────────────────────────────────────────────────
-    async buscarSlots() {
-      if (!this.marcacao.doctorId || !this.marcacao.date) return
-      this.marcacao.loadingSlots = true; this.marcacao.slots = []; this.marcacao.slotISO = ''
-      const r = await this.api(`/api/slots?doctorId=${this.marcacao.doctorId}&date=${this.marcacao.date}`)
-        .then(r => r.json()).catch(() => [])
-      this.marcacao.slots = Array.isArray(r) ? r : []
-      this.marcacao.loadingSlots = false
+    async exportarCSV() {
+      try {
+        const d = await this.api('/agendamentos/export')
+        const rows = d.data || d
+        if (!rows.length) { alert('Nada para exportar'); return }
+        const keys = Object.keys(rows[0])
+        const csv = [keys.join(','), ...rows.map(r => keys.map(k => '"'+(r[k]||'').toString().replace(/"/g,'""')+'"').join(','))].join('\n')
+        const a = document.createElement('a')
+        a.href = URL.createObjectURL(new Blob([csv], { type:'text/csv' }))
+        a.download = 'agendamentos_'+new Date().toISOString().slice(0,10)+'.csv'
+        a.click()
+      } catch (e) { alert(e.message) }
     },
+
+    async salvarBloqueio() {
+      try {
+        await this.api('/agenda/bloquear', { method:'POST', body: JSON.stringify({ data: this.bloqData, medico_id: this.bloqMedico, obs: this.bloqObs }) })
+        this.bloqModal = false; alert('Bloqueio registrado!')
+      } catch (e) { alert(e.message) }
+    },
+
+    // Marcação manual
     async salvarMarcacao() {
-      const m = this.marcacao
-      if (!m.doctorId || !m.slotISO || !m.nome || !m.nascimento || !m.telefone) {
-        m.erro = true; m.msg = 'Preencha todos os campos obrigatórios.'; return
-      }
-      m.loading = true; m.msg = ''; m.erro = false
-      const r = await this.api('/api/agendamentos/manual', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ doctorId: m.doctorId, slotISO: m.slotISO, nome: m.nome, nascimento: m.nascimento, telefone: m.telefone, tipoAtendimento: m.tipo, convenio: m.convenio || null, phone: m.phone || null })
-      }).then(r => r.json()).catch(() => null)
-      m.loading = false
-      if (r?.ok) {
-        m.erro = false; m.msg = `✅ Agendado! ID #${r.agId}${r.googleEventId ? ' — Google Calendar atualizado.' : ''}`
-        Object.assign(this.marcacao, { nome: '', nascimento: '', telefone: '', phone: '', convenio: '', slotISO: '', slots: [] })
-        await this.loadAgendamentos(); await this.loadStats()
-      } else { m.erro = true; m.msg = 'Erro ao agendar. Verifique os dados.' }
-    },
-    async cancelarAgendamento(row) {
-      if (!confirm(`Cancelar consulta de ${row.nome}?\n\nO paciente será notificado e o evento removido do Google Calendar.`)) return
-      const r = await this.api(`/api/agendamentos/${row.id}/cancelar`, { method: 'POST' }).then(r => r.json()).catch(() => null)
-      if (r?.ok) {
-        let msg = `✅ Consulta de ${row.nome} cancelada.`
-        if (r.gcalRemovido) msg += ' Evento removido do Google Calendar.'
-        if (r.pacienteNotificado) msg += ' Paciente notificado.'
-        alert(msg); await this.loadAgendamentos(); await this.loadStats()
-      } else { alert('Erro ao cancelar.') }
-    },
-    abrirModalBloqueio() {
-      this.bloqueio = { doctorId: '', inicio: '', fim: '', motivo: '', loading: false, msg: '', erro: false }
-      this.modalBloqueio = true
-    },
-    async confirmarBloqueio() {
-      const { doctorId, inicio, fim, motivo } = this.bloqueio
-      if (!doctorId || !inicio || !fim) { this.bloqueio.msg = 'Preencha todos os campos.'; this.bloqueio.erro = true; return }
-      if (new Date(inicio) >= new Date(fim)) { this.bloqueio.msg = 'Início deve ser anterior ao fim.'; this.bloqueio.erro = true; return }
-      this.bloqueio.loading = true; this.bloqueio.msg = ''
-      const r = await this.api('/api/calendar/bloquear', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ doctorId, startISO: new Date(inicio).toISOString(), endISO: new Date(fim).toISOString(), motivo })
-      }).then(r => r.json()).catch(() => null)
-      this.bloqueio.loading = false
-      if (r?.ok) {
-        this.bloqueio.erro = false; this.bloqueio.msg = `✅ Bloqueado! ${r.pacientesNotificados} paciente(s) notificado(s).`
-        await this.loadAgendamentos(); await this.loadStats()
-      } else { this.bloqueio.erro = true; this.bloqueio.msg = 'Erro ao bloquear.' }
-    },
-    async exportar(all) {
       try {
-        const r = await this.api('/api/export' + (all ? '?all=true' : ''), { method: 'POST' })
-        if (!r.ok) { alert('Erro ao exportar.'); return }
-        const blob = await r.blob()
-        const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
-        a.download = 'agendamentos.xlsx'; a.click(); URL.revokeObjectURL(a.href)
-      } catch { alert('Erro ao exportar.') }
-    },
-    async salvarTextos() {
-      this.textosSaving = true; this.textosSaved = false
-      const r = await this.api('/api/messages', {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(this.textosEditados)
-      }).then(r => r.json()).catch(() => null)
-      this.textosSaving = false
-      if (r?.ok) { this.textosSaved = true; this.textos = { ...this.textosEditados } }
-    },
-    async desativarDoc(id) {
-      if (!confirm('Desativar este documento?')) return
-      await this.api(`/api/knowledge/${id}`, { method: 'DELETE' }); await this.loadKnowledge()
-    },
-    async handleFileSelect(e) { const f = e.target.files[0]; if (f) await this.uploadFile(f) },
-    async handleDrop(e) { e.target.classList.remove('drag-over'); const f = e.dataTransfer.files[0]; if (f) await this.uploadFile(f) },
-    async uploadFile(file) {
-      this.uploading = true; this.uploadMsg = ''; this.uploadError = false
-      const fd = new FormData(); fd.append('file', file)
-      try {
-        const r = await this.api('/api/knowledge/upload', { method: 'POST', body: fd })
-        const data = await r.json()
-        if (!r.ok) throw new Error(data.error || 'Erro no upload')
-        this.uploadMsg = `✅ "${data.filename}" indexado! (${data.charCount} caracteres)`
-        await this.loadKnowledge()
-      } catch (err) { this.uploadMsg = '❌ ' + err.message; this.uploadError = true }
-      finally { this.uploading = false }
+        await this.api('/agendamentos/manual', { method:'POST', body: JSON.stringify(this.marcacaoForm) })
+        alert('Agendamento criado!'); this.loadAgenda()
+        this.marcacaoForm = { especialidade:'', medico_id:'', slot_datetime:'', tipo_atendimento:'', convenio_informado:'', nome:'', nascimento:'', telefone_contato:'' }
+      } catch (e) { alert(e.message) }
     },
 
-    // ── Atendimento humano ────────────────────────────────────────────────
+    // Textos & Fluxos
+    async loadTextos() {
+      try { const d = await this.api('/textos'); this.textos = d.data || d } catch (e) { console.error(e) }
+    },
+
+    async adicionarTexto() {
+      if (!this.novoTexto.nome || !this.novoTexto.conteudo) { alert('Preencha nome e conteúdo'); return }
+      try {
+        await this.api('/textos', { method:'POST', body: JSON.stringify(this.novoTexto) })
+        this.novoTextoModal = false; this.novoTexto = { nome:'', conteudo:'' }; this.loadTextos()
+      } catch (e) { alert(e.message) }
+    },
+
+    async removerTexto(id) {
+      if (!confirm('Remover este texto?')) return
+      try { await this.api('/textos/'+id, { method:'DELETE' }); this.loadTextos() }
+      catch (e) { alert(e.message) }
+    },
+
+    // Atendimento humano
+    async loadSessoesHumanas() {
+      try {
+        const d = await this.api('/sessions/humanas')
+        this.sessoesHumanas = d.data || d
+        this.humanBadge = this.sessoesHumanas.length
+        this.stats.humano = this.humanBadge
+      } catch (e) { console.error(e) }
+    },
+
     async assumirAtendimento(phone) {
-      if (!confirm('Marcar como assumido e encerrar sessão deste paciente?')) return
-      await this.api(`/api/sessions/${encodeURIComponent(phone)}/encerrar`, { method: 'POST' }).catch(() => null)
-      await this.loadHumanWaiting()
+      try { await this.api('/sessions/'+encodeURIComponent(phone)+'/assume', { method:'POST' }); this.loadSessoesHumanas() }
+      catch (e) { alert(e.message) }
     },
 
-    // ── Encaixe ───────────────────────────────────────────────────────────
-    async adicionarEncaixe() {
-      if (!this.novoEncaixe.phone) { this.novoEncaixe.erro = true; this.novoEncaixe.msg = 'WhatsApp é obrigatório.'; return }
-      const r = await this.api('/api/encaixe', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(this.novoEncaixe)
-      }).then(r => r.json()).catch(() => null)
-      if (r?.ok) {
-        this.novoEncaixe = { phone: '', nome: '', especialidade: '', msg: '✅ Adicionado à fila.', erro: false }
-        await this.loadEncaixe()
-      } else { this.novoEncaixe.erro = true; this.novoEncaixe.msg = 'Erro ao adicionar.' }
+    async encerrarAtendimento(phone) {
+      try { await this.api('/sessions/'+encodeURIComponent(phone)+'/encerrar', { method:'POST' }); this.loadSessoesHumanas() }
+      catch (e) { alert(e.message) }
     },
+
+    // Encaixe
+    async loadEncaixe() {
+      try {
+        const d = await this.api('/encaixe')
+        this.encaixeQueue = d.data || d
+        this.stats.encaixe = this.encaixeQueue.length
+      } catch (e) { console.error(e) }
+    },
+
     async removerEncaixe(id) {
       if (!confirm('Remover da fila?')) return
-      await this.api(`/api/encaixe/${id}`, { method: 'DELETE' }); await this.loadEncaixe()
+      try { await this.api('/encaixe/'+id, { method:'DELETE' }); this.loadEncaixe() }
+      catch (e) { alert(e.message) }
     },
 
-    // ── Médicos ───────────────────────────────────────────────────────────
-    toggleDia(idx) {
-      const pos = this.novoMedico.diasSemana.indexOf(idx)
-      if (pos >= 0) this.novoMedico.diasSemana.splice(pos, 1)
-      else this.novoMedico.diasSemana.push(idx)
+    // Médicos
+    async loadMedicos() {
+      try { const d = await this.api('/medicos'); this.medicos = d.data || d; this.medicosLista = this.medicos } catch (e) { console.error(e) }
     },
+
     async salvarMedico() {
-      if (!this.novoMedico.nome || !this.novoMedico.especialidade) {
-        this.novoMedico.erro = true; this.novoMedico.msg = 'Nome e especialidade são obrigatórios.'; return
-      }
-      this.novoMedico.loading = true; this.novoMedico.msg = ''; this.novoMedico.erro = false
-      const r = await this.api('/api/doctors', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nome: this.novoMedico.nome, crm: this.novoMedico.crm,
-          especialidade: this.novoMedico.especialidade, email: this.novoMedico.email,
-          whatsapp: this.novoMedico.whatsapp, slotDurationMinutes: this.novoMedico.slotDurationMinutes,
-          schedule: { diasSemana: this.novoMedico.diasSemana, horarioInicio: this.novoMedico.horarioInicio, horarioFim: this.novoMedico.horarioFim, duracaoConsulta: this.novoMedico.slotDurationMinutes }
-        })
-      }).then(r => r.json()).catch(() => null)
-      this.novoMedico.loading = false
-      if (r?.ok) {
-        this.novoMedico.erro = false
-        this.novoMedico.msg = '✅ Médico cadastrado!' + (r.calendarCriado ? ' Google Calendar criado automaticamente.' : '')
-        Object.assign(this.novoMedico, { nome: '', crm: '', especialidade: '', email: '', whatsapp: '', slotDurationMinutes: 30, diasSemana: [1,2,3,4,5], horarioInicio: '08:00', horarioFim: '17:00', loading: false })
-        await this.loadDoctorsAll(); await this.loadDoctors()
-      } else { this.novoMedico.erro = true; this.novoMedico.msg = r?.error || 'Erro ao cadastrar.' }
-    },
-    async toggleMedico(doc) {
-      const r = await this.api(`/api/doctors/${doc.id}`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ active: !doc.active })
-      }).then(r => r.json()).catch(() => null)
-      if (r?.ok) await this.loadDoctorsAll()
+      if (!this.novoMedico.nome) { alert('Informe o nome'); return }
+      try {
+        await this.api('/medicos', { method:'POST', body: JSON.stringify(this.novoMedico) })
+        this.novoMedico = { nome:'', especialidades:'' }; this.loadMedicos()
+      } catch (e) { alert(e.message) }
     },
 
-    // ── Usuários ──────────────────────────────────────────────────────────
-    async criarUsuario() {
-      const { name, username, role, password } = this.novoUsuario
-      if (!name || !username || !role || !password) { this.novoUsuario.erro = true; this.novoUsuario.msg = 'Preencha todos os campos.'; return }
-      if (password.length < 6) { this.novoUsuario.erro = true; this.novoUsuario.msg = 'Senha deve ter pelo menos 6 caracteres.'; return }
-      this.novoUsuario.loading = true; this.novoUsuario.msg = ''; this.novoUsuario.erro = false
-      const r = await this.api('/auth/users', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, username, role, password })
-      }).then(r => r.json()).catch(() => null)
-      this.novoUsuario.loading = false
-      if (r?.ok) {
-        this.novoUsuario = { name: '', username: '', role: '', password: '', loading: false, msg: '✅ Usuário criado!', erro: false }
-        await this.loadUsuarios()
-      } else { this.novoUsuario.erro = true; this.novoUsuario.msg = r?.error || 'Erro ao criar.' }
+    async removerMedico(id) {
+      if (!confirm('Remover médico?')) return
+      try { await this.api('/medicos/'+id, { method:'DELETE' }); this.loadMedicos() }
+      catch (e) { alert(e.message) }
     },
+
+    // Usuários
+    async loadUsuarios() {
+      try { const d = await this.api('/usuarios'); this.usuarios = d.data || d } catch (e) { console.error(e) }
+    },
+
+    async salvarUsuario() {
+      try {
+        await this.api('/usuarios', { method:'POST', body: JSON.stringify(this.novoUsuario) })
+        this.novoUsuario = { username:'', name:'', role:'secretaria', password:'' }; this.loadUsuarios()
+      } catch (e) { alert(e.message) }
+    },
+
     async toggleUsuario(usr) {
-      const r = await this.api(`/auth/users/${usr.id}/toggle`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ active: !usr.active })
-      }).then(r => r.json()).catch(() => null)
-      if (r?.ok) await this.loadUsuarios()
+      try { await this.api('/usuarios/'+usr.id+'/toggle', { method:'PATCH' }); this.loadUsuarios() }
+      catch (e) { alert(e.message) }
     },
+
     async resetarSenha(usr) {
-      const nova = prompt(`Nova senha para ${usr.name} (mín. 6 caracteres):`)
-      if (!nova || nova.length < 6) { alert('Senha inválida.'); return }
-      const r = await this.api(`/auth/users/${usr.id}/reset-password`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ newPassword: nova })
-      }).then(r => r.json()).catch(() => null)
-      if (r?.ok) alert(`✅ Senha de ${usr.name} redefinida.`)
-      else alert('Erro ao redefinir senha.')
+      const pwd = prompt('Nova senha para '+usr.name+' (mín. 6 chars):')
+      if (!pwd || pwd.length < 6) return
+      try { await this.api('/usuarios/'+usr.id+'/reset-senha', { method:'PATCH', body: JSON.stringify({ password: pwd }) }); alert('Senha redefinida!') }
+      catch (e) { alert(e.message) }
     },
 
-    // ── WhatsApp ──────────────────────────────────────────────────────────
-    async gerarQR() {
-      this.whatsapp.loading = true; this.whatsapp.qr = ''; this.whatsapp.msg = ''
-      const r = await this.api('/api/whatsapp/qr').then(r => r.json()).catch(() => null)
-      this.whatsapp.loading = false
-      if (r?.base64) { this.whatsapp.qr = r.base64; this.whatsapp.connected = false }
-      else if (r?.qrcode?.base64) { this.whatsapp.qr = r.qrcode.base64; this.whatsapp.connected = false }
-      else if (r?.state === 'open' || r?.instance?.state === 'open') { this.whatsapp.connected = true; this.whatsapp.msg = '✅ WhatsApp já conectado!' }
-      else { this.whatsapp.erro = true; this.whatsapp.msg = 'Não foi possível gerar QR Code.' }
-    },
-    async reconectarWhatsapp() {
-      this.whatsapp.loading = true; this.whatsapp.msg = ''
-      const r = await this.api('/api/whatsapp/restart', { method: 'POST' }).then(r => r.json()).catch(() => null)
-      this.whatsapp.loading = false
-      this.whatsapp.msg = r?.ok ? '✅ Reconectando…' : 'Erro ao reconectar.'
-      this.whatsapp.erro = !r?.ok
-      if (r?.ok) setTimeout(() => this.loadWhatsappStatus(), 3000)
-    },
-    async desconectarWhatsapp() {
-      if (!confirm('Desconectar o WhatsApp? O bot parará de enviar mensagens.')) return
-      this.whatsapp.loading = true
-      const r = await this.api('/api/whatsapp/logout', { method: 'POST' }).then(r => r.json()).catch(() => null)
-      this.whatsapp.loading = false
-      if (r?.ok) { this.whatsapp.connected = false; this.whatsapp.qr = ''; this.whatsapp.msg = '✅ Desconectado.' }
-      else { this.whatsapp.erro = true; this.whatsapp.msg = 'Erro ao desconectar.' }
+    // WhatsApp / QR
+    async loadWAStatus() {
+      try { const d = await this.api('/whatsapp/status'); this.waStatus = d.status } catch (e) { console.error(e) }
+      if (this.waStatus !== 'open') this.loadQR()
     },
 
-    // ── Helpers visuais ───────────────────────────────────────────────────
-    rowClass(row) {
-      if (row.tipo_atendimento === 'PARTICULAR') return 'row-particular'
-      if (row.tipo === 'INFUSAO') return 'row-infusao'
-      if (row.tipo === 'MEDICACAO') return 'row-medicacao'
-      return ''
+    async loadQR() {
+      try { const d = await this.api('/whatsapp/qr'); this.qrCode = d.qr || d.base64 || '' } catch (e) { console.error(e) }
+      clearInterval(this.qrTimer)
+      this.qrTimer = setInterval(async () => {
+        await this.loadWAStatus()
+        if (this.waStatus === 'open') { clearInterval(this.qrTimer); this.qrCode = '' }
+        else this.loadQR()
+      }, 25000)
     },
-    tipoClass(tipo) {
-      if (tipo === 'CONSULTA') return 'bg-blue-100 text-blue-800'
-      if (tipo === 'INFUSAO') return 'bg-purple-100 text-purple-800'
-      if (tipo === 'MEDICACAO') return 'bg-green-100 text-green-800'
-      return 'bg-gray-100 text-gray-800'
+
+    // Medicações
+    async loadMedicacoes() {
+      try { const d = await this.api('/medicacoes'); this.medicacoes = d.data || d } catch (e) { console.error(e) }
     },
-    statusClass(s) {
-      if (s === 'CONFIRMADO') return 'bg-green-100 text-green-800'
-      if (s === 'CANCELADO')  return 'bg-red-100 text-red-800'
-      return 'bg-yellow-100 text-yellow-800'
+
+    // Conhecimento
+    async loadConhecimento() {
+      try { const d = await this.api('/conhecimento'); this.conhecimentos = d.data || d } catch (e) { console.error(e) }
     },
-    formatDate(str) {
-      if (!str) return '—'
-      try { return new Date(str).toLocaleString('pt-BR') } catch { return str }
-    }
+
+    async salvarConhecimento() {
+      if (!this.novoConhecimento.filename || !this.novoConhecimento.content) { alert('Preencha título e conteúdo'); return }
+      try {
+        await this.api('/conhecimento', { method:'POST', body: JSON.stringify(this.novoConhecimento) })
+        this.novoConhecimento = { filename:'', category:'', content:'' }; this.loadConhecimento()
+      } catch (e) { alert(e.message) }
+    },
+
+    async removerConhecimento(id) {
+      if (!confirm('Remover documento?')) return
+      try { await this.api('/conhecimento/'+id, { method:'DELETE' }); this.loadConhecimento() }
+      catch (e) { alert(e.message) }
+    },
+
+    // Satisfação
+    async loadSatisfacao() {
+      try {
+        const d = await this.api('/satisfacao')
+        this.satisfacoes = d.data || d
+        if (this.satisfacoes.length) {
+          const sum = this.satisfacoes.reduce((a, s) => a + (s.nota||0), 0)
+          this.mediaNotas = (sum / this.satisfacoes.length).toFixed(1)
+        }
+      } catch (e) { console.error(e) }
+    },
+
+    // Conversas
+    async loadConversas() {
+      try {
+        const d = await this.api('/conversations')
+        this.conversas = d.data || d
+        this.stats.conversas = this.conversas.length
+      } catch (e) { console.error(e) }
+    },
+
+    async abrirConversa(c) {
+      this.conversaAberta = c
+      try {
+        const d = await this.api('/conversations/'+encodeURIComponent(c.phone))
+        this.mensagensAbertas = d.data || d
+        this.$nextTick(() => {
+          const el = document.getElementById('chatScroll')
+          if (el) el.scrollTop = el.scrollHeight
+        })
+      } catch (e) { console.error(e) }
+    },
   }
 }
 </script>
