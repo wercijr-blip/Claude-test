@@ -1371,11 +1371,15 @@ function painel() {
     },
 
     async salvarMarcacao() {
+      if (!this.marcacao.slotISO) {
+        this.marcacao.erro = true; this.marcacao.msg = 'Selecione um horário disponível.'
+        return
+      }
       this.marcacao.loading = true; this.marcacao.msg = ''; this.marcacao.erro = false
       try {
         const payload = {
           doctorId: this.marcacao.doctorId,
-          slotISO: this.marcacao.slotISO || this.marcacao.date,
+          slotISO: this.marcacao.slotISO,
           tipoAtendimento: this.marcacao.tipo || 'CONVENIO',
           convenio: this.marcacao.convenio,
           nome: this.marcacao.nome,
