@@ -1067,7 +1067,7 @@ function painel() {
     loginUser: '', loginPass: '', loginErr: '', loginLoading: false,
     token: localStorage.getItem('token') || '',
     user: JSON.parse(localStorage.getItem('user') || 'null'),
-    newPwd: '', newPwd2: '', changePwdErr: '',
+    newPwd: '', newPwd2: '', currentPwd: '', changePwdErr: '',
 
     // Auth compat objects (usados pelo HTML)
     login: { username:'', password:'', erro:'', loading: false },
@@ -1239,11 +1239,12 @@ function painel() {
 
     async salvarNovaSenha() {
       this.changePwdErr = ''
+      if (!this.currentPwd) { this.changePwdErr = 'Informe a senha atual'; return }
       if (this.newPwd !== this.newPwd2) { this.changePwdErr = 'Senhas não conferem'; return }
       if (this.newPwd.length < 6) { this.changePwdErr = 'Mínimo 6 caracteres'; return }
       try {
-        await this.api('/auth/change-password', { method:'POST', body: JSON.stringify({ password: this.newPwd }) })
-        this.showChangePwd = false; this.newPwd = ''; this.newPwd2 = ''
+        await this.api('/auth/change-password', { method:'POST', body: JSON.stringify({ currentPassword: this.currentPwd, newPassword: this.newPwd }) })
+        this.showChangePwd = false; this.newPwd = ''; this.newPwd2 = ''; this.currentPwd = ''
         this.loadAll()
       } catch (e) { this.changePwdErr = e.message }
     },
@@ -1314,6 +1315,7 @@ function painel() {
 
     async trocarSenha() {
       this.changePwd.loading = true; this.changePwd.erro = ''; this.changePwd.ok = false
+      this.currentPwd = this.changePwd.current
       this.newPwd = this.changePwd.new1; this.newPwd2 = this.changePwd.new2
       await this.salvarNovaSenha()
       this.changePwd.loading = false
@@ -1344,16 +1346,15 @@ function painel() {
     loadAgendamentos() { return this.loadAgenda() },
     async exportar(todos) {
       try {
-        const url = todos ? '/agendamentos/export' : '/agendamentos/export?status=PENDENTE'
-        const d = await this.api(url)
-        const rows = d.data || d
-        if (!rows.length) { alert('Nada para exportar'); return }
-        const keys = Object.keys(rows[0])
-        const csv = [keys.join(','), ...rows.map(r => keys.map(k => '"'+(r[k]||'').toString().replace(/"/g,'""')+'"').join(','))].join('\n')
+        const url = '/api/agendamentos/export' + (todos ? '?all=true' : '')
+        const resp = await fetch(url, { headers: { 'Authorization': 'Bearer ' + this.token } })
+        if (!resp.ok) { const j = await resp.json().catch(() => ({})); throw new Error(j.error || resp.statusText) }
+        const blob = await resp.blob()
         const a = document.createElement('a')
-        a.href = URL.createObjectURL(new Blob([csv], { type:'text/csv' }))
-        a.download = 'agendamentos_'+new Date().toISOString().slice(0,10)+'.csv'
+        a.href = URL.createObjectURL(blob)
+        a.download = 'agendamentos_' + new Date().toISOString().slice(0, 10) + '.xlsx'
         a.click()
+        setTimeout(() => URL.revokeObjectURL(a.href), 5000)
       } catch (e) { alert(e.message) }
     },
     abrirModalBloqueio() { this.bloqModal = true },

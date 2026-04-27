@@ -772,13 +772,16 @@ apiRouter.post('/medicos', requireAuth(['admin']), async (req, res) => {
     const { writeFileSync } = await import('fs')
     const filePath = new URL('../../config/doctors.json', import.meta.url)
     const config = JSON.parse(readFileSync(filePath, 'utf-8'))
-    const { nome, especialidades, calendarId } = req.body
+    const { nome, especialidade, especialidades, crm, email, whatsapp, calendarId, slotDurationMinutes, diasSemana, horarioInicio, horarioFim } = req.body
     if (!nome) return res.status(400).json({ error: 'nome é obrigatório.' })
     const doctor = {
       id: 'dr_' + Date.now(),
-      nome, crm: '', especialidade: especialidades || '',
-      calendarId: calendarId || '', whatsapp: '',
-      slotDurationMinutes: 30, schedule: null, active: true
+      nome, crm: crm || '', especialidade: especialidade || especialidades || '',
+      email: email || '', whatsapp: whatsapp || '',
+      calendarId: calendarId || '',
+      slotDurationMinutes: Number(slotDurationMinutes) || 30,
+      diasSemana: diasSemana || [], horarioInicio: horarioInicio || '08:00', horarioFim: horarioFim || '18:00',
+      schedule: null, active: true
     }
     config.doctors.push(doctor)
     writeFileSync(filePath, JSON.stringify(config, null, 2), 'utf-8')
