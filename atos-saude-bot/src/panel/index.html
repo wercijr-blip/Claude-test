@@ -1069,8 +1069,14 @@ function painel() {
     user: JSON.parse(localStorage.getItem('user') || 'null'),
     newPwd: '', newPwd2: '', changePwdErr: '',
 
+    // Auth compat objects (usados pelo HTML)
+    login: { username:'', password:'', erro:'', loading: false },
+    changePwd: { current:'', new1:'', new2:'', erro:'', ok: false, loading: false },
+
     // Navigation
     tab: 'agenda',
+    get activeTab() { return this.tab },
+    set activeTab(v) { this.tab = v },
     tabs: [
       { id:'agenda',        icon:'📅', label:'Agenda' },
       { id:'marcacao',      icon:'➕', label:'Marcação Manual' },
@@ -1090,13 +1096,57 @@ function painel() {
     // Agenda
     agendamentos: [], agFilter: { status:'', tipo:'', especialidade:'', data:'' },
     bloqModal: false, bloqData: '', bloqMedico: '', bloqObs: '',
+    get modalBloqueio() { return this.bloqModal },
+    set modalBloqueio(v) { this.bloqModal = v },
+    bloqueio: { doctorId:'', inicio:'', fim:'', motivo:'', msg:'', erro: false, loading: false },
+    doctors: [],
+
+    // Agenda filters compat (HTML usa filters.*, JS usa agFilter.*)
+    get filters() { return this.agFilter },
+    set filters(v) { this.agFilter = v },
+
+    // Stats cards definition
+    statCards: [
+      { key:'agenda',    label:'Pendentes',  color:'#F59E0B' },
+      { key:'humano',    label:'Humano',     color:'#EF4444' },
+      { key:'encaixe',   label:'Encaixe',    color:'#8B5CF6' },
+      { key:'conversas', label:'Conversas',  color:'#2D8C8C' },
+    ],
+
+    // Clock compat
+    get currentDate() {
+      return new Date().toLocaleDateString('pt-BR', { weekday:'long', year:'numeric', month:'long', day:'numeric' })
+    },
+    get currentTime() { return this.clockStr },
+
+    // humanWaiting compat (HTML usa humanWaiting, JS usa sessoesHumanas)
+    get humanWaiting() { return this.sessoesHumanas },
+
+    // currentUser compat
+    get currentUser() { return this.user },
+
+    // Permissions baseadas em role
+    get permissions() {
+      const r = this.user?.role
+      const allTabs = ['agenda','marcacao','textos','atendimento','encaixe','medicos','usuarios','exames','whatsapp','medicacoes','conhecimento','satisfacao','conversas']
+      return {
+        tabs: r==='admin' ? allTabs :
+              r==='secretaria' ? ['agenda','marcacao','atendimento','encaixe','conversas','satisfacao'] :
+              r ? ['agenda','conversas'] : [],
+        canBlock:  r==='admin',
+        canExport: r==='admin' || r==='secretaria',
+        canCancel: r==='admin' || r==='secretaria',
+      }
+    },
 
     // Marcação manual
     marcacaoForm: { especialidade:'', medico_id:'', slot_datetime:'', tipo_atendimento:'', convenio_informado:'', nome:'', nascimento:'', telefone_contato:'' },
+    marcacao: { doctorId:'', slots:[], slotISO:'', date:'', loadingSlots:false, nome:'', nascimento:'', telefone:'', phone:'', tipo:'CONVENIO', convenio:'', msg:'', erro:false, loading:false },
     medicosLista: [],
 
     // Textos
-    textos: [], novoTextoModal: false,
+    textos: {}, textosEditados: {}, textosSaving: false, textosSaved: false,
+    novoTextoModal: false,
     novoTexto: { nome:'', conteudo:'' },
 
     // Atendimento (sessões humanas)
@@ -1104,12 +1154,15 @@ function painel() {
 
     // Encaixe
     encaixeQueue: [],
+    novoEncaixe: { phone:'', nome:'', especialidade:'', msg:'', erro:false },
 
     // Médicos
-    medicos: [], novoMedico: { nome:'', especialidades:'' },
+    medicos: [],
+    get doctorsAll() { return this.medicos },
+    novoMedico: { nome:'', crm:'', especialidade:'', email:'', whatsapp:'', diasSemana:[], horarioInicio:'08:00', horarioFim:'18:00', slotDurationMinutes:30, msg:'', erro:false, loading:false },
 
     // Usuários
-    usuarios: [], novoUsuario: { username:'', name:'', role:'secretaria', password:'' },
+    usuarios: [], novoUsuario: { username:'', name:'', role:'secretaria', password:'', msg:'', erro:false, loading:false },
 
     // Exames
     exames: [],
@@ -1159,7 +1212,7 @@ function painel() {
       })
     },
 
-    async login() {
+    async _doLogin() {
       this.loginErr = ''; this.loginLoading = true
       try {
         const d = await fetch('/api/auth/login', {
@@ -1221,7 +1274,8 @@ function painel() {
       catch (e) { alert(e.message) }
     },
 
-    async cancelarAgendamento(id) {
+    async cancelarAgendamento(idOrRow) {
+      const id = (idOrRow && typeof idOrRow === 'object') ? idOrRow.id : idOrRow
       if (!confirm('Cancelar este agendamento?')) return
       try { await this.api('/agendamentos/'+id+'/status', { method:'PATCH', body: JSON.stringify({ status:'CANCELADO' }) }); this.loadAgenda() }
       catch (e) { alert(e.message) }
@@ -1248,18 +1302,117 @@ function painel() {
       } catch (e) { alert(e.message) }
     },
 
-    // Marcação manual
-    async salvarMarcacao() {
+    // Compat wrappers usados pelo HTML v1/v2
+    async fazerLogin() {
+      this.loginUser = this.login.username
+      this.loginPass = this.login.password
+      this.login.loading = true; this.login.erro = ''
+      await this._doLogin()
+      this.login.loading = false
+      if (this.loginErr) this.login.erro = this.loginErr
+    },
+
+    async trocarSenha() {
+      this.changePwd.loading = true; this.changePwd.erro = ''; this.changePwd.ok = false
+      this.newPwd = this.changePwd.new1; this.newPwd2 = this.changePwd.new2
+      await this.salvarNovaSenha()
+      this.changePwd.loading = false
+      if (this.changePwdErr) { this.changePwd.erro = this.changePwdErr }
+      else { this.changePwd.ok = true }
+    },
+
+    async confirmarBloqueio() {
+      this.bloqueio.loading = true; this.bloqueio.msg = ''; this.bloqueio.erro = false
+      this.bloqData   = this.bloqueio.inicio?.slice(0,10) || ''
+      this.bloqMedico = this.bloqueio.doctorId
+      this.bloqObs    = this.bloqueio.motivo
       try {
-        await this.api('/agendamentos/manual', { method:'POST', body: JSON.stringify(this.marcacaoForm) })
-        alert('Agendamento criado!'); this.loadAgenda()
-        this.marcacaoForm = { especialidade:'', medico_id:'', slot_datetime:'', tipo_atendimento:'', convenio_informado:'', nome:'', nascimento:'', telefone_contato:'' }
+        await this.api('/agenda/bloquear', {
+          method:'POST',
+          body: JSON.stringify({ data: this.bloqData, medico_id: this.bloqMedico, obs: this.bloqObs })
+        })
+        this.bloqueio.msg = '✅ Bloqueio registrado com sucesso!'
+        this.bloqueio.loading = false
+        setTimeout(() => { this.bloqModal = false; this.bloqueio = { doctorId:'', inicio:'', fim:'', motivo:'', msg:'', erro:false, loading:false } }, 1500)
+      } catch (e) {
+        this.bloqueio.erro = true; this.bloqueio.msg = e.message
+        this.bloqueio.loading = false
+      }
+    },
+
+    sairSessao() { this.logout() },
+    loadAgendamentos() { return this.loadAgenda() },
+    async exportar(todos) {
+      try {
+        const url = todos ? '/agendamentos/export' : '/agendamentos/export?status=PENDENTE'
+        const d = await this.api(url)
+        const rows = d.data || d
+        if (!rows.length) { alert('Nada para exportar'); return }
+        const keys = Object.keys(rows[0])
+        const csv = [keys.join(','), ...rows.map(r => keys.map(k => '"'+(r[k]||'').toString().replace(/"/g,'""')+'"').join(','))].join('\n')
+        const a = document.createElement('a')
+        a.href = URL.createObjectURL(new Blob([csv], { type:'text/csv' }))
+        a.download = 'agendamentos_'+new Date().toISOString().slice(0,10)+'.csv'
+        a.click()
       } catch (e) { alert(e.message) }
+    },
+    abrirModalBloqueio() { this.bloqModal = true },
+
+    // Marcação manual
+    async buscarSlots() {
+      if (!this.marcacao.doctorId || !this.marcacao.date) return
+      this.marcacao.loadingSlots = true; this.marcacao.slots = []; this.marcacao.slotISO = ''
+      try {
+        const d = await this.api('/medicos/'+this.marcacao.doctorId+'/slots?date='+this.marcacao.date)
+        this.marcacao.slots = (d.data || d).map(s => typeof s === 'string' ? { iso: s, hora: s.slice(11,16) } : s)
+      } catch (e) { console.error('slots:', e.message) }
+      finally { this.marcacao.loadingSlots = false }
+    },
+
+    async salvarMarcacao() {
+      this.marcacao.loading = true; this.marcacao.msg = ''; this.marcacao.erro = false
+      try {
+        const payload = {
+          doctorId: this.marcacao.doctorId,
+          slotISO: this.marcacao.slotISO || this.marcacao.date,
+          tipoAtendimento: this.marcacao.tipo || 'CONVENIO',
+          convenio: this.marcacao.convenio,
+          nome: this.marcacao.nome,
+          nascimento: this.marcacao.nascimento,
+          telefone: this.marcacao.telefone,
+          phone: this.marcacao.phone,
+        }
+        await this.api('/agendamentos/manual', { method:'POST', body: JSON.stringify(payload) })
+        this.marcacao.msg = '✅ Agendamento criado com sucesso!'
+        this.loadAgenda()
+        setTimeout(() => {
+          this.marcacao = { doctorId:'', slots:[], slotISO:'', date:'', loadingSlots:false, nome:'', nascimento:'', telefone:'', phone:'', tipo:'CONVENIO', convenio:'', msg:'', erro:false, loading:false }
+        }, 2000)
+      } catch (e) { this.marcacao.erro = true; this.marcacao.msg = e.message }
+      finally { this.marcacao.loading = false }
     },
 
     // Textos & Fluxos
     async loadTextos() {
-      try { const d = await this.api('/textos'); this.textos = d.data || d } catch (e) { console.error(e) }
+      try {
+        const d = await this.api('/textos')
+        const arr = d.data || (Array.isArray(d) ? d : [])
+        const obj = {}
+        arr.forEach(t => { obj[t.nome || t.id] = t.conteudo || t.valor || '' })
+        this.textos = obj
+        this.textosEditados = { ...obj }
+      } catch (e) { console.error(e) }
+    },
+
+    async salvarTextos() {
+      this.textosSaving = true; this.textosSaved = false
+      try {
+        await this.api('/textos', { method:'PUT', body: JSON.stringify(this.textosEditados) })
+        this.textos = { ...this.textosEditados }
+        this.textosSaved = true
+        setTimeout(() => { this.textosSaved = false }, 3000)
+      } catch (e) { alert(e.message) }
+      finally { this.textosSaving = false }
     },
 
     async adicionarTexto() {
@@ -1285,6 +1438,7 @@ function painel() {
         this.stats.humano = this.humanBadge
       } catch (e) { console.error(e) }
     },
+    loadHumanWaiting() { return this.loadSessoesHumanas() },
 
     async assumirAtendimento(phone) {
       try { await this.api('/sessions/'+encodeURIComponent(phone)+'/assume', { method:'POST' }); this.loadSessoesHumanas() }
@@ -1311,17 +1465,62 @@ function painel() {
       catch (e) { alert(e.message) }
     },
 
+    async adicionarEncaixe() {
+      if (!this.novoEncaixe.phone) { this.novoEncaixe.msg = 'Informe o WhatsApp'; this.novoEncaixe.erro = true; return }
+      try {
+        await this.api('/encaixe', { method:'POST', body: JSON.stringify({ phone: this.novoEncaixe.phone, nome: this.novoEncaixe.nome, especialidade: this.novoEncaixe.especialidade }) })
+        this.novoEncaixe = { phone:'', nome:'', especialidade:'', msg:'✅ Adicionado!', erro:false }
+        this.loadEncaixe()
+        setTimeout(() => { this.novoEncaixe.msg = '' }, 3000)
+      } catch (e) { this.novoEncaixe.erro = true; this.novoEncaixe.msg = e.message }
+    },
+
+    formatDate(iso) {
+      if (!iso) return '—'
+      try { return new Date(iso).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) }
+      catch { return iso }
+    },
+
+    rowClass(row) {
+      if (row.tipo === 'INFUSAO') return 'row-infusao'
+      if (row.tipo === 'MEDICACAO') return 'row-medicacao'
+      if (row.tipo_atendimento === 'PARTICULAR') return 'row-particular'
+      return ''
+    },
+    tipoClass(tipo) {
+      return { CONSULTA:'bg-blue-100 text-blue-700', INFUSAO:'bg-purple-100 text-purple-700', MEDICACAO:'bg-green-100 text-green-700' }[tipo] || 'bg-gray-100 text-gray-500'
+    },
+    statusClass(status) {
+      return { PENDENTE:'badge-pendente', CONFIRMADO:'badge-confirmado', CANCELADO:'badge-cancelado' }[status] || 'bg-gray-100 text-gray-400'
+    },
+
     // Médicos
     async loadMedicos() {
-      try { const d = await this.api('/medicos'); this.medicos = d.data || d; this.medicosLista = this.medicos } catch (e) { console.error(e) }
+      try { const d = await this.api('/medicos'); this.medicos = d.data || d; this.medicosLista = this.medicos; this.doctors = this.medicos } catch (e) { console.error(e) }
+    },
+    loadDoctorsAll() { return this.loadMedicos() },
+
+    async toggleMedico(doc) {
+      try { await this.api('/medicos/'+doc.id+'/toggle', { method:'PATCH' }); this.loadMedicos() }
+      catch (e) { alert(e.message) }
+    },
+
+    toggleDia(idx) {
+      const i = this.novoMedico.diasSemana.indexOf(idx)
+      if (i === -1) this.novoMedico.diasSemana.push(idx)
+      else this.novoMedico.diasSemana.splice(i, 1)
     },
 
     async salvarMedico() {
-      if (!this.novoMedico.nome) { alert('Informe o nome'); return }
+      if (!this.novoMedico.nome) { this.novoMedico.erro = true; this.novoMedico.msg = 'Informe o nome'; return }
+      this.novoMedico.loading = true; this.novoMedico.msg = ''; this.novoMedico.erro = false
       try {
         await this.api('/medicos', { method:'POST', body: JSON.stringify(this.novoMedico) })
-        this.novoMedico = { nome:'', especialidades:'' }; this.loadMedicos()
-      } catch (e) { alert(e.message) }
+        this.novoMedico = { nome:'', crm:'', especialidade:'', email:'', whatsapp:'', diasSemana:[], horarioInicio:'08:00', horarioFim:'18:00', slotDurationMinutes:30, msg:'✅ Médico cadastrado!', erro:false, loading:false }
+        this.loadMedicos()
+        setTimeout(() => { this.novoMedico.msg = '' }, 3000)
+      } catch (e) { this.novoMedico.erro = true; this.novoMedico.msg = e.message }
+      finally { this.novoMedico.loading = false }
     },
 
     async removerMedico(id) {
@@ -1336,11 +1535,16 @@ function painel() {
     },
 
     async salvarUsuario() {
+      this.novoUsuario.loading = true; this.novoUsuario.msg = ''; this.novoUsuario.erro = false
       try {
         await this.api('/usuarios', { method:'POST', body: JSON.stringify(this.novoUsuario) })
-        this.novoUsuario = { username:'', name:'', role:'secretaria', password:'' }; this.loadUsuarios()
-      } catch (e) { alert(e.message) }
+        this.novoUsuario = { username:'', name:'', role:'secretaria', password:'', msg:'✅ Usuário criado!', erro:false, loading:false }
+        this.loadUsuarios()
+        setTimeout(() => { this.novoUsuario.msg = '' }, 3000)
+      } catch (e) { this.novoUsuario.erro = true; this.novoUsuario.msg = e.message }
+      finally { this.novoUsuario.loading = false }
     },
+    criarUsuario() { return this.salvarUsuario() },
 
     async toggleUsuario(usr) {
       try { await this.api('/usuarios/'+usr.id+'/toggle', { method:'PATCH' }); this.loadUsuarios() }

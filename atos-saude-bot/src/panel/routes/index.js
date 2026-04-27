@@ -759,8 +759,8 @@ apiRouter.get('/medicos', requireAuth(['admin','secretaria']), (req, res) => {
   try {
     const config = JSON.parse(readFileSync(new URL('../../config/doctors.json', import.meta.url), 'utf-8'))
     const medicos = (config.doctors || []).map(d => ({
-      id: d.id, nome: d.nome, especialidades: d.especialidade,
-      calendarId: d.calendarId, active: d.active
+      id: d.id, nome: d.nome, especialidade: d.especialidade, especialidades: d.especialidade,
+      crm: d.crm || '', calendarId: d.calendarId, active: d.active !== false
     }))
     res.json({ data: medicos })
   } catch { res.json({ data: [] }) }
@@ -796,6 +796,44 @@ apiRouter.delete('/medicos/:id', requireAuth(['admin']), async (req, res) => {
     if (idx === -1) return res.status(404).json({ error: 'Médico não encontrado.' })
     config.doctors[idx].active = false
     writeFileSync(filePath, JSON.stringify(config, null, 2), 'utf-8')
+    res.json({ ok: true })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// PATCH /api/medicos/:id/toggle — ativar/desativar médico
+apiRouter.patch('/medicos/:id/toggle', requireAuth(['admin']), async (req, res) => {
+  try {
+    const { writeFileSync } = await import('fs')
+    const filePath = new URL('../../config/doctors.json', import.meta.url)
+    const config = JSON.parse(readFileSync(filePath, 'utf-8'))
+    const idx = config.doctors.findIndex(d => d.id === req.params.id)
+    if (idx === -1) return res.status(404).json({ error: 'Médico não encontrado.' })
+    config.doctors[idx].active = !config.doctors[idx].active
+    writeFileSync(filePath, JSON.stringify(config, null, 2), 'utf-8')
+    res.json({ ok: true, active: config.doctors[idx].active })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// GET /api/medicos/:id/slots — horários disponíveis para marcação manual
+apiRouter.get('/medicos/:id/slots', async (req, res) => {
+  const { date } = req.query
+  if (!date) return res.status(400).json({ error: 'date é obrigatório.' })
+  try {
+    const slots = await getDoctorSlots(req.params.id, 30, 50)
+    const filtered = slots.filter(s => {
+      const d = new Date(s.datetime)
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` === date
+    })
+    res.json(filtered.map(s => ({ iso: new Date(s.datetime).toISOString(), hora: fmtHora(s.datetime) })))
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// PUT /api/textos — substituir todo o messages.json de uma vez
+apiRouter.put('/textos', requireAuth(['admin']), async (req, res) => {
+  try {
+    const { writeFileSync } = await import('fs')
+    writeFileSync(MSG_FILE, JSON.stringify(req.body, null, 2), 'utf-8')
+    invalidateCache()
     res.json({ ok: true })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
