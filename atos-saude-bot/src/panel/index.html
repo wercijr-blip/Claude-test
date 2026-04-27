@@ -214,12 +214,12 @@
 
     <!-- Nav -->
     <nav class="flex-1 p-3 overflow-y-auto sidebar-nav space-y-0.5">
-      <template x-for="tab in tabs.filter(t => permissions?.tabs?.includes(t.id))" :key="tab.id">
-        <button @click="activeTab = tab.id"
-          :class="activeTab === tab.id ? 'nav-item active' : 'nav-item'">
-          <span x-text="tab.icon" class="text-base w-5 shrink-0 text-center"></span>
-          <span x-text="tab.label" class="truncate"></span>
-          <span x-show="tab.id === 'atendimento' && humanWaiting.length > 0"
+      <template x-for="navItem in tabs.filter(t => permissions?.tabs?.includes(t.id))" :key="navItem.id">
+        <button @click="activeTab = navItem.id"
+          :class="activeTab === navItem.id ? 'nav-item active' : 'nav-item'">
+          <span x-text="navItem.icon" class="text-base w-5 shrink-0 text-center"></span>
+          <span x-text="navItem.label" class="truncate"></span>
+          <span x-show="navItem.id === 'atendimento' && humanWaiting.length > 0"
             class="nav-badge" x-text="humanWaiting.length > 9 ? '9+' : humanWaiting.length"></span>
         </button>
       </template>
@@ -846,7 +846,7 @@
         <div x-show="waStatus!=='open'" class="text-center">
           <p class="text-sm text-gray-500 mb-3">Escaneie o QR Code com o WhatsApp do celular:</p>
           <div x-show="qrCode" class="inline-block border-4 border-[#2D8C8C] rounded-xl p-2 bg-white shadow-lg">
-            <img :src="'https://api.qrserver.com/v1/create-qr-code/?data='+encodeURIComponent(qrCode)+'&size=220x220'" alt="QR Code" class="rounded-lg" />
+            <img :src="qrCode.startsWith('data:') ? qrCode : 'data:image/png;base64,'+qrCode" alt="QR Code" class="rounded-lg w-56 h-56" />
           </div>
           <div x-show="!qrCode" class="w-56 h-56 mx-auto flex items-center justify-center bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
             <span class="text-gray-300 text-sm">Aguardando QR…</span>
@@ -1561,12 +1561,12 @@ function painel() {
 
     // WhatsApp / QR
     async loadWAStatus() {
-      try { const d = await this.api('/whatsapp/status'); this.waStatus = d.status } catch (e) { console.error(e) }
+      try { const d = await this.api('/whatsapp/status'); this.waStatus = d.instance?.state || d.instance?.connectionStatus || d.state || d.status || null } catch (e) { console.error(e) }
       if (this.waStatus !== 'open') this.loadQR()
     },
 
     async loadQR() {
-      try { const d = await this.api('/whatsapp/qr'); this.qrCode = d.qr || d.base64 || '' } catch (e) { console.error(e) }
+      try { const d = await this.api('/whatsapp/qr'); this.qrCode = d.qrcode?.base64 || d.base64 || d.qr || '' } catch (e) { console.error(e) }
       clearInterval(this.qrTimer)
       this.qrTimer = setInterval(async () => {
         await this.loadWAStatus()
