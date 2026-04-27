@@ -126,7 +126,20 @@ db.exec(`
     used INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
+
+  CREATE TABLE IF NOT EXISTS messages_log (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    phone      TEXT    NOT NULL,
+    direction  TEXT    NOT NULL CHECK(direction IN ('IN','OUT')),
+    text       TEXT,
+    flow       TEXT,
+    step       TEXT,
+    timestamp  DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
 `)
+
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_messages_log_phone ON messages_log(phone)') } catch {}
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_messages_log_ts    ON messages_log(timestamp)') } catch {}
 
 // Adiciona coluna agendamento_id à tabela sessions se ainda não existir
 try { db.exec('ALTER TABLE sessions ADD COLUMN agendamento_id TEXT') } catch {}
@@ -356,6 +369,47 @@ export function getHumanWaitingSessions(minMinutes = 10) {
     `SELECT * FROM sessions WHERE flow = 'HUMANO' AND human_transfer_at IS NOT NULL
      AND human_transfer_at <= datetime('now', '-${minMinutes} minutes')`
   ).all()
+}
+
+// Messages log
+export function insertMessageLog({ phone, direction, text, flow, step }) {
+  db.prepare(
+    'INSERT INTO messages_log (phone, direction, text, flow, step) VALUES (?, ?, ?, ?, ?)'
+  ).run(phone, direction, text || '', flow || null, step || null)
+}
+
+export function getConversations(limit = 100) {
+  return db.prepare(`
+    SELECT
+      m.phone,
+      m.text       AS last_message,
+      m.direction  AS last_direction,
+      m.timestamp  AS last_timestamp,
+      m.flow       AS last_flow,
+      m.step       AS last_step,
+      s.flow       AS current_flow,
+      s.step       AS current_step,
+      s.nome,
+      s.human_transfer_at,
+      (SELECT COUNT(*) FROM messages_log WHERE phone = m.phone) AS message_count
+    FROM messages_log m
+    LEFT JOIN sessions s ON s.phone = m.phone
+    WHERE m.id = (SELECT MAX(id) FROM messages_log WHERE phone = m.phone)
+    ORDER BY m.timestamp DESC
+    LIMIT ?
+  `).all(limit)
+}
+
+export function getConversationByPhone(phone) {
+  return db.prepare(
+    'SELECT * FROM messages_log WHERE phone = ? ORDER BY timestamp ASC'
+  ).all(phone)
+}
+
+export function deleteOldMessageLogs(daysOld = 90) {
+  db.prepare(
+    `DELETE FROM messages_log WHERE timestamp < datetime('now', '-${daysOld} days')`
+  ).run()
 }
 
 export default db
