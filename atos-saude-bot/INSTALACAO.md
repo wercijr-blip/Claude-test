@@ -1,144 +1,207 @@
 # 📦 Manual de Instalação — Atos Saúde Bot
-### Guia Completo para Iniciantes
+### Guia Passo a Passo para Iniciantes (sem conhecimento técnico)
 
 ---
 
-## 🗺️ Visão Geral do Sistema
+## 📋 O QUE VOCÊ VAI PRECISAR ANTES DE COMEÇAR
 
-Antes de instalar, entenda o que o sistema é composto:
+Antes de iniciar, separe as seguintes informações:
+
+- [ ] Acesso à internet no seu computador
+- [ ] Um cartão de crédito (para contratar o servidor — ~R$ 35/mês)
+- [ ] Uma conta Google (Gmail) para o Google Calendar
+- [ ] O número de WhatsApp que será usado como bot (um chip dedicado, não o seu pessoal)
+- [ ] Cerca de 2 horas de tempo disponível
+
+> 💡 **Não tem experiência com tecnologia?** Sem problema. Este guia foi escrito especialmente para você. Siga cada passo na ordem e não pule etapas.
+
+---
+
+## 🗺️ ENTENDENDO O SISTEMA (leia antes de instalar)
+
+O sistema é composto por partes que trabalham juntas:
 
 ```
-Internet (WhatsApp)
-       ↓
-Evolution API  ←→  Bot (Node.js)  ←→  Banco SQLite
-       ↑                ↑
-  (envia/recebe)   (lógica)
-                        ↓
-                 Google Calendar
-                        ↓
-                  Claude AI (FAQ)
+Paciente (WhatsApp)
+        ↓
+  Evolution API  ←→  Bot Atos Saúde  ←→  Banco de Dados
+  (recebe/envia           (cérebro             (memória)
+   mensagens)             do sistema)
+        ↑                     ↓
+   WhatsApp              Google Calendar
+                              ↓
+                          Claude AI (FAQ)
 ```
 
-| Componente | O que faz | Onde roda |
+| Componente | Para que serve | Precisa instalar? |
 |---|---|---|
-| **Evolution API** | Conecta ao WhatsApp | Servidor (Docker) |
-| **Bot Node.js** | Toda a lógica do chatbot e painel | Servidor |
-| **SQLite** | Banco de dados local (sem instalar separado) | Arquivo no servidor |
-| **Google Calendar** | Agenda dos médicos | Nuvem Google |
-| **Claude AI** | Responde dúvidas sobre convênios | Nuvem Anthropic |
+| **Evolution API** | Conecta ao WhatsApp | Sim (via Docker) |
+| **Bot Node.js** | Toda a lógica + painel web | Sim |
+| **SQLite** | Banco de dados (arquivo local) | Não — criado automaticamente |
+| **Google Calendar** | Agenda dos médicos na nuvem | Criar conta de serviço |
+| **Claude AI** | Responde dúvidas de convênios | Criar chave de API |
 
 ---
 
-## 🖥️ PARTE 1 — Escolhendo o Servidor
+## 🖥️ PARTE 1 — CONTRATANDO O SERVIDOR
 
-### Opção recomendada: VPS (Servidor na nuvem)
+Você precisa de um **servidor na nuvem** (computador que fica ligado 24 horas por dia). Não é possível usar seu computador pessoal.
 
-Você precisa de um servidor Linux sempre ligado. Recomendamos a **Hostinger KVM 1**:
+### Por que um servidor na nuvem?
+O bot precisa estar disponível 24/7. Se o computador desligar, o bot para de responder.
 
-- **Preço:** ~R$ 35/mês
-- **Especificações mínimas:** 1 vCPU, 4 GB RAM, 50 GB SSD
-- **Sistema operacional:** Ubuntu 22.04 LTS
+### Servidor recomendado: Hostinger VPS KVM 1
 
-> ⚠️ **NÃO** use computador local ou hospedagem de sites (cPanel/Plesk). Essas opções não funcionam com o sistema.
+**Passo a passo:**
 
-### Como contratar a Hostinger:
-1. Acesse `hostinger.com.br`
-2. Vá em **VPS Hosting → KVM 1**
-3. Selecione **Ubuntu 22.04**
-4. Anote o **IP do servidor**, **usuário** (root) e **senha** que chegará por e-mail
+1. Abra o navegador e acesse: **hostinger.com.br**
+2. No menu, clique em **"Hospedagem"** → **"VPS"**
+3. Escolha o plano **KVM 1** (o menor é suficiente para começar)
+   - Preço aproximado: R$ 25 a 40/mês
+4. Em **Sistema Operacional**, selecione **Ubuntu 22.04 LTS**
+   - ⚠️ IMPORTANTE: Escolha exatamente "Ubuntu 22.04". Outras versões podem ter problemas.
+5. Finalize a compra
+6. Aguarde o e-mail da Hostinger com:
+   - **IP do servidor** (exemplo: `189.23.45.67`) — anote isso
+   - **Usuário:** geralmente `root`
+   - **Senha** — anote isso
+
+> ⚠️ **NÃO USE:** hospedagem de sites comum (cPanel, Plesk, Wix, etc.). Essas opções não funcionam para este sistema.
 
 ---
 
-## 🔌 PARTE 2 — Acessando o Servidor
+## 🔌 PARTE 2 — ACESSANDO O SERVIDOR PELA PRIMEIRA VEZ
 
-Você vai controlar o servidor pela linha de comando. Use um programa chamado **SSH**.
+Você vai controlar o servidor digitando comandos de texto. O programa para isso se chama **SSH**.
 
 ### No Windows:
-1. Baixe o **PuTTY** em: `putty.org`
-2. Abra o PuTTY
-3. Em **Host Name**, coloque o IP do seu servidor (ex: `192.168.1.100`)
-4. Clique em **Open**
-5. Quando pedir login, digite: `root`
-6. Digite a senha (os caracteres NÃO aparecem na tela — isso é normal, continue digitando)
 
-### No Mac ou Linux:
-1. Abra o **Terminal**
-2. Digite: `ssh root@SEU_IP_AQUI` (substitua pelo IP real)
-3. Digite a senha quando pedir
+1. Baixe o programa **PuTTY** em: **putty.org** → clique em "Download PuTTY"
+2. Instale e abra o PuTTY
+3. Na tela que abrir:
+   - Em **"Host Name (or IP address)"**, digite o IP do seu servidor (ex: `189.23.45.67`)
+   - A porta deve ser **22** (já vem preenchida)
+   - Clique em **"Open"**
+4. Uma tela preta vai abrir. Se aparecer um aviso de segurança, clique em **"Accept"**
+5. Quando pedir **"login as:"**, digite: `root` e pressione Enter
+6. Quando pedir a senha, **digite a senha** (os caracteres NÃO aparecem na tela — isso é normal e seguro)
+7. Pressione Enter
 
-> 💡 A partir daqui, todos os comandos são digitados dentro do servidor.
+### No Mac:
+
+1. Abra o **Terminal** (pesquise "Terminal" no Spotlight com Cmd+Espaço)
+2. Digite o comando abaixo, substituindo pelo seu IP:
+   ```
+   ssh root@189.23.45.67
+   ```
+3. Pressione Enter e digite a senha quando pedir
+
+### Como saber se funcionou?
+Você verá algo como:
+```
+Welcome to Ubuntu 22.04.3 LTS
+root@servidor:~#
+```
+O `#` no final significa que você está dentro do servidor. Agora todos os comandos que você digitar rodam no servidor.
 
 ---
 
-## 🐋 PARTE 3 — Instalando o Docker
+## 🔄 PARTE 3 — ATUALIZANDO O SERVIDOR
 
-O Docker é necessário para rodar a Evolution API. Execute os comandos abaixo um por vez:
+Com o servidor aberto, copie e cole os comandos abaixo. Para colar no terminal do Windows, clique com o botão direito do mouse.
 
 ```bash
-# 1. Atualiza o sistema
 apt update && apt upgrade -y
+```
 
-# 2. Instala dependências
-apt install -y curl git wget nano
+Aguarde terminar (pode demorar 1-3 minutos). Quando aparecer o `#` novamente, significa que terminou.
 
-# 3. Instala o Docker
+Agora instale ferramentas necessárias:
+
+```bash
+apt install -y curl git wget nano unzip
+```
+
+---
+
+## 🐋 PARTE 4 — INSTALANDO O DOCKER
+
+O Docker é um programa que "embalota" outros programas para rodar de forma isolada. Precisamos dele para a Evolution API.
+
+```bash
 curl -fsSL https://get.docker.com | sh
+```
 
-# 4. Instala o Docker Compose
+Aguarde. Depois instale o Docker Compose:
+
+```bash
 apt install -y docker-compose-plugin
+```
 
-# 5. Verifica se instalou corretamente
+Verifique se instalou corretamente:
+
+```bash
 docker --version
 docker compose version
 ```
 
-Se aparecer algo como `Docker version 24.x.x` — funcionou!
+Você deve ver algo como `Docker version 24.x.x`. Se aparecer, funcionou!
 
 ---
 
-## 🟢 PARTE 4 — Instalando o Node.js 20
+## 🟢 PARTE 5 — INSTALANDO O NODE.JS 20
+
+O Node.js é o programa que vai rodar o bot.
 
 ```bash
-# 1. Adiciona o repositório do Node.js 20
 curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-
-# 2. Instala o Node.js
 apt install -y nodejs
-
-# 3. Verifica a versão (deve ser 20.x.x)
-node --version
-npm --version
 ```
+
+Verifique:
+
+```bash
+node --version
+```
+
+Deve aparecer `v20.x.x`. Se aparecer, funcionou!
 
 ---
 
-## ♻️ PARTE 5 — Instalando o PM2 (mantém o bot sempre ligado)
+## ♻️ PARTE 6 — INSTALANDO O PM2
 
-O PM2 é um gerenciador que reinicia o bot automaticamente se ele cair.
+O PM2 é um gerenciador que mantém o bot sempre ligado, mesmo se der algum erro.
 
 ```bash
 npm install -g pm2
+```
+
+Verifique:
+
+```bash
 pm2 --version
 ```
 
 ---
 
-## 📱 PARTE 6 — Instalando a Evolution API (WhatsApp)
+## 📱 PARTE 7 — INSTALANDO A EVOLUTION API (WhatsApp)
 
-A Evolution API é o componente que conecta seu bot ao WhatsApp.
+A Evolution API é o componente que faz a ponte entre o seu bot e o WhatsApp.
 
-### 6.1 — Criar pasta e arquivo de configuração
+### Passo 7.1 — Criar a pasta
 
 ```bash
-# Cria a pasta
 mkdir -p /opt/evolution
 cd /opt/evolution
+```
 
-# Cria o arquivo docker-compose.yml
+### Passo 7.2 — Criar o arquivo de configuração
+
+```bash
 nano docker-compose.yml
 ```
 
-Quando o editor abrir, cole o conteúdo abaixo (use Ctrl+Shift+V para colar no terminal):
+Uma tela de edição vai abrir. Cole o conteúdo abaixo (no Windows, clique com botão direito para colar):
 
 ```yaml
 version: '3.8'
@@ -151,7 +214,7 @@ services:
       - "8080:8080"
     environment:
       - SERVER_URL=http://localhost:8080
-      - AUTHENTICATION_API_KEY=TROQUE_POR_UMA_CHAVE_SEGURA_AQUI
+      - AUTHENTICATION_API_KEY=TROQUE_POR_UMA_CHAVE_SEGURA
       - AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES=true
       - DATABASE_ENABLED=true
       - DATABASE_PROVIDER=sqlite
@@ -170,214 +233,253 @@ volumes:
   evolution_store:
 ```
 
-> ⚠️ **IMPORTANTE:** Troque `TROQUE_POR_UMA_CHAVE_SEGURA_AQUI` por uma senha forte (ex: `MinhaChave#2025!`). Anote essa chave — você vai precisar depois.
+> ⚠️ **IMPORTANTE:** Troque `TROQUE_POR_UMA_CHAVE_SEGURA` por uma senha sua. Exemplo: `AtosClinica#2025!`. **Anote essa senha** — você vai precisar dela várias vezes.
 
-Para salvar: pressione `Ctrl+X`, depois `Y`, depois `Enter`.
+Para salvar o arquivo:
+1. Pressione `Ctrl + X`
+2. Pressione `Y` (de "Yes")
+3. Pressione `Enter`
 
-### 6.2 — Iniciar a Evolution API
+### Passo 7.3 — Iniciar a Evolution API
 
 ```bash
-cd /opt/evolution
 docker compose up -d
+```
 
-# Verifica se está rodando
+Verifique se está rodando:
+
+```bash
 docker ps
 ```
 
-Deve aparecer o container `evolution_api` com status `Up`.
+Você deve ver uma linha com `evolution_api` e `Up` no status. Se aparecer, funcionou!
 
 ---
 
-## 🤖 PARTE 7 — Instalando o Bot
+## 🤖 PARTE 8 — INSTALANDO O BOT
 
-### 7.1 — Copiar os arquivos para o servidor
+### Passo 8.1 — Copiar os arquivos
 
-Se o código está em um repositório Git:
+**Se você tem acesso ao repositório Git:**
 ```bash
 cd /opt
-git clone URL_DO_SEU_REPOSITORIO atos-saude-bot
+git clone URL_DO_REPOSITORIO atos-saude-bot
 cd atos-saude-bot
 ```
 
-Se você vai fazer upload manual (via FTP/SFTP):
-- Use o programa **FileZilla** (gratuito em `filezilla-project.org`)
-- Conecte com: Host = IP do servidor, Usuário = root, Senha = sua senha, Porta = 22
-- Faça upload de toda a pasta do bot para `/opt/atos-saude-bot`
+**Se vai fazer upload manual (via FileZilla):**
+1. Baixe o FileZilla em: **filezilla-project.org** → "Download FileZilla Client"
+2. Abra o FileZilla
+3. No topo, preencha:
+   - **Host:** IP do seu servidor
+   - **Usuário:** root
+   - **Senha:** sua senha do servidor
+   - **Porta:** 22
+4. Clique em **Conexão rápida**
+5. Do lado direito (servidor), navegue até `/opt/`
+6. Crie uma pasta chamada `atos-saude-bot`
+7. Do lado esquerdo (seu computador), encontre a pasta do bot
+8. Arraste todos os arquivos para a pasta no servidor
+
+### Passo 8.2 — Instalar as dependências
 
 ```bash
-# Após copiar os arquivos, entre na pasta
 cd /opt/atos-saude-bot
-```
-
-### 7.2 — Instalar as dependências
-
-```bash
 npm install
 ```
 
-Aguarde. Vai baixar todos os pacotes necessários (~1-2 minutos).
+Vai baixar os pacotes necessários. Aguarde (1-3 minutos).
 
 ---
 
-## ⚙️ PARTE 8 — Configurando o Arquivo .env
+## ⚙️ PARTE 9 — CONFIGURANDO O ARQUIVO .env
 
-O arquivo `.env` contém todas as configurações do sistema. É como o "painel de controle" da instalação.
+O arquivo `.env` é o "painel de controle" da instalação. Contém todas as senhas e configurações.
 
 ```bash
-# Cria o arquivo .env a partir do exemplo
 cp .env.example .env
-
-# Abre para editar
 nano .env
 ```
 
-### O que preencher em cada linha:
+Você verá as linhas para preencher. Substitua cada valor conforme abaixo:
 
 ```env
-# ─── Evolution API (WhatsApp) ─────────────────────────────
+# ── WhatsApp (Evolution API) ──────────────────────────────
 EVOLUTION_URL=http://localhost:8080
-EVOLUTION_API_KEY=AQUI_A_CHAVE_QUE_VOCÊ_CRIOU_NO_DOCKER
+EVOLUTION_API_KEY=A_SENHA_QUE_VOCÊ_CRIOU_NO_PASSO_7
 INSTANCE_NAME=atossaude
 
-# ─── Google Calendar ──────────────────────────────────────
+# ── Google Calendar ───────────────────────────────────────
 GOOGLE_SERVICE_ACCOUNT_PATH=./src/config/google-service-account.json
 
-# ─── Claude AI (FAQ de convênios) ─────────────────────────
+# ── Claude AI (FAQ de convênios) ──────────────────────────
 ANTHROPIC_API_KEY=sk-ant-XXXXXXXXXX
 
-# ─── Configurações gerais ─────────────────────────────────
+# ── Configurações gerais ──────────────────────────────────
 PORT=3000
 NODE_ENV=production
 
-# ─── Segurança do painel ──────────────────────────────────
-JWT_SECRET=CRIE_UMA_SENHA_LONGA_E_ALEATÓRIA_AQUI_MINIMO_32_CARACTERES
+# ── Segurança do painel web ───────────────────────────────
+JWT_SECRET=CRIE_UMA_FRASE_LONGA_E_ALEATORIA_AQUI_MINIMO_32_CARACTERES
 ```
 
-#### Onde conseguir cada chave:
+### Onde conseguir a chave do Claude AI (ANTHROPIC_API_KEY):
 
-**EVOLUTION_API_KEY:** É a senha que você escolheu no Passo 6.1.
+1. Acesse: **console.anthropic.com**
+2. Clique em **"Sign Up"** e crie uma conta (pode usar o Google)
+3. No menu, clique em **"API Keys"**
+4. Clique em **"Create Key"** e dê um nome (ex: "Atos Saúde")
+5. Copie a chave — ela começa com `sk-ant-`
+6. Vá em **"Billing"** e adicione crédito (US$ 5 já é suficiente para começar)
 
-**ANTHROPIC_API_KEY:**
-1. Acesse `console.anthropic.com`
-2. Crie uma conta (ou faça login)
-3. Vá em **API Keys → Create Key**
-4. Copie a chave (começa com `sk-ant-`)
-5. Adicione créditos em **Billing** (~$5 dólares já é suficiente para começar)
+### JWT_SECRET — o que é e como criar:
 
-**JWT_SECRET:** Invente uma senha longa e aleatória, ex:
-`MinhaClinicaAtos#2025!ChaveSegura@Panel`
+É uma senha interna que protege o painel web. Pode ser qualquer frase longa. Exemplo:
+```
+AtosClinica2025PainelSeguro!ChaveUnica#Bot
+```
 
 Para salvar: `Ctrl+X`, `Y`, `Enter`.
 
 ---
 
-## 📅 PARTE 9 — Configurando o Google Calendar
+## 📅 PARTE 10 — CONFIGURANDO O GOOGLE CALENDAR
 
-Esta é a parte mais técnica. Siga com atenção.
+Esta é a parte mais detalhada. Siga com atenção, passo a passo.
 
-### 9.1 — Criar Projeto no Google Cloud
+### 10.1 — Criar Projeto no Google Cloud
 
-1. Acesse `console.cloud.google.com`
-2. Clique em **Selecionar projeto → Novo projeto**
-3. Nome: `AtosSaude` — clique em **Criar**
-4. Certifique-se que o projeto `AtosSaude` está selecionado
+1. Acesse: **console.cloud.google.com**
+2. Faça login com a conta Google da clínica
+3. No topo, clique em **"Selecionar projeto"** → **"Novo projeto"**
+4. Nome do projeto: `AtosSaude`
+5. Clique em **"Criar"**
+6. Aguarde criar e certifique-se de que o projeto `AtosSaude` aparece selecionado no topo
 
-### 9.2 — Ativar a API do Calendar
+### 10.2 — Ativar a API do Google Calendar
 
-1. No menu lateral, vá em **APIs e serviços → Biblioteca**
-2. Pesquise `Google Calendar API`
-3. Clique nela e depois em **Ativar**
+1. No menu lateral (as 3 linhas no canto superior esquerdo), clique em **"APIs e serviços"** → **"Biblioteca"**
+2. Na caixa de pesquisa, digite: `Google Calendar API`
+3. Clique no resultado **"Google Calendar API"**
+4. Clique no botão azul **"Ativar"**
+5. Aguarde ativar
 
-### 9.3 — Criar a Conta de Serviço
+### 10.3 — Criar a Conta de Serviço
 
-1. Vá em **APIs e serviços → Credenciais**
-2. Clique em **Criar credenciais → Conta de serviço**
-3. Nome: `atos-saude-bot`
-4. Clique em **Criar e continuar → Concluído**
-5. Clique na conta de serviço que acabou de criar
-6. Vá na aba **Chaves → Adicionar chave → Criar nova chave**
-7. Escolha **JSON** → **Criar**
-8. Um arquivo `.json` será baixado no seu computador
+A conta de serviço é como um "robô" que o bot usa para acessar os calendários.
 
-### 9.4 — Enviar o arquivo JSON para o servidor
+1. No menu lateral, clique em **"APIs e serviços"** → **"Credenciais"**
+2. Clique em **"+ Criar credenciais"** → **"Conta de serviço"**
+3. Preencha:
+   - **Nome:** `atos-saude-bot`
+   - **ID:** será preenchido automaticamente
+4. Clique em **"Criar e continuar"**
+5. Em "Conceder acesso", não precisa selecionar nada → clique em **"Continuar"**
+6. Clique em **"Concluído"**
 
-Use o FileZilla para enviar o arquivo baixado para:
-`/opt/atos-saude-bot/src/config/google-service-account.json`
+### 10.4 — Baixar a chave JSON
 
-### 9.5 — Compartilhar o Calendário do Médico com a Conta de Serviço
+1. Na lista de contas de serviço, clique na que você acabou de criar (`atos-saude-bot@...`)
+2. Clique na aba **"Chaves"**
+3. Clique em **"Adicionar chave"** → **"Criar nova chave"**
+4. Selecione **"JSON"** e clique em **"Criar"**
+5. Um arquivo `.json` será baixado automaticamente no seu computador
+6. **Anote o e-mail** que aparece no campo `client_email` dentro do arquivo (parece com `atos-saude-bot@atossaude.iam.gserviceaccount.com`) — você vai precisar dele
 
-Para cada médico que usa o sistema:
+### 10.5 — Enviar o arquivo JSON para o servidor
 
-1. Abra o **Google Calendar** da conta do médico
-2. No calendário do médico (barra lateral esquerda), clique nos **3 pontinhos → Configurações e compartilhamento**
-3. Em **Compartilhar com pessoas específicas**, clique em **Adicionar pessoas**
-4. Cole o e-mail da conta de serviço (está dentro do arquivo JSON, campo `client_email` — parece com `atos-saude-bot@atossaude.iam.gserviceaccount.com`)
-5. Permissão: **Fazer alterações e gerenciar compartilhamento**
-6. Clique em **Enviar**
-7. Anote o **ID do calendário**: nas configurações do calendário, role até **ID do calendário** (parece com `xxxxx@group.calendar.google.com`)
+Use o FileZilla (Parte 8.1) para enviar o arquivo JSON para:
+```
+/opt/atos-saude-bot/src/config/google-service-account.json
+```
 
-> 💡 O ID do calendário você vai precisar ao cadastrar o médico no painel.
+> ⚠️ O nome do arquivo no servidor deve ser exatamente `google-service-account.json`
+
+### 10.6 — Compartilhar o calendário com a conta de serviço
+
+Para que o bot crie e gerencie eventos na agenda dos médicos, você precisa compartilhar cada calendário:
+
+**Isso você faz pelo Google Calendar normal (calendar.google.com):**
+
+1. Acesse: **calendar.google.com** com a conta do médico
+2. No lado esquerdo, procure o calendário do médico
+3. Clique nos **3 pontinhos** ao lado do nome do calendário
+4. Clique em **"Configurações e compartilhamento"**
+5. Role a página até encontrar **"Compartilhar com pessoas específicas ou grupos"**
+6. Clique em **"+ Adicionar pessoas e grupos"**
+7. Cole o e-mail da conta de serviço (aquele que você anotou no passo 10.4)
+8. Em permissão, selecione: **"Fazer alterações e gerenciar compartilhamento"**
+9. Clique em **"Enviar"**
+
+**Anotar o ID do Calendário:**
+1. Ainda nas configurações do calendário, role para baixo até **"Integrar agenda"**
+2. O **"ID da agenda"** aparece lá — parece com `abc123@group.calendar.google.com`
+3. **Anote esse ID** — você vai precisar ao cadastrar o médico no painel
+
+> 💡 Se o médico ainda não tem um calendário criado, você pode criar um novo calendário no Google Calendar antes de compartilhar.
 
 ---
 
-## 🏥 PARTE 10 — Primeira Inicialização
+## 🚀 PARTE 11 — PRIMEIRA INICIALIZAÇÃO DO BOT
 
 ```bash
 cd /opt/atos-saude-bot
 node index.js
 ```
 
-Na primeira execução você vai ver mensagens como:
+Na primeira vez, você verá mensagens assim:
+
 ```
-[WARN]  Banco de dados inicializado
-[WARN]  ╔══════════════════════════════════════════════════════╗
-[WARN]  ║  ATENÇÃO: Usuários padrão criados. TROQUE AS SENHAS! ║
-[WARN]  ║  admin / Admin@123                                   ║
-[WARN]  ║  secretaria / Secr@123                               ║
-[WARN]  ║  faturamento / Fat@123                               ║
-[WARN]  ╚══════════════════════════════════════════════════════╝
-[INFO]  Painel disponível em http://localhost:3000/painel
+[INFO] Banco de dados inicializado
+[WARN] ╔══════════════════════════════════════════╗
+[WARN] ║  ATENÇÃO: Usuários padrão criados!       ║
+[WARN] ║  admin       / Admin@123                 ║
+[WARN] ║  secretaria  / Secr@123                  ║
+[WARN] ║  faturamento / Fat@123                   ║
+[WARN] ╚══════════════════════════════════════════╝
+[INFO] Painel disponível em http://localhost:3000/painel
+[INFO] Bot iniciado com sucesso!
 ```
 
-Isso é normal. Pare o bot por agora com `Ctrl+C`.
+Isso é normal e esperado. Pare o bot por agora pressionando `Ctrl + C`.
 
 ---
 
-## 📱 PARTE 11 — Conectando o WhatsApp
+## 📲 PARTE 12 — CONECTANDO O WHATSAPP
 
-### 11.1 — Criar a instância na Evolution API
+### 12.1 — Criar a instância na Evolution API
+
+Cole o comando abaixo, **substituindo** `SUA_CHAVE_AQUI` pela senha que você criou no Passo 7:
 
 ```bash
 curl -X POST http://localhost:8080/instance/create \
   -H "Content-Type: application/json" \
-  -H "apikey: SUA_CHAVE_DA_EVOLUTION" \
+  -H "apikey: SUA_CHAVE_AQUI" \
   -d '{"instanceName": "atossaude", "integration": "WHATSAPP-BAILEYS"}'
 ```
 
-### 11.2 — Conectar via QR Code
+Se aparecer `"error":false` na resposta, funcionou!
 
-1. Abra no navegador (no seu computador, não no servidor):
-   `http://IP_DO_SERVIDOR:8080/manager`
+### 12.2 — Conectar via QR Code pelo Painel
 
-2. Faça login com a chave da Evolution API
+Após iniciar o bot (Parte 13), você poderá conectar o WhatsApp diretamente pelo painel web:
 
-3. Clique na instância **atossaude**
+1. Acesse o painel no navegador: `http://IP_DO_SERVIDOR:3000/painel`
+2. Faça login com `admin` / `Admin@123`
+3. Clique na aba **📱 WhatsApp**
+4. Clique em **"Gerar QR Code para Conectar"**
+5. Escaneie o QR Code com o WhatsApp do celular da clínica:
+   - Abra o WhatsApp → Menu (3 pontinhos) → **Aparelhos conectados** → **Conectar aparelho**
+6. Aguarde ficar conectado (o painel mostrará "WhatsApp Conectado" em verde)
 
-4. Clique em **Connect → QR Code**
+### 12.3 — Configurar o Webhook
 
-5. No celular da clínica (o número que será o bot):
-   - Abra WhatsApp → Menu (3 pontinhos) → **Aparelhos conectados**
-   - Toque em **Conectar aparelho**
-   - Escaneie o QR Code
-
-6. Aguarde ficar **Connected** (verde)
-
-### 11.3 — Configurar o Webhook (avisar o bot sobre mensagens)
+O webhook é o "aviso" que a Evolution API envia ao bot quando chega uma mensagem. Execute:
 
 ```bash
 curl -X POST "http://localhost:8080/webhook/set/atossaude" \
   -H "Content-Type: application/json" \
-  -H "apikey: SUA_CHAVE_DA_EVOLUTION" \
+  -H "apikey: SUA_CHAVE_AQUI" \
   -d '{
     "url": "http://localhost:3000/webhook",
     "webhook_by_events": false,
@@ -388,29 +490,37 @@ curl -X POST "http://localhost:8080/webhook/set/atossaude" \
 
 ---
 
-## 🔄 PARTE 12 — Deixar o Bot Sempre Ligado com PM2
+## ♾️ PARTE 13 — DEIXAR O BOT SEMPRE LIGADO (PM2)
 
 ```bash
 cd /opt/atos-saude-bot
 
-# Inicia com PM2
+# Inicia o bot com PM2
 pm2 start index.js --name "atos-saude-bot"
 
-# Verifica se está rodando
+# Verifica se está online
 pm2 status
+```
 
-# Para iniciar automaticamente quando o servidor reiniciar
+Você verá uma tabela. A coluna **"status"** deve mostrar `online`.
+
+Agora configure para reiniciar automaticamente quando o servidor ligar:
+
+```bash
 pm2 startup
-# (copie e execute o comando que aparecer na tela)
-pm2 save
+```
 
-# Ver logs em tempo real
-pm2 logs atos-saude-bot
+Um comando vai aparecer na tela — **copie e execute esse comando exato** (começa com `sudo env PATH=...`).
+
+Depois salve:
+
+```bash
+pm2 save
 ```
 
 ---
 
-## 🌐 PARTE 13 — Acessar o Painel
+## 🌐 PARTE 14 — ACESSANDO O PAINEL WEB
 
 Abra o navegador no seu computador e acesse:
 
@@ -419,108 +529,147 @@ http://IP_DO_SERVIDOR:3000/painel
 ```
 
 **Credenciais iniciais:**
-| Usuário | Senha | Nível |
+
+| Usuário | Senha inicial | Nível de acesso |
 |---|---|---|
-| `admin` | `Admin@123` | Administrador (acesso total) |
+| `admin` | `Admin@123` | Administrador — acesso total |
 | `secretaria` | `Secr@123` | Secretaria |
 | `faturamento` | `Fat@123` | Faturamento |
 
-> ⚠️ **OBRIGATÓRIO:** Na primeira entrada, o sistema exigirá que você troque a senha. Faça isso imediatamente para todos os usuários.
+> ⚠️ **OBRIGATÓRIO:** Na primeira vez que cada usuário entrar, o sistema **exige** a troca de senha. Faça isso imediatamente para todos os perfis.
 
 ---
 
-## 🔒 PARTE 14 — Segurança Básica (Recomendado)
+## 👨‍⚕️ PARTE 15 — CADASTRANDO OS MÉDICOS
 
-### Bloquear portas desnecessárias:
+Com o painel aberto, clique na aba **👨‍⚕️ Médicos**:
+
+1. Preencha o formulário à esquerda com os dados do médico
+2. **Google Calendar ID:** Cole o ID que você anotou no Passo 10.6
+   - Parece com: `nomemedico@group.calendar.google.com`
+3. Configure os dias e horários de atendimento
+4. Clique em **"✅ Cadastrar Médico"**
+
+> 💡 O Google Calendar do médico será **criado e configurado automaticamente** pelo sistema após o cadastro.
+
+---
+
+## 🔒 PARTE 16 — SEGURANÇA BÁSICA (Recomendado)
+
+Configure o firewall para bloquear portas desnecessárias:
+
 ```bash
-ufw allow 22      # SSH
-ufw allow 3000    # Painel
+ufw allow 22      # SSH (acesso ao servidor)
+ufw allow 3000    # Painel web
 ufw allow 8080    # Evolution API
 ufw enable
 ```
 
-### (Opcional) Usar domínio com HTTPS:
-Se você tiver um domínio (ex: `painel.atossaude.com.br`), instale o Nginx como proxy:
-
-```bash
-apt install nginx certbot python3-certbot-nginx -y
-```
-
-Isso fornece HTTPS gratuito via Let's Encrypt. Consulte um técnico para essa configuração.
+Quando perguntar "Command may disrupt existing ssh connections. Proceed with operation (y|n)?", digite `y` e Enter.
 
 ---
 
-## ✅ CHECKLIST FINAL DE INSTALAÇÃO
+## ✅ CHECKLIST FINAL
 
-Antes de colocar em produção, confirme:
+Antes de liberar o sistema para uso, confirme cada item:
 
-- [ ] Evolution API rodando (`docker ps` mostra container ativo)
-- [ ] WhatsApp conectado (status Connected na interface da Evolution)
-- [ ] Webhook configurado
-- [ ] Bot iniciado com PM2 (`pm2 status` mostra `online`)
-- [ ] Painel acessível no navegador
-- [ ] Senhas padrão trocadas para todos os usuários
-- [ ] Arquivo `google-service-account.json` copiado para o servidor
-- [ ] Calendário dos médicos compartilhado com a conta de serviço
-- [ ] Médicos cadastrados no painel com ID do Calendar correto
-- [ ] Teste: envie `oi` para o número do WhatsApp e veja se o bot responde
+- [ ] **Evolution API** rodando → `docker ps` mostra `evolution_api` com `Up`
+- [ ] **Bot** rodando → `pm2 status` mostra `atos-saude-bot` com `online`
+- [ ] **WhatsApp** conectado → Painel mostra "Conectado" na aba WhatsApp
+- [ ] **Webhook** configurado (Passo 12.3)
+- [ ] **Painel web** acessível no navegador
+- [ ] **Senhas trocadas** para todos os usuários
+- [ ] **Arquivo google-service-account.json** enviado para o servidor
+- [ ] **Médicos cadastrados** no painel com ID do Calendar correto
+- [ ] **Teste final:** Envie "oi" para o número do WhatsApp e o bot deve responder com o menu
 
 ---
 
-## 🆘 Problemas Comuns
+## 🆘 PROBLEMAS COMUNS E SOLUÇÕES
 
 ### Bot não responde no WhatsApp
-```bash
-pm2 logs atos-saude-bot   # veja os erros
-pm2 restart atos-saude-bot
-```
-Verifique se o WhatsApp ainda está conectado na Evolution API.
 
-### Painel não abre
+**Causa mais comum:** WhatsApp desconectado.
+
 ```bash
-pm2 status  # verifica se está rodando
-# Se estiver "errored":
 pm2 logs atos-saude-bot --lines 50
 ```
 
-### Google Calendar não funciona
-- Verifique se o arquivo `google-service-account.json` está no caminho correto
-- Verifique se o calendário foi compartilhado com o e-mail da conta de serviço
-- Verifique se o ID do calendário está correto no cadastro do médico
+Veja os erros e:
+1. Acesse o painel → aba **WhatsApp** → verifique o status
+2. Se desconectado, clique em **"Gerar QR Code"** e reconecte
 
-### Restartar tudo após reboot do servidor:
+### Painel não abre no navegador
+
 ```bash
-pm2 resurrect          # reinicia os processos salvos
-cd /opt/evolution
-docker compose up -d   # reinicia a Evolution API
+pm2 status
 ```
+
+Se o status não for `online`:
+```bash
+pm2 logs atos-saude-bot --lines 30
+pm2 restart atos-saude-bot
+```
+
+### "Cannot find module" ao iniciar
+
+```bash
+cd /opt/atos-saude-bot
+npm install
+pm2 restart atos-saude-bot
+```
+
+### Google Calendar não está sendo atualizado
+
+Verifique 3 coisas:
+1. O arquivo `google-service-account.json` está em `/opt/atos-saude-bot/src/config/`?
+   ```bash
+   ls /opt/atos-saude-bot/src/config/
+   ```
+2. O calendário foi compartilhado com o e-mail da conta de serviço?
+3. O ID do calendário no cadastro do médico está correto?
+
+### Servidor reiniciou e tudo parou
+
+```bash
+cd /opt/evolution && docker compose up -d
+pm2 resurrect
+```
+
+Se configurou `pm2 startup` corretamente, o bot sobe sozinho. Só a Evolution API precisa do comando acima.
 
 ---
 
-## 📞 Resumo dos Comandos Essenciais
+## 📞 COMANDOS ESSENCIAIS PARA O DIA A DIA
 
 ```bash
-# Status do bot
+# Ver se tudo está rodando
 pm2 status
-
-# Ver logs ao vivo
-pm2 logs atos-saude-bot
-
-# Reiniciar bot
-pm2 restart atos-saude-bot
-
-# Parar bot
-pm2 stop atos-saude-bot
-
-# Status da Evolution API
 docker ps
 
-# Reiniciar Evolution API
+# Ver logs do bot (mensagens de erro e atividade)
+pm2 logs atos-saude-bot
+
+# Ver logs ao vivo (fica atualizando)
+pm2 logs atos-saude-bot --lines 100
+
+# Reiniciar o bot
+pm2 restart atos-saude-bot
+
+# Reiniciar a Evolution API
 cd /opt/evolution && docker compose restart
 
-# Atualizar o código (se usar Git)
+# Atualizar o código (se receber atualização)
 cd /opt/atos-saude-bot
 git pull
 npm install
 pm2 restart atos-saude-bot
+
+# Fazer backup do banco de dados
+cp /opt/atos-saude-bot/atos-saude.db /root/backup-$(date +%Y%m%d).db
 ```
+
+---
+
+*Versão do documento: 2.0 — Abril 2025*
+*Sistema: Atos Saúde Integrada — Bot WhatsApp + Painel Web*
