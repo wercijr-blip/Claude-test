@@ -529,14 +529,14 @@
             </template>
             <template x-for="row in humanWaiting" :key="row.phone">
               <tr class="tbl-row"
-                :class="(new Date()-new Date(row.human_transfer_at))>600000?'bg-red-50':''">
+                :class="row.human_transfer_at && (new Date()-new Date(row.human_transfer_at))>600000?'bg-red-50':''">
                 <td class="font-mono text-xs text-gray-500" x-text="row.phone"></td>
                 <td class="font-medium" x-text="row.nome||'—'"></td>
                 <td><span class="badge bg-purple-100 text-purple-700" x-text="row.flow||'—'"></span></td>
                 <td x-text="formatDate(row.human_transfer_at)"></td>
                 <td class="font-semibold"
-                  :class="(new Date()-new Date(row.human_transfer_at))>600000?'text-red-600':'text-gray-600'"
-                  x-text="Math.floor((new Date()-new Date(row.human_transfer_at))/60000)+'min'"></td>
+                  :class="row.human_transfer_at && (new Date()-new Date(row.human_transfer_at))>600000?'text-red-600':'text-gray-600'"
+                  x-text="row.human_transfer_at ? Math.floor((new Date()-new Date(row.human_transfer_at))/60000)+'min' : '—'"></td>
                 <td>
                   <button @click="assumirAtendimento(row.phone)" class="btn-primary px-3 py-1 text-xs">
                     ✅ Assumir
