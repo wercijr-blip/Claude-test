@@ -49,8 +49,8 @@ app.use(express.json())
 app.use('/webhook', webhookRouter)
 logger.info('Webhook ativo em /webhook')
 
-// Auth (sem middleware de autenticação)
-app.use('/auth', authRouter)
+// Auth — montado em /api/auth (antes de /api para match mais específico)
+app.use('/api/auth', authRouter)
 
 // API (protegida — requireAuth aplicado dentro do router)
 app.use('/api', apiRouter)
