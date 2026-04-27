@@ -8,7 +8,8 @@ import {
   getAgendamentos, getAgendamentoById, updateAgendamentoStatus, deactivateKnowledge,
   getKnowledge, getSatisfactionResponses, insertAgendamento,
   getEncaixeQueue, insertEncaixe, removeEncaixe,
-  getHumanWaitingSessions, clearSession
+  getHumanWaitingSessions, clearSession,
+  getConversations, getConversationByPhone
 } from '../../services/db.js'
 import db from '../../services/db.js'
 import { generateExcel } from '../../services/export.js'
@@ -472,6 +473,21 @@ apiRouter.post('/sessions/:phone/encerrar', (req, res) => {
   }
   clearSession(req.params.phone)
   res.json({ ok: true })
+})
+
+// ─── Monitor de Conversas ──────────────────────────────────────────────────
+
+// GET /api/conversations  (lista todas as conversas com última mensagem)
+apiRouter.get('/conversations', requireAuth(['admin','secretaria']), (req, res) => {
+  const limit = Math.min(Number(req.query.limit) || 100, 500)
+  const rows = getConversations(limit)
+  res.json({ total: rows.length, data: rows })
+})
+
+// GET /api/conversations/:phone  (histórico completo de um número)
+apiRouter.get('/conversations/:phone', requireAuth(['admin','secretaria']), (req, res) => {
+  const messages = getConversationByPhone(req.params.phone)
+  res.json({ phone: req.params.phone, total: messages.length, data: messages })
 })
 
 // ─── WhatsApp / Evolution API ──────────────────────────────────────────────
