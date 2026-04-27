@@ -789,7 +789,7 @@
     <!-- /Tab Usuários ──────────────────────────────────────── -->
 
     <!-- Tab Exames ───────────────────────────────────────────── -->
-    <div x-show="tab==='exames'" class="space-y-4">
+    <div x-show="activeTab==='exames'" x-cloak class="space-y-4">
       <div class="card overflow-auto">
         <div class="p-4 flex items-center justify-between border-b border-gray-50">
           <h2 class="font-bold text-[#3A2169]">🩺 Exames Enviados para Análise</h2>
@@ -830,7 +830,7 @@
     <!-- /Tab Exames ──────────────────────────────────────────── -->
 
     <!-- Tab WhatsApp ─────────────────────────────────────────── -->
-    <div x-show="tab==='whatsapp'" class="space-y-5">
+    <div x-show="activeTab==='whatsapp'" x-cloak class="space-y-5">
       <div class="card p-5">
         <h2 class="font-bold text-[#3A2169] mb-4">📱 Status da Conexão WhatsApp</h2>
         <div class="flex items-center gap-4 mb-5">
@@ -864,7 +864,7 @@
     <!-- /Tab WhatsApp ────────────────────────────────────────── -->
 
     <!-- Tab Medicações ───────────────────────────────────────── -->
-    <div x-show="tab==='medicacoes'" class="space-y-4">
+    <div x-show="activeTab==='medicacoes'" x-cloak class="space-y-4">
       <div class="card overflow-auto">
         <div class="p-4 flex items-center justify-between border-b border-gray-50">
           <h2 class="font-bold text-[#3A2169]">💊 Solicitações de Medicação</h2>
@@ -896,7 +896,7 @@
     <!-- /Tab Medicações ──────────────────────────────────────── -->
 
     <!-- Tab Conhecimento ─────────────────────────────────────── -->
-    <div x-show="tab==='conhecimento'" class="space-y-4">
+    <div x-show="activeTab==='conhecimento'" x-cloak class="space-y-4">
       <div class="card p-5">
         <h2 class="font-bold text-[#3A2169] mb-4">📚 Base de Conhecimento</h2>
         <div class="flex gap-2 mb-4">
@@ -935,7 +935,7 @@
     <!-- /Tab Conhecimento ────────────────────────────────────── -->
 
     <!-- Tab Satisfação ───────────────────────────────────────── -->
-    <div x-show="tab==='satisfacao'" class="space-y-4">
+    <div x-show="activeTab==='satisfacao'" x-cloak class="space-y-4">
       <div class="grid grid-cols-3 gap-4">
         <div class="card p-5 text-center">
           <p class="text-3xl font-black text-[#2D8C8C]" x-text="mediaNotas||'—'"></p>
@@ -980,7 +980,7 @@
     <!-- /Tab Satisfação ──────────────────────────────────────── -->
 
     <!-- Tab Conversas ────────────────────────────────────────── -->
-    <div x-show="tab==='conversas'" class="space-y-4">
+    <div x-show="activeTab==='conversas'" x-cloak class="space-y-4">
       <div x-show="!conversaAberta" class="card overflow-auto">
         <div class="p-4 flex items-center justify-between border-b border-gray-50">
           <h2 class="font-bold text-[#3A2169]">💬 Monitor de Conversas</h2>
