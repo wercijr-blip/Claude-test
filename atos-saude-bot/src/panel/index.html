@@ -1133,7 +1133,7 @@ function painel() {
         tabs: r==='admin' ? allTabs :
               r==='secretaria' ? ['agenda','marcacao','atendimento','encaixe','conversas','satisfacao'] :
               r ? ['agenda','conversas'] : [],
-        canBlock:  r==='admin',
+        canBlock:  r==='admin' || r==='secretaria',
         canExport: r==='admin' || r==='secretaria',
         canCancel: r==='admin' || r==='secretaria',
       }
