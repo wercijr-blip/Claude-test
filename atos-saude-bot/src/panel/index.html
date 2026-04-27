@@ -1566,8 +1566,8 @@ function painel() {
     },
 
     async loadQR() {
-      try { const d = await this.api('/whatsapp/qr'); this.qrCode = d.qrcode?.base64 || d.base64 || d.qr || '' } catch (e) { console.error(e) }
       clearInterval(this.qrTimer)
+      try { const d = await this.api('/whatsapp/qr'); this.qrCode = d.qrcode?.base64 || d.base64 || d.qr || '' } catch (e) { console.error(e) }
       this.qrTimer = setInterval(async () => {
         await this.loadWAStatus()
         if (this.waStatus === 'open') { clearInterval(this.qrTimer); this.qrCode = '' }
