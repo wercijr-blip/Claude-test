@@ -1,6 +1,6 @@
 import { sendText } from '../services/whatsapp.js'
 import { checkLimit } from '../utils/rate-limiter.js'
-import { getSession } from '../services/db.js'
+import { getSession, insertMessageLog } from '../services/db.js'
 import { logger } from '../utils/logger.js'
 import { router } from '../handlers/router.js'
 
@@ -48,6 +48,9 @@ export async function handleWebhook(req, res) {
       await sendText(phone, 'Muitas mensagens! Aguarde um momento. ⏳')
       return
     }
+
+    const session = await getSession(phone)
+    try { insertMessageLog({ phone, direction: 'IN', text, flow: session?.flow || null, step: session?.step || null }) } catch {}
 
     logger.info({ phone, text }, 'Mensagem recebida')
     await router(phone, text, pushName)
