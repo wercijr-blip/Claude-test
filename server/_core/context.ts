@@ -57,8 +57,8 @@ export async function createContext({ req, res }: { req: Request; res: Response 
     }
 
     return { req, res, user, session: user }
-  } catch {
-    // token inválido ou expirado
+  } catch (err) {
+    if (process.env.NODE_ENV !== 'production') console.warn('[auth] token inválido:', err)
   }
 
   return { req, res, user: null, session: null }

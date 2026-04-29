@@ -4,9 +4,18 @@ import { router, protectedProcedure, adminProcedure } from '../_core/trpc.ts'
 import {
   createKnowledgeTopic,
   listKnowledgeTopicsForClinic,
+  getKnowledgeTopicById,
   updateKnowledgeTopicStatus,
   deleteKnowledgeTopic,
 } from '../db.ts'
+
+async function assertTopicBelongsToClinic(topicId: number, clinicId: string | null) {
+  if (!clinicId) throw new TRPCError({ code: 'FORBIDDEN' })
+  const topic = await getKnowledgeTopicById(topicId)
+  if (!topic) throw new TRPCError({ code: 'NOT_FOUND' })
+  if (topic.clinicId !== clinicId) throw new TRPCError({ code: 'FORBIDDEN' })
+  return topic
+}
 
 export const knowledgeTopicRouter = router({
   list: protectedProcedure
@@ -51,14 +60,16 @@ export const knowledgeTopicRouter = router({
 
   updateStatus: protectedProcedure
     .input(z.object({ id: z.number(), status: z.enum(['pending', 'sent', 'done']) }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      await assertTopicBelongsToClinic(input.id, ctx.user.clinicId)
       await updateKnowledgeTopicStatus(input.id, input.status)
       return { success: true }
     }),
 
   delete: adminProcedure
     .input(z.object({ id: z.number() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      await assertTopicBelongsToClinic(input.id, ctx.user.clinicId)
       await deleteKnowledgeTopic(input.id)
       return { success: true }
     }),

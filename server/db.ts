@@ -161,6 +161,11 @@ export async function updateKnowledgeTopicStatus(id: number, status: 'pending' |
     .where(eq(schema.knowledgeTopics.id, id))
 }
 
+export async function getKnowledgeTopicById(id: number) {
+  const rows = await db.select().from(schema.knowledgeTopics).where(eq(schema.knowledgeTopics.id, id)).limit(1)
+  return rows[0] ?? null
+}
+
 export async function deleteKnowledgeTopic(id: number) {
   await db.delete(schema.knowledgeTopics).where(eq(schema.knowledgeTopics.id, id))
 }

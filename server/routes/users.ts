@@ -1,13 +1,28 @@
 import { z } from 'zod'
+import { randomBytes } from 'crypto'
 import { router, adminProcedure, protectedProcedure } from '../_core/trpc.ts'
+import { TRPCError } from '@trpc/server'
 import { hashPassword } from '../_core/auth.ts'
 import { sendWelcomeEmail } from '../_core/email.ts'
 import { env } from '../_core/env.ts'
 import {
   createUser,
+  getUserById,
   listDoctorsByClinic,
   updateUser,
 } from '../db.ts'
+
+function generateTempPassword(): string {
+  return randomBytes(8).toString('base64url') // 11 chars URL-safe aleatório
+}
+
+async function assertSameClinic(targetUserId: number, adminClinicId: string | null) {
+  if (!adminClinicId) throw new TRPCError({ code: 'FORBIDDEN' })
+  const target = await getUserById(targetUserId)
+  if (!target) throw new TRPCError({ code: 'NOT_FOUND' })
+  if (target.clinicId !== adminClinicId) throw new TRPCError({ code: 'FORBIDDEN' })
+  return target
+}
 
 export const userRouter = router({
   create: adminProcedure
@@ -18,7 +33,8 @@ export const userRouter = router({
       specialty: z.string().min(1),
     }))
     .mutation(async ({ ctx, input }) => {
-      const hash = await hashPassword('123456')
+      const tempPassword = generateTempPassword()
+      const hash = await hashPassword(tempPassword)
       const id   = await createUser({
         email:              input.email,
         passwordHash:       hash,
@@ -30,7 +46,7 @@ export const userRouter = router({
         active:             1,
         mustChangePassword: 1,
       })
-      await sendWelcomeEmail(input.email, input.name, env.MEDSCRIBE_CLINIC_NAME)
+      await sendWelcomeEmail(input.email, input.name, env.MEDSCRIBE_CLINIC_NAME, tempPassword)
       return { id }
     }),
 
@@ -48,24 +64,27 @@ export const userRouter = router({
       crm:         z.string().optional(),
       newPassword: z.string().min(8).optional(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      await assertSameClinic(input.id, ctx.user.clinicId)
       const { id, newPassword, ...data } = input
-      const update: Record<string, unknown> = { ...data }
-      if (newPassword) update.passwordHash = await hashPassword(newPassword)
-      await updateUser(id, update)
+      const updateData: Record<string, unknown> = { ...data }
+      if (newPassword) updateData.passwordHash = await hashPassword(newPassword)
+      await updateUser(id, updateData)
       return { success: true }
     }),
 
   deactivate: adminProcedure
     .input(z.object({ id: z.number() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      await assertSameClinic(input.id, ctx.user.clinicId)
       await updateUser(input.id, { active: 0 })
       return { success: true }
     }),
 
   reactivate: adminProcedure
     .input(z.object({ id: z.number() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      await assertSameClinic(input.id, ctx.user.clinicId)
       await updateUser(input.id, { active: 1 })
       return { success: true }
     }),
@@ -79,7 +98,8 @@ export const userRouter = router({
 
   updateBulletinPreference: adminProcedure
     .input(z.object({ id: z.number(), receive: z.boolean() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      await assertSameClinic(input.id, ctx.user.clinicId)
       await updateUser(input.id, { receiveMonthlyBulletin: input.receive ? 1 : 0 })
       return { success: true }
     }),

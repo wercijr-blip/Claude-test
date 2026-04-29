@@ -1,12 +1,12 @@
 import { env } from './env.ts'
 
-export async function sendWelcomeEmail(to: string, name: string, clinicName: string): Promise<void> {
+export async function sendWelcomeEmail(to: string, name: string, clinicName: string, tempPassword: string): Promise<void> {
   if (!env.SENDGRID_API_KEY) {
     console.warn('[EMAIL] SENDGRID_API_KEY não configurado — email de boas-vindas não enviado')
     return
   }
 
-  const body = `Dr(a). ${name},\n\nVocê foi cadastrado no MedScribe.\nLogin: ${to}\nSenha temporária: 123456\nAcesse: ${env.MEDSCRIBE_URL}/login\n\nNo primeiro acesso você será solicitado a redefinir sua senha.\n\nAtenciosamente,\nAdministração — ${clinicName}`
+  const body = `Dr(a). ${name},\n\nVocê foi cadastrado no MedScribe.\nLogin: ${to}\nSenha temporária: ${tempPassword}\nAcesse: ${env.MEDSCRIBE_URL}/login\n\nNo primeiro acesso você será solicitado a redefinir sua senha.\n\nAtenciosamente,\nAdministração — ${clinicName}`
 
   const resp = await fetch('https://api.sendgrid.com/v3/mail/send', {
     method: 'POST',
