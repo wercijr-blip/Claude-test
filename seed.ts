@@ -3,6 +3,7 @@
  * Uso: npx tsx seed.ts --email=admin@clinica.com --nome="Dr. Werciley" --crm=16381 --especialidade=Infectologia [--senha=MinhaSenh@123]
  */
 import 'dotenv/config'
+import { randomBytes } from 'crypto'
 import { drizzle } from 'drizzle-orm/mysql2'
 import mysql from 'mysql2/promise'
 import { nanoid } from 'nanoid'
@@ -35,7 +36,7 @@ async function seed() {
   }
 
   const clinicId = nanoid()
-  const senha    = args.senha ?? 'Admin@123'
+  const senha    = args.senha ?? randomBytes(10).toString('base64url')
   const hash     = await bcrypt.hash(senha, 10)
 
   await db.insert(schema.users).values({

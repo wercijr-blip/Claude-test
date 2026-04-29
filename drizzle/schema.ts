@@ -329,6 +329,22 @@ export const satisfacaoPesquisas = mysqlTable('satisfacao_pesquisas', {
   pacienteIdx: uniqueIndex('idx_satisfacao_paciente').on(t.pacienteId),
 }))
 
+// ── Histórico de boletins enviados ───────────────────────────
+
+export const bulletinHistory = mysqlTable('bulletin_history', {
+  id:           int('id').primaryKey().autoincrement(),
+  clinicId:     varchar('clinicId', { length: 21 }).notNull(),
+  month:        varchar('month', { length: 7 }).notNull(),  // ex: "2025-04"
+  doctorCount:  int('doctorCount').notNull().default(0),
+  articleCount: int('articleCount').notNull().default(0),
+  sentBy:       int('sentBy').notNull(),
+  resentAt:     datetime('resentAt'),
+  createdAt:    timestamp('createdAt').defaultNow().notNull(),
+}, (t) => ({
+  clinicIdx: index('idx_bh_clinic').on(t.clinicId),
+  monthIdx:  index('idx_bh_month').on(t.month),
+}))
+
 // ── Pagamentos Stripe ─────────────────────────────────────────
 
 export const pagamentos = mysqlTable('pagamentos', {

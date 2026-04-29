@@ -170,6 +170,43 @@ export async function deleteKnowledgeTopic(id: number) {
   await db.delete(schema.knowledgeTopics).where(eq(schema.knowledgeTopics.id, id))
 }
 
+// ─── BULLETIN HISTORY ─────────────────────────────────────────
+
+export async function getBulletinHistory(clinicId: string) {
+  return db
+    .select()
+    .from(schema.bulletinHistory)
+    .where(eq(schema.bulletinHistory.clinicId, clinicId))
+    .orderBy(desc(schema.bulletinHistory.createdAt))
+}
+
+export async function logBulletinSend(data: {
+  clinicId:     string
+  month:        string
+  doctorCount:  number
+  articleCount: number
+  sentBy:       number
+}) {
+  const [result] = await db.insert(schema.bulletinHistory).values(data)
+  return (result as { insertId: number }).insertId
+}
+
+export async function markBulletinResent(id: number) {
+  await db
+    .update(schema.bulletinHistory)
+    .set({ resentAt: new Date() })
+    .where(eq(schema.bulletinHistory.id, id))
+}
+
+export async function getBulletinById(id: number, clinicId: string) {
+  const rows = await db
+    .select()
+    .from(schema.bulletinHistory)
+    .where(and(eq(schema.bulletinHistory.id, id), eq(schema.bulletinHistory.clinicId, clinicId)))
+    .limit(1)
+  return rows[0] ?? null
+}
+
 // ─── CONSULTATION CLINICAL DATA ───────────────────────────────
 
 export async function createConsultationClinicalData(data: typeof schema.consultationClinicalData.$inferInsert) {

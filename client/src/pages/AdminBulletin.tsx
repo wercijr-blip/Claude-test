@@ -16,6 +16,7 @@ export default function AdminBulletin() {
   const doctorsQuery = trpc.admin.bulletin.getDoctors.useQuery()
   const historyQuery = trpc.admin.bulletin.getHistory.useQuery()
   const doctors      = doctorsQuery.data ?? []
+  const history      = historyQuery.data ?? []
   const utils        = trpc.useUtils()
 
   const updateBulletin = trpc.user.updateBulletinPreference.useMutation({
@@ -23,6 +24,9 @@ export default function AdminBulletin() {
   })
   const updateEmail = trpc.user.updateBulletinEmail.useMutation({
     onSuccess: () => utils.admin.bulletin.getDoctors.invalidate(),
+  })
+  const resend = trpc.admin.bulletin.resend.useMutation({
+    onSuccess: () => utils.admin.bulletin.getHistory.invalidate(),
   })
 
   const [inlineEmails, setInlineEmails] = useState<Record<number, string>>({})
@@ -103,28 +107,39 @@ export default function AdminBulletin() {
         {/* Seção 2 — Histórico de envios */}
         <section className="bg-white rounded-2xl border border-slate-200 p-6">
           <h2 className="font-semibold text-slate-700 mb-4">Histórico de Envios</h2>
-          {historyQuery.data?.length ? (
+          {history.length ? (
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-slate-400 border-b border-slate-100">
                   <th className="pb-2 font-medium">Mês</th>
                   <th className="pb-2 font-medium">Médicos</th>
                   <th className="pb-2 font-medium">Artigos</th>
-                  <th className="pb-2 font-medium">Status</th>
+                  <th className="pb-2 font-medium">Enviado em</th>
                   <th className="pb-2 font-medium"></th>
                 </tr>
               </thead>
               <tbody>
-                {(historyQuery.data as { month: string; doctorCount: number; articleCount: number; status: string }[]).map((h, i) => (
-                  <tr key={i} className="border-b border-slate-50 hover:bg-slate-50">
+                {history.map((h) => (
+                  <tr key={h.id} className="border-b border-slate-50 hover:bg-slate-50">
                     <td className="py-2">{h.month}</td>
                     <td className="py-2">{h.doctorCount}</td>
                     <td className="py-2">{h.articleCount}</td>
-                    <td className="py-2">
-                      <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs">{h.status}</span>
+                    <td className="py-2 text-slate-500">
+                      {new Date(h.createdAt).toLocaleDateString('pt-BR')}
+                      {h.resentAt && (
+                        <span className="ml-2 text-xs text-blue-500">
+                          (reenviado {new Date(h.resentAt).toLocaleDateString('pt-BR')})
+                        </span>
+                      )}
                     </td>
                     <td className="py-2">
-                      <button className="text-xs text-blue-600 hover:underline">Reenviar</button>
+                      <button
+                        onClick={() => resend.mutate({ id: h.id })}
+                        disabled={resend.isPending}
+                        className="text-xs text-blue-600 hover:underline disabled:opacity-40"
+                      >
+                        Reenviar
+                      </button>
                     </td>
                   </tr>
                 ))}

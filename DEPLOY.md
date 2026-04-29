@@ -255,6 +255,7 @@ npx drizzle-kit push
 mysql -u medscribe -p medscribe < drizzle/migrations/0004_auth_users.sql
 mysql -u medscribe -p medscribe < drizzle/migrations/0005_knowledge_topics.sql
 mysql -u medscribe -p medscribe < drizzle/migrations/0006_consultation_clinical_data.sql
+mysql -u medscribe -p medscribe < drizzle/migrations/0007_bulletin_history.sql
 ```
 > Vai pedir a senha do banco (`SuaSenhaDoBanco123!`) em cada comando.
 
