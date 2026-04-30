@@ -32,6 +32,7 @@ COPY --from=builder /app/dist ./dist
 COPY server ./server
 COPY shared ./shared
 COPY drizzle ./drizzle
+COPY drizzle.config.ts ./
 
 EXPOSE ${PORT:-3000}
 
