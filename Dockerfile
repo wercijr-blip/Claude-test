@@ -36,4 +36,4 @@ COPY drizzle.config.ts ./
 
 EXPOSE ${PORT:-3000}
 
-CMD ["sh", "-c", "pnpm db:push && pnpm exec tsx server/_core/index.ts"]
+CMD ["sh", "-c", "pnpm exec drizzle-kit push --config drizzle.config.ts; pnpm exec tsx server/_core/index.ts"]

@@ -1,4 +1,4 @@
 [deploy]
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
-startCommand = "pnpm db:push && pnpm exec tsx server/_core/index.ts"
+startCommand = "pnpm exec drizzle-kit push --config drizzle.config.ts; pnpm exec tsx server/_core/index.ts"
