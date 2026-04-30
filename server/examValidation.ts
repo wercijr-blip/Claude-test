@@ -4,7 +4,9 @@ import { getPresignedUrl } from './storage.ts'
 export interface ExtracacaoExame {
   nomeExame: string | null
   resultadoHiv: 'reagente' | 'nao_reagente' | 'inconclusivo' | 'nao_identificado'
-  dataExame: string | null // DD/MM/YYYY
+  dataColeta: string | null // DD/MM/YYYY — data da coleta do material
+  dataResultado: string | null // DD/MM/YYYY — data de emissão/liberação do laudo
+  dataExame: string | null // DD/MM/YYYY — efetiva: a MAIS RECENTE entre coleta e resultado
   confianca: number // 0–1
   processadoEm: string
 }
@@ -54,14 +56,28 @@ Analise a imagem e extraia APENAS as seguintes informações do exame de HIV:
 1. nomeExame: nome completo do paciente escrito no exame (string ou null se não encontrado)
 2. resultadoHiv: resultado do exame HIV — use EXATAMENTE um destes valores:
    "reagente" (positivo), "nao_reagente" (negativo), "inconclusivo", "nao_identificado"
-3. dataExame: data de coleta/realização no formato "DD/MM/AAAA" (string ou null se não encontrado)
-4. confianca: sua confiança de 0 a 1 na leitura (1 = exame claro e legível)
+3. dataColeta: data em que o material biológico foi coletado, no formato "DD/MM/AAAA".
+   Procure por rótulos como: "Data da coleta", "Coletado em", "Coleta:", "Data coleta".
+   (string ou null se não encontrado)
+4. dataResultado: data em que o resultado/laudo foi emitido/liberado, no formato "DD/MM/AAAA".
+   Procure por rótulos como: "Data de emissão", "Emitido em", "Liberado em",
+   "Data de liberação", "Resultado liberado em", "Data do resultado".
+   (string ou null se não encontrado)
+5. confianca: sua confiança de 0 a 1 na leitura (1 = exame claro e legível)
+
+REGRAS CRÍTICAS:
+- NUNCA confunda data de nascimento do paciente, data de impressão do PDF
+  ou data de validade com as datas acima.
+- Confira o ANO com cuidado (atualmente estamos em 2026).
+- Se houver apenas UMA data no exame, coloque-a em dataColeta E dataResultado
+  (ambos os campos com o mesmo valor).
 
 Responda APENAS com JSON, sem texto adicional:
 {
   "nomeExame": "Nome Completo",
   "resultadoHiv": "nao_reagente",
-  "dataExame": "15/04/2026",
+  "dataColeta": "15/04/2026",
+  "dataResultado": "16/04/2026",
   "confianca": 0.95
 }`
 
@@ -107,11 +123,25 @@ Responda APENAS com JSON, sem texto adicional:
   const text = data.content[0]?.text ?? '{}'
 
   try {
-    const parsed = JSON.parse(text) as Omit<ExtracacaoExame, 'processadoEm'>
+    const parsed = JSON.parse(text) as Partial<Omit<ExtracacaoExame, 'processadoEm'>>
+    const dataColeta = parsed.dataColeta ?? null
+    const dataResultado = parsed.dataResultado ?? null
+    // dataExame efetiva = a mais recente entre coleta e resultado (ou a única que existir).
+    // Garante que exames com coleta antiga mas resultado liberado recente passem na regra de 7 dias.
+    const dColeta = dataColeta ? parseDateBR(dataColeta) : null
+    const dResult = dataResultado ? parseDateBR(dataResultado) : null
+    let dataExameEfetiva: string | null = null
+    if (dColeta && dResult) {
+      dataExameEfetiva = dColeta >= dResult ? dataColeta : dataResultado
+    } else {
+      dataExameEfetiva = dataColeta ?? dataResultado
+    }
     return {
       nomeExame: parsed.nomeExame ?? null,
       resultadoHiv: parsed.resultadoHiv ?? 'nao_identificado',
-      dataExame: parsed.dataExame ?? null,
+      dataColeta,
+      dataResultado,
+      dataExame: dataExameEfetiva,
       confianca: typeof parsed.confianca === 'number' ? Math.max(0, Math.min(1, parsed.confianca)) : 0,
       processadoEm: new Date().toISOString(),
     }
@@ -119,6 +149,8 @@ Responda APENAS com JSON, sem texto adicional:
     return {
       nomeExame: null,
       resultadoHiv: 'nao_identificado',
+      dataColeta: null,
+      dataResultado: null,
       dataExame: null,
       confianca: 0,
       processadoEm: new Date().toISOString(),
@@ -129,7 +161,9 @@ Responda APENAS com JSON, sem texto adicional:
 // ─── Date validation (no AI involved) ────────────────────────────────────────
 
 export function parseDateBR(dataStr: string): Date | null {
-  const match = dataStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  // Aceita "DD/MM/AAAA" mesmo com sufixos como horário ("24/04/2026 - 13:16:00")
+  // ou texto adicional. Pega a primeira ocorrência válida.
+  const match = dataStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/)
   if (!match) return null
   const [, dd, mm, yyyy] = match
   const d = new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd))

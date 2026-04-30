@@ -242,6 +242,12 @@ export const consultaRouter = router({
       // ── REGRA A — Data inválida ──────────────────────────────────
       const dataExame = extracao.dataExame ? parseDateBR(extracao.dataExame) : null
       if (!isDataValida(dataExame)) {
+        console.log('[consulta] Rejeitando por data inválida', {
+          dataExtraidaPelaIa: extracao.dataExame,
+          dataParsed: dataExame?.toISOString() ?? null,
+          hoje: new Date().toISOString(),
+          confiancaIa: extracao.confianca,
+        })
         const novasTentativas = tentativasAtuais + 1
 
         // REGRA B: Após 2 rejeições por data, forçar revisão médica
