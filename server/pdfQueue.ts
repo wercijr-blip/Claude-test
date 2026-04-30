@@ -1,8 +1,9 @@
 import { Queue, Worker } from 'bullmq'
 import IORedis from 'ioredis'
+import { randomBytes } from 'crypto'
 import { env } from './_core/env.ts'
 import { db } from './db.ts'
-import { pacientes, pdfs, consultasInicio, accessTokens, precadastros } from '../drizzle/schema.ts'
+import { pacientes, pdfs, consultasInicio, accessTokens, precadastros, pesquisaTokens } from '../drizzle/schema.ts'
 import { eq, and, gt } from 'drizzle-orm'
 import { decrypt } from './_core/encryption.ts'
 import { gerarPrescricaoPdf, gerarFormularioPdf, assinarPdf } from './pdfSigner.ts'
@@ -10,7 +11,6 @@ import { gerarCadastroPdf } from './pdfCadastro.ts'
 import { uploadBuffer, getBuffer } from './storage.ts'
 import { enviarLinkAcessoIntake, enviarPrescricaoPronta, enviarPesquisaSatisfacao } from './email.ts'
 import { enviarWhatsApp } from './whatsapp.ts'
-import { gerarTokenPesquisa } from './routes/pesquisa.ts'
 
 export const PDF_QUEUE_NAME = 'pdf-generation'
 export const LEMBRETE_QUEUE_NAME = 'lembrete-exame'
@@ -208,7 +208,12 @@ export function startPesquisaWorker() {
         nome: string
       }
 
-      const token = gerarTokenPesquisa(pacienteId)
+      const token = randomBytes(32).toString('hex')
+      const expiraEm = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+      await db
+        .insert(pesquisaTokens)
+        .values({ pacienteId, token, expiraEm })
+        .onDuplicateKeyUpdate({ set: { token, expiraEm } })
       const link = `${env.APP_URL}/pesquisa/${pacienteId}/${token}`
 
       if (email) {

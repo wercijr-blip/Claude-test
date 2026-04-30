@@ -287,3 +287,16 @@ export const pagamentos = mysqlTable('pagamentos', {
   pacienteIdx: index('idx_pagamentos_paciente').on(t.pacienteId),
   sessionIdx: index('idx_pagamentos_session').on(t.stripeSessionId),
 }))
+
+// ── Tokens de Pesquisa de Satisfação ─────────────────────────
+// Um token aleatório por paciente, gerado no momento do envio do link.
+// Substituição do hash determinístico SHA-256(pacienteId + JWT_SECRET).
+
+export const pesquisaTokens = mysqlTable('pesquisa_tokens', {
+  pacienteId: int('paciente_id').primaryKey(),
+  token: varchar('token', { length: 64 }).notNull(),
+  criadoEm: datetime('criado_em').notNull().default(sql`CURRENT_TIMESTAMP`),
+  expiraEm: datetime('expira_em').notNull(),
+}, (t) => ({
+  tokenIdx: uniqueIndex('idx_pesquisa_token').on(t.token),
+}))
