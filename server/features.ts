@@ -47,7 +47,7 @@ function parseJsonSafe<T>(raw: string): T | null {
   }
 }
 
-// ─── KNOWLEDGE TOPICS ─────────────────────────────────────────
+// ─── KNOWLEDGE TOPICS ───────────────────────────────────────────
 
 export async function extractKnowledgeTopics(
   consultationId: number,
@@ -114,7 +114,7 @@ SOAP Avaliação: ${soapAssessment}`,
   }
 }
 
-// ─── CLINICAL DATA EXTRACTION ─────────────────────────────────
+// ─── CLINICAL DATA EXTRACTION ───────────────────────────────────────
 
 export async function extractClinicalData(
   consultationId: number,
@@ -170,7 +170,7 @@ SOAP Plano: ${soapPlan}`,
   }
 }
 
-// ─── LLM WRAPPER (OpenAI) ─────────────────────────────────────
+// ─── LLM WRAPPER (OpenAI) ─────────────────────────────────────────────
 
 export async function generateSOAP(transcription: string): Promise<{
   S: string; O: string; A: string; P: string
@@ -194,7 +194,7 @@ export async function generateSOAP(transcription: string): Promise<{
   }
 }
 
-// ─── AUDIO TRANSCRIPTION (OpenAI Whisper) ────────────────────
+// ─── AUDIO TRANSCRIPTION (OpenAI Whisper) ────────────────────────────
 
 export async function transcribeAudio(audioBuffer: Buffer, filename = 'audio.webm'): Promise<string> {
   const apiKey = getOpenAIKey()
@@ -223,7 +223,7 @@ export async function transcribeAudio(audioBuffer: Buffer, filename = 'audio.web
   return data.text
 }
 
-// ─── AUDIO CHUNKING ───────────────────────────────────────────
+// ─── AUDIO CHUNKING ─────────────────────────────────────────────────
 
 const CHUNK_SIZE = 10 * 1024 * 1024 // 10MB
 

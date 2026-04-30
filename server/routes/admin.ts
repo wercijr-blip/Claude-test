@@ -2,8 +2,8 @@ import { z } from 'zod'
 import { router, adminProcedure } from '../_core/trpc.ts'
 import { TRPCError } from '@trpc/server'
 import { db } from '../db.ts'
-import { users, securityEvents } from '../../drizzle/schema.ts'
-import { eq, desc, and } from 'drizzle-orm'
+import { users } from '../../drizzle/schema.ts'
+import { eq, and } from 'drizzle-orm'
 
 export const adminRouter = router({
   // Listar equipe — apenas da própria clínica
@@ -53,14 +53,4 @@ export const adminRouter = router({
       return { ok: true }
     }),
 
-  // Log de eventos de segurança
-  listarEventos: adminProcedure
-    .input(z.object({ limit: z.number().max(200).default(50) }))
-    .query(async ({ input }) => {
-      return db
-        .select()
-        .from(securityEvents)
-        .orderBy(desc(securityEvents.createdAt))
-        .limit(input.limit)
-    }),
 })
