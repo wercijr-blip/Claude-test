@@ -17,14 +17,14 @@ const app = express()
 // Trust Railway's reverse proxy so X-Forwarded-For is recognized
 app.set('trust proxy', 1)
 
-// Servir assets estáticos ANTES do middleware de segurança
+applySecurityMiddleware(app)
+app.use(cookieParser())
+
+// Assets estáticos DEPOIS dos middlewares de segurança (Helmet, CORS, rate limit)
 if (env.NODE_ENV === 'production') {
   const clientDist = path.resolve(__dirname, '../../dist/client')
   app.use(express.static(clientDist))
 }
-
-applySecurityMiddleware(app)
-app.use(cookieParser())
 
 // ⚠️ Stripe webhook DEVE vir ANTES de express.json() para receber raw body
 // (Stripe valida assinatura usando os bytes brutos do payload)
