@@ -7,6 +7,7 @@ import { createTrpcClient } from './lib/trpc.ts'
 // MedScribe pages — carregadas sob demanda para reduzir bundle inicial
 import Login          from './pages/Login.tsx'
 import ChangePassword from './pages/ChangePassword.tsx'
+const Landing        = lazy(() => import('./pages/Landing.tsx'))
 const Perfil         = lazy(() => import('./pages/Perfil.tsx'))
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard.tsx'))
 const AdminDoctors   = lazy(() => import('./pages/AdminDoctors.tsx'))
@@ -146,9 +147,9 @@ function AppRoutes() {
             <Route path="/pagamento/cancelado"           component={PagamentoCancelado} />
             <Route path="/equipe"                        component={Login} />
 
-            {/* Root: MedScribe login ou legacy intake */}
+            {/* Root: landing pública ou dashboard se autenticado */}
             <Route path="/">
-              {me ? (me.role === 'admin' ? <AdminDashboard /> : <DashboardPlaceholder />) : <Login />}
+              {me ? (me.role === 'admin' ? <AdminDashboard /> : <DashboardPlaceholder />) : <Landing />}
             </Route>
             <Route component={NotFound} />
           </Switch>
