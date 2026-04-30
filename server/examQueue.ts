@@ -1,5 +1,6 @@
 import { Queue, Worker } from 'bullmq'
 import { redis } from './_core/redis.ts'
+import { logger } from './_core/logger.ts'
 import { db } from './db.ts'
 import { exames, pacientes } from '../drizzle/schema.ts'
 import { eq } from 'drizzle-orm'
@@ -24,14 +25,14 @@ export function startExamWorker() {
       try {
         resultado = await analisarExame(exameId)
       } catch (err) {
-        console.error(`[examQueue] Falha na análise do exame ${exameId}:`, (err as Error).message)
+        logger.error(`[examQueue] Falha na análise do exame ${exameId}`, { error: (err as Error).message })
         throw err // Let BullMQ retry
       }
 
       // 2. Fetch the exam to get pacienteId
       const [exame] = await db.select().from(exames).where(eq(exames.id, exameId)).limit(1)
       if (!exame) {
-        console.error(`[examQueue] Exame ${exameId} não encontrado após análise`)
+        logger.error(`[examQueue] Exame ${exameId} não encontrado após análise`)
         return
       }
 
@@ -51,10 +52,7 @@ export function startExamWorker() {
             .where(eq(pacientes.id, pacienteId))
         })
 
-        console.log(
-          `[examQueue] Exame ${exameId} aprovado automaticamente pela IA ` +
-          `(confiança: ${(resultado.confianca * 100).toFixed(0)}%) — paciente ${pacienteId} desbloqueado`,
-        )
+        logger.info(`[examQueue] Exame ${exameId} aprovado automaticamente`, { confianca: resultado.confianca, pacienteId })
       } else if (resultado.resultado === 'reagente' || resultado.confianca < EXAM_RULES.LOW_CONFIDENCE_THRESHOLD) {
         // Reactive result or low confidence → flag for medico review
         const novoResultado: ResultadoIa = { ...resultado, status: 'rejeitado_ia' }
@@ -63,11 +61,7 @@ export function startExamWorker() {
           .set({ resultadoIa: novoResultado })
           .where(eq(exames.id, exameId))
 
-        console.log(
-          `[examQueue] Exame ${exameId} rejeitado pela IA ` +
-          `(resultado: ${resultado.resultado}, confiança: ${(resultado.confianca * 100).toFixed(0)}%) ` +
-          `— necessita revisão do médico`,
-        )
+        logger.warn(`[examQueue] Exame ${exameId} rejeitado pela IA`, { resultado: resultado.resultado, confianca: resultado.confianca })
         // TODO: send email/WhatsApp notification to medico
       } else {
         // Inconclusive or unidentified → flag for medico review
@@ -77,11 +71,7 @@ export function startExamWorker() {
           .set({ resultadoIa: novoResultado })
           .where(eq(exames.id, exameId))
 
-        console.log(
-          `[examQueue] Exame ${exameId} inconclusivo pela IA ` +
-          `(resultado: ${resultado.resultado}, confiança: ${(resultado.confianca * 100).toFixed(0)}%) ` +
-          `— necessita revisão do médico`,
-        )
+        logger.warn(`[examQueue] Exame ${exameId} inconclusivo`, { resultado: resultado.resultado, confianca: resultado.confianca })
         // TODO: send email/WhatsApp notification to medico
       }
 
@@ -91,7 +81,7 @@ export function startExamWorker() {
   )
 
   worker.on('failed', (job, err) => {
-    console.error(`[examQueue] Job ${job?.id} falhou:`, err.message)
+    logger.error(`[examQueue] Job ${job?.id} falhou`, { error: err.message })
   })
 
   return worker

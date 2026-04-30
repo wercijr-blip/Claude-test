@@ -5,9 +5,10 @@
 
 import { startPdfWorker, startLembreteWorker, startPesquisaWorker, startLinkAcessoWorker, agendarLembreteDiario } from './pdfQueue.ts'
 import { startExamWorker } from './examQueue.ts'
+import { logger } from './_core/logger.ts'
 
 async function main() {
-  console.log('[workers] Iniciando workers BullMQ...')
+  logger.info('[workers] Iniciando workers BullMQ...')
 
   startPdfWorker()
   startLembreteWorker()
@@ -16,7 +17,7 @@ async function main() {
   startExamWorker()
   await agendarLembreteDiario()
 
-  console.log('[workers] Workers prontos.')
+  logger.info('[workers] Workers prontos.')
 
   async function shutdown(signal: string) {
     console.log(`[workers] ${signal} recebido — encerrando graciosamente...`)
@@ -31,6 +32,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error('[workers] Falha ao iniciar:', err)
+  logger.error('[workers] Falha ao iniciar', err)
   process.exit(1)
 })

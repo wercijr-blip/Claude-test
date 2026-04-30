@@ -4,6 +4,7 @@ import { createExpressMiddleware } from '@trpc/server/adapters/express'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { env } from './env.ts'
+import { logger } from './logger.ts'
 import { applySecurityMiddleware } from './security.ts'
 import { appRouter } from '../routers.ts'
 import { createContext } from './context.ts'
@@ -83,7 +84,7 @@ if (env.NODE_ENV === 'production') {
 }
 
 const server = app.listen(env.PORT, async () => {
-  console.log(`🚀 Facilita PrEP rodando na porta ${env.PORT} [${env.NODE_ENV}]`)
+  logger.info(`Facilita PrEP rodando na porta ${env.PORT}`, { env: env.NODE_ENV })
 
   // Workers run in-process by default (single-service deploy).
   // Set WORKERS_ENABLED=false when running a dedicated worker service via server/workers.ts.
@@ -96,26 +97,26 @@ const server = app.listen(env.PORT, async () => {
     startLinkAcessoWorker()
     startExamWorker()
     await agendarLembreteDiario()
-    console.log('[server] Workers BullMQ iniciados em-processo.')
+    logger.info('[server] Workers BullMQ iniciados em-processo.')
   } else {
-    console.log('[server] WORKERS_ENABLED=false — aguardando worker service separado.')
+    logger.info('[server] WORKERS_ENABLED=false — aguardando worker service separado.')
   }
 })
 
 // Graceful shutdown — Railway sends SIGTERM before stopping the container.
 // Stop accepting new connections, wait for in-flight requests, then exit.
 async function shutdown(signal: string) {
-  console.log(`[server] ${signal} recebido — encerrando graciosamente...`)
+  logger.info(`[server] ${signal} recebido — encerrando graciosamente...`)
   server.close(async () => {
     const { redis } = await import('./redis.ts')
     await redis.quit().catch(() => undefined)
-    console.log('[server] Conexões encerradas. Saindo.')
+    logger.info('[server] Conexões encerradas. Saindo.')
     process.exit(0)
   })
 
   // Force exit if graceful shutdown hangs beyond 15s
   setTimeout(() => {
-    console.error('[server] Graceful shutdown excedeu 15s — forçando saída')
+    logger.error('[server] Graceful shutdown excedeu 15s — forçando saída')
     process.exit(1)
   }, 15_000)
 }
