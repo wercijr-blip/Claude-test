@@ -29,6 +29,14 @@ export const ALLOWED_ORIGINS = [
   'https://claude-test-production-8672.up.railway.app',
 ] as const
 
+// ── Regras de análise de exame HIV (IA) ──────────────────────
+export const EXAM_RULES = {
+  // Confidence threshold for automatic approval of non-reactive results
+  AUTO_APPROVE_MIN_CONFIDENCE: 0.9,
+  // Confidence below this → inconclusive, send to medico review
+  LOW_CONFIDENCE_THRESHOLD: 0.7,
+} as const
+
 export const CSRF_HEADER = 'x-csrf-token'
 
 export const SESSION_COOKIE_NAME = 'fp_session'

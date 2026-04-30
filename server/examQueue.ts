@@ -4,6 +4,7 @@ import { db } from './db.ts'
 import { exames, pacientes } from '../drizzle/schema.ts'
 import { eq } from 'drizzle-orm'
 import { analisarExame } from './examAnalysis.ts'
+import { EXAM_RULES } from '../shared/security-constants.ts'
 import type { ResultadoIa } from '../shared/types.ts'
 
 export const EXAM_QUEUE_NAME = 'exam-analysis'
@@ -37,7 +38,7 @@ export function startExamWorker() {
       const { pacienteId } = exame
 
       // 3. Auto-approval logic
-      if (resultado.resultado === 'nao_reagente' && resultado.confianca > 0.9) {
+      if (resultado.resultado === 'nao_reagente' && resultado.confianca >= EXAM_RULES.AUTO_APPROVE_MIN_CONFIDENCE) {
         // High-confidence negative result → auto-approve
         const novoResultado: ResultadoIa = { ...resultado, status: 'aprovado_automaticamente' }
 
@@ -54,7 +55,7 @@ export function startExamWorker() {
           `[examQueue] Exame ${exameId} aprovado automaticamente pela IA ` +
           `(confiança: ${(resultado.confianca * 100).toFixed(0)}%) — paciente ${pacienteId} desbloqueado`,
         )
-      } else if (resultado.resultado === 'reagente' || resultado.confianca < 0.7) {
+      } else if (resultado.resultado === 'reagente' || resultado.confianca < EXAM_RULES.LOW_CONFIDENCE_THRESHOLD) {
         // Reactive result or low confidence → flag for medico review
         const novoResultado: ResultadoIa = { ...resultado, status: 'rejeitado_ia' }
 
