@@ -45,15 +45,21 @@ function StatusCard({
   )
 }
 
+const TERMINAL_ETAPAS: Etapa[] = ['aprovado', 'rejeitado', 'expirado']
+
 export default function SegundaParteInicio() {
   const [, navigate] = useLocation()
   const [etapa, setEtapa] = useState<Etapa>('tipo_consulta')
   const [tipoConsulta, setTipoConsulta] = useState<TipoConsulta | null>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const [iniciarError, setIniciarError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const statusQuery = trpc.consulta.status.useQuery(undefined, { refetchInterval: 5000 })
+  const isTerminal = TERMINAL_ETAPAS.includes(etapa)
+  const statusQuery = trpc.consulta.status.useQuery(undefined, {
+    refetchInterval: isTerminal ? false : 5000,
+  })
   const iniciarMut = trpc.consulta.iniciar.useMutation()
   const uploadMut = trpc.consulta.uploadExame.useMutation()
 
@@ -76,12 +82,14 @@ export default function SegundaParteInicio() {
   }, [statusQuery.data])
 
   async function escolherTipoConsulta(tipo: TipoConsulta, temExame: boolean) {
+    setIniciarError(null)
     try {
       await iniciarMut.mutateAsync({ tipoConsulta: tipo, temExameRecente: temExame })
       setTipoConsulta(tipo)
       setEtapa(temExame ? 'upload_exame' : 'gerar_pedido')
     } catch (e: unknown) {
-      console.error(e)
+      const msg = e instanceof Error ? e.message : 'Erro ao iniciar atendimento. Tente novamente.'
+      setIniciarError(msg)
     }
   }
 
@@ -110,6 +118,36 @@ export default function SegundaParteInicio() {
     } finally {
       setUploading(false)
     }
+  }
+
+  // ── Loading inicial ────────────────────────────────────────────
+  if (statusQuery.isLoading) {
+    return (
+      <PageShell>
+        <div className="bg-white rounded-3xl shadow-xl border border-slate-100 p-10 text-center">
+          <div className="w-8 h-8 border-4 border-brand-light border-t-brand rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-500 text-sm">Carregando…</p>
+        </div>
+      </PageShell>
+    )
+  }
+
+  // ── Erro de conexão ────────────────────────────────────────────
+  if (statusQuery.isError && !statusQuery.data) {
+    return (
+      <PageShell>
+        <div className="bg-white rounded-3xl shadow-xl border border-slate-100 p-10 text-center">
+          <p className="text-slate-700 font-medium mb-2">Não foi possível carregar seu atendimento</p>
+          <p className="text-slate-500 text-sm mb-4">Verifique sua conexão e tente novamente.</p>
+          <button
+            onClick={() => statusQuery.refetch()}
+            className="text-sm bg-brand text-white px-5 py-2 rounded-xl hover:bg-brand-dark transition-colors"
+          >
+            Tentar novamente
+          </button>
+        </div>
+      </PageShell>
+    )
   }
 
   // ── Aprovado ──────────────────────────────────────────────────
@@ -363,6 +401,11 @@ export default function SegundaParteInicio() {
               </svg>
               Salvando…
             </p>
+          )}
+          {iniciarError && (
+            <div className="mt-4 bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-600 text-center">
+              {iniciarError}
+            </div>
           )}
         </div>
       </PageShell>

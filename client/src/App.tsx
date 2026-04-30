@@ -60,7 +60,9 @@ export default function App() {
             <Route path="/acesso/:token" component={TokenEntryPage} />
             <Route path="/inicio" component={SegundaParteInicio} />
             <Route path="/formulario/:pacienteId?">
-              {session?.type === 'patient' ? <FormularioPaciente /> : <TokenEntryPage />}
+              {session?.type === 'patient'
+                ? <FormularioPaciente pacienteId={session.pacienteId ?? undefined} />
+                : <TokenEntryPage />}
             </Route>
             <Route path="/medico">
               {role === 'medico' || role === 'admin' ? <MedicoDashboard /> : <LoginPage />}

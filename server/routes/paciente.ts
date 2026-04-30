@@ -67,7 +67,16 @@ export const pacienteRouter = router({
       const retentionUntil = new Date()
       retentionUntil.setFullYear(retentionUntil.getFullYear() + 20)
 
-      if (ctx.session.pacienteId) {
+      const targetId = ctx.session.pacienteId ?? await (async () => {
+        const [existing] = await db
+          .select({ id: pacientes.id })
+          .from(pacientes)
+          .where(eq(pacientes.tokenId, tokenId))
+          .limit(1)
+        return existing?.id ?? null
+      })()
+
+      if (targetId) {
         await db
           .update(pacientes)
           .set({
@@ -80,8 +89,8 @@ export const pacienteRouter = router({
             currentStep: 2,
             updatedAt: new Date(),
           })
-          .where(eq(pacientes.id, ctx.session.pacienteId))
-        return { pacienteId: ctx.session.pacienteId }
+          .where(eq(pacientes.id, targetId))
+        return { pacienteId: targetId }
       }
 
       const [result] = await db.insert(pacientes).values({

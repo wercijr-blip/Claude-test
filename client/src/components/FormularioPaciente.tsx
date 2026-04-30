@@ -32,7 +32,10 @@ const LABEL_PDF: Record<string, string> = {
 function TelaDocumentos({ pacienteId }: { pacienteId: number }) {
   const { data: pdfs, isLoading } = trpc.paciente.downloadPdfs.useQuery(
     { pacienteId },
-    { refetchInterval: 4000, refetchIntervalInBackground: false },
+    {
+      refetchInterval: (query) => (query.state.data && query.state.data.length > 0 ? false : 4000),
+      refetchIntervalInBackground: false,
+    },
   )
 
   const handlePrint = (url: string) => {
