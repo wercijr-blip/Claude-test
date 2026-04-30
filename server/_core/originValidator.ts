@@ -40,7 +40,7 @@ export function validateOAuthState(state: string, expected: string): boolean {
 export function isAllowedRedirectUri(uri: string): boolean {
   try {
     const parsed = new URL(uri)
-    if (/^localhost(:\d+)?$/.test(parsed.host)) return true
+    if (env.NODE_ENV !== 'production' && /^localhost(:\d+)?$/.test(parsed.host)) return true
     return allowedOrigins.some((o) => {
       const base = new URL(o)
       return parsed.origin === base.origin

@@ -20,10 +20,10 @@ async function main() {
   logger.info('[workers] Workers prontos.')
 
   async function shutdown(signal: string) {
-    console.log(`[workers] ${signal} recebido — encerrando graciosamente...`)
+    logger.info(`[workers] ${signal} recebido — encerrando graciosamente...`)
     const { redis } = await import('./_core/redis.ts')
     await redis.quit().catch(() => undefined)
-    console.log('[workers] Encerrado.')
+    logger.info('[workers] Encerrado.')
     process.exit(0)
   }
 

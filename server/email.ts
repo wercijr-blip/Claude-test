@@ -1,5 +1,6 @@
 import { Resend } from 'resend'
 import { env } from './_core/env.ts'
+import { logger } from './_core/logger.ts'
 
 const resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null
 
@@ -8,7 +9,7 @@ function assertResend(): NonNullable<typeof resend> {
     if (env.NODE_ENV === 'production') {
       throw new Error('RESEND_API_KEY não configurado em produção — e-mail bloqueado')
     }
-    console.warn('[email] RESEND_API_KEY não configurado — e-mail ignorado em desenvolvimento')
+    logger.warn('[email] RESEND_API_KEY não configurado — e-mail ignorado em desenvolvimento')
     throw new Error('__dev_skip__')
   }
   return resend

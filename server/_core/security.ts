@@ -3,6 +3,7 @@ import cors from 'cors'
 import type { Express, Request, Response, NextFunction } from 'express'
 import { env } from './env.ts'
 import { apiLimiter } from './rateLimiters.ts'
+import { MAX_REQUEST_SIZE_BYTES } from '../../shared/security-constants.ts'
 
 export function buildAllowedOrigins(): string[] {
   const origins = new Set<string>()
@@ -81,7 +82,7 @@ export function applySecurityMiddleware(app: Express): void {
   // Bloquear payloads gigantes (proteção contra payload bomb)
   app.use((req: Request, res: Response, next: NextFunction) => {
     const contentLength = parseInt(req.headers['content-length'] ?? '0')
-    if (contentLength > 20 * 1024 * 1024) {
+    if (contentLength > MAX_REQUEST_SIZE_BYTES) {
       res.status(413).json({ error: 'Payload muito grande' })
       return
     }

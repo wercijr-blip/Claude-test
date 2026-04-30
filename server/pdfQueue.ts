@@ -11,6 +11,7 @@ import { gerarCadastroPdf } from './pdfCadastro.ts'
 import { uploadBuffer, getBuffer } from './storage.ts'
 import { enviarLinkAcessoIntake, enviarPrescricaoPronta, enviarPesquisaSatisfacao } from './email.ts'
 import { enviarWhatsApp } from './whatsapp.ts'
+import { logger } from './_core/logger.ts'
 
 export const PDF_QUEUE_NAME = 'pdf-generation'
 export const LEMBRETE_QUEUE_NAME = 'lembrete-exame'
@@ -193,7 +194,7 @@ export function startPdfWorker() {
   )
 
   worker.on('failed', (job, err) => {
-    console.error(`[pdfQueue] Job ${job?.id} falhou:`, err.message)
+    logger.error(`[pdfQueue] Job ${job?.id} falhou`, { message: err.message })
   })
 
   return worker
@@ -234,7 +235,7 @@ export function startPesquisaWorker() {
   )
 
   worker.on('failed', (job, err) => {
-    console.error(`[pesquisaQueue] Job ${job?.id} falhou:`, err.message)
+    logger.error(`[pesquisaQueue] Job ${job?.id} falhou`, { message: err.message })
   })
 
   return worker
@@ -293,7 +294,7 @@ export function startLembreteWorker() {
   )
 
   worker.on('failed', (job, err) => {
-    console.error(`[lembreteQueue] Job ${job?.id} falhou:`, err.message)
+    logger.error(`[lembreteQueue] Job ${job?.id} falhou`, { message: err.message })
   })
 
   return worker
@@ -361,7 +362,7 @@ export function startLinkAcessoWorker() {
   )
 
   worker.on('failed', (job, err) => {
-    console.error(`[linkAcessoQueue] Job ${job?.id} falhou (${job?.attemptsMade} tentativas):`, err.message)
+    logger.error(`[linkAcessoQueue] Job ${job?.id} falhou (${job?.attemptsMade} tentativas)`, { message: err.message })
   })
 
   return worker

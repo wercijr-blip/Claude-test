@@ -8,18 +8,13 @@ import { decrypt } from '../_core/encryption.ts'
 import { gerarEEnviarLinkAcesso } from '../routes/intake.ts'
 import { emitirNfse } from '../focusnfe.ts'
 import { VALOR_CONSULTA_CENTAVOS } from '../../shared/const.ts'
+import { logger } from '../_core/logger.ts'
 
-// ---------------------------------------------------------------------------
-// Structured logger — every line is prefixed with [webhook] + ISO timestamp
-// ---------------------------------------------------------------------------
 function log(level: 'INFO' | 'WARN' | 'ERROR', message: string, context?: unknown): void {
-  const ts = new Date().toISOString()
-  const prefix = `[webhook] ${ts} ${level}`
-  if (context !== undefined) {
-    console.log(`${prefix} ${message}`, context)
-  } else {
-    console.log(`${prefix} ${message}`)
-  }
+  const msg = `[webhook] ${message}`
+  if (level === 'ERROR') logger.error(msg, context)
+  else if (level === 'WARN') logger.warn(msg, context)
+  else logger.info(msg, context)
 }
 
 // ---------------------------------------------------------------------------

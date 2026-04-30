@@ -11,22 +11,14 @@ export const TOKEN_EXPIRY_DAYS = 7
 export const JWT_EXPIRY_STAFF = '8h'
 export const JWT_EXPIRY_PATIENT = '4h'
 
-export const MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024 // 10MB
+export const MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024 // 10MB per file
+export const MAX_REQUEST_SIZE_BYTES = 20 * 1024 * 1024 // 20MB ceiling for any request body
 
 export const ALLOWED_MIME_TYPES = [
   'image/jpeg',
   'image/png',
   'image/webp',
   'application/pdf',
-] as const
-
-export const ALLOWED_ORIGINS = [
-  'http://localhost:5173',
-  'http://localhost:3000',
-  'https://facilitaprep.manus.space',
-  'https://facilitaprep.com.br',
-  'https://www.facilitaprep.com.br',
-  'https://claude-test-production-8672.up.railway.app',
 ] as const
 
 // ── Regras de análise de exame HIV (IA) ──────────────────────
@@ -37,20 +29,3 @@ export const EXAM_RULES = {
   LOW_CONFIDENCE_THRESHOLD: 0.7,
 } as const
 
-export const CSRF_HEADER = 'x-csrf-token'
-
-export const SESSION_COOKIE_NAME = 'fp_session'
-
-export const SECURITY_EVENTS = {
-  LOGIN_SUCCESS: 'login_success',
-  LOGIN_FAILURE: 'login_failure',
-  LOGOUT: 'logout',
-  TOKEN_VALIDATED: 'token_validated',
-  TOKEN_INVALID: 'token_invalid',
-  UNAUTHORIZED_ACCESS: 'unauthorized_access',
-  UPLOAD_SUCCESS: 'upload_success',
-  UPLOAD_BLOCKED: 'upload_blocked',
-  PDF_GENERATED: 'pdf_generated',
-  CPF_INJECTION_ATTEMPT: 'cpf_injection_attempt',
-  RATE_LIMIT_HIT: 'rate_limit_hit',
-} as const

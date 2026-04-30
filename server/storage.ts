@@ -5,6 +5,7 @@ import multer from 'multer'
 import { fileTypeFromBuffer } from 'file-type'
 import type { Request, Response } from 'express'
 import { env } from './_core/env.ts'
+import { logger } from './_core/logger.ts'
 import { db } from './db.ts'
 import { exames, pacientes } from '../drizzle/schema.ts'
 import { eq, and } from 'drizzle-orm'
@@ -114,7 +115,7 @@ export function uploadExame(req: Request, res: Response): Promise<void> {
           await uploadBuffer(s3Key, req.file.buffer, req.file.mimetype)
           res.json({ ok: true, s3Key })
         } catch (err) {
-          console.error(`[storage] Erro no upload (${req.body.tipo}):`, err)
+          logger.error(`[storage] Erro no upload (${req.body.tipo})`, err)
           res.status(500).json({ error: 'Erro ao salvar arquivo' })
         }
         resolve()
@@ -161,12 +162,12 @@ export function uploadExame(req: Request, res: Response): Promise<void> {
         const exameId = inserted.insertId
         await enqueueAnalisarExame(exameId).catch((queueErr) => {
           // Non-fatal: log and continue. Exam is saved; analysis can be retried manually.
-          console.error(`[storage] Falha ao enfileirar análise do exame ${exameId}:`, queueErr)
+          logger.error(`[storage] Falha ao enfileirar análise do exame ${exameId}`, queueErr)
         })
 
         res.json({ ok: true, s3Key })
       } catch (uploadErr) {
-        console.error('[storage] Erro no upload:', uploadErr)
+        logger.error('[storage] Erro no upload', uploadErr)
         res.status(500).json({ error: 'Erro ao salvar arquivo' })
       }
 
