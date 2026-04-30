@@ -100,7 +100,12 @@ export default function SegundaParteInicio() {
       const fd = new FormData()
       fd.append('file', file)
       fd.append('tipo', 'exame_hiv')
-      const res = await fetch('/api/upload', { method: 'POST', body: fd })
+      const token = localStorage.getItem('fp_token')
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: fd,
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
       if (!res.ok) throw new Error('Falha no upload')
       const { s3Key } = (await res.json()) as { s3Key: string }
       setEtapa('aguardando_ia')
