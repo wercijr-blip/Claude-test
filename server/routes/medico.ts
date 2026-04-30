@@ -5,6 +5,7 @@ import { db } from '../db.ts'
 import { pacientes, exames } from '../../drizzle/schema.ts'
 import { eq, inArray } from 'drizzle-orm'
 import { decrypt } from '../_core/encryption.ts'
+import { isExameRejeitadoIa } from '../examUtils.ts'
 
 type ResultadoIaJson = {
   status?: string
@@ -111,10 +112,7 @@ export const medicoRouter = router({
   // Listar exames com rejeição de IA (status rejeitado_ia no resultadoIa)
   listarExamesRejeitadosIa: medicoProcedure.query(async () => {
     const rows = await db.select().from(exames).orderBy(exames.createdAt)
-    return rows.filter((e) => {
-      const r = e.resultadoIa as ResultadoIaJson | null
-      return r?.status === 'rejeitado_ia' || r?.status === 'rejeitado'
-    }).map((e) => ({
+    return rows.filter((e) => isExameRejeitadoIa(e.resultadoIa as ResultadoIaJson | null)).map((e) => ({
       id: e.id,
       pacienteId: e.pacienteId,
       nomeArquivo: e.nomeArquivo,

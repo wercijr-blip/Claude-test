@@ -4,6 +4,7 @@ import { db } from '../db.ts'
 import { exames, pacientes } from '../../drizzle/schema.ts'
 import { eq } from 'drizzle-orm'
 import { decrypt } from '../_core/encryption.ts'
+import { filtrarExamePorStatus } from '../examUtils.ts'
 
 export const secretariaRouter = router({
   // Listar todos os documentos (exames) enviados por pacientes
@@ -40,16 +41,9 @@ export const secretariaRouter = router({
       const statusFiltro = input?.status ?? 'todos'
 
       return rows
-        .filter((r) => {
-          if (statusFiltro === 'todos') return true
-          const ia = r.resultadoIa as { status?: string } | null
-          const iaStatus = ia?.status ?? 'pendente'
-          if (statusFiltro === 'pendente') return !ia || iaStatus === 'pendente'
-          if (statusFiltro === 'validado') return iaStatus === 'aprovado' || iaStatus === 'validado'
-          if (statusFiltro === 'rejeitado') return iaStatus === 'rejeitado' || iaStatus === 'rejeitado_ia'
-          if (statusFiltro === 'liberado') return iaStatus === 'liberado_manualmente'
-          return true
-        })
+        .filter((r) =>
+          filtrarExamePorStatus(r.resultadoIa as { status?: string } | null, statusFiltro),
+        )
         .map((r) => ({
           id: r.id,
           pacienteId: r.pacienteId,
