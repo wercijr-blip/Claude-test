@@ -231,6 +231,71 @@ const DDL_STATEMENTS = [
   )`,
 ]
 
+// Mapa de tabela -> colunas esperadas (DDL para ALTER TABLE ADD COLUMN).
+// Usado para adicionar colunas que faltam em tabelas pré-existentes
+// criadas com schema antigo.
+const COLUMN_PATCHES: Record<string, Array<{ name: string; ddl: string }>> = {
+  consultas_inicio: [
+    { name: 'tipo_consulta', ddl: 'VARCHAR(50)' },
+    { name: 'tem_exame_recente', ddl: 'TINYINT(1)' },
+    { name: 'exame_s3_key', ddl: 'VARCHAR(500)' },
+    { name: 'pedido_completo_s3_key', ddl: 'VARCHAR(500)' },
+    { name: 'pedido_ist_s3_key', ddl: 'VARCHAR(500)' },
+    { name: 'pedido_hiv_s3_key', ddl: 'VARCHAR(500)' },
+    { name: 'pedido_densitometria_s3_key', ddl: 'VARCHAR(500)' },
+    { name: 'status', ddl: "VARCHAR(50) NOT NULL DEFAULT 'aguardando_escolha'" },
+    { name: 'resultado_ia', ddl: 'JSON' },
+    { name: 'motivo_rejeicao', ddl: 'VARCHAR(200)' },
+    { name: 'tentativas_reenvio', ddl: 'INT NOT NULL DEFAULT 0' },
+    { name: 'validado_por_id', ddl: 'INT' },
+    { name: 'validado_em', ddl: 'DATETIME' },
+    { name: 'data_exame_validado', ddl: 'VARCHAR(20)' },
+    { name: 'resultado_hiv_validado', ddl: 'VARCHAR(20)' },
+    { name: 'observacoes_medico', ddl: 'TEXT' },
+    { name: 'ultimo_lembrete_at', ddl: 'DATETIME' },
+    { name: 'link_expires_at', ddl: 'DATETIME' },
+  ],
+}
+
+async function getExistingColumns(table: string): Promise<Set<string>> {
+  const rows = (await db.execute(sql.raw(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '${table}'`,
+  ))) as unknown as Array<{ COLUMN_NAME?: string; column_name?: string }> | { rows?: Array<{ COLUMN_NAME?: string; column_name?: string }> }
+
+  const list = Array.isArray(rows) ? rows : (rows.rows ?? [])
+  // mysql2 driver returns rows in [results, fields] tuple — flatten if needed
+  const flat: Array<{ COLUMN_NAME?: string; column_name?: string }> = Array.isArray(list[0])
+    ? (list[0] as Array<{ COLUMN_NAME?: string; column_name?: string }>)
+    : (list as Array<{ COLUMN_NAME?: string; column_name?: string }>)
+
+  return new Set(flat.map((r) => r.COLUMN_NAME ?? r.column_name ?? '').filter(Boolean))
+}
+
+async function patchTableColumns(table: string, columns: Array<{ name: string; ddl: string }>): Promise<void> {
+  let existing: Set<string>
+  try {
+    existing = await getExistingColumns(table)
+  } catch (err) {
+    logger.error('[ensureSchema] Falha ao listar colunas existentes', { table, error: String(err) })
+    return
+  }
+
+  for (const col of columns) {
+    if (existing.has(col.name)) continue
+    const stmt = `ALTER TABLE ${table} ADD COLUMN ${col.name} ${col.ddl}`
+    try {
+      await db.execute(sql.raw(stmt))
+      logger.info('[ensureSchema] Coluna adicionada', { table, column: col.name })
+    } catch (err) {
+      logger.error('[ensureSchema] Falha ao adicionar coluna (continuando)', {
+        table,
+        column: col.name,
+        error: String(err),
+      })
+    }
+  }
+}
+
 export async function ensureSchema(): Promise<void> {
   logger.info('[ensureSchema] Verificando schema do banco de dados...')
   let ok = 0
@@ -247,5 +312,12 @@ export async function ensureSchema(): Promise<void> {
       })
     }
   }
-  logger.info(`[ensureSchema] Verificação concluída: ${ok} ok, ${failed} falhas.`)
+  logger.info(`[ensureSchema] DDL concluído: ${ok} ok, ${failed} falhas.`)
+
+  // Patch de colunas faltantes em tabelas pré-existentes
+  for (const [table, columns] of Object.entries(COLUMN_PATCHES)) {
+    await patchTableColumns(table, columns)
+  }
+
+  logger.info('[ensureSchema] Verificação concluída.')
 }
