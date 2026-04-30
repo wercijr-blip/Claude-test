@@ -41,31 +41,51 @@ const STOPWORDS_NOME = new Set(['de', 'da', 'do', 'das', 'dos', 'e'])
 function tokenizarNome(s: string): string[] {
   return normalizarTexto(s)
     .split(/\s+/)
-    .filter((t) => t.length > 1 && !STOPWORDS_NOME.has(t))
+    .filter((t) => t.length >= 1 && !STOPWORDS_NOME.has(t))
 }
 
-// Compara dois nomes tokenizados: para cada token significativo do nome esperado,
-// verifica se há token similar no nome do exame (Levenshtein ≥ 0.85 entre tokens).
-// Retorna a fração de matches. Robusto a:
-// - nome completo vs nome parcial (matches nos tokens em comum bastam)
-// - ordem invertida de nome/sobrenome
-// - pequenos erros de OCR em alguns caracteres
+// Verifica se dois tokens batem. Aceita:
+// - igualdade
+// - abreviação: um token de 1 char é inicial e o outro começa com essa letra (J ↔ JOAO)
+// - Levenshtein normalizado ≥ 0.85 (cobre erros de OCR)
+function tokensBatem(a: string, b: string): boolean {
+  if (a === b) return true
+  if (a.length === 1 && b.startsWith(a)) return true
+  if (b.length === 1 && a.startsWith(b)) return true
+  const max = Math.max(a.length, b.length)
+  if (max === 0) return false
+  return (max - levenshtein(a, b)) / max >= 0.85
+}
+
+// Compara primeiro nome (deve ser IGUAL ou com erro mínimo de OCR) e
+// demais tokens (que podem ser abreviados ou ter pequenas variações).
+// Retorna 0 se o primeiro nome não bater (rejeição automática).
+// Caso contrário, retorna fração de matches dos demais tokens.
 export function calcularSimilaridadeNome(nomeExame: string, nomeEsperado: string): number {
   const tokensExame = tokenizarNome(nomeExame)
   const tokensEsperado = tokenizarNome(nomeEsperado)
   if (tokensEsperado.length === 0 || tokensExame.length === 0) return 0
 
+  // Primeiro nome: deve ser igual ou ter Levenshtein ≥ 0.90 (cobre 1 char errado de OCR).
+  // NÃO aceita abreviação aqui — primeiro nome precisa estar por extenso.
+  const primeiroEsperado = tokensEsperado[0]
+  const primeiroBate = tokensExame.some((e) => {
+    if (e === primeiroEsperado) return true
+    if (e.length < 2 || primeiroEsperado.length < 2) return false
+    const max = Math.max(e.length, primeiroEsperado.length)
+    return (max - levenshtein(e, primeiroEsperado)) / max >= 0.90
+  })
+  if (!primeiroBate) return 0
+
+  // Demais tokens (sobrenomes): podem ser abreviados (J ↔ JOAO) ou ter erros pequenos.
+  const demais = tokensEsperado.slice(1)
+  if (demais.length === 0) return 1
+
   let matches = 0
-  for (const t of tokensEsperado) {
-    let melhor = 0
-    for (const e of tokensExame) {
-      const max = Math.max(t.length, e.length)
-      const sim = max === 0 ? 0 : (max - levenshtein(t, e)) / max
-      if (sim > melhor) melhor = sim
-    }
-    if (melhor >= 0.85) matches++
+  for (const t of demais) {
+    if (tokensExame.some((e) => tokensBatem(t, e))) matches++
   }
-  return matches / tokensEsperado.length
+  return matches / demais.length
 }
 
 // ─── AI extraction: nome, resultado, data, confiança ─────────────────────────
