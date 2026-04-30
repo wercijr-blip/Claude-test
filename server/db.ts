@@ -122,7 +122,7 @@ export async function updateConsultation(id: number, data: Record<string, unknow
   await db.update(schema.consultations).set(data as never).where(eq(schema.consultations.id, id))
 }
 
-// ─── KNOWLEDGE TOPICS ────────────────────────────────────────
+// ─── KNOWLEDGE TOPICS ─────────────────────────────────────────
 
 export async function createKnowledgeTopic(data: typeof schema.knowledgeTopics.$inferInsert) {
   const [result] = await db.insert(schema.knowledgeTopics).values(data)
@@ -207,13 +207,13 @@ export async function getBulletinById(id: number, clinicId: string) {
   return rows[0] ?? null
 }
 
-// ─── CONSULTATION CLINICAL DATA ───────────────────────────────
+// ─── CONSULTATION CLINICAL DATA ─────────────────────────────────
 
 export async function createConsultationClinicalData(data: typeof schema.consultationClinicalData.$inferInsert) {
   await db.insert(schema.consultationClinicalData).values(data)
 }
 
-// ─── ADMIN STATS HELPERS ──────────────────────────────────────
+// ─── ADMIN STATS HELPERS ───────────────────────────────────────────
 
 async function getClinicDoctorIds(clinicId: string): Promise<number[]> {
   const rows = await db
