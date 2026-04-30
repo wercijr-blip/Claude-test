@@ -45,6 +45,34 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
   }
 }
 
+// Bloqueia acesso ao formulário se o exame ainda não foi aprovado.
+function FormularioGate({ pacienteId }: { pacienteId?: number }) {
+  const [, navigate] = useLocation()
+  const statusQuery = trpc.consulta.status.useQuery(undefined, {
+    refetchOnWindowFocus: false,
+    retry: false,
+  })
+
+  useEffect(() => {
+    if (!statusQuery.data) return
+    const aprovado = statusQuery.data.status === 'aprovado' || statusQuery.data.status === 'aprovado_ia'
+    if (!aprovado) navigate('/inicio')
+  }, [statusQuery.data, navigate])
+
+  if (statusQuery.isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-600 rounded-full animate-spin" />
+      </div>
+    )
+  }
+
+  const aprovado = statusQuery.data?.status === 'aprovado' || statusQuery.data?.status === 'aprovado_ia'
+  if (!aprovado) return null
+
+  return <FormularioPaciente pacienteId={pacienteId} />
+}
+
 export default function App() {
   const { token } = useAuth()
   const session = token ? parseJwtPayload(token) : null
@@ -61,7 +89,7 @@ export default function App() {
             <Route path="/inicio" component={SegundaParteInicio} />
             <Route path="/formulario/:pacienteId?">
               {session?.type === 'patient'
-                ? <FormularioPaciente pacienteId={session.pacienteId ?? undefined} />
+                ? <FormularioGate pacienteId={session.pacienteId ?? undefined} />
                 : <TokenEntryPage />}
             </Route>
             <Route path="/medico">
