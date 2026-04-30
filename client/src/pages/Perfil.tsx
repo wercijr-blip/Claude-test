@@ -35,7 +35,6 @@ export default function Perfil() {
         <h1 className="text-2xl font-bold text-slate-800 mb-6">Meu Perfil</h1>
 
         <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-5">
-          {/* Avatar */}
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-bold text-xl">
               {me.name?.charAt(0)?.toUpperCase() ?? '?'}
@@ -48,14 +47,12 @@ export default function Perfil() {
 
           <hr className="border-slate-100" />
 
-          {/* Campos somente leitura */}
           <Field label="Email de login" value={me.email} />
           <Field label="CRM"           value={me.crm ?? '—'} />
           <Field label="Especialidade" value={me.specialty ?? '—'} />
 
           <hr className="border-slate-100" />
 
-          {/* Email do boletim (editável) */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
               Email para boletim mensal
