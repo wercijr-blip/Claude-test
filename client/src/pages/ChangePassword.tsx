@@ -10,8 +10,7 @@ export default function ChangePassword() {
   const [error, setError]      = useState('')
   const [success, setSuccess]  = useState(false)
 
-  const meQuery = trpc.auth.me.useQuery()
-  const utils   = trpc.useUtils()
+  const utils = trpc.useUtils()
 
   const changeMutation = trpc.auth.changePassword.useMutation({
     async onSuccess() {
@@ -65,7 +64,7 @@ export default function ChangePassword() {
                 value={current}
                 onChange={(e) => setCurrent(e.target.value)}
                 className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Senha temporária (123456)"
+                placeholder="Senha temporária recebida por email"
               />
             </div>
 

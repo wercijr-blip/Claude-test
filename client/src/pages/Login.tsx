@@ -33,7 +33,7 @@ export default function Login() {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-slate-800">MedScribe</h1>
+          <h1 className="text-2xl font-bold text-slate-800">MedScrita</h1>
           <p className="text-slate-500 text-sm mt-1">Acesse sua conta</p>
         </div>
 
