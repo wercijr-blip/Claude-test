@@ -233,15 +233,19 @@ const DDL_STATEMENTS = [
 
 export async function ensureSchema(): Promise<void> {
   logger.info('[ensureSchema] Verificando schema do banco de dados...')
-  let created = 0
+  let ok = 0
+  let failed = 0
   for (const stmt of DDL_STATEMENTS) {
     try {
       await db.execute(sql.raw(stmt))
-      created++
+      ok++
     } catch (err) {
-      logger.error('[ensureSchema] Falha ao executar DDL', { error: String(err), stmt: stmt.slice(0, 80) })
-      throw err
+      failed++
+      logger.error('[ensureSchema] Falha ao executar DDL (continuando)', {
+        error: String(err),
+        stmt: stmt.slice(0, 100),
+      })
     }
   }
-  logger.info(`[ensureSchema] ${created} tabelas verificadas/criadas.`)
+  logger.info(`[ensureSchema] Verificação concluída: ${ok} ok, ${failed} falhas.`)
 }

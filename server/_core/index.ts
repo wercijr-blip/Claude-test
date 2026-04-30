@@ -92,7 +92,9 @@ if (env.NODE_ENV === 'production') {
   })
 }
 
-await ensureSchema()
+await ensureSchema().catch((err) => {
+  logger.error('[server] ensureSchema falhou (continuando)', { error: String(err) })
+})
 
 const server = app.listen(env.PORT, async () => {
   logger.info(`Facilita PrEP rodando na porta ${env.PORT}`, { env: env.NODE_ENV })
