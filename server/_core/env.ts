@@ -15,9 +15,6 @@ const envSchema = z.object({
   AWS_REGION: z.string().default('sa-east-1'),
   AWS_S3_BUCKET: z.string().min(1),
 
-  GMAIL_USER: z.string().optional(),
-  GMAIL_APP_PASSWORD: z.string().optional(),
-
   RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().default('Facilita PrEP <noreply@facilitaprep.com.br>'),
 
@@ -48,6 +45,9 @@ const envSchema = z.object({
 
   PORT: z.coerce.number().default(3000),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  // Set to false when running a dedicated worker service (server/workers.ts).
+  // Defaults to true so single-service deploys work without extra config.
+  WORKERS_ENABLED: z.coerce.boolean().default(true),
 })
 
 const parsed = envSchema.safeParse(process.env)
@@ -59,3 +59,10 @@ if (!parsed.success) {
 }
 
 export const env = parsed.data
+
+// Fail-fast if someone accidentally runs with NODE_ENV=development in production.
+// Railway sets NODE_ENV automatically; this catches misconfigurations.
+if (env.NODE_ENV === 'development' && process.env['RAILWAY_ENVIRONMENT']) {
+  console.error('❌ NODE_ENV=development detectado em ambiente Railway. Defina NODE_ENV=production.')
+  process.exit(1)
+}

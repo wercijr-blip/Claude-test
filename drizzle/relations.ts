@@ -9,6 +9,10 @@ import {
   nfseRegistros,
   pagamentos,
   securityEvents,
+  consultasInicio,
+  precadastros,
+  satisfacaoPesquisas,
+  pesquisaTokens,
 } from './schema.ts'
 
 export const usersRelations = relations(users, ({ many }) => ({
@@ -90,5 +94,41 @@ export const securityEventsRelations = relations(securityEvents, ({ one }) => ({
   user: one(users, {
     fields: [securityEvents.userId],
     references: [users.id],
+  }),
+}))
+
+export const consultasInicioRelations = relations(consultasInicio, ({ one }) => ({
+  token: one(accessTokens, {
+    fields: [consultasInicio.tokenId],
+    references: [accessTokens.id],
+  }),
+  validadoPor: one(users, {
+    fields: [consultasInicio.validadoPorId],
+    references: [users.id],
+  }),
+}))
+
+export const precadastrosRelations = relations(precadastros, ({ one }) => ({
+  accessToken: one(accessTokens, {
+    fields: [precadastros.accessTokenId],
+    references: [accessTokens.id],
+  }),
+  validadoPor: one(users, {
+    fields: [precadastros.validadoPorId],
+    references: [users.id],
+  }),
+}))
+
+export const satisfacaoPesquisasRelations = relations(satisfacaoPesquisas, ({ one }) => ({
+  paciente: one(pacientes, {
+    fields: [satisfacaoPesquisas.pacienteId],
+    references: [pacientes.id],
+  }),
+}))
+
+export const pesquisaTokensRelations = relations(pesquisaTokens, ({ one }) => ({
+  paciente: one(pacientes, {
+    fields: [pesquisaTokens.pacienteId],
+    references: [pacientes.id],
   }),
 }))

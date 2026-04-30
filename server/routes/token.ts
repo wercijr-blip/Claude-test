@@ -1,8 +1,7 @@
 import { z } from 'zod'
-import { randomBytes } from 'crypto'
-import { createHash } from 'crypto'
 import { SignJWT } from 'jose'
 import { router, publicProcedure, staffProcedure } from '../_core/trpc.ts'
+import { hashToken, generateToken } from '../_core/tokenUtils.ts'
 import { TRPCError } from '@trpc/server'
 import { db } from '../db.ts'
 import { accessTokens, pacientes } from '../../drizzle/schema.ts'
@@ -10,10 +9,6 @@ import { eq, and, gt, isNull } from 'drizzle-orm'
 import { env } from '../_core/env.ts'
 import { JWT_EXPIRY_PATIENT, TOKEN_EXPIRY_DAYS } from '../../shared/security-constants.ts'
 import { ERROR_MESSAGES } from '../../shared/const.ts'
-
-function hashToken(raw: string): string {
-  return createHash('sha256').update(raw).digest('hex')
-}
 
 export const tokenRouter = router({
   // Secretaria gera token para paciente
@@ -26,7 +21,7 @@ export const tokenRouter = router({
       }),
     )
     .mutation(async ({ input, ctx }) => {
-      const raw = randomBytes(32).toString('hex')
+      const raw = generateToken()
       const hash = hashToken(raw)
 
       const expiresAt = new Date()
@@ -73,13 +68,11 @@ export const tokenRouter = router({
         .where(eq(pacientes.tokenId, record.id))
         .limit(1)
 
-      // Marcar token como usado (apenas na primeira vez)
-      if (!record.usedAt) {
-        await db
-          .update(accessTokens)
-          .set({ usedAt: new Date() })
-          .where(eq(accessTokens.id, record.id))
-      }
+      // Marcar token como usado na primeira vez — UPDATE atômico evita double-write em requests paralelos
+      await db
+        .update(accessTokens)
+        .set({ usedAt: new Date() })
+        .where(and(eq(accessTokens.id, record.id), isNull(accessTokens.usedAt)))
 
       const secret = new TextEncoder().encode(env.JWT_SECRET)
       const sessionToken = await new SignJWT({

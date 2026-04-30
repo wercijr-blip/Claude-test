@@ -4,6 +4,8 @@ import { createExpressMiddleware } from '@trpc/server/adapters/express'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { env } from './env.ts'
+import { logger } from './logger.ts'
+import { redis } from './redis.ts'
 import { applySecurityMiddleware } from './security.ts'
 import { appRouter } from '../routers.ts'
 import { createContext } from './context.ts'
@@ -17,14 +19,14 @@ const app = express()
 // Trust Railway's reverse proxy so X-Forwarded-For is recognized
 app.set('trust proxy', 1)
 
-// Servir assets estáticos ANTES do middleware de segurança
+applySecurityMiddleware(app)
+app.use(cookieParser())
+
+// Assets estáticos DEPOIS dos middlewares de segurança (Helmet, CORS, rate limit)
 if (env.NODE_ENV === 'production') {
   const clientDist = path.resolve(__dirname, '../../dist/client')
   app.use(express.static(clientDist))
 }
-
-applySecurityMiddleware(app)
-app.use(cookieParser())
 
 // ⚠️ Stripe webhook DEVE vir ANTES de express.json() para receber raw body
 // (Stripe valida assinatura usando os bytes brutos do payload)
@@ -58,14 +60,21 @@ app.use(
   }),
 )
 
-// Healthcheck com verificação do banco
+// Healthcheck com verificação do banco e Redis
 app.get('/api/health', async (_req, res) => {
-  try {
-    await db.execute('SELECT 1')
-    res.json({ status: 'ok', ts: new Date().toISOString() })
-  } catch {
-    res.status(503).json({ status: 'error', ts: new Date().toISOString() })
-  }
+  const ts = new Date().toISOString()
+
+  const [dbOk, redisOk] = await Promise.all([
+    db.execute('SELECT 1').then(() => true).catch(() => false),
+    redis.ping().then((r) => r === 'PONG').catch(() => false),
+  ])
+
+  const allOk = dbOk && redisOk
+  res.status(allOk ? 200 : 503).json({
+    status: allOk ? 'ok' : 'degraded',
+    checks: { db: dbOk ? 'ok' : 'error', redis: redisOk ? 'ok' : 'error' },
+    ts,
+  })
 })
 
 // Upload de exames (lazy import para evitar carregar S3 client no boot)
@@ -82,14 +91,56 @@ if (env.NODE_ENV === 'production') {
   })
 }
 
-app.listen(env.PORT, async () => {
-  console.log(`🚀 Facilita PrEP rodando na porta ${env.PORT} [${env.NODE_ENV}]`)
-  // Iniciar workers de fila em background
-  const { startPdfWorker, startLembreteWorker, startPesquisaWorker, agendarLembreteDiario } = await import('../pdfQueue.ts')
-  startPdfWorker()
-  startLembreteWorker()
-  startPesquisaWorker()
-  await agendarLembreteDiario()
+const server = app.listen(env.PORT, async () => {
+  logger.info(`Facilita PrEP rodando na porta ${env.PORT}`, { env: env.NODE_ENV })
+
+  // Workers run in-process by default (single-service deploy).
+  // Set WORKERS_ENABLED=false when running a dedicated worker service via server/workers.ts.
+  if (env.WORKERS_ENABLED !== false) {
+    const { startPdfWorker, startLembreteWorker, startPesquisaWorker, startLinkAcessoWorker, agendarLembreteDiario } = await import('../pdfQueue.ts')
+    const { startExamWorker } = await import('../examQueue.ts')
+    startPdfWorker()
+    startLembreteWorker()
+    startPesquisaWorker()
+    startLinkAcessoWorker()
+    startExamWorker()
+    await agendarLembreteDiario()
+    logger.info('[server] Workers BullMQ iniciados em-processo.')
+  } else {
+    logger.info('[server] WORKERS_ENABLED=false — aguardando worker service separado.')
+  }
+})
+
+// Graceful shutdown — Railway sends SIGTERM before stopping the container.
+// Stop accepting new connections, wait for in-flight requests, then exit.
+async function shutdown(signal: string) {
+  logger.info(`[server] ${signal} recebido — encerrando graciosamente...`)
+  server.close(async () => {
+    const { redis } = await import('./redis.ts')
+    await redis.quit().catch(() => undefined)
+    logger.info('[server] Conexões encerradas. Saindo.')
+    process.exit(0)
+  })
+
+  // Force exit if graceful shutdown hangs beyond 15s
+  setTimeout(() => {
+    logger.error('[server] Graceful shutdown excedeu 15s — forçando saída')
+    process.exit(1)
+  }, 15_000)
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT', () => shutdown('SIGINT'))
+
+// Catch any unhandled promise rejections or thrown exceptions so they appear
+// in Railway logs with full context instead of crashing silently.
+process.on('unhandledRejection', (reason) => {
+  logger.error('[server] unhandledRejection', { reason: String(reason) })
+})
+process.on('uncaughtException', (err) => {
+  logger.error('[server] uncaughtException', { error: err.message, stack: err.stack })
+  // Exit after uncaughtException — process state is undefined, Railway restarts it.
+  process.exit(1)
 })
 
 export default app

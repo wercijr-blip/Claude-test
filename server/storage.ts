@@ -2,12 +2,16 @@ import { randomUUID } from 'crypto'
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import multer from 'multer'
+import { fileTypeFromBuffer } from 'file-type'
 import type { Request, Response } from 'express'
 import { env } from './_core/env.ts'
+import { logger } from './_core/logger.ts'
 import { db } from './db.ts'
-import { exames } from '../drizzle/schema.ts'
+import { exames, pacientes } from '../drizzle/schema.ts'
+import { eq, and } from 'drizzle-orm'
 import { MAX_UPLOAD_SIZE_BYTES, ALLOWED_MIME_TYPES } from '../shared/security-constants.ts'
 import { enqueueAnalisarExame } from './examQueue.ts'
+import { createContext } from './_core/context.ts'
 
 const MIME_TO_EXT: Record<string, string> = {
   'image/jpeg': 'jpg',
@@ -79,20 +83,39 @@ export function uploadExame(req: Request, res: Response): Promise<void> {
         return
       }
 
-      // Uploads that don't require a pacienteId — returns s3Key only (no DB insert)
-      const unauthTypes: Record<string, string> = {
+      // Require a valid patient session for all upload types
+      const ctx = await createContext({ req })
+      if (!ctx.session || ctx.session.type !== 'patient') {
+        res.status(401).json({ error: 'Sessão inválida' })
+        resolve()
+        return
+      }
+
+      // Validate actual file magic bytes — don't trust client-supplied mimetype
+      const detected = await fileTypeFromBuffer(req.file.buffer)
+      const detectedMime = detected?.mime ?? null
+      if (!detectedMime || !(ALLOWED_MIME_TYPES as readonly string[]).includes(detectedMime)) {
+        res.status(400).json({ error: 'Tipo de arquivo não permitido' })
+        resolve()
+        return
+      }
+      // Use the verified mime type for all downstream operations
+      req.file.mimetype = detectedMime
+
+      // Uploads that don't require a specific pacienteId — returns s3Key only (no DB insert)
+      const tokenFolders: Record<string, string> = {
         'documento_intake': 'intake/documentos',
         'exame_hiv': 'exames-inicio',
       }
-      const unauthFolder = unauthTypes[req.body.tipo as string]
-      if (unauthFolder) {
+      const tokenFolder = tokenFolders[req.body.tipo as string]
+      if (tokenFolder) {
         const ext = MIME_TO_EXT[req.file.mimetype] ?? 'bin'
-        const s3Key = `${unauthFolder}/${randomUUID()}.${ext}`
+        const s3Key = `${tokenFolder}/${randomUUID()}.${ext}`
         try {
           await uploadBuffer(s3Key, req.file.buffer, req.file.mimetype)
           res.json({ ok: true, s3Key })
         } catch (err) {
-          console.error(`[storage] Erro no upload (${req.body.tipo}):`, err)
+          logger.error(`[storage] Erro no upload (${req.body.tipo})`, err)
           res.status(500).json({ error: 'Erro ao salvar arquivo' })
         }
         resolve()
@@ -104,6 +127,18 @@ export function uploadExame(req: Request, res: Response): Promise<void> {
 
       if (isNaN(pacienteId)) {
         res.status(400).json({ error: 'pacienteId inválido' })
+        resolve()
+        return
+      }
+
+      const [owned] = await db
+        .select({ id: pacientes.id })
+        .from(pacientes)
+        .where(and(eq(pacientes.id, pacienteId), eq(pacientes.tokenId, ctx.session.tokenId)))
+        .limit(1)
+
+      if (!owned) {
+        res.status(403).json({ error: 'Acesso negado' })
         resolve()
         return
       }
@@ -127,12 +162,12 @@ export function uploadExame(req: Request, res: Response): Promise<void> {
         const exameId = inserted.insertId
         await enqueueAnalisarExame(exameId).catch((queueErr) => {
           // Non-fatal: log and continue. Exam is saved; analysis can be retried manually.
-          console.error(`[storage] Falha ao enfileirar análise do exame ${exameId}:`, queueErr)
+          logger.error(`[storage] Falha ao enfileirar análise do exame ${exameId}`, queueErr)
         })
 
         res.json({ ok: true, s3Key })
       } catch (uploadErr) {
-        console.error('[storage] Erro no upload:', uploadErr)
+        logger.error('[storage] Erro no upload', uploadErr)
         res.status(500).json({ error: 'Erro ao salvar arquivo' })
       }
 

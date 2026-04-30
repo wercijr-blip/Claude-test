@@ -2,6 +2,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { trpc } from '../../lib/trpc.ts'
+import { useAuth } from '../../_core/hooks/useAuth.ts'
 import { validarCpf } from '../../../../server/_core/cpfValidator.ts'
 import { ERROR_MESSAGES } from '@shared/const.ts'
 
@@ -25,6 +26,7 @@ interface Props {
 export default function StepPaciente({ pacienteId, onNext, defaultValues }: Props) {
   const hasIntakeNome = !!defaultValues?.nome
   const hasIntakeCpf = !!defaultValues?.cpf
+  const { setToken } = useAuth()
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -32,7 +34,11 @@ export default function StepPaciente({ pacienteId, onNext, defaultValues }: Prop
   })
 
   const salvar = trpc.paciente.salvarStep1.useMutation({
-    onSuccess: (data) => onNext(data.pacienteId),
+    onSuccess: (data) => {
+      // Refresh the stored JWT so page reloads preserve pacienteId
+      if (data.newSessionToken) setToken(data.newSessionToken)
+      onNext(data.pacienteId)
+    },
   })
 
   const onSubmit = (data: FormData) => salvar.mutate(data)

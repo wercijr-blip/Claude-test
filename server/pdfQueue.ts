@@ -1,8 +1,9 @@
 import { Queue, Worker } from 'bullmq'
-import IORedis from 'ioredis'
+import { randomBytes } from 'crypto'
 import { env } from './_core/env.ts'
+import { redis } from './_core/redis.ts'
 import { db } from './db.ts'
-import { pacientes, pdfs, consultasInicio, accessTokens, precadastros } from '../drizzle/schema.ts'
+import { pacientes, pdfs, consultasInicio, accessTokens, precadastros, pesquisaTokens } from '../drizzle/schema.ts'
 import { eq, and, gt } from 'drizzle-orm'
 import { decrypt } from './_core/encryption.ts'
 import { gerarPrescricaoPdf, gerarFormularioPdf, assinarPdf } from './pdfSigner.ts'
@@ -10,17 +11,41 @@ import { gerarCadastroPdf } from './pdfCadastro.ts'
 import { uploadBuffer, getBuffer } from './storage.ts'
 import { enviarLinkAcessoIntake, enviarPrescricaoPronta, enviarPesquisaSatisfacao } from './email.ts'
 import { enviarWhatsApp } from './whatsapp.ts'
-import { gerarTokenPesquisa } from './routes/pesquisa.ts'
+import { logger } from './_core/logger.ts'
 
 export const PDF_QUEUE_NAME = 'pdf-generation'
 export const LEMBRETE_QUEUE_NAME = 'lembrete-exame'
 export const PESQUISA_QUEUE_NAME = 'pesquisa-satisfacao'
+export const LINK_ACESSO_QUEUE_NAME = 'link-acesso'
 
-const connection = new IORedis(env.REDIS_URL, { maxRetriesPerRequest: null })
+const connection = redis
+
+// Upstash Redis free tier: 500k commands/month.
+// BullMQ defaults burn through it in ~4 days with 3 active workers:
+//   stalledInterval=30s × 3 workers = 6 stall-checks/min = ~260k checks/month
+//   drainDelay=5s       × 3 workers = 36 polls/min       = ~1.5M polls/month
+//
+// drainDelay unit is SECONDS in BullMQ (not ms).
+// Tuned per worker urgency — target: <80k commands/month total.
+const SHARED_WORKER_SETTINGS = {
+  lockDuration: 60_000,           // 60s lock (default 30s) — halves renewal RPCs
+  stalledInterval: 60_000,        // stall check every 60s (default 30s)
+  maxStalledCount: 1,             // move to failed after 1 stall (BullMQ default, explicit)
+  removeOnComplete: { count: 10 }, // don't accumulate finished jobs in Redis
+  removeOnFail: { count: 50 },
+} as const
+
+// Real-time: patient waits for docs — keep drainDelay short
+const PDF_WORKER_OPTS    = { ...SHARED_WORKER_SETTINGS, drainDelay: 15 }  // 15s
+// Delayed 24h: no urgency — poll infrequently
+const PESQUISA_WORKER_OPTS = { ...SHARED_WORKER_SETTINGS, drainDelay: 120 } // 2min
+// Daily cron at 11h: poll very infrequently
+const LEMBRETE_WORKER_OPTS = { ...SHARED_WORKER_SETTINGS, drainDelay: 300 } // 5min
 
 export const pdfQueue = new Queue(PDF_QUEUE_NAME, { connection })
 export const lembreteQueue = new Queue(LEMBRETE_QUEUE_NAME, { connection })
 export const pesquisaQueue = new Queue(PESQUISA_QUEUE_NAME, { connection })
+export const linkAcessoQueue = new Queue(LINK_ACESSO_QUEUE_NAME, { connection })
 
 export function startPdfWorker() {
   const worker = new Worker(
@@ -165,11 +190,11 @@ export function startPdfWorker() {
 
       return { pdfsGerados: gerados.length }
     },
-    { connection, concurrency: 3 },
+    { connection, concurrency: 3, ...PDF_WORKER_OPTS },
   )
 
   worker.on('failed', (job, err) => {
-    console.error(`[pdfQueue] Job ${job?.id} falhou:`, err.message)
+    logger.error(`[pdfQueue] Job ${job?.id} falhou`, { message: err.message })
   })
 
   return worker
@@ -186,7 +211,12 @@ export function startPesquisaWorker() {
         nome: string
       }
 
-      const token = gerarTokenPesquisa(pacienteId)
+      const token = randomBytes(32).toString('hex')
+      const expiraEm = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+      await db
+        .insert(pesquisaTokens)
+        .values({ pacienteId, token, expiraEm })
+        .onDuplicateKeyUpdate({ set: { token, expiraEm } })
       const link = `${env.APP_URL}/pesquisa/${pacienteId}/${token}`
 
       if (email) {
@@ -201,11 +231,11 @@ export function startPesquisaWorker() {
         await enviarWhatsApp(telefone, msg).catch(console.error)
       }
     },
-    { connection },
+    { connection, ...PESQUISA_WORKER_OPTS },
   )
 
   worker.on('failed', (job, err) => {
-    console.error(`[pesquisaQueue] Job ${job?.id} falhou:`, err.message)
+    logger.error(`[pesquisaQueue] Job ${job?.id} falhou`, { message: err.message })
   })
 
   return worker
@@ -260,11 +290,11 @@ export function startLembreteWorker() {
 
       return { enviados: pendentes.length }
     },
-    { connection },
+    { connection, ...LEMBRETE_WORKER_OPTS },
   )
 
   worker.on('failed', (job, err) => {
-    console.error(`[lembreteQueue] Job ${job?.id} falhou:`, err.message)
+    logger.error(`[lembreteQueue] Job ${job?.id} falhou`, { message: err.message })
   })
 
   return worker
@@ -282,4 +312,58 @@ export async function enqueueGerarPdf(pacienteId: number) {
     attempts: 3,
     backoff: { type: 'exponential', delay: 5000 },
   })
+}
+
+// ── Link de Acesso Queue ──────────────────────────────────────
+// Envia email + WhatsApp com o link de acesso ao formulário PrEP.
+// Desacopla o envio da transação DB para garantir retry automático
+// sem depender de retry do webhook Stripe.
+
+export async function enqueueEnviarLinkAcesso(
+  email: string,
+  nome: string,
+  telefone: string | null,
+  link: string,
+  expiresAt: Date,
+) {
+  return linkAcessoQueue.add(
+    'enviar-link',
+    { email, nome, telefone, link, expiresAt: expiresAt.toISOString() },
+    { attempts: 5, backoff: { type: 'exponential', delay: 10_000 } },
+  )
+}
+
+export function startLinkAcessoWorker() {
+  const worker = new Worker(
+    LINK_ACESSO_QUEUE_NAME,
+    async (job) => {
+      const { email, nome, telefone, link, expiresAt } = job.data as {
+        email: string
+        nome: string
+        telefone: string | null
+        link: string
+        expiresAt: string
+      }
+
+      const primeiroNome = nome.split(' ')[0]
+      const expires = new Date(expiresAt)
+
+      await enviarLinkAcessoIntake(email, nome, link, expires)
+
+      if (telefone) {
+        const msg =
+          `Olá ${primeiroNome}! Seu acesso ao formulário PrEP está liberado.\n\n` +
+          `Acesse o link abaixo para continuar:\n${link}\n\n` +
+          `Válido até ${expires.toLocaleDateString('pt-BR')}.\n\n_Facilita PrEP_`
+        await enviarWhatsApp(telefone, msg).catch(console.error)
+      }
+    },
+    { connection, ...SHARED_WORKER_SETTINGS, drainDelay: 15 },
+  )
+
+  worker.on('failed', (job, err) => {
+    logger.error(`[linkAcessoQueue] Job ${job?.id} falhou (${job?.attemptsMade} tentativas)`, { message: err.message })
+  })
+
+  return worker
 }

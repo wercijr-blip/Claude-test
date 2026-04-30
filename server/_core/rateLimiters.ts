@@ -1,5 +1,15 @@
 import rateLimit from 'express-rate-limit'
+import { RedisStore } from 'rate-limit-redis'
+import { redis } from './redis.ts'
 import { RATE_LIMITS } from '../../shared/security-constants.ts'
+
+function makeStore(prefix: string) {
+  return new RedisStore({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    sendCommand: ((...args: string[]) => redis.call(args[0], ...args.slice(1))) as any,
+    prefix: `rl:${prefix}:`,
+  })
+}
 
 export const authLimiter = rateLimit({
   windowMs: RATE_LIMITS.AUTH.windowMs,
@@ -7,6 +17,7 @@ export const authLimiter = rateLimit({
   message: { error: 'Muitas tentativas de login. Aguarde 15 minutos.' },
   standardHeaders: true,
   legacyHeaders: false,
+  store: makeStore('auth'),
 })
 
 export const tokenValidateLimiter = rateLimit({
@@ -15,6 +26,7 @@ export const tokenValidateLimiter = rateLimit({
   message: { error: 'Muitas tentativas. Aguarde alguns minutos.' },
   standardHeaders: true,
   legacyHeaders: false,
+  store: makeStore('token'),
 })
 
 export const uploadLimiter = rateLimit({
@@ -23,6 +35,7 @@ export const uploadLimiter = rateLimit({
   message: { error: 'Limite de uploads atingido. Aguarde 1 minuto.' },
   standardHeaders: true,
   legacyHeaders: false,
+  store: makeStore('upload'),
 })
 
 export const apiLimiter = rateLimit({
@@ -31,6 +44,7 @@ export const apiLimiter = rateLimit({
   message: { error: 'Muitas requisições. Aguarde.' },
   standardHeaders: true,
   legacyHeaders: false,
+  store: makeStore('api'),
 })
 
 export const pdfLimiter = rateLimit({
@@ -39,4 +53,5 @@ export const pdfLimiter = rateLimit({
   message: { error: 'Limite de geração de PDFs atingido.' },
   standardHeaders: true,
   legacyHeaders: false,
+  store: makeStore('pdf'),
 })

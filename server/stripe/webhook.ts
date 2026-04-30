@@ -2,24 +2,19 @@ import type { Request, Response } from 'express'
 import { stripe } from './products.ts'
 import { env } from '../_core/env.ts'
 import { db } from '../db.ts'
-import { pagamentos, precadastros } from '../../drizzle/schema.ts'
+import { pagamentos, precadastros, stripeEvents } from '../../drizzle/schema.ts'
 import { eq } from 'drizzle-orm'
 import { decrypt } from '../_core/encryption.ts'
 import { gerarEEnviarLinkAcesso } from '../routes/intake.ts'
 import { emitirNfse } from '../focusnfe.ts'
 import { VALOR_CONSULTA_CENTAVOS } from '../../shared/const.ts'
+import { logger } from '../_core/logger.ts'
 
-// ---------------------------------------------------------------------------
-// Structured logger — every line is prefixed with [webhook] + ISO timestamp
-// ---------------------------------------------------------------------------
 function log(level: 'INFO' | 'WARN' | 'ERROR', message: string, context?: unknown): void {
-  const ts = new Date().toISOString()
-  const prefix = `[webhook] ${ts} ${level}`
-  if (context !== undefined) {
-    console.log(`${prefix} ${message}`, context)
-  } else {
-    console.log(`${prefix} ${message}`)
-  }
+  const msg = `[webhook] ${message}`
+  if (level === 'ERROR') logger.error(msg, context)
+  else if (level === 'WARN') logger.warn(msg, context)
+  else logger.info(msg, context)
 }
 
 // ---------------------------------------------------------------------------
@@ -57,10 +52,25 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
   }
 
   // ------------------------------------------------------------------
-  // 3. Event type dispatch
+  // 3. Idempotency check — skip already-processed events
   // ------------------------------------------------------------------
   log('INFO', `Webhook received: ${event.type}`, { eventId: event.id })
 
+  const [alreadyProcessed] = await db
+    .select({ eventId: stripeEvents.eventId })
+    .from(stripeEvents)
+    .where(eq(stripeEvents.eventId, event.id))
+    .limit(1)
+
+  if (alreadyProcessed) {
+    log('INFO', `Event already processed — returning 200 (idempotent): ${event.id}`)
+    res.json({ received: true })
+    return
+  }
+
+  // ------------------------------------------------------------------
+  // 4. Event type dispatch
+  // ------------------------------------------------------------------
   try {
     if (event.type === 'checkout.session.completed') {
       await handleSessionCompleted(event.data.object)
@@ -69,6 +79,11 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
     } else {
       log('INFO', `Unhandled event type — ignoring: ${event.type}`)
     }
+
+    // Record event as processed only after successful handling
+    await db.insert(stripeEvents).values({ eventId: event.id, type: event.type }).onDuplicateKeyUpdate({
+      set: { type: event.type },
+    })
   } catch (err) {
     const error = err as Error
     log('ERROR', `Unhandled exception processing event ${event.id}: ${error.message}`, {
@@ -80,7 +95,7 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
   }
 
   // ------------------------------------------------------------------
-  // 4. Acknowledge receipt to Stripe
+  // 5. Acknowledge receipt to Stripe
   // ------------------------------------------------------------------
   log('INFO', `Webhook processed successfully — responding 200`, { eventId: event.id })
   res.json({ received: true })
@@ -90,7 +105,7 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
 // checkout.session.completed
 // ---------------------------------------------------------------------------
 async function handleSessionCompleted(
-  session: ReturnType<typeof stripe.webhooks.constructEvent>['data']['object'] & Record<string, unknown>,
+  session: ReturnType<typeof stripe.webhooks.constructEvent>['data']['object'],
 ): Promise<void> {
   const rawPrecadastroId = (session as { metadata?: Record<string, string> }).metadata?.precadastroId ?? '0'
   const rawPacienteId   = (session as { metadata?: Record<string, string> }).metadata?.pacienteId   ?? '0'
@@ -205,6 +220,11 @@ async function handleSessionCompleted(
       log('INFO', `Pagamento record inserted successfully: pacienteId=${pacienteId}, sessionId=${sessionId}`)
     } catch (err) {
       const error = err as Error
+      // Duplicate entry por race condition de webhook: não é erro — apenas idempotência
+      if ((error as NodeJS.ErrnoException).code === 'ER_DUP_ENTRY') {
+        log('WARN', `Duplicate pagamento for sessionId=${sessionId} — concurrent webhook, ignoring`)
+        return
+      }
       log('ERROR', `DB insert into pagamentos failed: ${error.message}`, {
         pacienteId,
         sessionId,
@@ -227,7 +247,7 @@ async function handleSessionCompleted(
 // checkout.session.expired
 // ---------------------------------------------------------------------------
 async function handleSessionExpired(
-  session: ReturnType<typeof stripe.webhooks.constructEvent>['data']['object'] & Record<string, unknown>,
+  session: ReturnType<typeof stripe.webhooks.constructEvent>['data']['object'],
 ): Promise<void> {
   const rawPrecadastroId = (session as { metadata?: Record<string, string> }).metadata?.precadastroId ?? '0'
   const precadastroId    = parseInt(rawPrecadastroId, 10)

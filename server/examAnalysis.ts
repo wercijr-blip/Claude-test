@@ -1,9 +1,17 @@
+import { z } from 'zod'
 import { env } from './_core/env.ts'
 import { db } from './db.ts'
 import { exames } from '../drizzle/schema.ts'
 import { eq } from 'drizzle-orm'
 import { getPresignedUrl } from './storage.ts'
 import type { ResultadoIa } from '../shared/types.ts'
+
+const iaResponseSchema = z.object({
+  tipoExame: z.enum(['hiv', 'hepatite_b', 'hepatite_c', 'sifilis', 'creatinina', 'outro']),
+  resultado: z.enum(['reagente', 'nao_reagente', 'inconclusivo', 'nao_identificado']),
+  confianca: z.number().min(0).max(1),
+  observacoes: z.string().optional(),
+})
 
 export async function analisarExame(exameId: number): Promise<ResultadoIa> {
   const [exame] = await db.select().from(exames).where(eq(exames.id, exameId)).limit(1)
@@ -51,14 +59,15 @@ export async function analisarExame(exameId: number): Promise<ResultadoIa> {
 
   let resultado: ResultadoIa
   try {
+    const parsed = iaResponseSchema.parse(JSON.parse(text))
     resultado = {
-      ...JSON.parse(text),
+      ...parsed,
       processadoEm: new Date().toISOString(),
       status: 'pendente',
-    } as ResultadoIa
+    }
   } catch {
     resultado = {
-      tipoExame: exame.tipoExame as ResultadoIa['tipoExame'] ?? 'outro',
+      tipoExame: (exame.tipoExame as ResultadoIa['tipoExame']) ?? 'outro',
       resultado: 'nao_identificado',
       confianca: 0,
       processadoEm: new Date().toISOString(),

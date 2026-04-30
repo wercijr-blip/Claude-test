@@ -38,7 +38,7 @@ export const accessTokens = mysqlTable('access_tokens', {
   usedAt: datetime('used_at'),
   expiresAt: datetime('expires_at').notNull(),
   revokedAt: datetime('revoked_at'),
-  createdById: int('created_by_id').notNull(),
+  createdById: int('created_by_id').notNull().references(() => users.id),
   createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (t) => ({
   tokenHashIdx: uniqueIndex('idx_access_tokens_hash').on(t.tokenHash),
@@ -49,7 +49,7 @@ export const accessTokens = mysqlTable('access_tokens', {
 
 export const pacientes = mysqlTable('pacientes', {
   id: int('id').primaryKey().autoincrement(),
-  tokenId: int('token_id').notNull(),
+  tokenId: int('token_id').notNull().references(() => accessTokens.id),
 
   // Step 1 — Dados Pessoais (PII encriptado)
   cpfEncrypted: text('cpf_encrypted').notNull(),
@@ -96,7 +96,7 @@ export const pacientes = mysqlTable('pacientes', {
   // Metadata
   status: varchar('status', { length: 50 }).notNull().default('rascunho'),
   currentStep: int('current_step').notNull().default(1),
-  medicoId: int('medico_id'),
+  medicoId: int('medico_id').references(() => users.id),
   observacoesMedico: text('observacoes_medico'),
   retentionUntil: datetime('retention_until'),
   createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
@@ -104,7 +104,7 @@ export const pacientes = mysqlTable('pacientes', {
 }, (t) => ({
   cpfHashIdx: index('idx_pacientes_cpf_hash').on(t.cpfHash),
   statusIdx: index('idx_pacientes_status').on(t.status),
-  tokenIdx: index('idx_pacientes_token').on(t.tokenId),
+  tokenIdx: uniqueIndex('idx_pacientes_token').on(t.tokenId),
   medicoIdx: index('idx_pacientes_medico').on(t.medicoId),
 }))
 
@@ -112,7 +112,7 @@ export const pacientes = mysqlTable('pacientes', {
 
 export const exames = mysqlTable('exames', {
   id: int('id').primaryKey().autoincrement(),
-  pacienteId: int('paciente_id').notNull(),
+  pacienteId: int('paciente_id').notNull().references(() => pacientes.id),
   s3Key: varchar('s3_key', { length: 500 }).notNull(),
   nomeArquivo: varchar('nome_arquivo', { length: 255 }).notNull(),
   tipoExame: varchar('tipo_exame', { length: 100 }),
@@ -127,9 +127,9 @@ export const exames = mysqlTable('exames', {
   //   status: 'pendente' | 'aprovado_automaticamente' | 'rejeitado_ia' | 'pendente_revisao'
   //           (set by examQueue worker after auto-approval logic)
   resultadoIa: json('resultado_ia'),
-  revisadoPorId: int('revisado_por_id'),
+  revisadoPorId: int('revisado_por_id').references(() => users.id),
   revisadoEm: datetime('revisado_em'),
-  liberadoPorMedicoId: int('liberado_por_medico_id'),
+  liberadoPorMedicoId: int('liberado_por_medico_id').references(() => users.id),
   liberadoEm: datetime('liberado_em'),
   createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (t) => ({
@@ -140,7 +140,7 @@ export const exames = mysqlTable('exames', {
 
 export const tcleAssinaturas = mysqlTable('tcle_assinaturas', {
   id: int('id').primaryKey().autoincrement(),
-  pacienteId: int('paciente_id').notNull(),
+  pacienteId: int('paciente_id').notNull().references(() => pacientes.id),
   assinaturaDataUrl: text('assinatura_data_url').notNull(),
   ipAddress: varchar('ip_address', { length: 45 }),
   userAgent: text('user_agent'),
@@ -153,7 +153,7 @@ export const tcleAssinaturas = mysqlTable('tcle_assinaturas', {
 
 export const pdfs = mysqlTable('pdfs', {
   id: int('id').primaryKey().autoincrement(),
-  pacienteId: int('paciente_id').notNull(),
+  pacienteId: int('paciente_id').notNull().references(() => pacientes.id),
   s3Key: varchar('s3_key', { length: 500 }).notNull(),
   tipo: varchar('tipo', { length: 50 }).notNull(),
   certificadoSerial: varchar('certificado_serial', { length: 100 }),
@@ -168,7 +168,7 @@ export const pdfs = mysqlTable('pdfs', {
 export const securityEvents = mysqlTable('security_events', {
   id: int('id').primaryKey().autoincrement(),
   tipoEvento: varchar('tipo_evento', { length: 100 }).notNull(),
-  userId: int('user_id'),
+  userId: int('user_id').references(() => users.id),
   ipAddress: varchar('ip_address', { length: 45 }),
   userAgent: text('user_agent'),
   detalhes: json('detalhes'),
@@ -183,8 +183,8 @@ export const securityEvents = mysqlTable('security_events', {
 
 export const nfseRegistros = mysqlTable('nfse_registros', {
   id: int('id').primaryKey().autoincrement(),
-  pacienteId: int('paciente_id'),
-  precadastroId: int('precadastro_id'),
+  pacienteId: int('paciente_id').references(() => pacientes.id),
+  precadastroId: int('precadastro_id').references(() => precadastros.id),
   numeroNfse: varchar('numero_nfse', { length: 50 }),
   status: varchar('status', { length: 50 }).notNull().default('pendente'),
   valorCentavos: int('valor_centavos').notNull(),
@@ -201,7 +201,7 @@ export const nfseRegistros = mysqlTable('nfse_registros', {
 
 export const consultasInicio = mysqlTable('consultas_inicio', {
   id: int('id').primaryKey().autoincrement(),
-  tokenId: int('token_id').notNull(),
+  tokenId: int('token_id').notNull().references(() => accessTokens.id),
   tipoConsulta: varchar('tipo_consulta', { length: 50 }), // 'primeiro_atendimento' | 'ja_faco_prep'
   temExameRecente: boolean('tem_exame_recente'),
   exameS3Key: varchar('exame_s3_key', { length: 500 }),
@@ -216,7 +216,7 @@ export const consultasInicio = mysqlTable('consultas_inicio', {
   resultadoIa: json('resultado_ia'),
   motivoRejeicao: varchar('motivo_rejeicao', { length: 200 }),
   tentativasReenvio: int('tentativas_reenvio').notNull().default(0),
-  validadoPorId: int('validado_por_id'),
+  validadoPorId: int('validado_por_id').references(() => users.id),
   validadoEm: datetime('validado_em'),
   dataExameValidado: varchar('data_exame_validado', { length: 20 }),
   resultadoHivValidado: varchar('resultado_hiv_validado', { length: 20 }),
@@ -248,8 +248,8 @@ export const precadastros = mysqlTable('precadastros', {
   // Status do fluxo
   status: varchar('status', { length: 50 }).notNull().default('aguardando'),
   stripeSessionId: varchar('stripe_session_id', { length: 200 }),
-  accessTokenId: int('access_token_id'),
-  validadoPorId: int('validado_por_id'),
+  accessTokenId: int('access_token_id').references(() => accessTokens.id),
+  validadoPorId: int('validado_por_id').references(() => users.id),
   validadoEm: datetime('validado_em'),
   observacoes: text('observacoes'),
   createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
@@ -263,7 +263,7 @@ export const precadastros = mysqlTable('precadastros', {
 
 export const satisfacaoPesquisas = mysqlTable('satisfacao_pesquisas', {
   id: int('id').primaryKey().autoincrement(),
-  pacienteId: int('paciente_id').notNull(),
+  pacienteId: int('paciente_id').notNull().references(() => pacientes.id),
   achouFacil: boolean('achou_facil'),
   conseguiuMedicacao: boolean('conseguiu_medicacao'),
   indicaria: boolean('indicaria'),
@@ -277,7 +277,7 @@ export const satisfacaoPesquisas = mysqlTable('satisfacao_pesquisas', {
 
 export const pagamentos = mysqlTable('pagamentos', {
   id: int('id').primaryKey().autoincrement(),
-  pacienteId: int('paciente_id').notNull(),
+  pacienteId: int('paciente_id').notNull().references(() => pacientes.id),
   stripePaymentId: varchar('stripe_payment_id', { length: 100 }),
   stripeSessionId: varchar('stripe_session_id', { length: 100 }),
   status: varchar('status', { length: 50 }).notNull().default('pendente'),
@@ -286,4 +286,26 @@ export const pagamentos = mysqlTable('pagamentos', {
 }, (t) => ({
   pacienteIdx: index('idx_pagamentos_paciente').on(t.pacienteId),
   sessionIdx: index('idx_pagamentos_session').on(t.stripeSessionId),
+}))
+
+// ── Eventos Stripe (idempotência de webhook) ──────────────────
+// Registra event.id processado para evitar reprocessamento em caso de retry.
+
+export const stripeEvents = mysqlTable('stripe_events', {
+  eventId: varchar('event_id', { length: 100 }).primaryKey(),
+  type: varchar('type', { length: 100 }).notNull(),
+  processadoEm: datetime('processado_em').notNull().default(sql`CURRENT_TIMESTAMP`),
+})
+
+// ── Tokens de Pesquisa de Satisfação ─────────────────────────
+// Um token aleatório por paciente, gerado no momento do envio do link.
+// Substituição do hash determinístico SHA-256(pacienteId + JWT_SECRET).
+
+export const pesquisaTokens = mysqlTable('pesquisa_tokens', {
+  pacienteId: int('paciente_id').primaryKey().references(() => pacientes.id),
+  token: varchar('token', { length: 64 }).notNull(),
+  criadoEm: datetime('criado_em').notNull().default(sql`CURRENT_TIMESTAMP`),
+  expiraEm: datetime('expira_em').notNull(),
+}, (t) => ({
+  tokenIdx: uniqueIndex('idx_pesquisa_token').on(t.token),
 }))

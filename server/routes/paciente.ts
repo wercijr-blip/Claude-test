@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { SignJWT } from 'jose'
 import { router, protectedProcedure } from '../_core/trpc.ts'
 import { TRPCError } from '@trpc/server'
 import { db } from '../db.ts'
@@ -7,9 +8,20 @@ import { eq, and } from 'drizzle-orm'
 import { encrypt, decrypt, hashCpf } from '../_core/encryption.ts'
 import { validarCpf } from '../_core/cpfValidator.ts'
 import { ERROR_MESSAGES } from '../../shared/const.ts'
+import { env } from '../_core/env.ts'
+import { JWT_EXPIRY_PATIENT } from '../../shared/security-constants.ts'
 import { getPresignedUrl } from '../storage.ts'
 import { enqueueGerarPdf } from '../pdfQueue.ts'
 import type { ResultSetHeader } from 'mysql2'
+
+async function emitirJwtPaciente(tokenId: number, pacienteId: number): Promise<string> {
+  const secret = new TextEncoder().encode(env.JWT_SECRET)
+  return new SignJWT({ type: 'patient', tokenId, pacienteId })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime(JWT_EXPIRY_PATIENT)
+    .sign(secret)
+}
 
 function assertPatient(session: unknown): asserts session is { type: 'patient'; tokenId: number; pacienteId: number | null } {
   if (!session || (session as { type: string }).type !== 'patient') {
@@ -67,7 +79,16 @@ export const pacienteRouter = router({
       const retentionUntil = new Date()
       retentionUntil.setFullYear(retentionUntil.getFullYear() + 20)
 
-      if (ctx.session.pacienteId) {
+      const targetId = ctx.session.pacienteId ?? await (async () => {
+        const [existing] = await db
+          .select({ id: pacientes.id })
+          .from(pacientes)
+          .where(eq(pacientes.tokenId, tokenId))
+          .limit(1)
+        return existing?.id ?? null
+      })()
+
+      if (targetId) {
         await db
           .update(pacientes)
           .set({
@@ -80,8 +101,12 @@ export const pacienteRouter = router({
             currentStep: 2,
             updatedAt: new Date(),
           })
-          .where(eq(pacientes.id, ctx.session.pacienteId))
-        return { pacienteId: ctx.session.pacienteId }
+          .where(eq(pacientes.id, targetId))
+        // Emit refreshed JWT only when the session still had pacienteId: null
+        const newSessionToken = ctx.session.pacienteId == null
+          ? await emitirJwtPaciente(tokenId, targetId)
+          : undefined
+        return { pacienteId: targetId, newSessionToken }
       }
 
       const [result] = await db.insert(pacientes).values({
@@ -95,7 +120,9 @@ export const pacienteRouter = router({
         currentStep: 2,
         retentionUntil,
       })
-      return { pacienteId: (result as ResultSetHeader).insertId }
+      const newPacienteId = (result as ResultSetHeader).insertId
+      const newSessionToken = await emitirJwtPaciente(tokenId, newPacienteId)
+      return { pacienteId: newPacienteId, newSessionToken }
     }),
 
   // Step 2 — Demográfico
