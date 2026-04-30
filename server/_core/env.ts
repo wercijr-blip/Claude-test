@@ -62,3 +62,10 @@ if (!parsed.success) {
 }
 
 export const env = parsed.data
+
+// Fail-fast if someone accidentally runs with NODE_ENV=development in production.
+// Railway sets NODE_ENV automatically; this catches misconfigurations.
+if (env.NODE_ENV === 'development' && process.env['RAILWAY_ENVIRONMENT']) {
+  console.error('❌ NODE_ENV=development detectado em ambiente Railway. Defina NODE_ENV=production.')
+  process.exit(1)
+}
