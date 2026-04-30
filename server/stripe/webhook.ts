@@ -2,7 +2,7 @@ import type { Request, Response } from 'express'
 import { stripe } from './products.ts'
 import { env } from '../_core/env.ts'
 import { db } from '../db.ts'
-import { pagamentos, precadastros } from '../../drizzle/schema.ts'
+import { pagamentos, precadastros, stripeEvents } from '../../drizzle/schema.ts'
 import { eq } from 'drizzle-orm'
 import { decrypt } from '../_core/encryption.ts'
 import { gerarEEnviarLinkAcesso } from '../routes/intake.ts'
@@ -57,10 +57,25 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
   }
 
   // ------------------------------------------------------------------
-  // 3. Event type dispatch
+  // 3. Idempotency check — skip already-processed events
   // ------------------------------------------------------------------
   log('INFO', `Webhook received: ${event.type}`, { eventId: event.id })
 
+  const [alreadyProcessed] = await db
+    .select({ eventId: stripeEvents.eventId })
+    .from(stripeEvents)
+    .where(eq(stripeEvents.eventId, event.id))
+    .limit(1)
+
+  if (alreadyProcessed) {
+    log('INFO', `Event already processed — returning 200 (idempotent): ${event.id}`)
+    res.json({ received: true })
+    return
+  }
+
+  // ------------------------------------------------------------------
+  // 4. Event type dispatch
+  // ------------------------------------------------------------------
   try {
     if (event.type === 'checkout.session.completed') {
       await handleSessionCompleted(event.data.object)
@@ -69,6 +84,11 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
     } else {
       log('INFO', `Unhandled event type — ignoring: ${event.type}`)
     }
+
+    // Record event as processed only after successful handling
+    await db.insert(stripeEvents).values({ eventId: event.id, type: event.type }).onDuplicateKeyUpdate({
+      set: { type: event.type },
+    })
   } catch (err) {
     const error = err as Error
     log('ERROR', `Unhandled exception processing event ${event.id}: ${error.message}`, {
@@ -80,7 +100,7 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
   }
 
   // ------------------------------------------------------------------
-  // 4. Acknowledge receipt to Stripe
+  // 5. Acknowledge receipt to Stripe
   // ------------------------------------------------------------------
   log('INFO', `Webhook processed successfully — responding 200`, { eventId: event.id })
   res.json({ received: true })

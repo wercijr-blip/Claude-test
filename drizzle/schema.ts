@@ -288,6 +288,15 @@ export const pagamentos = mysqlTable('pagamentos', {
   sessionIdx: index('idx_pagamentos_session').on(t.stripeSessionId),
 }))
 
+// ── Eventos Stripe (idempotência de webhook) ──────────────────
+// Registra event.id processado para evitar reprocessamento em caso de retry.
+
+export const stripeEvents = mysqlTable('stripe_events', {
+  eventId: varchar('event_id', { length: 100 }).primaryKey(),
+  type: varchar('type', { length: 100 }).notNull(),
+  processadoEm: datetime('processado_em').notNull().default(sql`CURRENT_TIMESTAMP`),
+})
+
 // ── Tokens de Pesquisa de Satisfação ─────────────────────────
 // Um token aleatório por paciente, gerado no momento do envio do link.
 // Substituição do hash determinístico SHA-256(pacienteId + JWT_SECRET).
