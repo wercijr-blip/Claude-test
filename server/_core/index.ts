@@ -82,7 +82,7 @@ if (env.NODE_ENV === 'production') {
   })
 }
 
-app.listen(env.PORT, async () => {
+const server = app.listen(env.PORT, async () => {
   console.log(`🚀 Facilita PrEP rodando na porta ${env.PORT} [${env.NODE_ENV}]`)
 
   // Workers run in-process by default (single-service deploy).
@@ -101,5 +101,26 @@ app.listen(env.PORT, async () => {
     console.log('[server] WORKERS_ENABLED=false — aguardando worker service separado.')
   }
 })
+
+// Graceful shutdown — Railway sends SIGTERM before stopping the container.
+// Stop accepting new connections, wait for in-flight requests, then exit.
+async function shutdown(signal: string) {
+  console.log(`[server] ${signal} recebido — encerrando graciosamente...`)
+  server.close(async () => {
+    const { redis } = await import('./redis.ts')
+    await redis.quit().catch(() => undefined)
+    console.log('[server] Conexões encerradas. Saindo.')
+    process.exit(0)
+  })
+
+  // Force exit if graceful shutdown hangs beyond 15s
+  setTimeout(() => {
+    console.error('[server] Graceful shutdown excedeu 15s — forçando saída')
+    process.exit(1)
+  }, 15_000)
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT', () => shutdown('SIGINT'))
 
 export default app

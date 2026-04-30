@@ -18,11 +18,16 @@ async function main() {
 
   console.log('[workers] Workers prontos.')
 
-  // Keep the process alive
-  process.on('SIGTERM', () => {
-    console.log('[workers] SIGTERM recebido — encerrando graciosamente')
+  async function shutdown(signal: string) {
+    console.log(`[workers] ${signal} recebido — encerrando graciosamente...`)
+    const { redis } = await import('./_core/redis.ts')
+    await redis.quit().catch(() => undefined)
+    console.log('[workers] Encerrado.')
     process.exit(0)
-  })
+  }
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'))
+  process.on('SIGINT', () => shutdown('SIGINT'))
 }
 
 main().catch((err) => {
