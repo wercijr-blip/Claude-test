@@ -5,9 +5,11 @@ import multer from 'multer'
 import type { Request, Response } from 'express'
 import { env } from './_core/env.ts'
 import { db } from './db.ts'
-import { exames } from '../drizzle/schema.ts'
+import { exames, pacientes } from '../drizzle/schema.ts'
+import { eq, and } from 'drizzle-orm'
 import { MAX_UPLOAD_SIZE_BYTES, ALLOWED_MIME_TYPES } from '../shared/security-constants.ts'
 import { enqueueAnalisarExame } from './examQueue.ts'
+import { createContext } from './_core/context.ts'
 
 const MIME_TO_EXT: Record<string, string> = {
   'image/jpeg': 'jpg',
@@ -104,6 +106,26 @@ export function uploadExame(req: Request, res: Response): Promise<void> {
 
       if (isNaN(pacienteId)) {
         res.status(400).json({ error: 'pacienteId inválido' })
+        resolve()
+        return
+      }
+
+      // Verificar sessão JWT e confirmar que o pacienteId pertence ao paciente autenticado
+      const ctx = await createContext({ req })
+      if (!ctx.session || ctx.session.type !== 'patient') {
+        res.status(401).json({ error: 'Sessão inválida' })
+        resolve()
+        return
+      }
+
+      const [owned] = await db
+        .select({ id: pacientes.id })
+        .from(pacientes)
+        .where(and(eq(pacientes.id, pacienteId), eq(pacientes.tokenId, ctx.session.tokenId)))
+        .limit(1)
+
+      if (!owned) {
+        res.status(403).json({ error: 'Acesso negado' })
         resolve()
         return
       }
