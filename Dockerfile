@@ -21,9 +21,9 @@ RUN npm i -g corepack@latest && corepack enable
 
 WORKDIR /app
 
-# Copy manifests first to install only production deps
+# Copy manifests and node_modules (full install including devDeps for drizzle-kit)
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile --prod
+COPY --from=builder /app/node_modules ./node_modules
 
 # Copy Vite build output
 COPY --from=builder /app/dist ./dist
@@ -35,4 +35,4 @@ COPY drizzle ./drizzle
 
 EXPOSE ${PORT:-3000}
 
-CMD ["pnpm", "exec", "tsx", "server/_core/index.ts"]
+CMD ["sh", "-c", "pnpm db:push && pnpm exec tsx server/_core/index.ts"]
