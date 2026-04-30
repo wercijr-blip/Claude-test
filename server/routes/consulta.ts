@@ -350,7 +350,7 @@ export const consultaRouter = router({
         await enviarExameAprovadoIa(info.email, info.nome, env.APP_URL).catch(console.error)
       }
       if (info.telefone) {
-        const msg = `Olá ${info.nome}, seu exame foi aprovado! Acesse: ${env.APP_URL}/inicio`
+        const msg = `Olá ${info.nome}, seu exame foi aprovado! Continue seu cadastro: ${env.APP_URL}/formulario`
         await enviarWhatsApp(info.telefone, msg).catch(console.error)
       }
 
@@ -473,7 +473,7 @@ export const consultaRouter = router({
 
         if (input.acao === 'aprovar') {
           if (info.email) await enviarExameAprovadoIa(info.email, info.nome, env.APP_URL).catch(console.error)
-          if (info.telefone) await enviarWhatsApp(info.telefone, `Olá ${info.nome}, seu exame foi aprovado pelo médico! Acesse: ${env.APP_URL}/inicio`).catch(console.error)
+          if (info.telefone) await enviarWhatsApp(info.telefone, `Olá ${info.nome}, seu exame foi aprovado pelo médico! Continue seu cadastro: ${env.APP_URL}/formulario`).catch(console.error)
         } else if (isReenvio) {
           if (info.email) await enviarSolicitacaoReenvio(info.email, info.nome, input.observacoes, env.APP_URL).catch(console.error)
           if (info.telefone) await enviarWhatsApp(info.telefone, `Olá ${info.nome}, nosso médico solicita um novo exame. Motivo: ${input.observacoes}. Acesse: ${env.APP_URL}/inicio`).catch(console.error)
