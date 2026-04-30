@@ -46,6 +46,7 @@ export function calcularSimilaridadeNome(nomeExame: string, nomeEsperado: string
 
 export async function extrairDadosExame(s3Key: string): Promise<ExtracacaoExame> {
   const imageUrl = await getPresignedUrl(s3Key, 300)
+  const isPdf = /\.pdf$/i.test(s3Key)
 
   const prompt = `Você é especialista em leitura de exames laboratoriais brasileiros.
 
@@ -64,6 +65,10 @@ Responda APENAS com JSON, sem texto adicional:
   "confianca": 0.95
 }`
 
+  const fileContent = isPdf
+    ? { type: 'document', source: { type: 'url', url: imageUrl } }
+    : { type: 'image', source: { type: 'url', url: imageUrl } }
+
   let response: Response
   try {
     response = await fetch(`${env.BUILT_IN_FORGE_API_URL}/v1/messages`, {
@@ -81,7 +86,7 @@ Responda APENAS com JSON, sem texto adicional:
           {
             role: 'user',
             content: [
-              { type: 'image', source: { type: 'url', url: imageUrl } },
+              fileContent,
               { type: 'text', text: prompt },
             ],
           },
@@ -94,7 +99,8 @@ Responda APENAS com JSON, sem texto adicional:
 
   if (!response.ok) {
     const body = await response.text().catch(() => '')
-    throw new Error(`Erro na análise por IA (HTTP ${response.status}): ${body}`)
+    console.error('[examValidation] API IA respondeu erro', { status: response.status, body: body.slice(0, 500), isPdf })
+    throw new Error(`Erro na análise por IA (HTTP ${response.status}): ${body.slice(0, 200)}`)
   }
 
   const data = (await response.json()) as { content: Array<{ text: string }> }
