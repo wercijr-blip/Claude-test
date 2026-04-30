@@ -32,12 +32,18 @@ export function isOriginAllowed(origin: string): boolean {
 }
 
 export function applySecurityMiddleware(app: Express): void {
+  // In development Vite HMR requires 'unsafe-inline'; production bundles are external files only
+  const scriptSrc = env.NODE_ENV === 'development'
+    ? ["'self'", "'unsafe-inline'"]
+    : ["'self'"]
+
   app.use(
     helmet({
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
-          scriptSrc: ["'self'", "'unsafe-inline'"],
+          scriptSrc,
+          // React inline style={{}} attributes require 'unsafe-inline' for style-src
           styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
           imgSrc: ["'self'", 'data:', 'blob:'],
           connectSrc: ["'self'"],
