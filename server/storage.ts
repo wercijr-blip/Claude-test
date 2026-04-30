@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto'
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import multer from 'multer'
+import { fileTypeFromBuffer } from 'file-type'
 import type { Request, Response } from 'express'
 import { env } from './_core/env.ts'
 import { db } from './db.ts'
@@ -88,6 +89,17 @@ export function uploadExame(req: Request, res: Response): Promise<void> {
         resolve()
         return
       }
+
+      // Validate actual file magic bytes — don't trust client-supplied mimetype
+      const detected = await fileTypeFromBuffer(req.file.buffer)
+      const detectedMime = detected?.mime ?? null
+      if (!detectedMime || !(ALLOWED_MIME_TYPES as readonly string[]).includes(detectedMime)) {
+        res.status(400).json({ error: 'Tipo de arquivo não permitido' })
+        resolve()
+        return
+      }
+      // Use the verified mime type for all downstream operations
+      req.file.mimetype = detectedMime
 
       // Uploads that don't require a specific pacienteId — returns s3Key only (no DB insert)
       const tokenFolders: Record<string, string> = {
