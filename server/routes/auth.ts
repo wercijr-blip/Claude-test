@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { SignJWT } from 'jose'
+import { TRPCError } from '@trpc/server'
 import { router, publicProcedure, protectedProcedure } from '../_core/trpc.ts'
 import { env } from '../_core/env.ts'
 import { db } from '../db.ts'
@@ -90,13 +91,13 @@ export const authRouter = router({
       return { token, role }
     }),
 
-  // Login mock — APENAS em desenvolvimento. Pula o OAuth real e cria
-  // uma sessão de equipe direta para validação visual local.
+  // Login mock para desenvolvimento local. Responde NOT_FOUND em produção
+  // para ser indistinguível de um endpoint inexistente.
   devLogin: publicProcedure
     .input(z.object({ role: z.enum(['admin', 'medico', 'secretaria']) }))
     .mutation(async ({ input }) => {
       if (env.NODE_ENV !== 'development') {
-        throw new Error('devLogin disponível apenas em ambiente de desenvolvimento')
+        throw new TRPCError({ code: 'NOT_FOUND' })
       }
 
       const openId = `dev-${input.role}`
