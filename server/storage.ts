@@ -81,15 +81,23 @@ export function uploadExame(req: Request, res: Response): Promise<void> {
         return
       }
 
-      // Uploads that don't require a pacienteId — returns s3Key only (no DB insert)
-      const unauthTypes: Record<string, string> = {
+      // Require a valid patient session for all upload types
+      const ctx = await createContext({ req })
+      if (!ctx.session || ctx.session.type !== 'patient') {
+        res.status(401).json({ error: 'Sessão inválida' })
+        resolve()
+        return
+      }
+
+      // Uploads that don't require a specific pacienteId — returns s3Key only (no DB insert)
+      const tokenFolders: Record<string, string> = {
         'documento_intake': 'intake/documentos',
         'exame_hiv': 'exames-inicio',
       }
-      const unauthFolder = unauthTypes[req.body.tipo as string]
-      if (unauthFolder) {
+      const tokenFolder = tokenFolders[req.body.tipo as string]
+      if (tokenFolder) {
         const ext = MIME_TO_EXT[req.file.mimetype] ?? 'bin'
-        const s3Key = `${unauthFolder}/${randomUUID()}.${ext}`
+        const s3Key = `${tokenFolder}/${randomUUID()}.${ext}`
         try {
           await uploadBuffer(s3Key, req.file.buffer, req.file.mimetype)
           res.json({ ok: true, s3Key })
@@ -106,14 +114,6 @@ export function uploadExame(req: Request, res: Response): Promise<void> {
 
       if (isNaN(pacienteId)) {
         res.status(400).json({ error: 'pacienteId inválido' })
-        resolve()
-        return
-      }
-
-      // Verificar sessão JWT e confirmar que o pacienteId pertence ao paciente autenticado
-      const ctx = await createContext({ req })
-      if (!ctx.session || ctx.session.type !== 'patient') {
-        res.status(401).json({ error: 'Sessão inválida' })
         resolve()
         return
       }
