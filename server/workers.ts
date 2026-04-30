@@ -35,3 +35,11 @@ main().catch((err) => {
   logger.error('[workers] Falha ao iniciar', err)
   process.exit(1)
 })
+
+process.on('unhandledRejection', (reason) => {
+  logger.error('[workers] unhandledRejection', { reason: String(reason) })
+})
+process.on('uncaughtException', (err) => {
+  logger.error('[workers] uncaughtException', { error: (err as Error).message, stack: (err as Error).stack })
+  process.exit(1)
+})

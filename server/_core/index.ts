@@ -132,4 +132,15 @@ async function shutdown(signal: string) {
 process.on('SIGTERM', () => shutdown('SIGTERM'))
 process.on('SIGINT', () => shutdown('SIGINT'))
 
+// Catch any unhandled promise rejections or thrown exceptions so they appear
+// in Railway logs with full context instead of crashing silently.
+process.on('unhandledRejection', (reason) => {
+  logger.error('[server] unhandledRejection', { reason: String(reason) })
+})
+process.on('uncaughtException', (err) => {
+  logger.error('[server] uncaughtException', { error: err.message, stack: err.stack })
+  // Exit after uncaughtException — process state is undefined, Railway restarts it.
+  process.exit(1)
+})
+
 export default app

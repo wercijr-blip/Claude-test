@@ -15,9 +15,6 @@ const envSchema = z.object({
   AWS_REGION: z.string().default('sa-east-1'),
   AWS_S3_BUCKET: z.string().min(1),
 
-  GMAIL_USER: z.string().optional(),
-  GMAIL_APP_PASSWORD: z.string().optional(),
-
   RESEND_API_KEY: z.string().optional(),
   RESEND_FROM: z.string().default('Facilita PrEP <noreply@facilitaprep.com.br>'),
 
