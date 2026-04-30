@@ -24,8 +24,8 @@ export function buildAllowedOrigins(): string[] {
 export const allowedOrigins = buildAllowedOrigins()
 
 export function isOriginAllowed(origin: string): boolean {
-  // Allow localhost in development only — exact match with optional port
-  if (/^https?:\/\/localhost(:\d+)?$/.test(origin)) return true
+  // Allow localhost ONLY in development
+  if (env.NODE_ENV === 'development' && /^https?:\/\/localhost(:\d+)?$/.test(origin)) return true
 
   // Exact equality — prevents subdomain takeover via startsWith
   return allowedOrigins.some((o) => origin === o)
