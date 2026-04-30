@@ -3,17 +3,31 @@ import { env } from './_core/env.ts'
 
 const resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null
 
+function assertResend(): NonNullable<typeof resend> {
+  if (!resend) {
+    if (env.NODE_ENV === 'production') {
+      throw new Error('RESEND_API_KEY não configurado em produção — e-mail bloqueado')
+    }
+    console.warn('[email] RESEND_API_KEY não configurado — e-mail ignorado em desenvolvimento')
+    throw new Error('__dev_skip__')
+  }
+  return resend
+}
+
 async function send(opts: {
   to: string
   subject: string
   html: string
   attachments?: { filename: string; content: Buffer }[]
 }): Promise<void> {
-  if (!resend) {
-    console.warn('[email] RESEND_API_KEY não configurado — e-mail não enviado:', opts.subject)
-    return
+  let client: NonNullable<typeof resend>
+  try {
+    client = assertResend()
+  } catch (e) {
+    if ((e as Error).message === '__dev_skip__') return
+    throw e
   }
-  const { error } = await resend.emails.send({
+  const { error } = await client.emails.send({
     from: env.RESEND_FROM,
     to: opts.to,
     subject: opts.subject,
@@ -28,11 +42,14 @@ async function sendMultiple(opts: {
   subject: string
   html: string
 }): Promise<void> {
-  if (!resend) {
-    console.warn('[email] RESEND_API_KEY não configurado — e-mail não enviado:', opts.subject)
-    return
+  let client: NonNullable<typeof resend>
+  try {
+    client = assertResend()
+  } catch (e) {
+    if ((e as Error).message === '__dev_skip__') return
+    throw e
   }
-  const { error } = await resend.emails.send({
+  const { error } = await client.emails.send({
     from: env.RESEND_FROM,
     to: opts.to,
     subject: opts.subject,
