@@ -140,6 +140,9 @@ importers:
       tailwind-merge:
         specifier: ^2.2.2
         version: 2.6.1
+      tsx:
+        specifier: ^4.21.0
+        version: 4.21.0
       wouter:
         specifier: ^3.1.2
         version: 3.9.0(react@19.2.5)
@@ -195,9 +198,6 @@ importers:
       tailwindcss:
         specifier: ^4.0.0
         version: 4.2.2
-      tsx:
-        specifier: ^4.7.2
-        version: 4.21.0
       typescript:
         specifier: ^5.4.4
         version: 5.9.3
