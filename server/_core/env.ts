@@ -16,7 +16,7 @@ const envSchema = z.object({
   AWS_S3_BUCKET: z.string().min(1),
 
   RESEND_API_KEY: z.string().optional(),
-  RESEND_FROM: z.string().default('Facilita PrEP <noreply@facilitaprep.com.br>'),
+  EMAIL_FROM: z.string().default('Facilita PrEP <noreply@facilitaprep.com.br>'),
 
   FOCUSNFE_TOKEN_HOMOLOGACAO: z.string().optional(),
   FOCUSNFE_TOKEN_PRODUCAO: z.string().optional(),

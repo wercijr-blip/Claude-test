@@ -16,7 +16,7 @@ function assertResend(): NonNullable<typeof resend> {
 }
 
 async function send(opts: {
-  to: string
+  to: string | string[]
   subject: string
   html: string
   attachments?: { filename: string; content: Buffer }[]
@@ -29,7 +29,7 @@ async function send(opts: {
     throw e
   }
   const { error } = await client.emails.send({
-    from: env.RESEND_FROM,
+    from: env.EMAIL_FROM,
     to: opts.to,
     subject: opts.subject,
     html: opts.html,
@@ -51,7 +51,7 @@ async function sendMultiple(opts: {
     throw e
   }
   const { error } = await client.emails.send({
-    from: env.RESEND_FROM,
+    from: env.EMAIL_FROM,
     to: opts.to,
     subject: opts.subject,
     html: opts.html,
@@ -59,8 +59,9 @@ async function sendMultiple(opts: {
   if (error) throw new Error(`Resend: ${error.message}`)
 }
 
+
 function baseTemplate(titulo: string, corpo: string): string {
-  const dominio = (env.APP_URL ?? 'https://facilitaprep.com.br').replace('https://', '').replace('http://', '')
+  const dominio = env.APP_URL.replace('https://', '').replace('http://', '')
   return `
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -230,7 +231,7 @@ export async function enviarNotificacaoNovoPlano(
   dashboardUrl: string,
 ): Promise<void> {
   if (!emails.length) return
-  await sendMultiple({
+  await send({
     to: emails,
     subject: `Novo paciente aguardando validação — ${plano}`,
     html: baseTemplate(
@@ -413,7 +414,7 @@ export async function enviarNotificacaoMedicoPendente(
     ? '<strong>ATENÇÃO URGENTE:</strong> Resultado HIV possivelmente reagente. Requer avaliação imediata.'
     : `Motivo: <strong>${motivo}</strong>`
 
-  await sendMultiple({
+  await send({
     to: emails,
     subject,
     html: baseTemplate(
