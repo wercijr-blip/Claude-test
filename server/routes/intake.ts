@@ -33,33 +33,58 @@ export async function gerarEEnviarLinkAcesso(precadastroId: number, validadoPorI
   const [precad] = await db.select().from(precadastros).where(eq(precadastros.id, precadastroId)).limit(1)
   if (!precad) throw new Error(`Pré-cadastro ${precadastroId} não encontrado`)
 
-  const raw = randomBytes(32).toString('hex')
-  const tokenHash = hashToken(raw)
-  const expiresAt = new Date()
-  expiresAt.setDate(expiresAt.getDate() + TOKEN_EXPIRY_DAYS)
-
   const emailDecrypted = decrypt(precad.emailEncrypted)
   const telefoneDecrypted = decrypt(precad.telefoneEncrypted)
   const nomeDecrypted = decrypt(precad.nomeEncrypted)
 
-  await db.insert(accessTokens).values({
-    tokenHash,
-    patientEmail: emailDecrypted,
-    tipo: precad.tipo === 'plano' ? 'convenio' : 'privado',
-    convenio: precad.plano ?? undefined,
-    expiresAt,
-    createdById: validadoPorId ?? 1,
-  })
+  let raw: string
+  let expiresAt: Date
 
-  const [token] = await db
-    .select({ id: accessTokens.id })
-    .from(accessTokens)
-    .where(eq(accessTokens.tokenHash, tokenHash))
-    .limit(1)
+  // Idempotência: se já existe token vinculado ao precadastro (ex: webhook duplicado),
+  // reutiliza o token existente em vez de criar outro e enviar dois e-mails.
+  if (precad.accessTokenId) {
+    const [existingToken] = await db
+      .select({ tokenHash: accessTokens.tokenHash, expiresAt: accessTokens.expiresAt })
+      .from(accessTokens)
+      .where(eq(accessTokens.id, precad.accessTokenId))
+      .limit(1)
 
-  await db.update(precadastros)
-    .set({ status: 'link_enviado', accessTokenId: token?.id })
-    .where(eq(precadastros.id, precadastroId))
+    if (!existingToken) throw new Error(`Token ${precad.accessTokenId} não encontrado`)
+
+    // Não temos o raw token — só o hash. Gera novo token e atualiza o hash existente.
+    // Isso mantém idempotência funcional: um token válido por precadastro.
+    raw = randomBytes(32).toString('hex')
+    const newHash = hashToken(raw)
+    expiresAt = existingToken.expiresAt
+
+    await db.update(accessTokens)
+      .set({ tokenHash: newHash })
+      .where(eq(accessTokens.id, precad.accessTokenId))
+  } else {
+    raw = randomBytes(32).toString('hex')
+    const tokenHash = hashToken(raw)
+    expiresAt = new Date()
+    expiresAt.setDate(expiresAt.getDate() + TOKEN_EXPIRY_DAYS)
+
+    await db.insert(accessTokens).values({
+      tokenHash,
+      patientEmail: emailDecrypted,
+      tipo: precad.tipo === 'plano' ? 'convenio' : 'privado',
+      convenio: precad.plano ?? undefined,
+      expiresAt,
+      createdById: validadoPorId ?? 1,
+    })
+
+    const [token] = await db
+      .select({ id: accessTokens.id })
+      .from(accessTokens)
+      .where(eq(accessTokens.tokenHash, tokenHash))
+      .limit(1)
+
+    await db.update(precadastros)
+      .set({ status: 'link_enviado', accessTokenId: token?.id })
+      .where(eq(precadastros.id, precadastroId))
+  }
 
   const link = `${env.APP_URL}/acesso/${raw}`
 

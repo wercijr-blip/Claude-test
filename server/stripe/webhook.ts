@@ -90,7 +90,7 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
 // checkout.session.completed
 // ---------------------------------------------------------------------------
 async function handleSessionCompleted(
-  session: ReturnType<typeof stripe.webhooks.constructEvent>['data']['object'] & Record<string, unknown>,
+  session: ReturnType<typeof stripe.webhooks.constructEvent>['data']['object'],
 ): Promise<void> {
   const rawPrecadastroId = (session as { metadata?: Record<string, string> }).metadata?.precadastroId ?? '0'
   const rawPacienteId   = (session as { metadata?: Record<string, string> }).metadata?.pacienteId   ?? '0'
@@ -205,6 +205,11 @@ async function handleSessionCompleted(
       log('INFO', `Pagamento record inserted successfully: pacienteId=${pacienteId}, sessionId=${sessionId}`)
     } catch (err) {
       const error = err as Error
+      // Duplicate entry por race condition de webhook: não é erro — apenas idempotência
+      if ((error as NodeJS.ErrnoException).code === 'ER_DUP_ENTRY') {
+        log('WARN', `Duplicate pagamento for sessionId=${sessionId} — concurrent webhook, ignoring`)
+        return
+      }
       log('ERROR', `DB insert into pagamentos failed: ${error.message}`, {
         pacienteId,
         sessionId,
@@ -227,7 +232,7 @@ async function handleSessionCompleted(
 // checkout.session.expired
 // ---------------------------------------------------------------------------
 async function handleSessionExpired(
-  session: ReturnType<typeof stripe.webhooks.constructEvent>['data']['object'] & Record<string, unknown>,
+  session: ReturnType<typeof stripe.webhooks.constructEvent>['data']['object'],
 ): Promise<void> {
   const rawPrecadastroId = (session as { metadata?: Record<string, string> }).metadata?.precadastroId ?? '0'
   const precadastroId    = parseInt(rawPrecadastroId, 10)
