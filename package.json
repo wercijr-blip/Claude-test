@@ -9,6 +9,7 @@
     "build": "vite build",
     "start": "tsx --env-file=.env server/_core/index.ts",
     "start:prod": "tsx server/_core/index.ts",
+    "start:workers": "tsx server/workers.ts",
     "check": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",

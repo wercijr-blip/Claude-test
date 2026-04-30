@@ -48,6 +48,9 @@ const envSchema = z.object({
 
   PORT: z.coerce.number().default(3000),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  // Set to false when running a dedicated worker service (server/workers.ts).
+  // Defaults to true so single-service deploys work without extra config.
+  WORKERS_ENABLED: z.coerce.boolean().default(true),
 })
 
 const parsed = envSchema.safeParse(process.env)

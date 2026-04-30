@@ -1,16 +1,12 @@
 import rateLimit from 'express-rate-limit'
 import { RedisStore } from 'rate-limit-redis'
-import IORedis from 'ioredis'
-import { env } from './env.ts'
+import { redis } from './redis.ts'
 import { RATE_LIMITS } from '../../shared/security-constants.ts'
-
-// Redis compartilhado com BullMQ — distribuído entre instâncias Railway
-const redisClient = new IORedis(env.REDIS_URL, { maxRetriesPerRequest: null, lazyConnect: true })
 
 function makeStore(prefix: string) {
   return new RedisStore({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    sendCommand: ((...args: string[]) => redisClient.call(args[0], ...args.slice(1))) as any,
+    sendCommand: ((...args: string[]) => redis.call(args[0], ...args.slice(1))) as any,
     prefix: `rl:${prefix}:`,
   })
 }

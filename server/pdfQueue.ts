@@ -1,7 +1,7 @@
 import { Queue, Worker } from 'bullmq'
-import IORedis from 'ioredis'
 import { randomBytes } from 'crypto'
 import { env } from './_core/env.ts'
+import { redis } from './_core/redis.ts'
 import { db } from './db.ts'
 import { pacientes, pdfs, consultasInicio, accessTokens, precadastros, pesquisaTokens } from '../drizzle/schema.ts'
 import { eq, and, gt } from 'drizzle-orm'
@@ -16,7 +16,7 @@ export const PDF_QUEUE_NAME = 'pdf-generation'
 export const LEMBRETE_QUEUE_NAME = 'lembrete-exame'
 export const PESQUISA_QUEUE_NAME = 'pesquisa-satisfacao'
 
-const connection = new IORedis(env.REDIS_URL, { maxRetriesPerRequest: null })
+const connection = redis
 
 // Upstash Redis free tier: 500k commands/month.
 // BullMQ defaults burn through it in ~4 days with 3 active workers:

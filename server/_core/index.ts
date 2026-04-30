@@ -84,12 +84,21 @@ if (env.NODE_ENV === 'production') {
 
 app.listen(env.PORT, async () => {
   console.log(`🚀 Facilita PrEP rodando na porta ${env.PORT} [${env.NODE_ENV}]`)
-  // Iniciar workers de fila em background
-  const { startPdfWorker, startLembreteWorker, startPesquisaWorker, agendarLembreteDiario } = await import('../pdfQueue.ts')
-  startPdfWorker()
-  startLembreteWorker()
-  startPesquisaWorker()
-  await agendarLembreteDiario()
+
+  // Workers run in-process by default (single-service deploy).
+  // Set WORKERS_ENABLED=false when running a dedicated worker service via server/workers.ts.
+  if (env.WORKERS_ENABLED !== false) {
+    const { startPdfWorker, startLembreteWorker, startPesquisaWorker, agendarLembreteDiario } = await import('../pdfQueue.ts')
+    const { startExamWorker } = await import('../examQueue.ts')
+    startPdfWorker()
+    startLembreteWorker()
+    startPesquisaWorker()
+    startExamWorker()
+    await agendarLembreteDiario()
+    console.log('[server] Workers BullMQ iniciados em-processo.')
+  } else {
+    console.log('[server] WORKERS_ENABLED=false — aguardando worker service separado.')
+  }
 })
 
 export default app

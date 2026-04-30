@@ -1,6 +1,5 @@
 import { Queue, Worker } from 'bullmq'
-import IORedis from 'ioredis'
-import { env } from './_core/env.ts'
+import { redis } from './_core/redis.ts'
 import { db } from './db.ts'
 import { exames, pacientes } from '../drizzle/schema.ts'
 import { eq } from 'drizzle-orm'
@@ -9,7 +8,7 @@ import type { ResultadoIa } from '../shared/types.ts'
 
 export const EXAM_QUEUE_NAME = 'exam-analysis'
 
-const connection = new IORedis(env.REDIS_URL, { maxRetriesPerRequest: null })
+const connection = redis
 
 export const examQueue = new Queue(EXAM_QUEUE_NAME, { connection })
 
