@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import { randomBytes, createHash } from 'crypto'
 import { router, publicProcedure, staffProcedure } from '../_core/trpc.ts'
+import { hashToken, generateToken } from '../_core/tokenUtils.ts'
 import { TRPCError } from '@trpc/server'
 import { db } from '../db.ts'
 import { precadastros, accessTokens, users } from '../../drizzle/schema.ts'
@@ -14,10 +14,6 @@ import { env } from '../_core/env.ts'
 import { TOKEN_EXPIRY_DAYS } from '../../shared/security-constants.ts'
 import { enqueueEnviarLinkAcesso } from '../pdfQueue.ts'
 import { ERROR_MESSAGES, HORARIO_ATENDIMENTO } from '../../shared/const.ts'
-
-function hashToken(raw: string): string {
-  return createHash('sha256').update(raw).digest('hex')
-}
 
 function isDentroHorarioAtendimento(): boolean {
   const agora = new Date()
@@ -53,7 +49,7 @@ export async function gerarEEnviarLinkAcesso(precadastroId: number, validadoPorI
 
     // Não temos o raw token — só o hash. Gera novo token e atualiza o hash existente.
     // Isso mantém idempotência funcional: um token válido por precadastro.
-    raw = randomBytes(32).toString('hex')
+    raw = generateToken()
     const newHash = hashToken(raw)
     expiresAt = existingToken.expiresAt
 
@@ -61,7 +57,7 @@ export async function gerarEEnviarLinkAcesso(precadastroId: number, validadoPorI
       .set({ tokenHash: newHash })
       .where(eq(accessTokens.id, precad.accessTokenId))
   } else {
-    raw = randomBytes(32).toString('hex')
+    raw = generateToken()
     const tokenHash = hashToken(raw)
     expiresAt = new Date()
     expiresAt.setDate(expiresAt.getDate() + TOKEN_EXPIRY_DAYS)
