@@ -155,7 +155,7 @@ export default function Knowledge() {
 
                   <div className="flex items-center justify-between pt-1">
                     <p className="text-xs text-slate-400">
-                      {t.source === 'auto' ? 'Automático' : 'Manual'} •{' '}
+                      {t.source === 'auto' ? 'Automático' : 'Manual'} {•}{' '}
                       {new Date(t.createdAt).toLocaleDateString('pt-BR')}
                     </p>
                     <div className="flex gap-2">
