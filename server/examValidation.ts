@@ -35,13 +35,37 @@ function levenshtein(a: string, b: string): number {
   return dp[m][n]
 }
 
+// Stopwords removidas antes de tokenizar (preposições e conectivos comuns).
+const STOPWORDS_NOME = new Set(['de', 'da', 'do', 'das', 'dos', 'e'])
+
+function tokenizarNome(s: string): string[] {
+  return normalizarTexto(s)
+    .split(/\s+/)
+    .filter((t) => t.length > 1 && !STOPWORDS_NOME.has(t))
+}
+
+// Compara dois nomes tokenizados: para cada token significativo do nome esperado,
+// verifica se há token similar no nome do exame (Levenshtein ≥ 0.85 entre tokens).
+// Retorna a fração de matches. Robusto a:
+// - nome completo vs nome parcial (matches nos tokens em comum bastam)
+// - ordem invertida de nome/sobrenome
+// - pequenos erros de OCR em alguns caracteres
 export function calcularSimilaridadeNome(nomeExame: string, nomeEsperado: string): number {
-  const a = normalizarTexto(nomeExame)
-  const b = normalizarTexto(nomeEsperado)
-  if (a === b) return 1
-  const maxLen = Math.max(a.length, b.length)
-  if (maxLen === 0) return 1
-  return (maxLen - levenshtein(a, b)) / maxLen
+  const tokensExame = tokenizarNome(nomeExame)
+  const tokensEsperado = tokenizarNome(nomeEsperado)
+  if (tokensEsperado.length === 0 || tokensExame.length === 0) return 0
+
+  let matches = 0
+  for (const t of tokensEsperado) {
+    let melhor = 0
+    for (const e of tokensExame) {
+      const max = Math.max(t.length, e.length)
+      const sim = max === 0 ? 0 : (max - levenshtein(t, e)) / max
+      if (sim > melhor) melhor = sim
+    }
+    if (melhor >= 0.85) matches++
+  }
+  return matches / tokensEsperado.length
 }
 
 // ─── AI extraction: nome, resultado, data, confiança ─────────────────────────

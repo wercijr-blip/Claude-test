@@ -221,7 +221,7 @@ export const consultaRouter = router({
         .where(eq(consultasInicio.id, consulta.id))
 
       const info = await getInfoPaciente(ctx.session.tokenId)
-      const primeiroNome = info.nome.split(' ')[0]
+      const nomeCadastro = info.nome
 
       // ── AI Extraction ────────────────────────────────────────────
       let extracao
@@ -303,9 +303,9 @@ export const consultaRouter = router({
       }
 
       // ── REGRA D — Nome não bate ──────────────────────────────────
-      if (extracao.nomeExame && primeiroNome) {
-        const sim = calcularSimilaridadeNome(extracao.nomeExame, primeiroNome)
-        if (sim < 0.80) {
+      if (extracao.nomeExame && nomeCadastro) {
+        const sim = calcularSimilaridadeNome(extracao.nomeExame, nomeCadastro)
+        if (sim < 0.70) {
           await db.update(consultasInicio)
             .set({
               status: 'pendente_revisao_medica',
