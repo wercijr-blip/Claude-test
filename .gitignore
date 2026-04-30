@@ -1,46 +1,25 @@
-# ── Ambiente ─────────────────────────────────────────────
-.env
-.env.local
-.env.production
-.env.staging
-
-# ── Certificados ICP-Brasil (NUNCA commitar) ──────────────
-server/certs/*.pem
-server/certs/*.pfx
-server/certs/*.p12
-server/certs/*.key
-server/certs/*.crt
-
-# ── Dependências ─────────────────────────────────────────
 node_modules/
-
-# ── Build ─────────────────────────────────────────────────
 dist/
-build/
-.vite/
+.env
+*.local
 
-# ── Logs ──────────────────────────────────────────────────
+# Drizzle
+drizzle/.drizzle/
+
+# Logs
 *.log
-logs/
 npm-debug.log*
 pnpm-debug.log*
 
-# ── Cache ─────────────────────────────────────────────────
-.cache/
-.turbo/
-.nyc_output/
-coverage/
-
-# ── Sistema Operacional ───────────────────────────────────
+# OS
 .DS_Store
 Thumbs.db
-desktop.ini
 
-# ── IDEs ──────────────────────────────────────────────────
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# ── Drizzle (arquivos gerados) ────────────────────────────
-drizzle/meta/
+# Tests
+coverage/
