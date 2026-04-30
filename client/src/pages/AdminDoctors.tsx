@@ -31,20 +31,15 @@ export default function AdminDoctors() {
   const [showNew, setShowNew]       = useState(false)
   const [editDoctor, setEditDoctor] = useState<Doctor | null>(null)
 
-  const deactivate  = trpc.user.deactivate.useMutation({ onSuccess: () => utils.user.list.invalidate() })
-  const reactivate  = trpc.user.reactivate.useMutation({ onSuccess: () => utils.user.list.invalidate() })
+  const deactivate = trpc.user.deactivate.useMutation({ onSuccess: () => utils.user.list.invalidate() })
+  const reactivate = trpc.user.reactivate.useMutation({ onSuccess: () => utils.user.list.invalidate() })
 
   return (
     <DashboardLayout>
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-slate-800">Médicos</h1>
-          <button
-            onClick={() => setShowNew(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
-          >
-            + Novo médico
-          </button>
+          <button onClick={() => setShowNew(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">+ Novo médico</button>
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
@@ -80,25 +75,13 @@ export default function AdminDoctors() {
                     }
                   </td>
                   <td className="px-4 py-3">
-                    {d.bulletinEmail
-                      ? <span title={d.bulletinEmail}>✅</span>
-                      : <span title="Sem email de boletim">⚠️</span>
-                    }
+                    {d.bulletinEmail ? <span title={d.bulletinEmail}>✅</span> : <span title="Sem email de boletim">⚠️</span>}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
+                      <button onClick={() => setEditDoctor(d)} className="text-xs text-blue-600 hover:underline">Editar</button>
                       <button
-                        onClick={() => setEditDoctor(d)}
-                        className="text-xs text-blue-600 hover:underline"
-                      >Editar</button>
-                      <button
-                        onClick={() => {
-                          if (d.active) {
-                            deactivate.mutate({ id: d.id })
-                          } else {
-                            reactivate.mutate({ id: d.id })
-                          }
-                        }}
+                        onClick={() => { d.active ? deactivate.mutate({ id: d.id }) : reactivate.mutate({ id: d.id }) }}
                         className="text-xs text-slate-500 hover:underline"
                       >
                         {d.active ? 'Desativar' : 'Reativar'}
@@ -115,33 +98,15 @@ export default function AdminDoctors() {
         </div>
       </div>
 
-      {showNew && (
-        <NewDoctorModal
-          onClose={() => setShowNew(false)}
-          onSuccess={() => { setShowNew(false); utils.user.list.invalidate() }}
-        />
-      )}
-
-      {editDoctor && (
-        <EditDoctorModal
-          doctor={editDoctor}
-          onClose={() => setEditDoctor(null)}
-          onSuccess={() => { setEditDoctor(null); utils.user.list.invalidate() }}
-        />
-      )}
+      {showNew && <NewDoctorModal onClose={() => setShowNew(false)} onSuccess={() => { setShowNew(false); utils.user.list.invalidate() }} />}
+      {editDoctor && <EditDoctorModal doctor={editDoctor} onClose={() => setEditDoctor(null)} onSuccess={() => { setEditDoctor(null); utils.user.list.invalidate() }} />}
     </DashboardLayout>
   )
 }
 
 function Avatar({ name }: { name: string | null }) {
-  const initials = name
-    ? name.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()
-    : '?'
-  return (
-    <div className="w-8 h-8 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold shrink-0">
-      {initials}
-    </div>
-  )
+  const initials = name ? name.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase() : '?'
+  return <div className="w-8 h-8 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold shrink-0">{initials}</div>
 }
 
 function NewDoctorModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
@@ -153,32 +118,19 @@ function NewDoctorModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
   const [emailSent, setEmailSent] = useState(false)
 
   const createMutation = trpc.user.create.useMutation({
-    onSuccess() {
-      setEmailSent(true)
-      setTimeout(onSuccess, 2000)
-    },
-    onError(err) {
-      setError(err.message)
-    },
+    onSuccess() { setEmailSent(true); setTimeout(onSuccess, 2000) },
+    onError(err) { setError(err.message) },
   })
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    createMutation.mutate({ name, email, crm, specialty })
-  }
 
   return (
     <Modal title="Novo Médico" onClose={onClose}>
       {emailSent ? (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-700">
-          Email enviado para {email}! Médico criado com sucesso.
-        </div>
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-700">Email enviado para {email}! Médico criado com sucesso.</div>
       ) : (
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={(e) => { e.preventDefault(); setError(''); createMutation.mutate({ name, email, crm, specialty }) }} className="space-y-4">
           <Field label="Nome completo" value={name} onChange={setName} required placeholder="Dr. João Silva" />
-          <Field label="Email"   type="email" value={email} onChange={setEmail} required placeholder="joao@clinica.com" />
-          <Field label="CRM"     value={crm}  onChange={setCrm} required placeholder="12345/SP" />
+          <Field label="Email" type="email" value={email} onChange={setEmail} required placeholder="joao@clinica.com" />
+          <Field label="CRM" value={crm} onChange={setCrm} required placeholder="12345/SP" />
           <Field label="Especialidade" value={specialty} onChange={setSpecialty} required placeholder="Infectologia" />
           {error && <p className="text-red-600 text-sm">{error}</p>}
           <div className="flex gap-3 pt-2">
@@ -201,30 +153,14 @@ function EditDoctorModal({ doctor, onClose, onSuccess }: { doctor: Doctor; onClo
   const [newPass, setNewPass]     = useState('')
   const [error, setError]         = useState('')
 
-  const updateMutation = trpc.user.update.useMutation({
-    onSuccess,
-    onError(err) { setError(err.message) },
-  })
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    updateMutation.mutate({
-      id:          doctor.id,
-      name,
-      email,
-      crm,
-      specialty,
-      newPassword: newPass || undefined,
-    })
-  }
+  const updateMutation = trpc.user.update.useMutation({ onSuccess, onError(err) { setError(err.message) } })
 
   return (
     <Modal title="Editar Médico" onClose={onClose}>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <Field label="Nome"        value={name}      onChange={setName}      placeholder="Dr. João" />
-        <Field label="Email"       type="email" value={email}     onChange={setEmail}     placeholder="joao@clinica.com" />
-        <Field label="CRM"         value={crm}       onChange={setCrm}       placeholder="12345/SP" />
+      <form onSubmit={(e) => { e.preventDefault(); setError(''); updateMutation.mutate({ id: doctor.id, name, email, crm, specialty, newPassword: newPass || undefined }) }} className="space-y-4">
+        <Field label="Nome" value={name} onChange={setName} placeholder="Dr. João" />
+        <Field label="Email" type="email" value={email} onChange={setEmail} placeholder="joao@clinica.com" />
+        <Field label="CRM" value={crm} onChange={setCrm} placeholder="12345/SP" />
         <Field label="Especialidade" value={specialty} onChange={setSpecialty} placeholder="Infectologia" />
         <Field label="Nova senha (opcional)" type="password" value={newPass} onChange={setNewPass} placeholder="Deixe vazio para não alterar" />
         {error && <p className="text-red-600 text-sm">{error}</p>}
@@ -254,24 +190,13 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
 }
 
 function Field({ label, value, onChange, type = 'text', required, placeholder }: {
-  label:       string
-  value:       string
-  onChange:    (v: string) => void
-  type?:       string
-  required?:   boolean
-  placeholder?: string
+  label: string; value: string; onChange: (v: string) => void; type?: string; required?: boolean; placeholder?: string
 }) {
   return (
     <div>
       <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        required={required}
-        placeholder={placeholder}
-        className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-      />
+      <input type={type} value={value} onChange={(e) => onChange(e.target.value)} required={required} placeholder={placeholder}
+        className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
     </div>
   )
 }
