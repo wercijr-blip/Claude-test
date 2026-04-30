@@ -73,13 +73,11 @@ export const tokenRouter = router({
         .where(eq(pacientes.tokenId, record.id))
         .limit(1)
 
-      // Marcar token como usado (apenas na primeira vez)
-      if (!record.usedAt) {
-        await db
-          .update(accessTokens)
-          .set({ usedAt: new Date() })
-          .where(eq(accessTokens.id, record.id))
-      }
+      // Marcar token como usado na primeira vez — UPDATE atômico evita double-write em requests paralelos
+      await db
+        .update(accessTokens)
+        .set({ usedAt: new Date() })
+        .where(and(eq(accessTokens.id, record.id), isNull(accessTokens.usedAt)))
 
       const secret = new TextEncoder().encode(env.JWT_SECRET)
       const sessionToken = await new SignJWT({
