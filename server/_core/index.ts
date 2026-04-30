@@ -5,6 +5,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { env } from './env.ts'
 import { logger } from './logger.ts'
+import { redis } from './redis.ts'
 import { applySecurityMiddleware } from './security.ts'
 import { appRouter } from '../routers.ts'
 import { createContext } from './context.ts'
@@ -59,14 +60,21 @@ app.use(
   }),
 )
 
-// Healthcheck com verificação do banco
+// Healthcheck com verificação do banco e Redis
 app.get('/api/health', async (_req, res) => {
-  try {
-    await db.execute('SELECT 1')
-    res.json({ status: 'ok', ts: new Date().toISOString() })
-  } catch {
-    res.status(503).json({ status: 'error', ts: new Date().toISOString() })
-  }
+  const ts = new Date().toISOString()
+
+  const [dbOk, redisOk] = await Promise.all([
+    db.execute('SELECT 1').then(() => true).catch(() => false),
+    redis.ping().then((r) => r === 'PONG').catch(() => false),
+  ])
+
+  const allOk = dbOk && redisOk
+  res.status(allOk ? 200 : 503).json({
+    status: allOk ? 'ok' : 'degraded',
+    checks: { db: dbOk ? 'ok' : 'error', redis: redisOk ? 'ok' : 'error' },
+    ts,
+  })
 })
 
 // Upload de exames (lazy import para evitar carregar S3 client no boot)
