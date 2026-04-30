@@ -42,13 +42,14 @@ export function startExamWorker() {
         // High-confidence negative result → auto-approve
         const novoResultado: ResultadoIa = { ...resultado, status: 'aprovado_automaticamente' }
 
-        await db.update(exames)
-          .set({ resultadoIa: novoResultado })
-          .where(eq(exames.id, exameId))
-
-        await db.update(pacientes)
-          .set({ status: 'aprovado' })
-          .where(eq(pacientes.id, pacienteId))
+        await db.transaction(async (tx) => {
+          await tx.update(exames)
+            .set({ resultadoIa: novoResultado })
+            .where(eq(exames.id, exameId))
+          await tx.update(pacientes)
+            .set({ status: 'aprovado' })
+            .where(eq(pacientes.id, pacienteId))
+        })
 
         console.log(
           `[examQueue] Exame ${exameId} aprovado automaticamente pela IA ` +

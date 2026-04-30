@@ -66,24 +66,26 @@ export async function gerarEEnviarLinkAcesso(precadastroId: number, validadoPorI
     expiresAt = new Date()
     expiresAt.setDate(expiresAt.getDate() + TOKEN_EXPIRY_DAYS)
 
-    await db.insert(accessTokens).values({
-      tokenHash,
-      patientEmail: emailDecrypted,
-      tipo: precad.tipo === 'plano' ? 'convenio' : 'privado',
-      convenio: precad.plano ?? undefined,
-      expiresAt,
-      createdById: validadoPorId ?? 1,
+    await db.transaction(async (tx) => {
+      await tx.insert(accessTokens).values({
+        tokenHash,
+        patientEmail: emailDecrypted,
+        tipo: precad.tipo === 'plano' ? 'convenio' : 'privado',
+        convenio: precad.plano ?? undefined,
+        expiresAt,
+        createdById: validadoPorId ?? 1,
+      })
+
+      const [token] = await tx
+        .select({ id: accessTokens.id })
+        .from(accessTokens)
+        .where(eq(accessTokens.tokenHash, tokenHash))
+        .limit(1)
+
+      await tx.update(precadastros)
+        .set({ status: 'link_enviado', accessTokenId: token?.id })
+        .where(eq(precadastros.id, precadastroId))
     })
-
-    const [token] = await db
-      .select({ id: accessTokens.id })
-      .from(accessTokens)
-      .where(eq(accessTokens.tokenHash, tokenHash))
-      .limit(1)
-
-    await db.update(precadastros)
-      .set({ status: 'link_enviado', accessTokenId: token?.id })
-      .where(eq(precadastros.id, precadastroId))
   }
 
   const link = `${env.APP_URL}/acesso/${raw}`

@@ -51,16 +51,17 @@ export const pesquisaRouter = router({
         throw new TRPCError({ code: 'CONFLICT', message: 'Pesquisa já respondida. Obrigado!' })
       }
 
-      await db.insert(satisfacaoPesquisas).values({
-        pacienteId: input.pacienteId,
-        achouFacil: input.achouFacil,
-        conseguiuMedicacao: input.conseguiuMedicacao,
-        indicaria: input.indicaria,
-        comentario: input.comentario,
+      await db.transaction(async (tx) => {
+        await tx.insert(satisfacaoPesquisas).values({
+          pacienteId: input.pacienteId,
+          achouFacil: input.achouFacil,
+          conseguiuMedicacao: input.conseguiuMedicacao,
+          indicaria: input.indicaria,
+          comentario: input.comentario,
+        })
+        // Token consumed atomically — prevents replay even under concurrent retries
+        await tx.delete(pesquisaTokens).where(eq(pesquisaTokens.pacienteId, input.pacienteId))
       })
-
-      // Token consumed — delete to prevent replay
-      await db.delete(pesquisaTokens).where(eq(pesquisaTokens.pacienteId, input.pacienteId))
 
       return { ok: true }
     }),
