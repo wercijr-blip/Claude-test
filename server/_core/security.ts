@@ -4,7 +4,7 @@ import type { Express, Request, Response, NextFunction } from 'express'
 import { env } from './env.ts'
 import { apiLimiter } from './rateLimiters.ts'
 
-function buildAllowedOrigins(): string[] {
+export function buildAllowedOrigins(): string[] {
   const origins = new Set<string>()
 
   // Always include APP_URL
@@ -21,13 +21,14 @@ function buildAllowedOrigins(): string[] {
   return Array.from(origins)
 }
 
-const allowedOrigins = buildAllowedOrigins()
+export const allowedOrigins = buildAllowedOrigins()
 
-function isOriginAllowed(origin: string): boolean {
-  // Always allow localhost for development
+export function isOriginAllowed(origin: string): boolean {
+  // Allow localhost in development only — exact match with optional port
   if (/^https?:\/\/localhost(:\d+)?$/.test(origin)) return true
 
-  return allowedOrigins.some((o) => origin === o || origin.startsWith(o))
+  // Exact equality — prevents subdomain takeover via startsWith
+  return allowedOrigins.some((o) => origin === o)
 }
 
 export function applySecurityMiddleware(app: Express): void {
