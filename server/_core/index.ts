@@ -58,6 +58,17 @@ app.use(
   createExpressMiddleware({
     router: appRouter,
     createContext: ({ req }) => createContext({ req }),
+    onError: ({ error, path, type, input }) => {
+      logger.error('[trpc] error', {
+        path,
+        type,
+        code: error.code,
+        message: error.message,
+        cause: error.cause ? String(error.cause) : undefined,
+        stack: error.stack,
+        input: typeof input === 'object' ? JSON.stringify(input) : String(input),
+      })
+    },
   }),
 )
 
