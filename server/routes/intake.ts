@@ -8,11 +8,11 @@ import { eq, desc, inArray } from 'drizzle-orm'
 import { encrypt, decrypt, hashCpf } from '../_core/encryption.ts'
 import { validarCpf, normalizarCpf } from '../_core/cpfValidator.ts'
 import { criarCheckoutIntake } from '../stripe/products.ts'
-import { enviarLinkAcessoIntake, enviarNotificacaoNovoPlano, enviarConfirmacaoPlano } from '../email.ts'
-import { enviarWhatsApp } from '../whatsapp.ts'
+import { enviarNotificacaoNovoPlano, enviarConfirmacaoPlano } from '../email.ts'
 import { getPresignedUrl } from '../storage.ts'
 import { env } from '../_core/env.ts'
 import { TOKEN_EXPIRY_DAYS } from '../../shared/security-constants.ts'
+import { enqueueEnviarLinkAcesso } from '../pdfQueue.ts'
 import { ERROR_MESSAGES, HORARIO_ATENDIMENTO } from '../../shared/const.ts'
 
 function hashToken(raw: string): string {
@@ -90,13 +90,9 @@ export async function gerarEEnviarLinkAcesso(precadastroId: number, validadoPorI
 
   const link = `${env.APP_URL}/acesso/${raw}`
 
-  await enviarLinkAcessoIntake(emailDecrypted, nomeDecrypted, link, expiresAt).catch(console.error)
-
-  const mensagemWA =
-    `Olá ${nomeDecrypted}! Seu acesso ao formulário PrEP está liberado.\n\n` +
-    `Acesse o link abaixo para continuar:\n${link}\n\n` +
-    `Válido até ${expiresAt.toLocaleDateString('pt-BR')}.\n\n_Facilita PrEP_`
-  await enviarWhatsApp(telefoneDecrypted, mensagemWA).catch(console.error)
+  // Enqueue instead of direct send — BullMQ provides retry with backoff
+  // so a transient email/WA failure doesn't silently lose the patient's link.
+  await enqueueEnviarLinkAcesso(emailDecrypted, nomeDecrypted, telefoneDecrypted, link, expiresAt)
 }
 
 export const intakeRouter = router({

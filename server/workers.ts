@@ -3,7 +3,7 @@
 // In Railway: configure a second service with this command so workers
 // run in a separate process from the HTTP server.
 
-import { startPdfWorker, startLembreteWorker, startPesquisaWorker, agendarLembreteDiario } from './pdfQueue.ts'
+import { startPdfWorker, startLembreteWorker, startPesquisaWorker, startLinkAcessoWorker, agendarLembreteDiario } from './pdfQueue.ts'
 import { startExamWorker } from './examQueue.ts'
 
 async function main() {
@@ -12,6 +12,7 @@ async function main() {
   startPdfWorker()
   startLembreteWorker()
   startPesquisaWorker()
+  startLinkAcessoWorker()
   startExamWorker()
   await agendarLembreteDiario()
 

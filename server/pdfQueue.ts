@@ -15,6 +15,7 @@ import { enviarWhatsApp } from './whatsapp.ts'
 export const PDF_QUEUE_NAME = 'pdf-generation'
 export const LEMBRETE_QUEUE_NAME = 'lembrete-exame'
 export const PESQUISA_QUEUE_NAME = 'pesquisa-satisfacao'
+export const LINK_ACESSO_QUEUE_NAME = 'link-acesso'
 
 const connection = redis
 
@@ -43,6 +44,7 @@ const LEMBRETE_WORKER_OPTS = { ...SHARED_WORKER_SETTINGS, drainDelay: 300 } // 5
 export const pdfQueue = new Queue(PDF_QUEUE_NAME, { connection })
 export const lembreteQueue = new Queue(LEMBRETE_QUEUE_NAME, { connection })
 export const pesquisaQueue = new Queue(PESQUISA_QUEUE_NAME, { connection })
+export const linkAcessoQueue = new Queue(LINK_ACESSO_QUEUE_NAME, { connection })
 
 export function startPdfWorker() {
   const worker = new Worker(
@@ -309,4 +311,58 @@ export async function enqueueGerarPdf(pacienteId: number) {
     attempts: 3,
     backoff: { type: 'exponential', delay: 5000 },
   })
+}
+
+// ── Link de Acesso Queue ──────────────────────────────────────
+// Envia email + WhatsApp com o link de acesso ao formulário PrEP.
+// Desacopla o envio da transação DB para garantir retry automático
+// sem depender de retry do webhook Stripe.
+
+export async function enqueueEnviarLinkAcesso(
+  email: string,
+  nome: string,
+  telefone: string | null,
+  link: string,
+  expiresAt: Date,
+) {
+  return linkAcessoQueue.add(
+    'enviar-link',
+    { email, nome, telefone, link, expiresAt: expiresAt.toISOString() },
+    { attempts: 5, backoff: { type: 'exponential', delay: 10_000 } },
+  )
+}
+
+export function startLinkAcessoWorker() {
+  const worker = new Worker(
+    LINK_ACESSO_QUEUE_NAME,
+    async (job) => {
+      const { email, nome, telefone, link, expiresAt } = job.data as {
+        email: string
+        nome: string
+        telefone: string | null
+        link: string
+        expiresAt: string
+      }
+
+      const primeiroNome = nome.split(' ')[0]
+      const expires = new Date(expiresAt)
+
+      await enviarLinkAcessoIntake(email, nome, link, expires)
+
+      if (telefone) {
+        const msg =
+          `Olá ${primeiroNome}! Seu acesso ao formulário PrEP está liberado.\n\n` +
+          `Acesse o link abaixo para continuar:\n${link}\n\n` +
+          `Válido até ${expires.toLocaleDateString('pt-BR')}.\n\n_Facilita PrEP_`
+        await enviarWhatsApp(telefone, msg).catch(console.error)
+      }
+    },
+    { connection, ...SHARED_WORKER_SETTINGS, drainDelay: 15 },
+  )
+
+  worker.on('failed', (job, err) => {
+    console.error(`[linkAcessoQueue] Job ${job?.id} falhou (${job?.attemptsMade} tentativas):`, err.message)
+  })
+
+  return worker
 }
