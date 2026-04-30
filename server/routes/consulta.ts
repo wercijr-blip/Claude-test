@@ -192,7 +192,10 @@ export const consultaRouter = router({
 
   // Paciente faz upload do exame — aplica as 6 regras de validação
   uploadExame: protectedProcedure
-    .input(z.object({ s3Key: z.string().min(1) }))
+    .input(z.object({
+      // Aceita apenas chaves no formato exames-inicio/uuid.ext — bloqueia path traversal
+      s3Key: z.string().regex(/^exames-inicio\/[0-9a-f-]{36}\.(jpg|jpeg|png|webp|pdf)$/, 'Chave de arquivo inválida'),
+    }))
     .mutation(async ({ input, ctx }) => {
       assertPatient(ctx.session)
 
