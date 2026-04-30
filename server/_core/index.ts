@@ -11,6 +11,7 @@ import { appRouter } from '../routers.ts'
 import { createContext } from './context.ts'
 import { authLimiter, tokenValidateLimiter, uploadLimiter } from './rateLimiters.ts'
 import { db } from '../db.ts'
+import { ensureSchema } from './ensureSchema.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -90,6 +91,8 @@ if (env.NODE_ENV === 'production') {
     res.sendFile(path.join(clientDist, 'index.html'))
   })
 }
+
+await ensureSchema()
 
 const server = app.listen(env.PORT, async () => {
   logger.info(`Facilita PrEP rodando na porta ${env.PORT}`, { env: env.NODE_ENV })
