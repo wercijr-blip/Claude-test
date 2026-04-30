@@ -1,5 +1,5 @@
 import { initTRPC, TRPCError } from '@trpc/server'
-import type { Context, MedscribeUser } from './context.ts'
+import type { Context, MedscritaUser } from './context.ts'
 
 const t = initTRPC.context<Context>().create()
 
@@ -22,9 +22,5 @@ export const adminProcedure = t.procedure.use(({ ctx, next }) => {
   if (ctx.user.role !== 'admin') {
     throw new TRPCError({ code: 'FORBIDDEN', message: 'Área restrita ao administrador' })
   }
-  return next({ ctx: { ...ctx, user: ctx.user as MedscribeUser & { role: 'admin' } } })
+  return next({ ctx: { ...ctx, user: ctx.user as MedscritaUser & { role: 'admin' } } })
 })
-
-// Legacy aliases — mantidos para compatibilidade com rotas existentes
-export const staffProcedure  = protectedProcedure
-export const medicoProcedure = protectedProcedure
