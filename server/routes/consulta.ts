@@ -7,6 +7,7 @@ import { eq, desc, inArray } from 'drizzle-orm'
 import { decrypt } from '../_core/encryption.ts'
 import { extrairDadosExame, calcularSimilaridadeNome, parseDateBR, isDataValida } from '../examValidation.ts'
 import { gerarPedidosExames } from '../pdfExameRequest.ts'
+import { gerarOrientacaoInicialPdf } from '../pdfOrientacaoInicial.ts'
 import { assinarPdf } from '../pdfSigner.ts'
 import { uploadBuffer, getPresignedUrl } from '../storage.ts'
 import { enviarWhatsApp } from '../whatsapp.ts'
@@ -140,35 +141,46 @@ export const consultaRouter = router({
       // abaixo.
       const info = await getInfoPaciente(ctx.session.tokenId)
 
+      const paciente = { nome: info.nome, cpf: info.cpf }
+      const tokenId = ctx.session.tokenId
+
       const { completo, ist, hiv, densitometria } = await gerarPedidosExames(
         consulta.tipoConsulta as 'primeiro_atendimento' | 'ja_faco_prep',
-        { nome: info.nome, cpf: info.cpf },
-        ctx.session.tokenId,
+        paciente,
+        tokenId,
       )
+
+      // Documento de Orientação Inicial — vai junto com os pedidos para
+      // explicar o paciente sobre os exames antes de iniciar a PrEP.
+      const orientacaoInicial = await gerarOrientacaoInicialPdf({ tokenId, paciente })
 
       const [
         { buffer: completoAssinado },
         { buffer: istAssinado },
         { buffer: hivAssinado },
         { buffer: densitometriaAssinada },
+        { buffer: orientacaoAssinada },
       ] = await Promise.all([
         assinarPdf(completo, 'Pedido de Exames Completo PrEP — Facilita PrEP'),
         assinarPdf(ist, 'Pedido de Exames Sorológicos IST — Facilita PrEP'),
         assinarPdf(hiv, 'Pedido de Exame Anti-HIV — Facilita PrEP'),
         assinarPdf(densitometria, 'Pedido de Densitometria Óssea — Facilita PrEP'),
+        assinarPdf(orientacaoInicial, 'Orientação para Início da PrEP — Facilita PrEP'),
       ])
 
       const ts = Date.now()
-      const keyCompleto = `pedidos/${ctx.session.tokenId}/${ts}-completo.pdf`
-      const keyIst = `pedidos/${ctx.session.tokenId}/${ts}-ist.pdf`
-      const keyHiv = `pedidos/${ctx.session.tokenId}/${ts}-hiv.pdf`
-      const keyDensit = `pedidos/${ctx.session.tokenId}/${ts}-densitometria.pdf`
+      const keyCompleto = `pedidos/${tokenId}/${ts}-completo.pdf`
+      const keyIst = `pedidos/${tokenId}/${ts}-ist.pdf`
+      const keyHiv = `pedidos/${tokenId}/${ts}-hiv.pdf`
+      const keyDensit = `pedidos/${tokenId}/${ts}-densitometria.pdf`
+      const keyOri = `pedidos/${tokenId}/${ts}-orientacao-inicial.pdf`
 
       await Promise.all([
         uploadBuffer(keyCompleto, completoAssinado, 'application/pdf'),
         uploadBuffer(keyIst, istAssinado, 'application/pdf'),
         uploadBuffer(keyHiv, hivAssinado, 'application/pdf'),
         uploadBuffer(keyDensit, densitometriaAssinada, 'application/pdf'),
+        uploadBuffer(keyOri, orientacaoAssinada, 'application/pdf'),
       ])
 
       await db.update(consultasInicio)
@@ -186,6 +198,7 @@ export const consultaRouter = router({
         urlIst: await getPresignedUrl(keyIst, 3600),
         urlHiv: await getPresignedUrl(keyHiv, 3600),
         urlDensitometria: await getPresignedUrl(keyDensit, 3600),
+        urlOrientacao: await getPresignedUrl(keyOri, 3600),
       }
     }),
 

@@ -788,12 +788,14 @@ type PedidosData = {
   urlIst: string | null
   urlHiv: string
   urlDensitometria: string | null
+  urlOrientacao: string
 }
 
 const PEDIDOS_INFO = [
-  { key: 'urlCompleto' as const, label: 'Painel completo de exames', desc: 'Todos os exames do protocolo PrEP' },
-  { key: 'urlIst' as const, label: 'Sorológicos de IST', desc: 'HIV, Sífilis, Hepatite B/C, Gonorreia, Clamídia' },
-  { key: 'urlHiv' as const, label: 'Exame Anti-HIV isolado', desc: 'Anti-HIV 1/2 com Ag p24 (4ª geração)' },
+  { key: 'urlOrientacao' as const, label: '📘 Orientação para Início da PrEP', desc: 'Leia primeiro — explica os exames e próximos passos' },
+  { key: 'urlHiv' as const, label: 'Exame Anti-HIV (obrigatório)', desc: 'Anti-HIV 1/2 com Ag p24 (4ª geração)' },
+  { key: 'urlIst' as const, label: 'Sorológicos de IST (recomendado)', desc: 'Sífilis, Hepatites, Gonorreia, Clamídia' },
+  { key: 'urlCompleto' as const, label: 'Painel completo de exames (recomendado)', desc: 'Inclui função renal/hepática para uso seguro do TDF' },
   { key: 'urlDensitometria' as const, label: 'Densitometria óssea', desc: 'Monitoramento ósseo — uso de Tenofovir (TDF)' },
 ]
 
@@ -816,7 +818,7 @@ function BotaoBaixarPedidos({ tipoConsulta: _tipoConsulta, onBaixou }: { tipoCon
           className="w-full border-2 border-brand-light bg-brand-pale text-brand py-3.5 rounded-2xl font-medium hover:bg-brand-light disabled:opacity-50 transition-all flex items-center justify-center gap-2 text-sm"
         >
           <DownloadIcon />
-          {gerarMut.isPending ? 'Gerando PDFs assinados…' : 'Gerar pedidos de exame (4 documentos)'}
+          {gerarMut.isPending ? 'Gerando PDFs assinados…' : 'Gerar pedidos de exame + orientação'}
         </button>
         {gerarMut.error && <p className="text-terra text-sm">{gerarMut.error.message}</p>}
       </div>
