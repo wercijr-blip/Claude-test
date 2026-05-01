@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -15,7 +16,7 @@ const schema = z.object({
   email: z.string().email('E-mail inválido'),
   tipoTelefone: z.string().optional(),
   telefone: z.string().min(10, 'Telefone inválido'),
-  cep: z.string().length(8, 'CEP deve ter 8 dígitos'),
+  cep: z.string().regex(/^\d{8}$/, 'CEP deve ter 8 dígitos'),
   logradouro: z.string().min(2),
   numero: z.string().min(1),
   complemento: z.string().optional(),
@@ -36,6 +37,8 @@ interface Props {
 export default function StepContato({ pacienteId, onNext, onBack, defaultValues }: Props) {
   const hasIntakeEmail = !!defaultValues?.email
   const hasIntakeTelefone = !!defaultValues?.telefone
+  const [cepLoading, setCepLoading] = useState(false)
+  const [cepErro, setCepErro] = useState<string | null>(null)
 
   const { register, handleSubmit, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -49,17 +52,26 @@ export default function StepContato({ pacienteId, onNext, onBack, defaultValues 
 
   const salvar = trpc.paciente.salvarStep3.useMutation({ onSuccess: () => onNext() })
 
-  const buscarCep = async (cep: string) => {
-    const digits = cep.replace(/\D/g, '')
+  const buscarCep = async (digits: string) => {
     if (digits.length !== 8) return
+    setCepErro(null)
+    setCepLoading(true)
     try {
       const r = await fetch(`https://viacep.com.br/ws/${digits}/json/`)
-      const d = await r.json() as { logradouro?: string; bairro?: string; localidade?: string; uf?: string }
-      if (d.logradouro) setValue('logradouro', d.logradouro)
-      if (d.bairro) setValue('bairro', d.bairro)
-      if (d.localidade) setValue('cidade', d.localidade)
-      if (d.uf) setValue('estado', d.uf)
-    } catch { /* silencioso */ }
+      const d = await r.json() as { erro?: boolean; logradouro?: string; bairro?: string; localidade?: string; uf?: string }
+      if (d.erro) {
+        setCepErro('CEP não encontrado.')
+        return
+      }
+      if (d.logradouro) setValue('logradouro', d.logradouro, { shouldValidate: true })
+      if (d.bairro) setValue('bairro', d.bairro, { shouldValidate: true })
+      if (d.localidade) setValue('cidade', d.localidade, { shouldValidate: true })
+      if (d.uf) setValue('estado', d.uf, { shouldValidate: true })
+    } catch {
+      setCepErro('Não foi possível consultar o CEP. Preencha manualmente.')
+    } finally {
+      setCepLoading(false)
+    }
   }
 
   if (!pacienteId) return null
@@ -75,10 +87,8 @@ export default function StepContato({ pacienteId, onNext, onBack, defaultValues 
             type="email"
             className={inputCls(!!errors.email)}
             placeholder="seu@email.com"
-            readOnly={hasIntakeEmail}
-            style={hasIntakeEmail ? { background: '#f8fafc', color: '#64748b' } : undefined}
           />
-          {hasIntakeEmail && <p className="mt-0.5 text-xs text-slate-400">Preenchido automaticamente do cadastro</p>}
+          {hasIntakeEmail && <p className="mt-0.5 text-xs text-slate-400">Preenchido automaticamente do cadastro · você pode editar</p>}
         </Field>
 
         <div>
@@ -87,8 +97,6 @@ export default function StepContato({ pacienteId, onNext, onBack, defaultValues 
             <select
               {...register('tipoTelefone')}
               className={`${inputCls(false)} w-44 shrink-0`}
-              disabled={hasIntakeTelefone}
-              style={hasIntakeTelefone ? { background: '#f8fafc', color: '#64748b' } : undefined}
             >
               {TIPOS_TELEFONE.map((t) => (
                 <option key={t.value} value={t.value}>{t.label}</option>
@@ -99,23 +107,35 @@ export default function StepContato({ pacienteId, onNext, onBack, defaultValues 
               className={`${inputCls(!!errors.telefone)} flex-1`}
               placeholder="(00) 00000-0000"
               maxLength={15}
-              readOnly={hasIntakeTelefone}
-              style={hasIntakeTelefone ? { background: '#f8fafc', color: '#64748b' } : undefined}
             />
           </div>
           {errors.telefone && <p className="mt-1 text-xs text-red-500">{errors.telefone.message}</p>}
-          {hasIntakeTelefone && <p className="mt-0.5 text-xs text-slate-400">Preenchido automaticamente do cadastro</p>}
+          {hasIntakeTelefone && <p className="mt-0.5 text-xs text-slate-400">Preenchido automaticamente do cadastro · você pode editar</p>}
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <Field label="CEP" error={errors.cep?.message}>
-            <input
-              {...register('cep')}
-              className={inputCls(!!errors.cep)}
-              placeholder="00000-000"
-              maxLength={9}
-              onBlur={(e) => buscarCep(e.target.value)}
-            />
+          <Field label="CEP" error={errors.cep?.message ?? cepErro ?? undefined}>
+            <div className="relative">
+              <input
+                {...register('cep', {
+                  onChange: (e) => {
+                    const digits = (e.target.value as string).replace(/\D/g, '').slice(0, 8)
+                    e.target.value = digits
+                    setValue('cep', digits)
+                    if (digits.length === 8) buscarCep(digits)
+                  },
+                })}
+                className={inputCls(!!errors.cep || !!cepErro)}
+                placeholder="00000000"
+                inputMode="numeric"
+                maxLength={8}
+              />
+              {cepLoading && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <div className="w-4 h-4 border-2 border-slate-200 border-t-blue-500 rounded-full animate-spin" />
+                </div>
+              )}
+            </div>
           </Field>
           <Field label="Estado" error={errors.estado?.message}>
             <select {...register('estado')} className={inputCls(!!errors.estado)}>
