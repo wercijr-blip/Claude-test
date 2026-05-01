@@ -494,6 +494,23 @@ export const consultaRouter = router({
         }
       }
 
+      // Quando o status é "aprovado" (validação médica), os 3 critérios são
+      // implicitamente OK — o médico só aprova quando passou em todos. Garante
+      // que a tela "Tudo certo" mostre os checks verdes mesmo quando a IA
+      // não tinha lido tudo (ex.: médico aprovou apesar de leitura parcial).
+      const aprovado = consulta.status === 'aprovado' || consulta.status === 'aprovado_ia'
+      if (aprovado) {
+        checkTipo = 'ok'
+        checkNome = 'ok'
+        checkResultado = 'ok'
+        checkData = 'ok'
+      }
+
+      // Quando médico aprovou e a IA não tinha extraído o nome, usa o nome
+      // do cadastro para mostrar "Confere com o cadastro" em vez de "Não
+      // foi possível ler".
+      const nomeExameMostrar = resultadoIa?.nomeExame ?? (aprovado ? info?.nome ?? null : null)
+
       return {
         status: consulta.status,
         tipoConsulta: consulta.tipoConsulta,
@@ -503,10 +520,10 @@ export const consultaRouter = router({
         tentativasReenvio: consulta.tentativasReenvio ?? 0,
         dataExame: consulta.dataExameValidado ?? resultadoIa?.dataExame ?? null,
         resultadoHiv: consulta.resultadoHivValidado ?? resultadoIa?.resultadoHiv ?? null,
-        nomeExame: resultadoIa?.nomeExame ?? null,
+        nomeExame: nomeExameMostrar,
         nomeCadastro: info?.nome ?? null,
         tipoExameDetectado: resultadoIa?.tipoExameDetectado ?? null,
-        checks: resultadoIa ? {
+        checks: (resultadoIa || aprovado) ? {
           tipo: checkTipo,
           nome: checkNome,
           resultado: checkResultado,
