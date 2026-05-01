@@ -153,6 +153,11 @@ export async function preencherCadastroSUS(dados: DadosCadastroSUS): Promise<Uin
 
   // ── 5. Autorizados: em branco (instrução do cliente) ──────────
 
+  // ── Remove botões interativos do PDF (Imprimir / Limpar / Salvar) ──
+  for (const btn of ['Button1', 'Button2', 'Button3']) {
+    try { form.removeField(form.getButton(btn)) } catch {}
+  }
+
   // Descartar página 2 (instruções de preenchimento — não precisa imprimir)
   while (pdfDoc.getPageCount() > 1) {
     pdfDoc.removePage(pdfDoc.getPageCount() - 1)

@@ -136,6 +136,11 @@ export async function preencherFichaAtendimento(
   setText('23cNconselho', config.crmNumero)
   // Signature2: assinatura digital ICP-Brasil aplicada na pipeline pdfSigner
 
+  // ── Remove botões interativos do PDF (Imprimir / Salvar / Limpar formulário) ──
+  for (const btn of ['Imprimir', 'Salvar Como', 'limpar formulário']) {
+    try { form.removeField(form.getButton(btn)) } catch {}
+  }
+
   // Descartar página 2 (instruções — não precisa imprimir)
   while (pdfDoc.getPageCount() > 1) {
     pdfDoc.removePage(pdfDoc.getPageCount() - 1)
