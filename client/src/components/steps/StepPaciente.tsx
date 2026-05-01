@@ -11,6 +11,7 @@ const schema = z.object({
   nome: z.string().min(3, 'Nome muito curto'),
   dataNascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida'),
   nomeMae: z.string().min(3, 'Informe o nome completo da mãe'),
+  cns: z.string().max(20).optional(),
   sexo: z.enum(['masculino', 'feminino', 'outro']),
   nomeSocial: z.string().optional(),
 })
@@ -81,6 +82,15 @@ export default function StepPaciente({ pacienteId, onNext, defaultValues }: Prop
             {...register('nomeMae')}
             className={inputCls(!!errors.nomeMae)}
             placeholder="Nome completo da mãe (obrigatório)"
+          />
+        </Field>
+
+        <Field label="CNS — Cartão Nacional de Saúde (opcional)" error={errors.cns?.message}>
+          <input
+            {...register('cns')}
+            className={inputCls(false)}
+            placeholder="000 0000 0000 0000"
+            maxLength={20}
           />
         </Field>
 

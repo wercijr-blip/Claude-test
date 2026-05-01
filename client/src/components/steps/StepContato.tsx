@@ -23,6 +23,8 @@ const schema = z.object({
   bairro: z.string().min(2),
   cidade: z.string().min(2),
   estado: z.string().length(2),
+  permiteContato: z.boolean().optional(),
+  tipoContato: z.enum(['residencial', 'celular', 'email', 'outros']).optional(),
 })
 
 type FormData = z.infer<typeof schema>
@@ -167,6 +169,24 @@ export default function StepContato({ pacienteId, onNext, onBack, defaultValues 
           <Field label="Cidade" error={errors.cidade?.message}>
             <input {...register('cidade')} className={inputCls(!!errors.cidade)} />
           </Field>
+        </div>
+
+        <div className="border border-slate-200 rounded-xl p-4 space-y-3">
+          <p className="text-sm font-medium text-slate-700">Preferência de contato (opcional)</p>
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" {...register('permiteContato')} className="w-4 h-4 rounded border-slate-300 text-blue-600" />
+            <span className="text-sm text-slate-600">Autorizo contato para fins de saúde pública</span>
+          </label>
+          <div>
+            <label className="block text-xs text-slate-600 mb-1">Tipo de contato preferido</label>
+            <select {...register('tipoContato')} className={inputCls(false)}>
+              <option value="">Selecione (opcional)</option>
+              <option value="celular">Celular</option>
+              <option value="residencial">Telefone residencial</option>
+              <option value="email">E-mail</option>
+              <option value="outros">Outros</option>
+            </select>
+          </div>
         </div>
 
         {salvar.error && <p className="text-red-500 text-sm">{salvar.error.message}</p>}

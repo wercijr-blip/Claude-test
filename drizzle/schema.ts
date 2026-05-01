@@ -57,6 +57,7 @@ export const pacientes = mysqlTable('pacientes', {
   nomeEncrypted: text('nome_encrypted').notNull(),
   dataNascimentoEncrypted: text('data_nascimento_encrypted'),
   nomeMaeEncrypted: text('nome_mae_encrypted'),
+  cns: varchar('cns', { length: 20 }),
   sexo: varchar('sexo', { length: 20 }),
   nomeSocial: varchar('nome_social', { length: 255 }),
 
@@ -66,11 +67,19 @@ export const pacientes = mysqlTable('pacientes', {
   situacaoConjugal: varchar('situacao_conjugal', { length: 50 }),
   rendaFamiliar: varchar('renda_familiar', { length: 50 }),
   ocupacao: varchar('ocupacao', { length: 100 }),
+  identidadeGenero: varchar('identidade_genero', { length: 50 }),
+  orientacaoSexual: varchar('orientacao_sexual', { length: 50 }),
+  ufNascimento: varchar('uf_nascimento', { length: 2 }),
+  municipioNascimento: varchar('municipio_nascimento', { length: 100 }),
+  situacaoRua: boolean('situacao_rua'),
+  privadoLiberdade: boolean('privado_liberdade'),
 
   // Step 3 — Contato (PII encriptado)
   emailEncrypted: text('email_encrypted'),
   tipoTelefone: varchar('tipo_telefone', { length: 20 }),
   telefoneEncrypted: text('telefone_encrypted'),
+  permiteContato: boolean('permite_contato'),
+  tipoContato: varchar('tipo_contato', { length: 20 }),
   cep: varchar('cep', { length: 10 }),
   logradouro: varchar('logradouro', { length: 255 }),
   numero: varchar('numero', { length: 20 }),

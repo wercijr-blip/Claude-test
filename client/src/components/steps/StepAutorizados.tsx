@@ -3,7 +3,12 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { trpc } from '../../lib/trpc.ts'
 
-const autorizadoSchema = z.object({ nome: z.string().min(2), parentesco: z.string().min(2), telefone: z.string().optional() })
+const autorizadoSchema = z.object({
+  nome: z.string().min(2),
+  parentesco: z.string().min(2),
+  telefone: z.string().optional(),
+  cpfRg: z.string().max(20).optional(),
+})
 
 const schema = z.object({
   pacienteId: z.number(),
@@ -20,6 +25,7 @@ export default function StepAutorizados({ pacienteId, onNext, onBack }: Props) {
   })
 
   const { fields, append, remove } = useFieldArray({ control, name: 'autorizados' })
+  const MAX_AUTORIZADOS = 3
   const salvar = trpc.paciente.salvarStep7.useMutation({ onSuccess: () => onNext() })
 
   if (!pacienteId) return null
@@ -27,7 +33,7 @@ export default function StepAutorizados({ pacienteId, onNext, onBack }: Props) {
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
       <h2 className="text-lg font-semibold text-slate-800 mb-1">Pessoas Autorizadas</h2>
-      <p className="text-sm text-slate-500 mb-5">Pessoas autorizadas a receber informações sobre seu tratamento (opcional).</p>
+      <p className="text-sm text-slate-500 mb-5">Pessoas autorizadas a receber informações sobre seu tratamento (máximo 3, opcional).</p>
 
       <form onSubmit={handleSubmit((d) => salvar.mutate(d))} className="space-y-4">
         {fields.map((field, i) => (
@@ -46,20 +52,28 @@ export default function StepAutorizados({ pacienteId, onNext, onBack }: Props) {
                 <input {...register(`autorizados.${i}.parentesco`)} className={inputCls(false)} placeholder="Cônjuge, filho(a)…" />
               </div>
             </div>
-            <div>
-              <label className="block text-xs text-slate-600 mb-1">Telefone (opcional)</label>
-              <input {...register(`autorizados.${i}.telefone`)} className={inputCls(false)} placeholder="(00) 00000-0000" />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-slate-600 mb-1">Telefone (opcional)</label>
+                <input {...register(`autorizados.${i}.telefone`)} className={inputCls(false)} placeholder="(00) 00000-0000" />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-600 mb-1">CPF ou RG (opcional)</label>
+                <input {...register(`autorizados.${i}.cpfRg`)} className={inputCls(false)} placeholder="000.000.000-00" maxLength={20} />
+              </div>
             </div>
           </div>
         ))}
 
-        <button
-          type="button"
-          onClick={() => append({ nome: '', parentesco: '', telefone: '' })}
-          className="w-full border-2 border-dashed border-slate-300 hover:border-blue-400 text-slate-500 hover:text-blue-600 rounded-xl py-3 text-sm font-medium transition-colors"
-        >
-          + Adicionar pessoa autorizada
-        </button>
+        {fields.length < MAX_AUTORIZADOS && (
+          <button
+            type="button"
+            onClick={() => append({ nome: '', parentesco: '', telefone: '', cpfRg: '' })}
+            className="w-full border-2 border-dashed border-slate-300 hover:border-blue-400 text-slate-500 hover:text-blue-600 rounded-xl py-3 text-sm font-medium transition-colors"
+          >
+            + Adicionar pessoa autorizada
+          </button>
+        )}
 
         {salvar.error && <p className="text-red-500 text-sm">{salvar.error.message}</p>}
 

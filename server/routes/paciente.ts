@@ -68,6 +68,7 @@ export const pacienteRouter = router({
         nome: z.string().min(3).max(255),
         dataNascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
         nomeMae: z.string().min(3, 'Informe o nome completo da mãe').max(255),
+        cns: z.string().max(20).optional(),
         sexo: z.enum(['masculino', 'feminino', 'outro']),
         nomeSocial: z.string().max(255).optional(),
       }),
@@ -98,6 +99,7 @@ export const pacienteRouter = router({
             nomeEncrypted: encrypt(input.nome),
             dataNascimentoEncrypted: encrypt(input.dataNascimento),
             nomeMaeEncrypted: encrypt(input.nomeMae),
+            cns: input.cns,
             sexo: input.sexo,
             nomeSocial: input.nomeSocial,
             currentStep: 2,
@@ -118,6 +120,7 @@ export const pacienteRouter = router({
         nomeEncrypted: encrypt(input.nome),
         dataNascimentoEncrypted: encrypt(input.dataNascimento),
         nomeMaeEncrypted: encrypt(input.nomeMae),
+        cns: input.cns,
         sexo: input.sexo,
         nomeSocial: input.nomeSocial,
         currentStep: 2,
@@ -138,6 +141,12 @@ export const pacienteRouter = router({
         situacaoConjugal: z.string().max(50).optional(),
         rendaFamiliar: z.string().max(100).optional(),
         ocupacao: z.string().max(255).optional(),
+        identidadeGenero: z.string().max(50).optional(),
+        orientacaoSexual: z.string().max(50).optional(),
+        ufNascimento: z.string().length(2).optional(),
+        municipioNascimento: z.string().max(100).optional(),
+        situacaoRua: z.boolean().optional(),
+        privadoLiberdade: z.boolean().optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -151,6 +160,12 @@ export const pacienteRouter = router({
           situacaoConjugal: input.situacaoConjugal,
           rendaFamiliar: input.rendaFamiliar,
           ocupacao: input.ocupacao,
+          identidadeGenero: input.identidadeGenero,
+          orientacaoSexual: input.orientacaoSexual,
+          ufNascimento: input.ufNascimento,
+          municipioNascimento: input.municipioNascimento,
+          situacaoRua: input.situacaoRua,
+          privadoLiberdade: input.privadoLiberdade,
           currentStep: Math.max(p.currentStep, 3),
           updatedAt: new Date(),
         })
@@ -173,6 +188,8 @@ export const pacienteRouter = router({
         bairro: z.string().max(100),
         cidade: z.string().max(100),
         estado: z.string().length(2),
+        permiteContato: z.boolean().optional(),
+        tipoContato: z.enum(['residencial', 'celular', 'email', 'outros']).optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -191,6 +208,8 @@ export const pacienteRouter = router({
           bairro: input.bairro,
           cidade: input.cidade,
           estado: input.estado,
+          permiteContato: input.permiteContato,
+          tipoContato: input.tipoContato,
           currentStep: Math.max(p.currentStep, 4),
           updatedAt: new Date(),
         })
@@ -273,8 +292,9 @@ export const pacienteRouter = router({
             nome: z.string().max(255),
             parentesco: z.string().max(50),
             telefone: z.string().max(20).optional(),
+            cpfRg: z.string().max(20).optional(),
           }),
-        ).max(10),
+        ).max(3),
       }),
     )
     .mutation(async ({ input, ctx }) => {

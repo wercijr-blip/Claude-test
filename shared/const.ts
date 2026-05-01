@@ -49,6 +49,22 @@ export const COR_RACA_OPTIONS = [
   { value: 'nao_informado', label: 'Prefiro não informar' },
 ] as const
 
+export const IDENTIDADE_GENERO_OPTIONS = [
+  { value: 'cisgênero_fem', label: 'Mulher cisgênero' },
+  { value: 'cisgênero_masc', label: 'Homem cisgênero' },
+  { value: 'transgênero_fem', label: 'Mulher transgênero / Travesti' },
+  { value: 'transgênero_masc', label: 'Homem transgênero' },
+  { value: 'nao_binario', label: 'Não-binário(a)' },
+  { value: 'nao_informado', label: 'Prefiro não informar' },
+] as const
+
+export const ORIENTACAO_SEXUAL_OPTIONS = [
+  { value: 'heterossexual', label: 'Heterossexual' },
+  { value: 'homossexual', label: 'Gay / Lésbica' },
+  { value: 'bissexual', label: 'Bissexual' },
+  { value: 'nao_informado', label: 'Prefiro não informar' },
+] as const
+
 export const ESCOLARIDADE_OPTIONS = [
   { value: 'sem_escolaridade', label: 'Sem escolaridade' },
   { value: 'fundamental_incompleto', label: 'Fundamental incompleto' },
