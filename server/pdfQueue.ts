@@ -7,7 +7,8 @@ import { pacientes, pdfs, consultasInicio, accessTokens, precadastros, pesquisaT
 import { eq, and, gt } from 'drizzle-orm'
 import { decrypt } from './_core/encryption.ts'
 import { gerarPrescricaoPdf, gerarFormularioPdf, assinarPdf } from './pdfSigner.ts'
-import { gerarCadastroPdf } from './pdfCadastro.ts'
+import { preencherCadastroSUS } from './sus/preencherCadastro.ts'
+import { preencherFichaAtendimento } from './sus/preencherFichaAtendimento.ts'
 import { uploadBuffer, getBuffer } from './storage.ts'
 import { enviarLinkAcessoIntake, enviarPrescricaoPronta, enviarPesquisaSatisfacao } from './email.ts'
 import { enviarWhatsApp } from './whatsapp.ts'
@@ -91,6 +92,14 @@ export function startPdfWorker() {
         prescricaoJson: p.prescricaoJson,
       }
 
+      // Config da clínica para os formulários SUS oficiais
+      const configClinica = {
+        cnes: env.SUS_CNES,
+        crmTipo: env.MEDICO_CRM_TIPO,
+        crmUf: env.MEDICO_CRM_UF,
+        crmNumero: env.MEDICO_CRM,
+      }
+
       const gerados: { filename: string; buffer: Buffer }[] = []
 
       // 1. Formulário clínico (sempre)
@@ -111,35 +120,54 @@ export function startPdfWorker() {
       await db.insert(pdfs).values({ pacienteId, s3Key: prescKey, tipo: 'prescricao', certificadoSerial: serialPresc, assinadoEm: assinadoPresc })
       gerados.push({ filename: 'receita-prep.pdf', buffer: signedPresc })
 
-      // 3. Ficha de cadastro (somente primeiro atendimento)
+      // 3. Cadastro SUS oficial (somente primeiro atendimento)
+      // Form 01 — "Cadastramento de Usuário SUS PrEP" (NOV/2025)
       if (tipoConsulta === 'primeiro_atendimento') {
-        const cadastroBuf = await gerarCadastroPdf({
-          nome, cpf, dataNascimento,
-          sexo: p.sexo,
-          nomeSocial: p.nomeSocial,
+        const cadastroBuf = Buffer.from(await preencherCadastroSUS({
+          pacienteId,
+          cpf, nome, nomeMae: nomeMae ?? '', dataNascimento: dataNascimento ?? '',
           corRaca: p.corRaca,
+          sexo: p.sexo,
+          identidadeGenero: p.identidadeGenero,
+          orientacaoSexual: p.orientacaoSexual,
+          ufNascimento: p.ufNascimento,
+          municipioNascimento: p.municipioNascimento,
+          estado: p.estado,
+          cidade: p.cidade,
           escolaridade: p.escolaridade,
-          situacaoConjugal: p.situacaoConjugal,
-          email, telefone,
-          cep: p.cep,
           logradouro: p.logradouro,
           numero: p.numero,
           complemento: p.complemento,
           bairro: p.bairro,
-          cidade: p.cidade,
-          estado: p.estado,
-          tipoAtendimento: p.tipoAtendimento,
-          convenio: p.convenio,
-        })
+          cep: p.cep,
+          email,
+          telefone,
+        }))
         const { buffer: signedCad, certificadoSerial: serialCad, assinadoEm: assinadoCad } =
-          await assinarPdf(cadastroBuf, 'Ficha de Cadastro PrEP — Facilita PrEP')
-        const cadKey = `pdfs/${pacienteId}/${Date.now() + 2}-cadastro.pdf`
+          await assinarPdf(cadastroBuf, 'Cadastro de Usuário SUS PrEP — Facilita PrEP')
+        const cadKey = `pdfs/${pacienteId}/${Date.now() + 2}-cadastro-sus.pdf`
         await uploadBuffer(cadKey, signedCad, 'application/pdf')
         await db.insert(pdfs).values({ pacienteId, s3Key: cadKey, tipo: 'cadastro', certificadoSerial: serialCad, assinadoEm: assinadoCad })
-        gerados.push({ filename: 'ficha-cadastro-prep.pdf', buffer: signedCad })
+        gerados.push({ filename: 'cadastro-usuario-sus-prep.pdf', buffer: signedCad })
       }
 
-      // 4. Pedidos de exame (quando o paciente não tinha exame recente)
+      // 4. Ficha de Atendimento PrEP (Form 02 SUS — sempre)
+      // FEV/2025 — preenchida em primeiro atendimento e nas dispensações
+      const fichaBuf = Buffer.from(await preencherFichaAtendimento({
+        pacienteId,
+        cpf, nome, nomeMae: nomeMae ?? '', dataNascimento: dataNascimento ?? '',
+        dataExameHiv: consulta?.dataExameValidado ?? null,
+        prepModalidade: 'PrEP diária',  // default — substituído quando tela de modalidade for criada
+        tipoConsulta: tipoConsulta as 'primeiro_atendimento' | 'ja_faco_prep',
+      }, configClinica))
+      const { buffer: signedFicha, certificadoSerial: serialFicha, assinadoEm: assinadoFicha } =
+        await assinarPdf(fichaBuf, 'Ficha de Atendimento PrEP — Facilita PrEP')
+      const fichaKey = `pdfs/${pacienteId}/${Date.now() + 3}-ficha-atendimento.pdf`
+      await uploadBuffer(fichaKey, signedFicha, 'application/pdf')
+      await db.insert(pdfs).values({ pacienteId, s3Key: fichaKey, tipo: 'ficha_atendimento', certificadoSerial: serialFicha, assinadoEm: assinadoFicha })
+      gerados.push({ filename: 'ficha-atendimento-prep.pdf', buffer: signedFicha })
+
+      // 5. Pedidos de exame (quando o paciente não tinha exame recente)
       if (consulta && !consulta.temExameRecente) {
         const pedidos = [
           { key: consulta.pedidoCompletoS3Key, tipo: 'pedido_completo', filename: 'pedido-exames-completo.pdf' },

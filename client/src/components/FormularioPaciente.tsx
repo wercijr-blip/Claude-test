@@ -22,7 +22,8 @@ type TipoPdf = { id: number; tipo: string; assinadoEm: Date | null; url: string 
 const LABEL_PDF: Record<string, string> = {
   formulario: 'Formulário Clínico',
   prescricao: 'Receita PrEP',
-  cadastro: 'Ficha de Cadastro',
+  cadastro: 'Cadastro SUS PrEP',
+  ficha_atendimento: 'Ficha de Atendimento PrEP',
   pedido_completo: 'Pedido de Exames Completo PrEP',
   pedido_ist: 'Pedido de Sorológicos IST',
   pedido_hiv: 'Pedido Anti-HIV',
