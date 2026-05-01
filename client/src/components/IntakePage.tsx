@@ -22,7 +22,6 @@ const schema = z.object({
   telefone: z.string().min(10, 'Telefone inválido'),
   cpf: z.string().min(11, 'CPF inválido'),
   email: z.string().email('E-mail inválido'),
-  dataNascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida'),
   plano: z.string().optional(),
 })
 
@@ -140,7 +139,6 @@ export default function IntakePage() {
         telefone: data.telefone,
         cpf: data.cpf.replace(/\D/g, ''),
         email: data.email,
-        dataNascimento: data.dataNascimento,
         tipo,
         plano: tipo === 'plano' ? data.plano : undefined,
         carteirinhaS3Key: carteirinhaKey ?? undefined,
@@ -443,12 +441,6 @@ export default function IntakePage() {
               <label className={labelCls}>CPF</label>
               <input {...register('cpf')} className={inputCls} placeholder="000.000.000-00" />
               {errors.cpf && <p className={errCls}>{errors.cpf.message}</p>}
-            </div>
-
-            <div>
-              <label className={labelCls}>Data de nascimento</label>
-              <input {...register('dataNascimento')} type="date" className={inputCls} />
-              {errors.dataNascimento && <p className={errCls}>{errors.dataNascimento.message}</p>}
             </div>
 
             <div>

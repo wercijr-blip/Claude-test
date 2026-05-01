@@ -20,22 +20,17 @@ interface Props {
   pacienteId: number | null
   onNext: (pacienteId?: number) => void
   onBack: () => void
-  defaultValues?: { nome?: string; cpf?: string; dataNascimento?: string }
+  defaultValues?: { nome?: string; cpf?: string }
 }
 
 export default function StepPaciente({ pacienteId, onNext, defaultValues }: Props) {
   const hasIntakeNome = !!defaultValues?.nome
   const hasIntakeCpf = !!defaultValues?.cpf
-  const hasIntakeDataNasc = !!defaultValues?.dataNascimento
   const { setToken } = useAuth()
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      nome: defaultValues?.nome ?? '',
-      cpf: defaultValues?.cpf ?? '',
-      dataNascimento: defaultValues?.dataNascimento ?? '',
-    },
+    defaultValues: { nome: defaultValues?.nome ?? '', cpf: defaultValues?.cpf ?? '' },
   })
 
   const salvar = trpc.paciente.salvarStep1.useMutation({
@@ -77,14 +72,7 @@ export default function StepPaciente({ pacienteId, onNext, defaultValues }: Prop
         </Field>
 
         <Field label="Data de nascimento" error={errors.dataNascimento?.message}>
-          <input
-            {...register('dataNascimento')}
-            type="date"
-            className={inputCls(!!errors.dataNascimento)}
-            readOnly={hasIntakeDataNasc}
-            style={hasIntakeDataNasc ? { background: '#f8fafc', color: '#64748b' } : undefined}
-          />
-          {hasIntakeDataNasc && <p className="mt-0.5 text-xs text-slate-400">Preenchido automaticamente do cadastro</p>}
+          <input {...register('dataNascimento')} type="date" className={inputCls(!!errors.dataNascimento)} />
         </Field>
 
         <Field label="Sexo biológico" error={errors.sexo?.message}>

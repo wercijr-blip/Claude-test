@@ -240,7 +240,6 @@ export const precadastros = mysqlTable('precadastros', {
   cpfEncrypted: text('cpf_encrypted').notNull(),
   cpfHash: varchar('cpf_hash', { length: 64 }).notNull(),
   emailEncrypted: text('email_encrypted').notNull(),
-  dataNascimentoEncrypted: text('data_nascimento_encrypted'),
   // Tipo de atendimento
   tipo: varchar('tipo', { length: 20 }).notNull(), // 'particular' | 'plano'
   plano: varchar('plano', { length: 100 }),

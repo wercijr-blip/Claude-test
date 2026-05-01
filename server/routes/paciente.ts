@@ -331,7 +331,6 @@ export const pacienteRouter = router({
         cpf: decrypt(precad.cpfEncrypted),
         email: decrypt(precad.emailEncrypted),
         telefone: decrypt(precad.telefoneEncrypted),
-        dataNascimento: precad.dataNascimentoEncrypted ? decrypt(precad.dataNascimentoEncrypted) : null,
         tipo: precad.tipo,
         plano: precad.plano,
       }
