@@ -9,11 +9,6 @@ import {
 } from '../shared/const.ts'
 import { desenharCarimboDigital, carimboFromEnv } from './sus/carimboDigital.ts'
 
-/** Identificador único para o QR code do carimbo (usado em /v/...). */
-function makeIdentifier(tokenId: number, tipo: string): string {
-  return `${tipo}-${tokenId}`
-}
-
 async function gerarPdfPedido(
   exames: readonly Exame[],
   titulo: string,
@@ -40,7 +35,7 @@ async function gerarPdfPedido(
   }
 
   let { page, y } = novaPage()
-  const carimbo = carimboFromEnv(tipoDoc, makeIdentifier(tokenId, tipoDoc))
+  const carimbo = carimboFromEnv(tipoDoc, tokenId)
   const desenharCarimboNaPagina = (p: import('pdf-lib').PDFPage) =>
     desenharCarimboDigital(doc, p, { x: margin, y: 8, width: PAGE_W - margin * 2, height: 60 }, carimbo)
 

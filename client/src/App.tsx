@@ -11,6 +11,7 @@ import LoginPage from './components/LoginPage.tsx'
 import TokenEntryPage from './components/TokenEntryPage.tsx'
 import PesquisaSatisfacao from './components/PesquisaSatisfacao.tsx'
 import DuvidasPage from './components/DuvidasPage.tsx'
+import VerificacaoPage from './components/VerificacaoPage.tsx'
 import FooterCfm from './components/FooterCfm.tsx'
 import { trpc } from './lib/trpc.ts'
 
@@ -102,6 +103,7 @@ export default function App() {
               {role === 'admin' ? <AuditDashboard /> : <LoginPage />}
             </Route>
             <Route path="/duvidas" component={DuvidasPage} />
+            <Route path="/v/:slug" component={VerificacaoPage} />
             <Route path="/pesquisa/:pacienteId/:token" component={PesquisaSatisfacao} />
             <Route path="/pagamento/sucesso" component={PagamentoSucesso} />
             <Route path="/pagamento/cancelado" component={PagamentoCancelado} />
