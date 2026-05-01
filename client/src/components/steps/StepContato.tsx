@@ -73,25 +73,32 @@ export default function StepContato({ pacienteId, onNext, onBack, defaultValues 
       <h2 className="text-lg font-semibold text-slate-800 mb-5">Contato</h2>
 
       <form onSubmit={handleSubmit((d) => salvar.mutate(d))} className="space-y-4">
-        <Field label="E-mail" error={errors.email?.message}>
-          <input
-            {...register('email')}
-            type="email"
-            className={inputCls(!!errors.email)}
-            placeholder="seu@email.com"
-          />
-          {hasIntakeEmail && <p className="mt-0.5 text-xs text-slate-400">Preenchido automaticamente do cadastro · você pode editar</p>}
-        </Field>
+        {/* E-mail e telefone vêm do cadastro inicial — instrução: ocultar se já preenchido */}
+        {hasIntakeEmail
+          ? <input type="hidden" {...register('email')} />
+          : (
+            <Field label="E-mail" error={errors.email?.message}>
+              <input
+                {...register('email')}
+                type="email"
+                className={inputCls(!!errors.email)}
+                placeholder="seu@email.com"
+              />
+            </Field>
+          )}
 
-        <Field label="Telefone celular" error={errors.telefone?.message}>
-          <input
-            {...register('telefone')}
-            className={inputCls(!!errors.telefone)}
-            placeholder="(00) 00000-0000"
-            maxLength={15}
-          />
-          {hasIntakeTelefone && <p className="mt-0.5 text-xs text-slate-400">Preenchido automaticamente do cadastro · você pode editar</p>}
-        </Field>
+        {hasIntakeTelefone
+          ? <input type="hidden" {...register('telefone')} />
+          : (
+            <Field label="Telefone celular" error={errors.telefone?.message}>
+              <input
+                {...register('telefone')}
+                className={inputCls(!!errors.telefone)}
+                placeholder="(00) 00000-0000"
+                maxLength={15}
+              />
+            </Field>
+          )}
 
         <div className="grid grid-cols-2 gap-4">
           <Field label="CEP" error={errors.cep?.message ?? cepErro ?? undefined}>

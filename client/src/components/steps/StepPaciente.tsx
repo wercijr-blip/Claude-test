@@ -48,28 +48,32 @@ export default function StepPaciente({ pacienteId, onNext, defaultValues }: Prop
       <h2 className="text-lg font-semibold text-slate-800 mb-5">Dados Pessoais</h2>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <Field label="Nome completo" error={errors.nome?.message}>
-          <input
-            {...register('nome')}
-            className={inputCls(!!errors.nome)}
-            placeholder="Como consta no documento"
-            readOnly={hasIntakeNome}
-            style={hasIntakeNome ? { background: '#f8fafc', color: '#64748b' } : undefined}
-          />
-          {hasIntakeNome && <p className="mt-0.5 text-xs text-slate-400">Preenchido automaticamente do cadastro</p>}
-        </Field>
+        {/* Nome e CPF: vêm do cadastro inicial; armazenados via hidden input,
+            sem exibição (instrução: campos já preenchidos não precisam ser mostrados) */}
+        {hasIntakeNome
+          ? <input type="hidden" {...register('nome')} />
+          : (
+            <Field label="Nome completo" error={errors.nome?.message}>
+              <input
+                {...register('nome')}
+                className={inputCls(!!errors.nome)}
+                placeholder="Como consta no documento"
+              />
+            </Field>
+          )}
 
-        <Field label="CPF" error={errors.cpf?.message}>
-          <input
-            {...register('cpf')}
-            className={inputCls(!!errors.cpf)}
-            placeholder="000.000.000-00"
-            maxLength={14}
-            readOnly={hasIntakeCpf}
-            style={hasIntakeCpf ? { background: '#f8fafc', color: '#64748b' } : undefined}
-          />
-          {hasIntakeCpf && <p className="mt-0.5 text-xs text-slate-400">Preenchido automaticamente do cadastro</p>}
-        </Field>
+        {hasIntakeCpf
+          ? <input type="hidden" {...register('cpf')} />
+          : (
+            <Field label="CPF" error={errors.cpf?.message}>
+              <input
+                {...register('cpf')}
+                className={inputCls(!!errors.cpf)}
+                placeholder="000.000.000-00"
+                maxLength={14}
+              />
+            </Field>
+          )}
 
         <Field label="Data de nascimento" error={errors.dataNascimento?.message}>
           <input {...register('dataNascimento')} type="date" className={inputCls(!!errors.dataNascimento)} />
