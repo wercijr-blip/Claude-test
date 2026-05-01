@@ -1,15 +1,30 @@
--- Migration: adicionar campos SUS + nome da mãe + modalidade PrEP à tabela pacientes
--- Aplicar via: pnpm db:push  (ou rodar manualmente no MySQL/TiDB)
--- Idempotente: usa IF NOT EXISTS quando suportado.
+-- ════════════════════════════════════════════════════════════════
+-- Migration: campos novos para integração SUS + nome da mãe + modalidade PrEP
+-- Tabela afetada: pacientes
+-- Total: 11 colunas novas
+--
+-- Aplicar via:
+--   pnpm db:push                   ← preferido (sincroniza com schema.ts)
+--   ou rodar este SQL manualmente no MySQL/TiDB
+--
+-- TiDB e MySQL 8+ suportam IF NOT EXISTS — script idempotente.
+-- ════════════════════════════════════════════════════════════════
 
-ALTER TABLE pacientes ADD COLUMN nome_mae_encrypted TEXT;
-ALTER TABLE pacientes ADD COLUMN cns VARCHAR(20);
-ALTER TABLE pacientes ADD COLUMN identidade_genero VARCHAR(50);
-ALTER TABLE pacientes ADD COLUMN orientacao_sexual VARCHAR(50);
-ALTER TABLE pacientes ADD COLUMN uf_nascimento VARCHAR(2);
-ALTER TABLE pacientes ADD COLUMN municipio_nascimento VARCHAR(100);
-ALTER TABLE pacientes ADD COLUMN situacao_rua BOOLEAN;
-ALTER TABLE pacientes ADD COLUMN privado_liberdade BOOLEAN;
-ALTER TABLE pacientes ADD COLUMN permite_contato BOOLEAN;
-ALTER TABLE pacientes ADD COLUMN tipo_contato VARCHAR(20);
-ALTER TABLE pacientes ADD COLUMN prep_modalidade VARCHAR(30);
+-- Step 1 — Dados Pessoais
+ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS nome_mae_encrypted TEXT;
+ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS cns VARCHAR(20);
+
+-- Step 2 — Demográfico (campos do Form 01 SUS)
+ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS identidade_genero VARCHAR(50);
+ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS orientacao_sexual VARCHAR(50);
+ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS uf_nascimento VARCHAR(2);
+ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS municipio_nascimento VARCHAR(100);
+ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS situacao_rua BOOLEAN;
+ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS privado_liberdade BOOLEAN;
+
+-- Step 3 — Contato
+ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS permite_contato BOOLEAN;
+ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS tipo_contato VARCHAR(20);
+
+-- Step 5 — Prescrição (modalidade escolhida pelo paciente)
+ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS prep_modalidade VARCHAR(30);
