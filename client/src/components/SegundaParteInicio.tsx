@@ -3,7 +3,7 @@ import { trpc } from '../lib/trpc.ts'
 import { useLocation } from 'wouter'
 import { LogoWordmark } from './Logo.tsx'
 
-type Etapa = 'tipo_consulta' | 'tem_exame' | 'upload_exame' | 'gerar_pedido' | 'aguardando_ia' | 'em_revisao_medica' | 'aprovado' | 'rejeitado' | 'rejeitado_data_invalida' | 'rejeitado_nome_invalido' | 'expirado'
+type Etapa = 'tipo_consulta' | 'tem_exame' | 'upload_exame' | 'gerar_pedido' | 'aguardando_ia' | 'em_revisao_medica' | 'aprovado' | 'rejeitado' | 'rejeitado_data_invalida' | 'rejeitado_nome_invalido' | 'rejeitado_tipo_invalido' | 'expirado'
 type TipoConsulta = 'primeiro_atendimento' | 'ja_faco_prep'
 
 const btnPrimary = 'w-full bg-brand text-white py-3.5 rounded-2xl font-semibold hover:bg-brand-dark disabled:opacity-50 transition-all shadow-md hover:shadow-lg text-sm'
@@ -16,6 +16,32 @@ function PageShell({ children }: { children: React.ReactNode }) {
           <LogoWordmark size={40} mode="light" />
         </div>
         {children}
+      </div>
+    </div>
+  )
+}
+
+// Linha de critério validado (✓ ou ✗) com título e valor lido pela IA.
+function CritCheck({
+  ok, titulo, valor, sub,
+}: { ok: boolean; titulo: string; valor: string; sub?: string }) {
+  return (
+    <div className="flex items-start gap-3">
+      <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${ok ? 'bg-sage text-white' : 'bg-terra text-white'}`}>
+        {ok ? (
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        ) : (
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sage-dark text-xs font-semibold uppercase tracking-wide">{titulo}</p>
+        <p className="text-sage-dark text-sm font-medium break-words">{valor}</p>
+        {sub && <p className="text-sage text-xs mt-0.5 break-words">{sub}</p>}
       </div>
     </div>
   )
@@ -71,6 +97,7 @@ export default function SegundaParteInicio() {
     if (s.status === 'rejeitado') { setEtapa('rejeitado'); return }
     if (s.status === 'rejeitado_data_invalida') { setEtapa('rejeitado_data_invalida'); return }
     if (s.status === 'rejeitado_nome_invalido') { setEtapa('rejeitado_nome_invalido'); return }
+    if (s.status === 'rejeitado_tipo_invalido') { setEtapa('rejeitado_tipo_invalido'); return }
     if (
       s.status === 'pendente_revisao_medica' ||
       s.status === 'pendente_revisao_medica_urgente' ||
@@ -163,33 +190,37 @@ export default function SegundaParteInicio() {
   // ── Aprovado ──────────────────────────────────────────────────
   if (etapa === 'aprovado') {
     const nomeNoExame = statusQuery.data?.nomeExame
+    const nomeCadastro = statusQuery.data?.nomeCadastro
     const dataValidada = statusQuery.data?.dataExame
+    const resultadoHiv = statusQuery.data?.resultadoHiv
     return (
       <StatusCard
         icon={<svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
         iconBg="bg-sage-light" iconColor="text-sage"
         title="Tudo certo! Você pode seguir com segurança"
-        subtitle="Seu exame não apresentou nenhuma alteração — você está no caminho certo. Estamos aqui para acompanhar cada passo do seu cuidado."
+        subtitle="Verificamos os 3 critérios do seu exame de HIV — está tudo dentro do esperado."
       >
-        {(nomeNoExame || dataValidada) && (
-          <div className="bg-sage-pale border border-sage-light rounded-2xl p-4 mb-4 text-left space-y-1.5">
-            {nomeNoExame && (
-              <p className="text-sage-dark text-sm">
-                <span className="text-sage-dark/70">Nome confirmado:</span>{' '}
-                <strong>{nomeNoExame}</strong>
-              </p>
-            )}
-            {dataValidada && (
-              <p className="text-sage-dark text-sm">
-                <span className="text-sage-dark/70">Data do exame:</span>{' '}
-                <strong>{dataValidada}</strong>
-              </p>
-            )}
-          </div>
-        )}
-        <div className="bg-sage-pale border border-sage-light rounded-2xl p-4 mb-6 text-left">
-          <p className="text-sage-dark text-sm font-medium mb-1">Próximo passo:</p>
-          <p className="text-sage text-sm">Preencha o formulário clínico para que nosso médico possa emitir sua receita com total segurança.</p>
+        <div className="bg-sage-pale border border-sage-light rounded-2xl p-4 mb-4 text-left space-y-3">
+          <CritCheck
+            ok={true}
+            titulo="Nome do paciente"
+            valor={nomeNoExame ? `${nomeNoExame}` : 'Confere com o cadastro'}
+            sub={nomeCadastro && nomeNoExame && nomeNoExame !== nomeCadastro ? `Cadastro: ${nomeCadastro}` : undefined}
+          />
+          <CritCheck
+            ok={true}
+            titulo="Resultado HIV"
+            valor={resultadoHiv === 'nao_reagente' ? 'Não reagente / Negativo' : (resultadoHiv ?? 'Negativo')}
+          />
+          <CritCheck
+            ok={true}
+            titulo="Data do exame (≤ 7 dias)"
+            valor={dataValidada ?? 'Dentro do prazo'}
+          />
+        </div>
+        <div className="bg-brand-pale border border-brand-light rounded-2xl p-4 mb-6 text-left">
+          <p className="text-brand-dark text-sm font-medium mb-1">Próximo passo:</p>
+          <p className="text-brand text-sm">Preencha o formulário clínico para que nosso médico possa emitir sua receita com total segurança.</p>
         </div>
         <button onClick={() => navigate('/formulario')} className={btnPrimary}>
           Continuar para o formulário clínico →
@@ -310,6 +341,41 @@ export default function SegundaParteInicio() {
         </div>
         <button onClick={() => setEtapa('upload_exame')} className={btnPrimary}>
           Enviar novo exame →
+        </button>
+      </StatusCard>
+    )
+  }
+
+  // ── Documento enviado não é exame de HIV ──────────────────────
+  if (etapa === 'rejeitado_tipo_invalido') {
+    return (
+      <StatusCard
+        icon={
+          <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+          </svg>
+        }
+        iconBg="bg-honey-light" iconColor="text-honey"
+        title="Esse documento não parece ser um exame de HIV"
+        subtitle="Confira se você anexou o resultado do exame Anti-HIV 1/2 (4ª geração). Pode ser que tenha enviado outro arquivo por engano."
+      >
+        <div className="bg-honey-light border border-honey-light rounded-2xl p-4 mb-4 text-left">
+          <p className="text-honey-dark text-sm font-medium mb-2">O que enviar:</p>
+          <ul className="space-y-1.5">
+            {[
+              'Laudo do exame Anti-HIV 1/2',
+              'Imagem ou PDF legível, com nome e resultado visíveis',
+              'Realizado há até 7 dias (inclusive)',
+            ].map(t => (
+              <li key={t} className="text-honey text-sm flex items-start gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0 mt-1.5" />
+                {t}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <button onClick={() => setEtapa('upload_exame')} className={btnPrimary}>
+          Enviar exame correto →
         </button>
       </StatusCard>
     )
