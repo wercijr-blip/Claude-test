@@ -2,16 +2,11 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { trpc } from '../../lib/trpc.ts'
+import { PREP_MODALIDADE, type PrepModalidade } from '@shared/const.ts'
 
 const schema = z.object({
   pacienteId: z.number(),
-  prescricao: z.object({
-    medicamento: z.enum(['tenofovir_emtricitabina', 'outro']),
-    nomeMedicamento: z.string().optional(),
-    posologia: z.string().min(2, 'Informe a posologia'),
-    duracao: z.string().min(2, 'Informe a duração'),
-    observacoes: z.string().optional(),
-  }),
+  prepModalidade: z.enum([PREP_MODALIDADE.DIARIA, PREP_MODALIDADE.SOB_DEMANDA]),
 })
 
 type FormData = z.infer<typeof schema>
@@ -20,45 +15,54 @@ interface Props { pacienteId: number | null; onNext: () => void; onBack: () => v
 export default function StepPrescricao({ pacienteId, onNext, onBack }: Props) {
   const { register, handleSubmit, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { pacienteId: pacienteId ?? 0 },
+    defaultValues: { pacienteId: pacienteId ?? 0, prepModalidade: PREP_MODALIDADE.DIARIA },
   })
 
   const salvar = trpc.paciente.salvarStep5.useMutation({ onSuccess: () => onNext() })
-  const medicamento = watch('prescricao.medicamento')
+  const escolha = watch('prepModalidade')
 
   if (!pacienteId) return null
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-      <h2 className="text-lg font-semibold text-slate-800 mb-5">Prescrição</h2>
+      <h2 className="text-lg font-semibold text-slate-800 mb-1">Modalidade da PrEP</h2>
+      <p className="text-sm text-slate-500 mb-5">
+        Escolha como prefere tomar a PrEP. <strong>A PrEP diária é o esquema preferencial</strong> recomendado pelo Ministério da Saúde.
+      </p>
 
       <form onSubmit={handleSubmit((d) => salvar.mutate(d))} className="space-y-4">
-        <Field label="Medicamento" error={errors.prescricao?.medicamento?.message}>
-          <select {...register('prescricao.medicamento')} className={inputCls(false)}>
-            <option value="">Selecione</option>
-            <option value="tenofovir_emtricitabina">Tenofovir/Emtricitabina (PrEP padrão)</option>
-            <option value="outro">Outro</option>
-          </select>
-        </Field>
+        <ModalidadeCard
+          value={PREP_MODALIDADE.DIARIA}
+          escolha={escolha}
+          register={register('prepModalidade')}
+          titulo="PrEP diária"
+          subtitulo="Esquema preferencial — recomendado para a maioria dos casos"
+          recomendado
+        >
+          <ul className="text-xs text-slate-600 space-y-1 mt-2">
+            <li>• <strong>1 comprimido todos os dias</strong>, em horário fixo</li>
+            <li>• Proteção máxima após 7 dias (relação anal) ou 20 dias (vaginal)</li>
+            <li>• Indicado para qualquer pessoa em risco de infecção pelo HIV</li>
+            <li>• Pode ser interrompido após 28 dias sem exposição (com orientação médica)</li>
+          </ul>
+        </ModalidadeCard>
 
-        {medicamento === 'outro' && (
-          <Field label="Nome do medicamento" error={undefined}>
-            <input {...register('prescricao.nomeMedicamento')} className={inputCls(false)} placeholder="Nome do medicamento alternativo" />
-          </Field>
-        )}
+        <ModalidadeCard
+          value={PREP_MODALIDADE.SOB_DEMANDA}
+          escolha={escolha}
+          register={register('prepModalidade')}
+          titulo="PrEP sob demanda (Esquema 2-1-1)"
+          subtitulo="Apenas para homens cis HSH adultos com relações sexuais programadas e infrequentes"
+        >
+          <ul className="text-xs text-slate-600 space-y-1 mt-2">
+            <li>• <strong>2 comprimidos</strong> de 2 a 24 horas antes da relação sexual</li>
+            <li>• <strong>1 comprimido</strong> 24 horas após a 1ª dose</li>
+            <li>• <strong>1 comprimido</strong> 48 horas após a 1ª dose</li>
+            <li>• <strong>Não é indicado</strong> para mulheres cis, pessoas trans, hepatite B ou rim alterado</li>
+          </ul>
+        </ModalidadeCard>
 
-        <Field label="Posologia" error={errors.prescricao?.posologia?.message}>
-          <input {...register('prescricao.posologia')} className={inputCls(!!errors.prescricao?.posologia)} placeholder="Ex: 1 comprimido ao dia" />
-        </Field>
-
-        <Field label="Duração do tratamento" error={errors.prescricao?.duracao?.message}>
-          <input {...register('prescricao.duracao')} className={inputCls(!!errors.prescricao?.duracao)} placeholder="Ex: 30 dias" />
-        </Field>
-
-        <Field label="Observações médicas" error={undefined}>
-          <textarea {...register('prescricao.observacoes')} rows={3} className={inputCls(false)} placeholder="Orientações adicionais ao paciente" />
-        </Field>
-
+        {errors.prepModalidade && <p className="text-red-500 text-sm">{errors.prepModalidade.message}</p>}
         {salvar.error && <p className="text-red-500 text-sm">{salvar.error.message}</p>}
 
         <div className="flex justify-between pt-2">
@@ -72,16 +76,42 @@ export default function StepPrescricao({ pacienteId, onNext, onBack }: Props) {
   )
 }
 
-function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
+function ModalidadeCard({
+  value, escolha, register, titulo, subtitulo, recomendado, children,
+}: {
+  value: PrepModalidade
+  escolha: PrepModalidade | undefined
+  register: ReturnType<ReturnType<typeof useForm<FormData>>['register']>
+  titulo: string
+  subtitulo: string
+  recomendado?: boolean
+  children: React.ReactNode
+}) {
+  const ativo = escolha === value
   return (
-    <div>
-      <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
-      {children}
-      {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
-    </div>
+    <label
+      className={`block border-2 rounded-xl p-4 cursor-pointer transition-all ${
+        ativo ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-slate-300'
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        <input type="radio" value={value} {...register} className="mt-1" />
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <span className={`text-sm font-semibold ${ativo ? 'text-blue-700' : 'text-slate-800'}`}>{titulo}</span>
+            {recomendado && (
+              <span className="text-[10px] uppercase tracking-wide bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">
+                Recomendada
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-slate-500 mt-0.5">{subtitulo}</p>
+          {children}
+        </div>
+      </div>
+    </label>
   )
 }
 
-const inputCls = (e: boolean) => `w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${e ? 'border-red-400' : 'border-slate-300'}`
 const btnPrimary = 'bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium py-2 px-6 rounded-lg transition-colors'
 const btnSecondary = 'text-slate-600 hover:text-slate-800 font-medium py-2 px-4 rounded-lg transition-colors'

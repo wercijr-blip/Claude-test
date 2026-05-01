@@ -93,6 +93,7 @@ export const pacientes = mysqlTable('pacientes', {
 
   // Step 5 — Prescrição
   prescricaoJson: json('prescricao_json'),
+  prepModalidade: varchar('prep_modalidade', { length: 30 }),  // 'PrEP diária' | 'PrEP sob demanda'
 
   // Step 6 — Serviço
   tipoAtendimento: varchar('tipo_atendimento', { length: 50 }),

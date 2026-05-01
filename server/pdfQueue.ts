@@ -158,7 +158,7 @@ export function startPdfWorker() {
         pacienteId,
         cpf, nome, nomeMae: nomeMae ?? '', dataNascimento: dataNascimento ?? '',
         dataExameHiv: consulta?.dataExameValidado ?? null,
-        prepModalidade: 'PrEP diária',  // default — substituído quando tela de modalidade for criada
+        prepModalidade: (p.prepModalidade as 'PrEP diária' | 'PrEP sob demanda' | null) ?? 'PrEP diária',
         tipoConsulta: tipoConsulta as 'primeiro_atendimento' | 'ja_faco_prep',
       }, configClinica))
       const { buffer: signedFicha, certificadoSerial: serialFicha, assinadoEm: assinadoFicha } =

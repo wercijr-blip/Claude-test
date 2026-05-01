@@ -155,6 +155,29 @@ export const TIPO_CONSULTA = {
   JA_FACO_PREP: 'ja_faco_prep',
 } as const
 
+// ── Modalidades de PrEP ──────────────────────────────────────
+// PrEP diária é o esquema preferencial (recomendação oficial AZT/MS).
+// Sob demanda (2-1-1) restrito a homens cis HSH adultos com contato
+// sexual programado e baixa frequência.
+export const PREP_MODALIDADE = {
+  DIARIA: 'PrEP diária',
+  SOB_DEMANDA: 'PrEP sob demanda',
+} as const
+
+export type PrepModalidade = typeof PREP_MODALIDADE[keyof typeof PREP_MODALIDADE]
+
+/** Posologia e duração padrão por modalidade (preenche prescricaoJson). */
+export const PREP_POSOLOGIA: Record<PrepModalidade, { posologia: string; duracao: string }> = {
+  'PrEP diária': {
+    posologia: '1 comprimido por via oral, uma vez ao dia, em horário fixo',
+    duracao: 'Uso contínuo — reavaliar a cada 90 dias com o médico',
+  },
+  'PrEP sob demanda': {
+    posologia: 'Esquema 2-1-1: 2 comp 2-24h antes da relação sexual, 1 comp 24h após a 1ª dose, 1 comp 48h após a 1ª dose',
+    duracao: 'Conforme exposição — reavaliar elegibilidade a cada 90 dias',
+  },
+}
+
 export const STATUS_EXAME = {
   AGUARDANDO_ESCOLHA: 'aguardando_escolha',
   AGUARDANDO_UPLOAD: 'aguardando_upload',

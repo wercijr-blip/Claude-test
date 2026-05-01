@@ -7,7 +7,7 @@ import { pacientes, precadastros, pdfs, tcleAssinaturas } from '../../drizzle/sc
 import { eq, and } from 'drizzle-orm'
 import { encrypt, decrypt, hashCpf } from '../_core/encryption.ts'
 import { validarCpf } from '../_core/cpfValidator.ts'
-import { ERROR_MESSAGES } from '../../shared/const.ts'
+import { ERROR_MESSAGES, PREP_MODALIDADE, PREP_POSOLOGIA } from '../../shared/const.ts'
 import { env } from '../_core/env.ts'
 import { JWT_EXPIRY_PATIENT } from '../../shared/security-constants.ts'
 import { getPresignedUrl } from '../storage.ts'
@@ -230,26 +230,33 @@ export const pacienteRouter = router({
       return { ok: true }
     }),
 
-  // Step 5 — Prescrição
+  // Step 5 — Modalidade da PrEP (substitui a antiga Prescrição editável)
+  // O paciente escolhe diária (preferencial) ou sob demanda; o sistema
+  // preenche posologia/duração automaticamente conforme protocolo MS.
   salvarStep5: protectedProcedure
     .input(
       z.object({
         pacienteId: z.number(),
-        prescricao: z.object({
-          medicamento: z.enum(['tenofovir_emtricitabina', 'outro']),
-          nomeMedicamento: z.string().max(255).optional(),
-          posologia: z.string().max(500),
-          duracao: z.string().max(100),
-          observacoes: z.string().max(2000).optional(),
-        }),
+        prepModalidade: z.enum([PREP_MODALIDADE.DIARIA, PREP_MODALIDADE.SOB_DEMANDA]),
       }),
     )
     .mutation(async ({ input, ctx }) => {
       assertPatient(ctx.session)
       const p = await validarEtapaPaciente(input.pacienteId, ctx.session.tokenId, 5)
+      const { posologia, duracao } = PREP_POSOLOGIA[input.prepModalidade]
       await db
         .update(pacientes)
-        .set({ prescricaoJson: input.prescricao, currentStep: Math.max(p.currentStep, 6), updatedAt: new Date() })
+        .set({
+          prepModalidade: input.prepModalidade,
+          prescricaoJson: {
+            medicamento: 'tenofovir_emtricitabina',
+            posologia,
+            duracao,
+            modalidade: input.prepModalidade,
+          },
+          currentStep: Math.max(p.currentStep, 6),
+          updatedAt: new Date(),
+        })
         .where(and(eq(pacientes.id, input.pacienteId), eq(pacientes.tokenId, ctx.session.tokenId)))
       return { ok: true }
     }),
