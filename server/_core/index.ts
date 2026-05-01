@@ -95,10 +95,19 @@ app.post('/api/upload', uploadLimiter, async (req, res) => {
   await uploadExame(req, res)
 })
 
-// Catch-all: servir index.html para rotas do SPA em produção
+// Catch-all: servir index.html para rotas do SPA em produção.
+// Importante: NÃO servir index.html para assets ausentes (.css, .js, etc) —
+// um navegador com tab antiga referenciando hash de build velho receberia
+// HTML com Content-Type text/html, levando o browser a recusar com erro de
+// MIME. Para qualquer arquivo com extensão, retornamos 404.
 if (env.NODE_ENV === 'production') {
   const clientDist = path.resolve(__dirname, '../../dist/client')
-  app.get('*', (_req, res) => {
+  app.get('*', (req, res) => {
+    if (/\.[a-zA-Z0-9]+$/.test(req.path)) {
+      res.status(404).end()
+      return
+    }
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate')
     res.sendFile(path.join(clientDist, 'index.html'))
   })
 }

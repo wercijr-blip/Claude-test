@@ -83,13 +83,7 @@ export function uploadExame(req: Request, res: Response): Promise<void> {
         return
       }
 
-      // Require a valid patient session for all upload types
-      const ctx = await createContext({ req })
-      if (!ctx.session || ctx.session.type !== 'patient') {
-        res.status(401).json({ error: 'Sessão inválida' })
-        resolve()
-        return
-      }
+      const tipo = req.body.tipo as string | undefined
 
       // Validate actual file magic bytes — don't trust client-supplied mimetype
       const detected = await fileTypeFromBuffer(req.file.buffer)
@@ -102,20 +96,39 @@ export function uploadExame(req: Request, res: Response): Promise<void> {
       // Use the verified mime type for all downstream operations
       req.file.mimetype = detectedMime
 
-      // Uploads that don't require a specific pacienteId — returns s3Key only (no DB insert)
-      const tokenFolders: Record<string, string> = {
-        'documento_intake': 'intake/documentos',
-        'exame_hiv': 'exames-inicio',
-      }
-      const tokenFolder = tokenFolders[req.body.tipo as string]
-      if (tokenFolder) {
+      // documento_intake: pré-cadastro (carteirinha/RG do plano) — sem sessão.
+      // Apenas rate-limit (uploadLimiter) e validação de magic bytes protegem.
+      if (tipo === 'documento_intake') {
         const ext = MIME_TO_EXT[req.file.mimetype] ?? 'bin'
-        const s3Key = `${tokenFolder}/${randomUUID()}.${ext}`
+        const s3Key = `intake/documentos/${randomUUID()}.${ext}`
         try {
           await uploadBuffer(s3Key, req.file.buffer, req.file.mimetype)
           res.json({ ok: true, s3Key })
         } catch (err) {
-          logger.error(`[storage] Erro no upload (${req.body.tipo})`, err)
+          logger.error(`[storage] Erro no upload (documento_intake)`, err)
+          res.status(500).json({ error: 'Erro ao salvar arquivo' })
+        }
+        resolve()
+        return
+      }
+
+      // Demais tipos exigem sessão de paciente válida.
+      const ctx = await createContext({ req })
+      if (!ctx.session || ctx.session.type !== 'patient') {
+        res.status(401).json({ error: 'Sessão inválida' })
+        resolve()
+        return
+      }
+
+      // Uploads que não exigem pacienteId — só s3Key (sem insert no DB)
+      if (tipo === 'exame_hiv') {
+        const ext = MIME_TO_EXT[req.file.mimetype] ?? 'bin'
+        const s3Key = `exames-inicio/${randomUUID()}.${ext}`
+        try {
+          await uploadBuffer(s3Key, req.file.buffer, req.file.mimetype)
+          res.json({ ok: true, s3Key })
+        } catch (err) {
+          logger.error(`[storage] Erro no upload (exame_hiv)`, err)
           res.status(500).json({ error: 'Erro ao salvar arquivo' })
         }
         resolve()
