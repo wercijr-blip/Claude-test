@@ -67,11 +67,12 @@ export function startPdfWorker() {
       const nome = decrypt(p.nomeEncrypted)
       const cpf = decrypt(p.cpfEncrypted)
       const dataNascimento = p.dataNascimentoEncrypted ? decrypt(p.dataNascimentoEncrypted) : null
+      const nomeMae = p.nomeMaeEncrypted ? decrypt(p.nomeMaeEncrypted) : null
       const email = p.emailEncrypted ? decrypt(p.emailEncrypted) : null
       const telefone = p.telefoneEncrypted ? decrypt(p.telefoneEncrypted) : null
 
       const pacienteDecrypted = {
-        nome, cpf, dataNascimento, email, telefone,
+        nome, cpf, dataNascimento, nomeMae, email, telefone,
         sexo: p.sexo,
         nomeSocial: p.nomeSocial,
         corRaca: p.corRaca,

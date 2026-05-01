@@ -56,6 +56,7 @@ export const pacientes = mysqlTable('pacientes', {
   cpfHash: varchar('cpf_hash', { length: 64 }).notNull(),
   nomeEncrypted: text('nome_encrypted').notNull(),
   dataNascimentoEncrypted: text('data_nascimento_encrypted'),
+  nomeMaeEncrypted: text('nome_mae_encrypted'),
   sexo: varchar('sexo', { length: 20 }),
   nomeSocial: varchar('nome_social', { length: 255 }),
 

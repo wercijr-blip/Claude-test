@@ -10,6 +10,7 @@ const schema = z.object({
   cpf: z.string().refine(validarCpf, ERROR_MESSAGES.CPF_INVALID),
   nome: z.string().min(3, 'Nome muito curto'),
   dataNascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida'),
+  nomeMae: z.string().min(3, 'Informe o nome completo da mãe'),
   sexo: z.enum(['masculino', 'feminino', 'outro']),
   nomeSocial: z.string().optional(),
 })
@@ -73,6 +74,14 @@ export default function StepPaciente({ pacienteId, onNext, defaultValues }: Prop
 
         <Field label="Data de nascimento" error={errors.dataNascimento?.message}>
           <input {...register('dataNascimento')} type="date" className={inputCls(!!errors.dataNascimento)} />
+        </Field>
+
+        <Field label="Nome completo da mãe" error={errors.nomeMae?.message}>
+          <input
+            {...register('nomeMae')}
+            className={inputCls(!!errors.nomeMae)}
+            placeholder="Nome completo da mãe (obrigatório)"
+          />
         </Field>
 
         <Field label="Sexo biológico" error={errors.sexo?.message}>
