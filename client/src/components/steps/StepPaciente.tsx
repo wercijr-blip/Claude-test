@@ -48,32 +48,39 @@ export default function StepPaciente({ pacienteId, onNext, defaultValues }: Prop
       <h2 className="text-lg font-semibold text-slate-800 mb-5">Dados Pessoais</h2>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        {/* Nome e CPF: vêm do cadastro inicial; armazenados via hidden input,
-            sem exibição (instrução: campos já preenchidos não precisam ser mostrados) */}
-        {hasIntakeNome
-          ? <input type="hidden" {...register('nome')} />
-          : (
-            <Field label="Nome completo" error={errors.nome?.message}>
-              <input
-                {...register('nome')}
-                className={inputCls(!!errors.nome)}
-                placeholder="Como consta no documento"
-              />
-            </Field>
-          )}
+        {/* Nome — se veio do cadastro, mostra como leitura; senão, input editável */}
+        {hasIntakeNome ? (
+          <Field label="Nome completo">
+            <ReadonlyValue value={defaultValues!.nome!} />
+            <input type="hidden" {...register('nome')} />
+            <p className="mt-1 text-xs text-slate-400">Preenchido automaticamente do cadastro · não editável</p>
+          </Field>
+        ) : (
+          <Field label="Nome completo" error={errors.nome?.message}>
+            <input
+              {...register('nome')}
+              className={inputCls(!!errors.nome)}
+              placeholder="Como consta no documento"
+            />
+          </Field>
+        )}
 
-        {hasIntakeCpf
-          ? <input type="hidden" {...register('cpf')} />
-          : (
-            <Field label="CPF" error={errors.cpf?.message}>
-              <input
-                {...register('cpf')}
-                className={inputCls(!!errors.cpf)}
-                placeholder="000.000.000-00"
-                maxLength={14}
-              />
-            </Field>
-          )}
+        {hasIntakeCpf ? (
+          <Field label="CPF">
+            <ReadonlyValue value={defaultValues!.cpf!} />
+            <input type="hidden" {...register('cpf')} />
+            <p className="mt-1 text-xs text-slate-400">Preenchido automaticamente do cadastro · não editável</p>
+          </Field>
+        ) : (
+          <Field label="CPF" error={errors.cpf?.message}>
+            <input
+              {...register('cpf')}
+              className={inputCls(!!errors.cpf)}
+              placeholder="000.000.000-00"
+              maxLength={14}
+            />
+          </Field>
+        )}
 
         <Field label="Data de nascimento" error={errors.dataNascimento?.message}>
           <input {...register('dataNascimento')} type="date" className={inputCls(!!errors.dataNascimento)} />
@@ -114,6 +121,17 @@ function Field({ label, error, children }: { label: string; error?: string; chil
       <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
       {children}
       {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+    </div>
+  )
+}
+
+/** Caixa que mostra um valor já preenchido — visualmente igual a um input
+ *  desabilitado, mas o valor real fica num <input type="hidden"/> registrado
+ *  no formulário (evita race conditions com defaultValues do useForm). */
+function ReadonlyValue({ value }: { value: string }) {
+  return (
+    <div className="w-full border border-slate-200 bg-slate-50 text-slate-700 rounded-lg px-3 py-2 text-sm">
+      {value}
     </div>
   )
 }

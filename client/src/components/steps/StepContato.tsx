@@ -73,32 +73,40 @@ export default function StepContato({ pacienteId, onNext, onBack, defaultValues 
       <h2 className="text-lg font-semibold text-slate-800 mb-5">Contato</h2>
 
       <form onSubmit={handleSubmit((d) => salvar.mutate(d))} className="space-y-4">
-        {/* E-mail e telefone vêm do cadastro inicial — instrução: ocultar se já preenchido */}
-        {hasIntakeEmail
-          ? <input type="hidden" {...register('email')} />
-          : (
-            <Field label="E-mail" error={errors.email?.message}>
-              <input
-                {...register('email')}
-                type="email"
-                className={inputCls(!!errors.email)}
-                placeholder="seu@email.com"
-              />
-            </Field>
-          )}
+        {/* E-mail e telefone — se vieram do cadastro, mostra como leitura */}
+        {hasIntakeEmail ? (
+          <Field label="E-mail">
+            <ReadonlyValue value={defaultValues!.email!} />
+            <input type="hidden" {...register('email')} />
+            <p className="mt-1 text-xs text-slate-400">Preenchido automaticamente do cadastro · não editável</p>
+          </Field>
+        ) : (
+          <Field label="E-mail" error={errors.email?.message}>
+            <input
+              {...register('email')}
+              type="email"
+              className={inputCls(!!errors.email)}
+              placeholder="seu@email.com"
+            />
+          </Field>
+        )}
 
-        {hasIntakeTelefone
-          ? <input type="hidden" {...register('telefone')} />
-          : (
-            <Field label="Telefone celular" error={errors.telefone?.message}>
-              <input
-                {...register('telefone')}
-                className={inputCls(!!errors.telefone)}
-                placeholder="(00) 00000-0000"
-                maxLength={15}
-              />
-            </Field>
-          )}
+        {hasIntakeTelefone ? (
+          <Field label="Telefone celular">
+            <ReadonlyValue value={defaultValues!.telefone!} />
+            <input type="hidden" {...register('telefone')} />
+            <p className="mt-1 text-xs text-slate-400">Preenchido automaticamente do cadastro · não editável</p>
+          </Field>
+        ) : (
+          <Field label="Telefone celular" error={errors.telefone?.message}>
+            <input
+              {...register('telefone')}
+              className={inputCls(!!errors.telefone)}
+              placeholder="(00) 00000-0000"
+              maxLength={15}
+            />
+          </Field>
+        )}
 
         <div className="grid grid-cols-2 gap-4">
           <Field label="CEP" error={errors.cep?.message ?? cepErro ?? undefined}>
@@ -175,6 +183,14 @@ function Field({ label, error, children }: { label: string; error?: string; chil
       <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
       {children}
       {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+    </div>
+  )
+}
+
+function ReadonlyValue({ value }: { value: string }) {
+  return (
+    <div className="w-full border border-slate-200 bg-slate-50 text-slate-700 rounded-lg px-3 py-2 text-sm">
+      {value}
     </div>
   )
 }
