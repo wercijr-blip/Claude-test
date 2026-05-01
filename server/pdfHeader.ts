@@ -19,6 +19,40 @@ export interface DadosPaciente {
 }
 
 /**
+ * Banner roxo destacado com título do documento — usado em pedidos de
+ * exame, orientação e outros PDFs custom para máxima visibilidade.
+ */
+export function desenharBannerTitulo(args: {
+  page: PDFPage
+  font: PDFFont
+  fontBold: PDFFont
+  pageWidth: number
+  margin: number
+  startY: number
+  titulo: string
+  subtitulo?: string
+}): number {
+  const { page, font, fontBold, pageWidth, margin, startY, titulo, subtitulo } = args
+  const bannerH = subtitulo ? 56 : 42
+
+  page.drawRectangle({
+    x: margin, y: startY - bannerH + 2, width: pageWidth - margin * 2, height: bannerH,
+    color: rgb(0.96, 0.93, 0.99),
+    borderColor: rgb(0.45, 0.36, 0.62),
+    borderWidth: 1.2,
+  })
+  page.drawText(titulo, {
+    x: margin + 18, y: startY - 22, font: fontBold, size: 18, color: rgb(0.45, 0.36, 0.62),
+  })
+  if (subtitulo) {
+    page.drawText(subtitulo, {
+      x: margin + 18, y: startY - 42, font, size: 9, color: rgb(0.5, 0.5, 0.55),
+    })
+  }
+  return startY - bannerH - 14
+}
+
+/**
  * Desenha o bloco "PACIENTE" abaixo do cabeçalho institucional.
  * Mostra nome + CPF (sem data de nascimento, conforme decisão do cliente).
  */

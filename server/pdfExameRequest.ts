@@ -10,6 +10,7 @@ import {
 import { desenharCarimboDigital, carimboFromEnv } from './sus/carimboDigital.ts'
 import {
   desenharCabecalhoInstitucional,
+  desenharBannerTitulo,
   desenharBlocoPaciente,
   desenharIndicacaoCID,
   type DadosPaciente,
@@ -50,11 +51,10 @@ async function gerarPdfPedido(
     doc, page, font, fontBold, pageWidth: PAGE_W, margin, startY: y + 60,
   })
 
-  // Título do documento
-  page.drawText(titulo, { x: margin, y, font: fontBold, size: 14, color: rgb(0.45, 0.36, 0.62) })
-  y -= 16
-  page.drawText(subtitulo, { x: margin, y, font, size: 9, color: rgb(0.4, 0.4, 0.45) })
-  y -= 22
+  // Banner destacado (mesmo modelo do Documento de Orientação)
+  y = desenharBannerTitulo({
+    page, font, fontBold, pageWidth: PAGE_W, margin, startY: y, titulo: titulo.toUpperCase(), subtitulo,
+  })
 
   // Bloco do paciente (nome + CPF)
   y = desenharBlocoPaciente({ page, font, fontBold, pageWidth: PAGE_W, margin, startY: y, paciente })

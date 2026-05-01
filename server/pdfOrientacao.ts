@@ -13,7 +13,7 @@
 
 import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from 'pdf-lib'
 import { CLINICA_INFO, type PrepModalidade } from '../shared/const.ts'
-import { desenharCabecalhoInstitucional, desenharBlocoPaciente, type DadosPaciente } from './pdfHeader.ts'
+import { desenharCabecalhoInstitucional, desenharBannerTitulo, desenharBlocoPaciente, type DadosPaciente } from './pdfHeader.ts'
 import { desenharCarimboDigital, carimboFromEnv } from './sus/carimboDigital.ts'
 
 export interface DadosOrientacao {
@@ -72,20 +72,14 @@ export async function gerarOrientacaoPdf(dados: DadosOrientacao): Promise<Buffer
     doc, page, font, fontBold, pageWidth: PAGE_W, margin: MARGIN, startY: y + 60,
   })
 
-  // ── Título do documento — banner roxo destacado ──
-  const bannerH = 56
-  page.drawRectangle({
-    x: MARGIN, y: y - bannerH + 2, width: PAGE_W - MARGIN * 2, height: bannerH,
-    color: rgb(0.96, 0.93, 0.99),
-    borderColor: COR_TITULO, borderWidth: 1.2,
+  // ── Banner destacado (mesmo helper usado nos pedidos de exame) ──
+  y = desenharBannerTitulo({
+    page, font, fontBold, pageWidth: PAGE_W, margin: MARGIN, startY: y,
+    titulo: 'DOCUMENTO DE ORIENTAÇÃO',
+    subtitulo: 'Guia ao Usuário PrEP — leia com atenção e guarde para consulta futura',
   })
-  page.drawText('DOCUMENTO DE ORIENTAÇÃO', {
-    x: MARGIN + 18, y: y - 22, font: fontBold, size: 22, color: COR_TITULO,
-  })
-  page.drawText('Guia ao Usuário PrEP — leia com atenção e guarde para consulta futura', {
-    x: MARGIN + 18, y: y - 42, font: fontItalic, size: 9, color: COR_SUAVE,
-  })
-  y -= bannerH + 16
+  // fontItalic não é mais usado — silencia warning
+  void fontItalic
 
   // ── Bloco do paciente ──
   y = desenharBlocoPaciente({

@@ -134,15 +134,10 @@ export const consultaRouter = router({
 
       if (!consulta?.tipoConsulta) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Inicie o atendimento primeiro.' })
 
-      if (consulta.pedidoCompletoS3Key && consulta.pedidoHivS3Key) {
-        return {
-          urlCompleto: await getPresignedUrl(consulta.pedidoCompletoS3Key, 3600),
-          urlIst: consulta.pedidoIstS3Key ? await getPresignedUrl(consulta.pedidoIstS3Key, 3600) : null,
-          urlHiv: await getPresignedUrl(consulta.pedidoHivS3Key, 3600),
-          urlDensitometria: consulta.pedidoDensitometriaS3Key ? await getPresignedUrl(consulta.pedidoDensitometriaS3Key, 3600) : null,
-        }
-      }
-
+      // Sempre regenera os pedidos para garantir que a lista de exames atual
+      // (definida em shared/const.ts) esteja sendo usada. PDFs antigos no S3
+      // ficam apenas como histórico — o paciente baixa via URL nova retornada
+      // abaixo.
       const info = await getInfoPaciente(ctx.session.tokenId)
 
       const { completo, ist, hiv, densitometria } = await gerarPedidosExames(
