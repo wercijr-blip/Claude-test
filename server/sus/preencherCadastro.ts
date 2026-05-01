@@ -16,11 +16,13 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { readFileSync } from 'fs'
 import { PDFDocument } from 'pdf-lib'
+import { desenharCarimboDigital, carimboFromEnv, type CarimboInfo } from './carimboDigital.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const TEMPLATE_PATH = path.join(__dirname, 'templates', 'cadastro_paciente.pdf')
 
 export interface DadosCadastroSUS {
+  pacienteId: number
   cpf: string
   nome: string
   nomeMae: string
@@ -83,7 +85,10 @@ function formatarDataBR(iso: string): string {
   return `${d}/${m}/${y}`
 }
 
-export async function preencherCadastroSUS(dados: DadosCadastroSUS): Promise<Uint8Array> {
+export async function preencherCadastroSUS(
+  dados: DadosCadastroSUS,
+  carimbo?: CarimboInfo,
+): Promise<Uint8Array> {
   const templateBytes = readFileSync(TEMPLATE_PATH)
   const pdfDoc = await PDFDocument.load(templateBytes, { ignoreEncryption: true })
   const form = pdfDoc.getForm()
@@ -157,6 +162,11 @@ export async function preencherCadastroSUS(dados: DadosCadastroSUS): Promise<Uin
   for (const btn of ['Button1', 'Button2', 'Button3']) {
     try { form.removeField(form.getButton(btn)) } catch {}
   }
+
+  // ── 6. Carimbo digital + QR Code (área confirmada no rodapé) ──
+  const info = carimbo ?? carimboFromEnv(dados.pacienteId, 'cadastro')
+  const page = pdfDoc.getPages()[0]
+  await desenharCarimboDigital(pdfDoc, page, { x: 20, y: 15, width: 290, height: 85 }, info)
 
   // Descartar página 2 (instruções de preenchimento — não precisa imprimir)
   while (pdfDoc.getPageCount() > 1) {

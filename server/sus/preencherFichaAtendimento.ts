@@ -18,11 +18,13 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { readFileSync } from 'fs'
 import { PDFDocument } from 'pdf-lib'
+import { desenharCarimboDigital, carimboFromEnv, type CarimboInfo } from './carimboDigital.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const TEMPLATE_PATH = path.join(__dirname, 'templates', 'ficha_atendimento.pdf')
 
 export interface DadosFichaAtendimento {
+  pacienteId: number
   cpf: string
   nome: string
   nomeMae: string
@@ -60,6 +62,7 @@ function dataAtualBR(): string {
 export async function preencherFichaAtendimento(
   dados: DadosFichaAtendimento,
   config: ConfigClinica,
+  carimbo?: CarimboInfo,
 ): Promise<Uint8Array> {
   const templateBytes = readFileSync(TEMPLATE_PATH)
   const pdfDoc = await PDFDocument.load(templateBytes, { ignoreEncryption: true })
@@ -134,12 +137,16 @@ export async function preencherFichaAtendimento(
   setText('23a-tipoConselho', config.crmTipo)
   setDropdown('23b-UF_cons', config.crmUf)
   setText('23cNconselho', config.crmNumero)
-  // Signature2: assinatura digital ICP-Brasil aplicada na pipeline pdfSigner
-
   // ── Remove botões interativos do PDF (Imprimir / Salvar / Limpar formulário) ──
   for (const btn of ['Imprimir', 'Salvar Como', 'limpar formulário']) {
     try { form.removeField(form.getButton(btn)) } catch {}
   }
+
+  // ── Carimbo digital + QR Code (na área do Signature2) ─────────
+  // Signature2 rect: (291, 280) w=279 h=29 — pequeno, mas é o local oficial
+  const info = carimbo ?? carimboFromEnv(dados.pacienteId, 'ficha')
+  const page = pdfDoc.getPages()[0]
+  await desenharCarimboDigital(pdfDoc, page, { x: 291, y: 280, width: 279, height: 29 }, info)
 
   // Descartar página 2 (instruções — não precisa imprimir)
   while (pdfDoc.getPageCount() > 1) {
