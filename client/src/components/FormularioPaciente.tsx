@@ -20,6 +20,7 @@ interface Props {
 type TipoPdf = { id: number; tipo: string; assinadoEm: Date | null; url: string }
 
 const LABEL_PDF: Record<string, string> = {
+  orientacao: '📘 Documento de Orientação ao Paciente',
   formulario: 'Formulário Clínico',
   prescricao: 'Receita PrEP',
   cadastro: 'Cadastro SUS PrEP',

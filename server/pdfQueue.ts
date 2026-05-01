@@ -9,6 +9,7 @@ import { decrypt } from './_core/encryption.ts'
 import { gerarPrescricaoPdf, gerarFormularioPdf, assinarPdf } from './pdfSigner.ts'
 import { preencherCadastroSUS } from './sus/preencherCadastro.ts'
 import { preencherFichaAtendimento } from './sus/preencherFichaAtendimento.ts'
+import { gerarOrientacaoPdf } from './pdfOrientacao.ts'
 import { uploadBuffer, getBuffer } from './storage.ts'
 import { enviarLinkAcessoIntake, enviarPrescricaoPronta, enviarPesquisaSatisfacao } from './email.ts'
 import { enviarWhatsApp } from './whatsapp.ts'
@@ -184,6 +185,27 @@ export function startPdfWorker() {
           gerados.push({ filename, buffer: buf })
         }
       }
+
+      // 6. Documento de Orientação (sempre — guia ao paciente sobre os documentos
+      //    recebidos, retirada de medicação, cronograma de exames e contato)
+      const orientacaoBuf = await gerarOrientacaoPdf({
+        pacienteId,
+        paciente: { nome, cpf },
+        prepModalidade: (p.prepModalidade as 'PrEP diária' | 'PrEP sob demanda' | null) ?? 'PrEP diária',
+        tipoConsulta: tipoConsulta as 'primeiro_atendimento' | 'ja_faco_prep',
+        pedidosEmitidos: {
+          completo: !!consulta?.pedidoCompletoS3Key,
+          ist:      !!consulta?.pedidoIstS3Key,
+          hiv:      !!consulta?.pedidoHivS3Key,
+          densitometria: !!consulta?.pedidoDensitometriaS3Key,
+        },
+      })
+      const { buffer: signedOri, certificadoSerial: serialOri, assinadoEm: assinadoOri } =
+        await assinarPdf(orientacaoBuf, 'Documento de Orientação PrEP — Facilita PrEP')
+      const oriKey = `pdfs/${pacienteId}/${Date.now() + 4}-orientacao.pdf`
+      await uploadBuffer(oriKey, signedOri, 'application/pdf')
+      await db.insert(pdfs).values({ pacienteId, s3Key: oriKey, tipo: 'orientacao', certificadoSerial: serialOri, assinadoEm: assinadoOri })
+      gerados.push({ filename: 'orientacao-prep.pdf', buffer: signedOri })
 
       // Enviar documentos por email
       const emailAddr = email ?? (await db
