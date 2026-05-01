@@ -255,6 +255,13 @@ export default function SecretariaDashboard() {
               >
                 {criar.isPending ? 'Gerando…' : 'Gerar link de acesso'}
               </button>
+
+              {criar.error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <p className="text-sm font-medium text-red-700">Erro ao gerar link</p>
+                  <p className="text-xs text-red-600 mt-1 break-words">{criar.error.message}</p>
+                </div>
+              )}
             </div>
 
             {linkAcesso && (
