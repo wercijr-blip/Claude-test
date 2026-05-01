@@ -433,16 +433,54 @@ export const consultaRouter = router({
           resultadoHiv: null,
           nomeExame: null,
           nomeCadastro: null,
+          tipoExameDetectado: null,
+          checks: null,
         }
       }
 
       const resultadoIa = consulta.resultadoIa as
-        | { dataExame?: string; resultadoHiv?: string; nomeExame?: string }
+        | {
+            dataExame?: string
+            resultadoHiv?: string
+            nomeExame?: string
+            tipoExameDetectado?: 'hiv' | 'outro' | 'nao_identificado'
+            confianca?: number
+          }
         | null
 
       // Nome cadastrado para comparação visual (mostrar ao paciente
       // o que a IA leu vs. o que está no cadastro).
       const info = await getInfoPaciente(ctx.session.tokenId).catch(() => null)
+
+      // Calcula os 3 critérios para mostrar ao paciente sempre que houver
+      // resultado da IA — mesmo em rejeição. Permite ele entender por que
+      // foi reprovado.
+      type CheckEstado = 'ok' | 'falhou' | 'nao_avaliado'
+      let checkTipo: CheckEstado = 'nao_avaliado'
+      let checkNome: CheckEstado = 'nao_avaliado'
+      let checkResultado: CheckEstado = 'nao_avaliado'
+      let checkData: CheckEstado = 'nao_avaliado'
+
+      if (resultadoIa) {
+        const tipoDetec = resultadoIa.tipoExameDetectado
+        if (tipoDetec === 'hiv') checkTipo = 'ok'
+        else if (tipoDetec === 'outro') checkTipo = 'falhou'
+
+        if (resultadoIa.nomeExame && info?.nome) {
+          const sim = calcularSimilaridadeNome(resultadoIa.nomeExame, info.nome)
+          checkNome = sim >= 0.70 ? 'ok' : 'falhou'
+        }
+
+        if (resultadoIa.resultadoHiv === 'nao_reagente') checkResultado = 'ok'
+        else if (resultadoIa.resultadoHiv === 'reagente' || resultadoIa.resultadoHiv === 'inconclusivo') {
+          checkResultado = 'falhou'
+        }
+
+        if (resultadoIa.dataExame) {
+          const d = parseDateBR(resultadoIa.dataExame)
+          checkData = isDataValida(d) ? 'ok' : 'falhou'
+        }
+      }
 
       return {
         status: consulta.status,
@@ -455,6 +493,13 @@ export const consultaRouter = router({
         resultadoHiv: consulta.resultadoHivValidado ?? resultadoIa?.resultadoHiv ?? null,
         nomeExame: resultadoIa?.nomeExame ?? null,
         nomeCadastro: info?.nome ?? null,
+        tipoExameDetectado: resultadoIa?.tipoExameDetectado ?? null,
+        checks: resultadoIa ? {
+          tipo: checkTipo,
+          nome: checkNome,
+          resultado: checkResultado,
+          data: checkData,
+        } : null,
       }
     }),
 

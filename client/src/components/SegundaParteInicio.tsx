@@ -21,27 +21,47 @@ function PageShell({ children }: { children: React.ReactNode }) {
   )
 }
 
-// Linha de critério validado (✓ ou ✗) com título e valor lido pela IA.
+// Linha de critério validado (✓ / ✗ / ?) com título e valor lido pela IA.
+type CheckState = 'ok' | 'falhou' | 'nao_avaliado'
 function CritCheck({
-  ok, titulo, valor, sub,
-}: { ok: boolean; titulo: string; valor: string; sub?: string }) {
+  estado, titulo, valor, sub,
+}: { estado: CheckState; titulo: string; valor: string; sub?: string }) {
+  const cls = estado === 'ok'
+    ? 'bg-sage text-white'
+    : estado === 'falhou'
+      ? 'bg-terra text-white'
+      : 'bg-slate-200 text-slate-500'
+  const tituloCls = estado === 'falhou'
+    ? 'text-terra'
+    : estado === 'nao_avaliado'
+      ? 'text-slate-400'
+      : 'text-sage-dark'
+  const valorCls = estado === 'falhou'
+    ? 'text-terra'
+    : estado === 'nao_avaliado'
+      ? 'text-slate-500'
+      : 'text-sage-dark'
   return (
     <div className="flex items-start gap-3">
-      <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${ok ? 'bg-sage text-white' : 'bg-terra text-white'}`}>
-        {ok ? (
+      <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${cls}`}>
+        {estado === 'ok' && (
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
-        ) : (
+        )}
+        {estado === 'falhou' && (
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         )}
+        {estado === 'nao_avaliado' && (
+          <span className="text-xs font-bold">?</span>
+        )}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sage-dark text-xs font-semibold uppercase tracking-wide">{titulo}</p>
-        <p className="text-sage-dark text-sm font-medium break-words">{valor}</p>
-        {sub && <p className="text-sage text-xs mt-0.5 break-words">{sub}</p>}
+        <p className={`text-xs font-semibold uppercase tracking-wide ${tituloCls}`}>{titulo}</p>
+        <p className={`text-sm font-medium break-words ${valorCls}`}>{valor}</p>
+        {sub && <p className="text-xs mt-0.5 break-words text-slate-500">{sub}</p>}
       </div>
     </div>
   )
@@ -187,12 +207,41 @@ export default function SegundaParteInicio() {
     )
   }
 
-  // ── Aprovado ──────────────────────────────────────────────────
-  if (etapa === 'aprovado') {
+  // Renderiza os 3 critérios principais (Nome, Resultado, Data) com base
+  // nos checks que o servidor calculou. O check "tipo" não é mostrado aqui
+  // porque tem tela própria; aparece como "?" se a IA não conseguiu ler.
+  const renderCriterios = (bgCls: string, borderCls: string) => {
+    const checks = statusQuery.data?.checks
     const nomeNoExame = statusQuery.data?.nomeExame
     const nomeCadastro = statusQuery.data?.nomeCadastro
     const dataValidada = statusQuery.data?.dataExame
     const resultadoHiv = statusQuery.data?.resultadoHiv
+    const eNome = (checks?.nome ?? 'nao_avaliado') as CheckState
+    const eRes = (checks?.resultado ?? 'nao_avaliado') as CheckState
+    const eData = (checks?.data ?? 'nao_avaliado') as CheckState
+    const valorNome = nomeNoExame ?? (eNome === 'ok' ? 'Confere com o cadastro' : 'Não foi possível ler o nome')
+    const valorRes = resultadoHiv === 'nao_reagente'
+      ? 'Não reagente / Negativo'
+      : resultadoHiv === 'reagente'
+        ? 'Reagente / Positivo'
+        : resultadoHiv === 'inconclusivo'
+          ? 'Inconclusivo'
+          : 'Não foi possível ler'
+    const valorData = dataValidada ?? 'Não foi possível ler a data'
+    const subNome = nomeCadastro && nomeNoExame && nomeNoExame.toUpperCase() !== nomeCadastro.toUpperCase()
+      ? `Cadastro: ${nomeCadastro}`
+      : undefined
+    return (
+      <div className={`${bgCls} border ${borderCls} rounded-2xl p-4 mb-4 text-left space-y-3`}>
+        <CritCheck estado={eNome} titulo="Nome do paciente" valor={valorNome} sub={subNome} />
+        <CritCheck estado={eRes} titulo="Resultado HIV (deve ser não reagente)" valor={valorRes} />
+        <CritCheck estado={eData} titulo="Data do exame (≤ 7 dias)" valor={valorData} />
+      </div>
+    )
+  }
+
+  // ── Aprovado ──────────────────────────────────────────────────
+  if (etapa === 'aprovado') {
     return (
       <StatusCard
         icon={<svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
@@ -200,24 +249,7 @@ export default function SegundaParteInicio() {
         title="Tudo certo! Você pode seguir com segurança"
         subtitle="Verificamos os 3 critérios do seu exame de HIV — está tudo dentro do esperado."
       >
-        <div className="bg-sage-pale border border-sage-light rounded-2xl p-4 mb-4 text-left space-y-3">
-          <CritCheck
-            ok={true}
-            titulo="Nome do paciente"
-            valor={nomeNoExame ? `${nomeNoExame}` : 'Confere com o cadastro'}
-            sub={nomeCadastro && nomeNoExame && nomeNoExame !== nomeCadastro ? `Cadastro: ${nomeCadastro}` : undefined}
-          />
-          <CritCheck
-            ok={true}
-            titulo="Resultado HIV"
-            valor={resultadoHiv === 'nao_reagente' ? 'Não reagente / Negativo' : (resultadoHiv ?? 'Negativo')}
-          />
-          <CritCheck
-            ok={true}
-            titulo="Data do exame (≤ 7 dias)"
-            valor={dataValidada ?? 'Dentro do prazo'}
-          />
-        </div>
+        {renderCriterios('bg-sage-pale', 'border-sage-light')}
         <div className="bg-brand-pale border border-brand-light rounded-2xl p-4 mb-6 text-left">
           <p className="text-brand-dark text-sm font-medium mb-1">Próximo passo:</p>
           <p className="text-brand text-sm">Preencha o formulário clínico para que nosso médico possa emitir sua receita com total segurança.</p>
@@ -283,19 +315,16 @@ export default function SegundaParteInicio() {
         }
         iconBg="bg-honey-light" iconColor="text-honey"
         title="Exame fora da validade"
-        subtitle="O exame enviado foi realizado há mais de 7 dias. Para iniciar a PrEP com segurança, precisamos de um exame recente."
+        subtitle="A data do exame está fora do período aceito. Veja abaixo o que conferimos:"
       >
+        {renderCriterios('bg-white', 'border-slate-200')}
         <div className="bg-honey-light border border-honey-light rounded-2xl p-4 mb-4 text-left">
           <p className="text-honey-dark text-sm font-medium mb-1">Tentativa {tentativas} de 2</p>
           <p className="text-honey text-sm">
             {restantes > 0
-              ? `Você ainda tem ${restantes} tentativa${restantes > 1 ? 's' : ''} disponível${restantes > 1 ? '' : ''}.`
+              ? `Realize um novo exame Anti-HIV (4ª geração) e envie o resultado — ele precisa ter sido realizado há até 7 dias (inclusive). Você tem ${restantes} tentativa${restantes > 1 ? 's' : ''}.`
               : 'Seu caso será analisado por um de nossos médicos.'}
           </p>
-        </div>
-        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-4 text-left">
-          <p className="text-slate-700 text-sm font-medium mb-1">O que fazer agora:</p>
-          <p className="text-slate-500 text-sm">Realize um novo exame Anti-HIV (4ª geração) em qualquer laboratório e envie o resultado aqui assim que obtiver — ele precisa ter sido realizado há até 7 dias (inclusive).</p>
         </div>
         <button onClick={() => setEtapa('upload_exame')} className={btnPrimary}>
           Enviar novo exame →
@@ -308,8 +337,6 @@ export default function SegundaParteInicio() {
   if (etapa === 'rejeitado_nome_invalido') {
     const tentativas = statusQuery.data?.tentativasReenvio ?? 1
     const restantes = 2 - tentativas
-    const nomeNoExame = statusQuery.data?.nomeExame
-    const nomeNoCadastro = statusQuery.data?.nomeCadastro
     return (
       <StatusCard
         icon={
@@ -319,18 +346,9 @@ export default function SegundaParteInicio() {
         }
         iconBg="bg-honey-light" iconColor="text-honey"
         title="O nome do exame não confere com o cadastro"
-        subtitle="Para garantir sua segurança, o nome no resultado do exame precisa ser o mesmo que está no cadastro."
+        subtitle="Para garantir sua segurança, o nome no exame precisa ser o mesmo do cadastro. Veja abaixo o que conferimos:"
       >
-        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-4 text-left space-y-2">
-          <div>
-            <p className="text-slate-400 text-xs uppercase tracking-wide">Nome lido no exame</p>
-            <p className="text-slate-700 text-sm font-medium">{nomeNoExame ?? '—'}</p>
-          </div>
-          <div>
-            <p className="text-slate-400 text-xs uppercase tracking-wide">Nome no seu cadastro</p>
-            <p className="text-slate-700 text-sm font-medium">{nomeNoCadastro ?? '—'}</p>
-          </div>
-        </div>
+        {renderCriterios('bg-white', 'border-slate-200')}
         <div className="bg-honey-light border border-honey-light rounded-2xl p-4 mb-4 text-left">
           <p className="text-honey-dark text-sm font-medium mb-1">Tentativa {tentativas} de 2</p>
           <p className="text-honey text-sm">
@@ -359,6 +377,17 @@ export default function SegundaParteInicio() {
         title="Esse documento não parece ser um exame de HIV"
         subtitle="Confira se você anexou o resultado do exame Anti-HIV 1/2 (4ª geração). Pode ser que tenha enviado outro arquivo por engano."
       >
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 mb-4 text-left space-y-3">
+          <CritCheck
+            estado="falhou"
+            titulo="Tipo de documento"
+            valor="Não foi reconhecido como exame de HIV"
+            sub="Esperado: laudo Anti-HIV 1/2 (4ª geração)"
+          />
+          <CritCheck estado="nao_avaliado" titulo="Nome do paciente" valor="Não avaliado — tipo de documento incorreto" />
+          <CritCheck estado="nao_avaliado" titulo="Resultado HIV" valor="Não avaliado — tipo de documento incorreto" />
+          <CritCheck estado="nao_avaliado" titulo="Data do exame" valor="Não avaliado — tipo de documento incorreto" />
+        </div>
         <div className="bg-honey-light border border-honey-light rounded-2xl p-4 mb-4 text-left">
           <p className="text-honey-dark text-sm font-medium mb-2">O que enviar:</p>
           <ul className="space-y-1.5">
