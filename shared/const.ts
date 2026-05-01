@@ -155,6 +155,24 @@ export const TIPO_CONSULTA = {
   JA_FACO_PREP: 'ja_faco_prep',
 } as const
 
+// ── Dados institucionais da clínica ──────────────────────────
+// Usados nos cabeçalhos dos PDFs custom (Receita, Formulário, Pedidos de Exame).
+// Fonte de verdade — alterando aqui propaga para todos os documentos.
+export const CLINICA_INFO = {
+  nomeFantasia: 'Iaso Saúde Hospital Dia',
+  razaoSocial: 'Saraiva e Dornelas Hospital Dia LTDA',
+  cnpj: '61.983.778/0001-52',
+  endereco: 'SHLS Quadra 716, Conjunto A, Consultórios 607 e 609, Parte B, S/N — 6º Andar',
+  bairroCidadeUf: 'Asa Sul — Brasília/DF',
+  cep: '70390-700',
+  telefone: '(61) 4042-7188',
+  email: 'contato@atossaudeintegrada.com.br',
+  responsavelTecnico: 'Dr. Werciley Saraiva Vieira Júnior',
+  crmRt: 'CRM/DF 16381',
+  appNome: 'Facilita PrEP',
+  appTagline: 'Plataforma de Saúde Digital',
+} as const
+
 // ── Modalidades de PrEP ──────────────────────────────────────
 // PrEP diária é o esquema preferencial (recomendação oficial AZT/MS).
 // Sob demanda (2-1-1) restrito a homens cis HSH adultos com contato

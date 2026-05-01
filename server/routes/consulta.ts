@@ -29,6 +29,7 @@ function assertPatient(session: unknown): asserts session is { type: 'patient'; 
 
 interface InfoPaciente {
   nome: string
+  cpf: string | null
   email: string | null
   telefone: string | null
 }
@@ -37,6 +38,7 @@ async function getInfoPaciente(tokenId: number): Promise<InfoPaciente> {
   const [precad] = await db
     .select({
       nomeEncrypted: precadastros.nomeEncrypted,
+      cpfEncrypted: precadastros.cpfEncrypted,
       emailEncrypted: precadastros.emailEncrypted,
       telefoneEncrypted: precadastros.telefoneEncrypted,
     })
@@ -47,6 +49,7 @@ async function getInfoPaciente(tokenId: number): Promise<InfoPaciente> {
   if (precad) {
     return {
       nome: decrypt(precad.nomeEncrypted),
+      cpf: decrypt(precad.cpfEncrypted),
       email: decrypt(precad.emailEncrypted),
       telefone: decrypt(precad.telefoneEncrypted),
     }
@@ -59,7 +62,7 @@ async function getInfoPaciente(tokenId: number): Promise<InfoPaciente> {
     .where(eq(accessTokens.id, tokenId))
     .limit(1)
 
-  return { nome: 'Paciente', email: token?.patientEmail ?? null, telefone: null }
+  return { nome: 'Paciente', cpf: null, email: token?.patientEmail ?? null, telefone: null }
 }
 
 async function getMedicosEmails(): Promise<string[]> {
@@ -144,7 +147,7 @@ export const consultaRouter = router({
 
       const { completo, ist, hiv, densitometria } = await gerarPedidosExames(
         consulta.tipoConsulta as 'primeiro_atendimento' | 'ja_faco_prep',
-        info.nome,
+        { nome: info.nome, cpf: info.cpf },
         ctx.session.tokenId,
       )
 
