@@ -285,6 +285,74 @@ function extrairSerial(pfxData: Buffer, password: string): string {
   return certBag?.cert?.serialNumber ?? 'unknown'
 }
 
+export interface CertificadoInfo {
+  status: 'configurado' | 'demo' | 'erro'
+  /** CN (Common Name) do titular */
+  titular?: string
+  /** CN do emissor */
+  emissor?: string
+  serial?: string
+  validoDe?: Date
+  validoAte?: Date
+  diasRestantes?: number
+  /** True se está dentro do período de validade */
+  valido?: boolean
+  /** True se vence em menos de 60 dias */
+  vencendoEm60Dias?: boolean
+  mensagem?: string
+}
+
+/**
+ * Inspeciona o certificado .pfx ICP-Brasil configurado e retorna informações
+ * de validade. Útil para painel de admin acompanhar vencimento do certificado.
+ *
+ * Não lança exceção em nenhum caso — sempre retorna um status.
+ */
+export async function inspecionarCertificado(): Promise<CertificadoInfo> {
+  const pfxData = await lerPfx()
+  if (!pfxData) {
+    return {
+      status: 'demo',
+      mensagem: 'Certificado ICP-Brasil não configurado (modo DEMO em desenvolvimento)',
+    }
+  }
+
+  try {
+    const password = env.ICP_PFX_PASSWORD ?? ''
+    const pfxDer = pfxData.toString('binary')
+    const pfxAsn1 = forge.asn1.fromDer(pfxDer)
+    const pfxObj = forge.pkcs12.pkcs12FromAsn1(pfxAsn1, password)
+    const certBag = pfxObj.getBags({ bagType: forge.pki.oids.certBag })[forge.pki.oids.certBag]?.[0]
+    const cert = certBag?.cert
+    if (!cert) {
+      return { status: 'erro', mensagem: 'Não foi possível extrair certificado do .pfx' }
+    }
+
+    const agora = new Date()
+    const validoDe = cert.validity.notBefore
+    const validoAte = cert.validity.notAfter
+    const diasRestantes = Math.floor((validoAte.getTime() - agora.getTime()) / 86_400_000)
+    const valido = agora >= validoDe && agora <= validoAte
+
+    return {
+      status: 'configurado',
+      titular: cert.subject.getField('CN')?.value,
+      emissor: cert.issuer.getField('CN')?.value,
+      serial: cert.serialNumber,
+      validoDe,
+      validoAte,
+      diasRestantes,
+      valido,
+      vencendoEm60Dias: valido && diasRestantes <= 60,
+    }
+  } catch (err) {
+    return {
+      status: 'erro',
+      mensagem: `Erro ao ler certificado: ${(err as Error).message}`,
+    }
+  }
+}
+
 export async function assinarPdf(
   pdfBuffer: Buffer,
   titulo = 'Documento PrEP — Facilita PrEP',
