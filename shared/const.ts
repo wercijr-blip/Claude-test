@@ -281,18 +281,18 @@ export const CATALOGO_EXAMES = {
   HSV_IGM:              { nome: 'Herpes Simplex — Anti-HSV IgM',                                tuss: '40302260' },
 
   // Clamídia
-  CLAMÍDIA_IGG:         { nome: 'Sorologia Clamídia — IgG',                                     tuss: '40302074' },
-  CLAMÍDIA_IGM:         { nome: 'Sorologia Clamídia — IgM',                                     tuss: '40302082' },
-  CLAMÍDIA_PCR:         { nome: 'Chlamydia trachomatis — PCR (urina)',                           tuss: '40600912' },
-  CLAMÍDIA_CULTURA:     { nome: 'Chlamydia trachomatis — Cultura',                              tuss: '40302082' },
+  CLAMÍDIA_IGG:         { nome: 'Sorologia Clamídia — IgG',                                          tuss: '40302074' },
+  CLAMÍDIA_IGM:         { nome: 'Sorologia Clamídia — IgM',                                          tuss: '40302082' },
+  CLAMÍDIA_PCR:         { nome: 'Chlamydia trachomatis — PCR (urina)',                                tuss: '40600912' },
+  CLAMÍDIA_CULTURA:     { nome: 'Chlamydia trachomatis — Cultura material: urina',                    tuss: '40302082' },
 
   // Gonorreia
-  GONORREIA_PCR:        { nome: 'Neisseria gonorrhoeae — PCR (urina)',                           tuss: '40600912' },
-  GONORREIA_CULTURA:    { nome: 'Neisseria gonorrhoeae — Cultura (urina)',                       tuss: '40302279' },
+  GONORREIA_PCR:        { nome: 'Neisseria gonorrhoeae — PCR (urina)',                                tuss: '40600912' },
+  GONORREIA_CULTURA:    { nome: 'Neisseria gonorrhoeae — Cultura (urina)',                            tuss: '40302279' },
 
   // Mycoplasma / Ureaplasma
-  MYCOPLASMA:           { nome: 'Mycoplasma hominis — Cultura + TSA',                            tuss: '40302317' },
-  UREAPLASMA:           { nome: 'Ureaplasma urealyticum/parvum — Cultura + TSA',                tuss: '40302325' },
+  MYCOPLASMA:           { nome: 'Mycoplasma hominis — Cultura material: urina + TSA',                 tuss: '40302317' },
+  UREAPLASMA:           { nome: 'Ureaplasma urealyticum/parvum — Cultura material: urina + TSA',      tuss: '40302325' },
 
   // Painel molecular
   PAINEL_IST_MOLECULAR: { nome: 'Painel IST Molecular',                                         tuss: '40600912' },
@@ -351,9 +351,6 @@ export const EXAMES_PRIMEIRO_ATENDIMENTO: readonly Exame[] = [
   CATALOGO_EXAMES.ANTI_HBE,
   // Hepatite C
   CATALOGO_EXAMES.ANTI_HCV,
-  // Herpes
-  CATALOGO_EXAMES.HSV_IGG,
-  CATALOGO_EXAMES.HSV_IGM,
   // Clamídia
   CATALOGO_EXAMES.CLAMÍDIA_IGG,
   CATALOGO_EXAMES.CLAMÍDIA_IGM,
