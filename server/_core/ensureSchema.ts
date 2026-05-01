@@ -255,6 +255,23 @@ const COLUMN_PATCHES: Record<string, Array<{ name: string; ddl: string }>> = {
     { name: 'ultimo_lembrete_at', ddl: 'DATETIME' },
     { name: 'link_expires_at', ddl: 'DATETIME' },
   ],
+  precadastros: [
+    { name: 'plano', ddl: 'VARCHAR(100)' },
+    { name: 'carteirinha_s3_key', ddl: 'VARCHAR(500)' },
+    { name: 'documento_s3_key', ddl: 'VARCHAR(500)' },
+    { name: 'stripe_session_id', ddl: 'VARCHAR(200)' },
+    { name: 'access_token_id', ddl: 'INT' },
+    { name: 'validado_por_id', ddl: 'INT' },
+    { name: 'validado_em', ddl: 'DATETIME' },
+    { name: 'observacoes', ddl: 'TEXT' },
+  ],
+  access_tokens: [
+    { name: 'patient_email', ddl: 'VARCHAR(255)' },
+    { name: 'tipo', ddl: "VARCHAR(20) NOT NULL DEFAULT 'privado'" },
+    { name: 'convenio', ddl: 'VARCHAR(100)' },
+    { name: 'used_at', ddl: 'DATETIME' },
+    { name: 'revoked_at', ddl: 'DATETIME' },
+  ],
 }
 
 async function getExistingColumns(table: string): Promise<Set<string>> {
