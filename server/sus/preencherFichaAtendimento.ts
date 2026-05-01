@@ -127,7 +127,7 @@ export async function preencherFichaAtendimento(
 
   // ── 23. Prescrição ────────────────────────────────────────────
   // 22-autoteste: em branco
-  // 23-quantidadeComprimidos: em branco (definida na dispensação)
+  setDropdown('23-quantidadeComprimidos', '180*** comprimidos')
   setText('23-dt_prescrição', dataAtualBR())
 
   // ── 24. Prescritor ────────────────────────────────────────────
