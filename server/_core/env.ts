@@ -37,8 +37,12 @@ const envSchema = z.object({
   ZAPI_INSTANCE_ID: z.string().optional(),
   ZAPI_TOKEN: z.string().optional(),
 
-  MEDICO_NOME: z.string().optional(),
-  MEDICO_CRM: z.string().optional(),
+  MEDICO_NOME: z.string().default('Werciley Saraiva Vieira Junior'),
+  MEDICO_CRM: z.string().default('16381'),
+  MEDICO_CRM_UF: z.string().default('DF'),
+  MEDICO_CRM_TIPO: z.string().default('CRM'),
+
+  SUS_CNES: z.string().default('9843744'),
 
   APP_URL: z.string().url().default('https://claude-test-production-8672.up.railway.app'),
   ALLOWED_ORIGINS: z.string().optional(),

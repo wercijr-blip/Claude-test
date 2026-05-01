@@ -5,11 +5,10 @@ export const FORM_STEPS = [
   { step: 4, titulo: 'Conduta', rota: 'conduta' },
   { step: 5, titulo: 'Prescrição', rota: 'prescricao' },
   { step: 6, titulo: 'Serviço', rota: 'servico' },
-  { step: 7, titulo: 'Autorizados', rota: 'autorizados' },
-  { step: 8, titulo: 'TCLE', rota: 'tcle' },
+  { step: 7, titulo: 'TCLE', rota: 'tcle' },
 ] as const
 
-export const TOTAL_FORM_STEPS = 8
+export const TOTAL_FORM_STEPS = 7
 
 export const ERROR_MESSAGES = {
   UNAUTHORIZED: 'Não autorizado. Faça login para continuar.',
@@ -46,6 +45,22 @@ export const COR_RACA_OPTIONS = [
   { value: 'parda', label: 'Parda' },
   { value: 'amarela', label: 'Amarela' },
   { value: 'indigena', label: 'Indígena' },
+  { value: 'nao_informado', label: 'Prefiro não informar' },
+] as const
+
+export const IDENTIDADE_GENERO_OPTIONS = [
+  { value: 'cisgênero_fem', label: 'Mulher cisgênero' },
+  { value: 'cisgênero_masc', label: 'Homem cisgênero' },
+  { value: 'transgênero_fem', label: 'Mulher transgênero / Travesti' },
+  { value: 'transgênero_masc', label: 'Homem transgênero' },
+  { value: 'nao_binario', label: 'Não-binário(a)' },
+  { value: 'nao_informado', label: 'Prefiro não informar' },
+] as const
+
+export const ORIENTACAO_SEXUAL_OPTIONS = [
+  { value: 'heterossexual', label: 'Heterossexual' },
+  { value: 'homossexual', label: 'Gay / Lésbica' },
+  { value: 'bissexual', label: 'Bissexual' },
   { value: 'nao_informado', label: 'Prefiro não informar' },
 ] as const
 
@@ -140,6 +155,47 @@ export const TIPO_CONSULTA = {
   JA_FACO_PREP: 'ja_faco_prep',
 } as const
 
+// ── Dados institucionais da clínica ──────────────────────────
+// Usados nos cabeçalhos dos PDFs custom (Receita, Formulário, Pedidos de Exame).
+// Fonte de verdade — alterando aqui propaga para todos os documentos.
+export const CLINICA_INFO = {
+  nomeFantasia: 'Iaso Saúde Hospital Dia',
+  razaoSocial: 'Saraiva e Dornelas Hospital Dia LTDA',
+  cnpj: '61.983.778/0001-52',
+  endereco: 'SHLS Quadra 716, Conjunto A, Consultórios 607 e 609, Parte B, S/N — 6º Andar',
+  bairroCidadeUf: 'Asa Sul — Brasília/DF',
+  cep: '70390-700',
+  telefone: '(61) 4042-7188',
+  email: 'contato@atossaudeintegrada.com.br',
+  responsavelTecnico: 'Dr. Werciley Saraiva Vieira Júnior',
+  crmRt: 'CRM/DF 16381',
+  appNome: 'Facilita PrEP',
+  appTagline: 'Plataforma de Saúde Digital',
+} as const
+
+// ── Modalidades de PrEP ──────────────────────────────────────
+// PrEP diária é o esquema preferencial (recomendação oficial AZT/MS).
+// Sob demanda (2-1-1) restrito a homens cis HSH adultos com contato
+// sexual programado e baixa frequência.
+export const PREP_MODALIDADE = {
+  DIARIA: 'PrEP diária',
+  SOB_DEMANDA: 'PrEP sob demanda',
+} as const
+
+export type PrepModalidade = typeof PREP_MODALIDADE[keyof typeof PREP_MODALIDADE]
+
+/** Posologia e duração padrão por modalidade (preenche prescricaoJson). */
+export const PREP_POSOLOGIA: Record<PrepModalidade, { posologia: string; duracao: string }> = {
+  'PrEP diária': {
+    posologia: '1 comprimido por via oral, uma vez ao dia, em horário fixo',
+    duracao: 'Uso contínuo — reavaliar a cada 90 dias com o médico',
+  },
+  'PrEP sob demanda': {
+    posologia: 'Esquema 2-1-1: 2 comp 2-24h antes da relação sexual, 1 comp 24h após a 1ª dose, 1 comp 48h após a 1ª dose',
+    duracao: 'Conforme exposição — reavaliar elegibilidade a cada 90 dias',
+  },
+}
+
 export const STATUS_EXAME = {
   AGUARDANDO_ESCOLHA: 'aguardando_escolha',
   AGUARDANDO_UPLOAD: 'aguardando_upload',
@@ -225,18 +281,18 @@ export const CATALOGO_EXAMES = {
   HSV_IGM:              { nome: 'Herpes Simplex — Anti-HSV IgM',                                tuss: '40302260' },
 
   // Clamídia
-  CLAMÍDIA_IGG:         { nome: 'Sorologia Clamídia — IgG',                                     tuss: '40302074' },
-  CLAMÍDIA_IGM:         { nome: 'Sorologia Clamídia — IgM',                                     tuss: '40302082' },
-  CLAMÍDIA_PCR:         { nome: 'Chlamydia trachomatis — PCR (urina)',                           tuss: '40600912' },
-  CLAMÍDIA_CULTURA:     { nome: 'Chlamydia trachomatis — Cultura',                              tuss: '40302082' },
+  CLAMÍDIA_IGG:         { nome: 'Sorologia Clamídia — IgG',                                          tuss: '40302074' },
+  CLAMÍDIA_IGM:         { nome: 'Sorologia Clamídia — IgM',                                          tuss: '40302082' },
+  CLAMÍDIA_PCR:         { nome: 'Chlamydia trachomatis — PCR (urina)',                                tuss: '40600912' },
+  CLAMÍDIA_CULTURA:     { nome: 'Chlamydia trachomatis — Cultura material: urina',                    tuss: '40302082' },
 
   // Gonorreia
-  GONORREIA_PCR:        { nome: 'Neisseria gonorrhoeae — PCR (urina)',                           tuss: '40600912' },
-  GONORREIA_CULTURA:    { nome: 'Neisseria gonorrhoeae — Cultura (urina)',                       tuss: '40302279' },
+  GONORREIA_PCR:        { nome: 'Neisseria gonorrhoeae — PCR (urina)',                                tuss: '40600912' },
+  GONORREIA_CULTURA:    { nome: 'Neisseria gonorrhoeae — Cultura (urina)',                            tuss: '40302279' },
 
   // Mycoplasma / Ureaplasma
-  MYCOPLASMA:           { nome: 'Mycoplasma hominis — Cultura + TSA',                            tuss: '40302317' },
-  UREAPLASMA:           { nome: 'Ureaplasma urealyticum/parvum — Cultura + TSA',                tuss: '40302325' },
+  MYCOPLASMA:           { nome: 'Mycoplasma hominis — Cultura material: urina + TSA',                 tuss: '40302317' },
+  UREAPLASMA:           { nome: 'Ureaplasma urealyticum/parvum — Cultura material: urina + TSA',      tuss: '40302325' },
 
   // Painel molecular
   PAINEL_IST_MOLECULAR: { nome: 'Painel IST Molecular',                                         tuss: '40600912' },
@@ -295,9 +351,6 @@ export const EXAMES_PRIMEIRO_ATENDIMENTO: readonly Exame[] = [
   CATALOGO_EXAMES.ANTI_HBE,
   // Hepatite C
   CATALOGO_EXAMES.ANTI_HCV,
-  // Herpes
-  CATALOGO_EXAMES.HSV_IGG,
-  CATALOGO_EXAMES.HSV_IGM,
   // Clamídia
   CATALOGO_EXAMES.CLAMÍDIA_IGG,
   CATALOGO_EXAMES.CLAMÍDIA_IGM,

@@ -10,8 +10,8 @@ const schema = z.object({
   cpf: z.string().refine(validarCpf, ERROR_MESSAGES.CPF_INVALID),
   nome: z.string().min(3, 'Nome muito curto'),
   dataNascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida'),
+  nomeMae: z.string().min(3, 'Informe o nome completo da mãe'),
   sexo: z.enum(['masculino', 'feminino', 'outro']),
-  nomeSocial: z.string().optional(),
 })
 
 type FormData = z.infer<typeof schema>
@@ -48,44 +48,59 @@ export default function StepPaciente({ pacienteId, onNext, defaultValues }: Prop
       <h2 className="text-lg font-semibold text-slate-800 mb-5">Dados Pessoais</h2>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <Field label="Nome completo" error={errors.nome?.message}>
-          <input
-            {...register('nome')}
-            className={inputCls(!!errors.nome)}
-            placeholder="Como consta no documento"
-            readOnly={hasIntakeNome}
-            style={hasIntakeNome ? { background: '#f8fafc', color: '#64748b' } : undefined}
-          />
-          {hasIntakeNome && <p className="mt-0.5 text-xs text-slate-400">Preenchido automaticamente do cadastro</p>}
-        </Field>
+        {/* Nome — se veio do cadastro, mostra como leitura; senão, input editável */}
+        {hasIntakeNome ? (
+          <Field label="Nome completo">
+            <ReadonlyValue value={defaultValues!.nome!} />
+            <input type="hidden" {...register('nome')} />
+            <p className="mt-1 text-xs text-slate-400">Preenchido automaticamente do cadastro · não editável</p>
+          </Field>
+        ) : (
+          <Field label="Nome completo" error={errors.nome?.message}>
+            <input
+              {...register('nome')}
+              className={inputCls(!!errors.nome)}
+              placeholder="Como consta no documento"
+            />
+          </Field>
+        )}
 
-        <Field label="CPF" error={errors.cpf?.message}>
-          <input
-            {...register('cpf')}
-            className={inputCls(!!errors.cpf)}
-            placeholder="000.000.000-00"
-            maxLength={14}
-            readOnly={hasIntakeCpf}
-            style={hasIntakeCpf ? { background: '#f8fafc', color: '#64748b' } : undefined}
-          />
-          {hasIntakeCpf && <p className="mt-0.5 text-xs text-slate-400">Preenchido automaticamente do cadastro</p>}
-        </Field>
+        {hasIntakeCpf ? (
+          <Field label="CPF">
+            <ReadonlyValue value={defaultValues!.cpf!} />
+            <input type="hidden" {...register('cpf')} />
+            <p className="mt-1 text-xs text-slate-400">Preenchido automaticamente do cadastro · não editável</p>
+          </Field>
+        ) : (
+          <Field label="CPF" error={errors.cpf?.message}>
+            <input
+              {...register('cpf')}
+              className={inputCls(!!errors.cpf)}
+              placeholder="000.000.000-00"
+              maxLength={14}
+            />
+          </Field>
+        )}
 
         <Field label="Data de nascimento" error={errors.dataNascimento?.message}>
           <input {...register('dataNascimento')} type="date" className={inputCls(!!errors.dataNascimento)} />
         </Field>
 
-        <Field label="Sexo biológico" error={errors.sexo?.message}>
+        <Field label="Nome completo da mãe" error={errors.nomeMae?.message}>
+          <input
+            {...register('nomeMae')}
+            className={inputCls(!!errors.nomeMae)}
+            placeholder="Nome completo da mãe (obrigatório)"
+          />
+        </Field>
+
+        <Field label="Sexo ao nascimento" error={errors.sexo?.message}>
           <select {...register('sexo')} className={inputCls(!!errors.sexo)}>
             <option value="">Selecione</option>
             <option value="masculino">Masculino</option>
             <option value="feminino">Feminino</option>
-            <option value="outro">Outro</option>
+            <option value="outro">Intersexo</option>
           </select>
-        </Field>
-
-        <Field label="Nome social (opcional)" error={errors.nomeSocial?.message}>
-          <input {...register('nomeSocial')} className={inputCls(false)} placeholder="Nome pelo qual prefere ser chamado(a)" />
         </Field>
 
         {salvar.error && <p className="text-red-500 text-sm">{salvar.error.message}</p>}
@@ -106,6 +121,17 @@ function Field({ label, error, children }: { label: string; error?: string; chil
       <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
       {children}
       {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+    </div>
+  )
+}
+
+/** Caixa que mostra um valor já preenchido — visualmente igual a um input
+ *  desabilitado, mas o valor real fica num <input type="hidden"/> registrado
+ *  no formulário (evita race conditions com defaultValues do useForm). */
+function ReadonlyValue({ value }: { value: string }) {
+  return (
+    <div className="w-full border border-slate-200 bg-slate-50 text-slate-700 rounded-lg px-3 py-2 text-sm">
+      {value}
     </div>
   )
 }

@@ -6,6 +6,18 @@ import { eq } from 'drizzle-orm'
 import { decrypt } from '../_core/encryption.ts'
 import { filtrarExamePorStatus } from '../examUtils.ts'
 
+// Defensive wrapper — registros de teste antigos podem ter dado corrompido.
+// Não queremos derrubar a listagem inteira por causa de uma linha ruim.
+function tryDecrypt(value: string | null): string | null {
+  if (!value) return null
+  try {
+    return decrypt(value)
+  } catch (err) {
+    console.error('[secretaria] decrypt failed:', (err as Error).message)
+    return null
+  }
+}
+
 export const secretariaRouter = router({
   // Listar todos os documentos (exames) enviados por pacientes
   listarDocumentos: staffProcedure
@@ -55,8 +67,8 @@ export const secretariaRouter = router({
           liberadoEm: r.liberadoEm,
           createdAt: r.createdAt,
           paciente: {
-            nome: r.pacienteNomeEncrypted ? decrypt(r.pacienteNomeEncrypted) : null,
-            email: r.pacienteEmailEncrypted ? decrypt(r.pacienteEmailEncrypted) : null,
+            nome: tryDecrypt(r.pacienteNomeEncrypted),
+            email: tryDecrypt(r.pacienteEmailEncrypted),
             status: r.pacienteStatus,
             tipoAtendimento: r.pacienteTipoAtendimento,
           },

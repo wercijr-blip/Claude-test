@@ -9,7 +9,6 @@ import StepContato from './steps/StepContato.tsx'
 import StepConduta from './steps/StepConduta.tsx'
 import StepPrescricao from './steps/StepPrescricao.tsx'
 import StepServico from './steps/StepServico.tsx'
-import StepAutorizados from './steps/StepAutorizados.tsx'
 import StepTcle from './StepTcle.tsx'
 import { trpc } from '../lib/trpc.ts'
 
@@ -21,9 +20,11 @@ interface Props {
 type TipoPdf = { id: number; tipo: string; assinadoEm: Date | null; url: string }
 
 const LABEL_PDF: Record<string, string> = {
+  orientacao: '📘 Documento de Orientação ao Paciente',
   formulario: 'Formulário Clínico',
   prescricao: 'Receita PrEP',
-  cadastro: 'Ficha de Cadastro',
+  cadastro: 'Cadastro SUS PrEP',
+  ficha_atendimento: 'Ficha de Atendimento PrEP',
   pedido_completo: 'Pedido de Exames Completo PrEP',
   pedido_ist: 'Pedido de Sorológicos IST',
   pedido_hiv: 'Pedido Anti-HIV',
@@ -182,7 +183,7 @@ export default function FormularioPaciente({ pacienteId: initialPacienteId, init
   const [pacienteId, setPacienteId] = useState<number | null>(initialPacienteId ?? null)
   const [finalizado, setFinalizado] = useState(false)
 
-  const { data: intakeData } = trpc.paciente.dadosIntake.useQuery(undefined, { retry: false })
+  const { data: intakeData, isLoading: intakeLoading } = trpc.paciente.dadosIntake.useQuery(undefined, { retry: false })
   const { data: consultaStatus } = trpc.consulta.status.useQuery(undefined, { retry: false })
 
   const next = (newPacienteId?: number) => {
@@ -198,6 +199,17 @@ export default function FormularioPaciente({ pacienteId: initialPacienteId, init
 
   if (finalizado && pacienteId) {
     return <TelaDocumentos pacienteId={pacienteId} />
+  }
+
+  // Aguarda o query do cadastro inicial — o React Hook Form usa os valores
+  // recebidos como defaultValues e só os lê uma vez no mount, então renderizar
+  // antes do dadosIntake chegar deixaria os campos vazios.
+  if (intakeLoading) {
+    return (
+      <div className="min-h-screen bg-warm-bg flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-slate-200 border-t-brand rounded-full animate-spin" />
+      </div>
+    )
   }
 
   const progress = ((currentStep - 1) / (TOTAL_FORM_STEPS - 1)) * 100
@@ -270,8 +282,7 @@ export default function FormularioPaciente({ pacienteId: initialPacienteId, init
                 } : undefined}
               />
             )}
-            {currentStep === 7 && <StepAutorizados {...stepProps} />}
-            {currentStep === 8 && <StepTcle {...stepProps} />}
+            {currentStep === 7 && <StepTcle {...stepProps} />}
           </motion.div>
         </AnimatePresence>
       </div>

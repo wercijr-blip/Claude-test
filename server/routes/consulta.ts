@@ -7,6 +7,7 @@ import { eq, desc, inArray } from 'drizzle-orm'
 import { decrypt } from '../_core/encryption.ts'
 import { extrairDadosExame, calcularSimilaridadeNome, parseDateBR, isDataValida } from '../examValidation.ts'
 import { gerarPedidosExames } from '../pdfExameRequest.ts'
+import { gerarOrientacaoInicialPdf } from '../pdfOrientacaoInicial.ts'
 import { assinarPdf } from '../pdfSigner.ts'
 import { uploadBuffer, getPresignedUrl } from '../storage.ts'
 import { enviarWhatsApp } from '../whatsapp.ts'
@@ -29,6 +30,7 @@ function assertPatient(session: unknown): asserts session is { type: 'patient'; 
 
 interface InfoPaciente {
   nome: string
+  cpf: string | null
   email: string | null
   telefone: string | null
 }
@@ -37,6 +39,7 @@ async function getInfoPaciente(tokenId: number): Promise<InfoPaciente> {
   const [precad] = await db
     .select({
       nomeEncrypted: precadastros.nomeEncrypted,
+      cpfEncrypted: precadastros.cpfEncrypted,
       emailEncrypted: precadastros.emailEncrypted,
       telefoneEncrypted: precadastros.telefoneEncrypted,
     })
@@ -47,6 +50,7 @@ async function getInfoPaciente(tokenId: number): Promise<InfoPaciente> {
   if (precad) {
     return {
       nome: decrypt(precad.nomeEncrypted),
+      cpf: decrypt(precad.cpfEncrypted),
       email: decrypt(precad.emailEncrypted),
       telefone: decrypt(precad.telefoneEncrypted),
     }
@@ -59,7 +63,7 @@ async function getInfoPaciente(tokenId: number): Promise<InfoPaciente> {
     .where(eq(accessTokens.id, tokenId))
     .limit(1)
 
-  return { nome: 'Paciente', email: token?.patientEmail ?? null, telefone: null }
+  return { nome: 'Paciente', cpf: null, email: token?.patientEmail ?? null, telefone: null }
 }
 
 async function getMedicosEmails(): Promise<string[]> {
@@ -131,45 +135,52 @@ export const consultaRouter = router({
 
       if (!consulta?.tipoConsulta) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Inicie o atendimento primeiro.' })
 
-      if (consulta.pedidoCompletoS3Key && consulta.pedidoHivS3Key) {
-        return {
-          urlCompleto: await getPresignedUrl(consulta.pedidoCompletoS3Key, 3600),
-          urlIst: consulta.pedidoIstS3Key ? await getPresignedUrl(consulta.pedidoIstS3Key, 3600) : null,
-          urlHiv: await getPresignedUrl(consulta.pedidoHivS3Key, 3600),
-          urlDensitometria: consulta.pedidoDensitometriaS3Key ? await getPresignedUrl(consulta.pedidoDensitometriaS3Key, 3600) : null,
-        }
-      }
-
+      // Sempre regenera os pedidos para garantir que a lista de exames atual
+      // (definida em shared/const.ts) esteja sendo usada. PDFs antigos no S3
+      // ficam apenas como histórico — o paciente baixa via URL nova retornada
+      // abaixo.
       const info = await getInfoPaciente(ctx.session.tokenId)
+
+      const paciente = { nome: info.nome, cpf: info.cpf }
+      const tokenId = ctx.session.tokenId
 
       const { completo, ist, hiv, densitometria } = await gerarPedidosExames(
         consulta.tipoConsulta as 'primeiro_atendimento' | 'ja_faco_prep',
-        info.nome,
+        paciente,
+        tokenId,
       )
+
+      // Documento de Orientação Inicial — vai junto com os pedidos para
+      // explicar o paciente sobre os exames antes de iniciar a PrEP.
+      const orientacaoInicial = await gerarOrientacaoInicialPdf({ tokenId, paciente })
 
       const [
         { buffer: completoAssinado },
         { buffer: istAssinado },
         { buffer: hivAssinado },
         { buffer: densitometriaAssinada },
+        { buffer: orientacaoAssinada },
       ] = await Promise.all([
         assinarPdf(completo, 'Pedido de Exames Completo PrEP — Facilita PrEP'),
         assinarPdf(ist, 'Pedido de Exames Sorológicos IST — Facilita PrEP'),
         assinarPdf(hiv, 'Pedido de Exame Anti-HIV — Facilita PrEP'),
         assinarPdf(densitometria, 'Pedido de Densitometria Óssea — Facilita PrEP'),
+        assinarPdf(orientacaoInicial, 'Orientação para Início da PrEP — Facilita PrEP'),
       ])
 
       const ts = Date.now()
-      const keyCompleto = `pedidos/${ctx.session.tokenId}/${ts}-completo.pdf`
-      const keyIst = `pedidos/${ctx.session.tokenId}/${ts}-ist.pdf`
-      const keyHiv = `pedidos/${ctx.session.tokenId}/${ts}-hiv.pdf`
-      const keyDensit = `pedidos/${ctx.session.tokenId}/${ts}-densitometria.pdf`
+      const keyCompleto = `pedidos/${tokenId}/${ts}-completo.pdf`
+      const keyIst = `pedidos/${tokenId}/${ts}-ist.pdf`
+      const keyHiv = `pedidos/${tokenId}/${ts}-hiv.pdf`
+      const keyDensit = `pedidos/${tokenId}/${ts}-densitometria.pdf`
+      const keyOri = `pedidos/${tokenId}/${ts}-orientacao-inicial.pdf`
 
       await Promise.all([
         uploadBuffer(keyCompleto, completoAssinado, 'application/pdf'),
         uploadBuffer(keyIst, istAssinado, 'application/pdf'),
         uploadBuffer(keyHiv, hivAssinado, 'application/pdf'),
         uploadBuffer(keyDensit, densitometriaAssinada, 'application/pdf'),
+        uploadBuffer(keyOri, orientacaoAssinada, 'application/pdf'),
       ])
 
       await db.update(consultasInicio)
@@ -187,6 +198,7 @@ export const consultaRouter = router({
         urlIst: await getPresignedUrl(keyIst, 3600),
         urlHiv: await getPresignedUrl(keyHiv, 3600),
         urlDensitometria: await getPresignedUrl(keyDensit, 3600),
+        urlOrientacao: await getPresignedUrl(keyOri, 3600),
       }
     }),
 
@@ -482,6 +494,23 @@ export const consultaRouter = router({
         }
       }
 
+      // Quando o status é "aprovado" (validação médica), os 3 critérios são
+      // implicitamente OK — o médico só aprova quando passou em todos. Garante
+      // que a tela "Tudo certo" mostre os checks verdes mesmo quando a IA
+      // não tinha lido tudo (ex.: médico aprovou apesar de leitura parcial).
+      const aprovado = consulta.status === 'aprovado' || consulta.status === 'aprovado_ia'
+      if (aprovado) {
+        checkTipo = 'ok'
+        checkNome = 'ok'
+        checkResultado = 'ok'
+        checkData = 'ok'
+      }
+
+      // Quando médico aprovou e a IA não tinha extraído o nome, usa o nome
+      // do cadastro para mostrar "Confere com o cadastro" em vez de "Não
+      // foi possível ler".
+      const nomeExameMostrar = resultadoIa?.nomeExame ?? (aprovado ? info?.nome ?? null : null)
+
       return {
         status: consulta.status,
         tipoConsulta: consulta.tipoConsulta,
@@ -491,10 +520,10 @@ export const consultaRouter = router({
         tentativasReenvio: consulta.tentativasReenvio ?? 0,
         dataExame: consulta.dataExameValidado ?? resultadoIa?.dataExame ?? null,
         resultadoHiv: consulta.resultadoHivValidado ?? resultadoIa?.resultadoHiv ?? null,
-        nomeExame: resultadoIa?.nomeExame ?? null,
+        nomeExame: nomeExameMostrar,
         nomeCadastro: info?.nome ?? null,
         tipoExameDetectado: resultadoIa?.tipoExameDetectado ?? null,
-        checks: resultadoIa ? {
+        checks: (resultadoIa || aprovado) ? {
           tipo: checkTipo,
           nome: checkNome,
           resultado: checkResultado,

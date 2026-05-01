@@ -7,7 +7,7 @@ import { pacientes, precadastros, pdfs, tcleAssinaturas } from '../../drizzle/sc
 import { eq, and } from 'drizzle-orm'
 import { encrypt, decrypt, hashCpf } from '../_core/encryption.ts'
 import { validarCpf } from '../_core/cpfValidator.ts'
-import { ERROR_MESSAGES } from '../../shared/const.ts'
+import { ERROR_MESSAGES, PREP_MODALIDADE, PREP_POSOLOGIA } from '../../shared/const.ts'
 import { env } from '../_core/env.ts'
 import { JWT_EXPIRY_PATIENT } from '../../shared/security-constants.ts'
 import { getPresignedUrl } from '../storage.ts'
@@ -67,6 +67,8 @@ export const pacienteRouter = router({
         cpf: z.string().refine(validarCpf, ERROR_MESSAGES.CPF_INVALID),
         nome: z.string().min(3).max(255),
         dataNascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        nomeMae: z.string().min(3, 'Informe o nome completo da mãe').max(255),
+        cns: z.string().max(20).optional(),
         sexo: z.enum(['masculino', 'feminino', 'outro']),
         nomeSocial: z.string().max(255).optional(),
       }),
@@ -96,6 +98,8 @@ export const pacienteRouter = router({
             cpfHash,
             nomeEncrypted: encrypt(input.nome),
             dataNascimentoEncrypted: encrypt(input.dataNascimento),
+            nomeMaeEncrypted: encrypt(input.nomeMae),
+            cns: input.cns,
             sexo: input.sexo,
             nomeSocial: input.nomeSocial,
             currentStep: 2,
@@ -115,6 +119,8 @@ export const pacienteRouter = router({
         cpfHash,
         nomeEncrypted: encrypt(input.nome),
         dataNascimentoEncrypted: encrypt(input.dataNascimento),
+        nomeMaeEncrypted: encrypt(input.nomeMae),
+        cns: input.cns,
         sexo: input.sexo,
         nomeSocial: input.nomeSocial,
         currentStep: 2,
@@ -135,6 +141,12 @@ export const pacienteRouter = router({
         situacaoConjugal: z.string().max(50).optional(),
         rendaFamiliar: z.string().max(100).optional(),
         ocupacao: z.string().max(255).optional(),
+        identidadeGenero: z.string().max(50).optional(),
+        orientacaoSexual: z.string().max(50).optional(),
+        ufNascimento: z.string().length(2).optional(),
+        municipioNascimento: z.string().max(100).optional(),
+        situacaoRua: z.boolean().optional(),
+        privadoLiberdade: z.boolean().optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -148,6 +160,12 @@ export const pacienteRouter = router({
           situacaoConjugal: input.situacaoConjugal,
           rendaFamiliar: input.rendaFamiliar,
           ocupacao: input.ocupacao,
+          identidadeGenero: input.identidadeGenero,
+          orientacaoSexual: input.orientacaoSexual,
+          ufNascimento: input.ufNascimento,
+          municipioNascimento: input.municipioNascimento,
+          situacaoRua: input.situacaoRua,
+          privadoLiberdade: input.privadoLiberdade,
           currentStep: Math.max(p.currentStep, 3),
           updatedAt: new Date(),
         })
@@ -170,6 +188,8 @@ export const pacienteRouter = router({
         bairro: z.string().max(100),
         cidade: z.string().max(100),
         estado: z.string().length(2),
+        permiteContato: z.boolean().optional(),
+        tipoContato: z.enum(['residencial', 'celular', 'email', 'outros']).optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -188,6 +208,8 @@ export const pacienteRouter = router({
           bairro: input.bairro,
           cidade: input.cidade,
           estado: input.estado,
+          permiteContato: input.permiteContato,
+          tipoContato: input.tipoContato,
           currentStep: Math.max(p.currentStep, 4),
           updatedAt: new Date(),
         })
@@ -208,31 +230,38 @@ export const pacienteRouter = router({
       return { ok: true }
     }),
 
-  // Step 5 — Prescrição
+  // Step 5 — Modalidade da PrEP (substitui a antiga Prescrição editável)
+  // O paciente escolhe diária (preferencial) ou sob demanda; o sistema
+  // preenche posologia/duração automaticamente conforme protocolo MS.
   salvarStep5: protectedProcedure
     .input(
       z.object({
         pacienteId: z.number(),
-        prescricao: z.object({
-          medicamento: z.enum(['tenofovir_emtricitabina', 'outro']),
-          nomeMedicamento: z.string().max(255).optional(),
-          posologia: z.string().max(500),
-          duracao: z.string().max(100),
-          observacoes: z.string().max(2000).optional(),
-        }),
+        prepModalidade: z.enum([PREP_MODALIDADE.DIARIA, PREP_MODALIDADE.SOB_DEMANDA]),
       }),
     )
     .mutation(async ({ input, ctx }) => {
       assertPatient(ctx.session)
       const p = await validarEtapaPaciente(input.pacienteId, ctx.session.tokenId, 5)
+      const { posologia, duracao } = PREP_POSOLOGIA[input.prepModalidade]
       await db
         .update(pacientes)
-        .set({ prescricaoJson: input.prescricao, currentStep: Math.max(p.currentStep, 6), updatedAt: new Date() })
+        .set({
+          prepModalidade: input.prepModalidade,
+          prescricaoJson: {
+            medicamento: 'tenofovir_emtricitabina',
+            posologia,
+            duracao,
+            modalidade: input.prepModalidade,
+          },
+          currentStep: Math.max(p.currentStep, 6),
+          updatedAt: new Date(),
+        })
         .where(and(eq(pacientes.id, input.pacienteId), eq(pacientes.tokenId, ctx.session.tokenId)))
       return { ok: true }
     }),
 
-  // Step 6 — Serviço
+  // Step 6 — Serviço (avança direto para TCLE — etapa 7 antiga "Autorizados" foi removida)
   salvarStep6: protectedProcedure
     .input(
       z.object({
@@ -260,31 +289,7 @@ export const pacienteRouter = router({
       return { ok: true }
     }),
 
-  // Step 7 — Autorizados
-  salvarStep7: protectedProcedure
-    .input(
-      z.object({
-        pacienteId: z.number(),
-        autorizados: z.array(
-          z.object({
-            nome: z.string().max(255),
-            parentesco: z.string().max(50),
-            telefone: z.string().max(20).optional(),
-          }),
-        ).max(10),
-      }),
-    )
-    .mutation(async ({ input, ctx }) => {
-      assertPatient(ctx.session)
-      const p = await validarEtapaPaciente(input.pacienteId, ctx.session.tokenId, 7)
-      await db
-        .update(pacientes)
-        .set({ autorizadosJson: input.autorizados, currentStep: Math.max(p.currentStep, 8), updatedAt: new Date() })
-        .where(and(eq(pacientes.id, input.pacienteId), eq(pacientes.tokenId, ctx.session.tokenId)))
-      return { ok: true }
-    }),
-
-  // Salvar assinatura TCLE
+  // Salvar assinatura TCLE (etapa 7 — antiga etapa 8)
   salvarTcle: protectedProcedure
     .input(z.object({
       pacienteId: z.number(),
@@ -292,7 +297,7 @@ export const pacienteRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       assertPatient(ctx.session)
-      await validarEtapaPaciente(input.pacienteId, ctx.session.tokenId, 8)
+      await validarEtapaPaciente(input.pacienteId, ctx.session.tokenId, 7)
       await db
         .insert(tcleAssinaturas)
         .values({ pacienteId: input.pacienteId, assinaturaDataUrl: input.assinaturaDataUrl })
@@ -378,11 +383,13 @@ export const pacienteRouter = router({
         cpf: decrypt(p.cpfEncrypted),
         nome: decrypt(p.nomeEncrypted),
         dataNascimento: p.dataNascimentoEncrypted ? decrypt(p.dataNascimentoEncrypted) : null,
+        nomeMae: p.nomeMaeEncrypted ? decrypt(p.nomeMaeEncrypted) : null,
         email: p.emailEncrypted ? decrypt(p.emailEncrypted) : null,
         telefone: p.telefoneEncrypted ? decrypt(p.telefoneEncrypted) : null,
         cpfEncrypted: undefined,
         nomeEncrypted: undefined,
         dataNascimentoEncrypted: undefined,
+        nomeMaeEncrypted: undefined,
         emailEncrypted: undefined,
         telefoneEncrypted: undefined,
       }

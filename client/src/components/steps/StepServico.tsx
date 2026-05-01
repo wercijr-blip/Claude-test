@@ -41,40 +41,35 @@ export default function StepServico({ pacienteId, onNext, onBack, defaultValues 
       <h2 className="text-lg font-semibold text-slate-800 mb-5">Serviço</h2>
 
       <form onSubmit={handleSubmit((d) => salvar.mutate(d))} className="space-y-4">
-        <Field label="Origem do atendimento" error={errors.tipoAtendimento?.message}>
-          {hasIntake ? (
-            <div className="flex items-center gap-2 border border-slate-200 rounded-lg py-3 px-4 bg-slate-50">
-              <span className="text-sm font-medium text-slate-700">
-                {tipo === 'particular' ? 'Privado / Particular' : tipo === 'convenio' ? 'Convênio / Plano de saúde' : 'SUS'}
-              </span>
-              <span className="ml-auto text-xs text-slate-400">Preenchido do cadastro</span>
-            </div>
-          ) : (
-            <div className="grid grid-cols-3 gap-3">
-              {([['particular', 'Privado'], ['convenio', 'Convênio'], ['sus', 'SUS']] as const).map(([v, l]) => (
-                <label key={v} className={`flex items-center justify-center gap-2 border rounded-lg py-3 px-4 cursor-pointer text-sm font-medium transition-colors ${tipo === v ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}>
-                  <input type="radio" value={v} {...register('tipoAtendimento')} className="sr-only" />
-                  {l}
-                </label>
-              ))}
-            </div>
+        {/* Tipo de atendimento — vem do cadastro (intake), oculto se já preenchido */}
+        {hasIntake
+          ? <input type="hidden" {...register('tipoAtendimento')} />
+          : (
+            <Field label="Origem do atendimento" error={errors.tipoAtendimento?.message}>
+              <div className="grid grid-cols-3 gap-3">
+                {([['particular', 'Privado'], ['convenio', 'Convênio'], ['sus', 'SUS']] as const).map(([v, l]) => (
+                  <label key={v} className={`flex items-center justify-center gap-2 border rounded-lg py-3 px-4 cursor-pointer text-sm font-medium transition-colors ${tipo === v ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}>
+                    <input type="radio" value={v} {...register('tipoAtendimento')} className="sr-only" />
+                    {l}
+                  </label>
+                ))}
+              </div>
+            </Field>
           )}
-        </Field>
 
         {tipo === 'convenio' && (
           <>
-            <Field label="Nome do convênio" error={undefined}>
-              <input
-                {...register('convenio')}
-                className={inputCls(false)}
-                placeholder="Ex: Unimed, Bradesco Saúde"
-                readOnly={hasIntake && !!defaultValues?.convenio}
-                style={hasIntake && defaultValues?.convenio ? { background: '#f8fafc', color: '#64748b' } : undefined}
-              />
-              {hasIntake && defaultValues?.convenio && (
-                <p className="mt-0.5 text-xs text-slate-400">Preenchido do cadastro</p>
+            {hasIntake && defaultValues?.convenio
+              ? <input type="hidden" {...register('convenio')} />
+              : (
+                <Field label="Nome do convênio" error={undefined}>
+                  <input
+                    {...register('convenio')}
+                    className={inputCls(false)}
+                    placeholder="Ex: Unimed, Bradesco Saúde"
+                  />
+                </Field>
               )}
-            </Field>
             <Field label="Número da carteirinha" error={undefined}>
               <input {...register('numeroConvenio')} className={inputCls(false)} />
             </Field>

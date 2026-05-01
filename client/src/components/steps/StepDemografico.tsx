@@ -2,15 +2,22 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { trpc } from '../../lib/trpc.ts'
-import { COR_RACA_OPTIONS, ESCOLARIDADE_OPTIONS } from '@shared/const.ts'
+import {
+  COR_RACA_OPTIONS,
+  ESCOLARIDADE_OPTIONS,
+  IDENTIDADE_GENERO_OPTIONS,
+  ORIENTACAO_SEXUAL_OPTIONS,
+  ESTADOS_BR,
+} from '@shared/const.ts'
 
 const schema = z.object({
   pacienteId: z.number(),
   corRaca: z.string().min(1, 'Selecione uma opção'),
   escolaridade: z.string().min(1, 'Selecione uma opção'),
-  situacaoConjugal: z.string().optional(),
-  rendaFamiliar: z.string().optional(),
-  ocupacao: z.string().optional(),
+  identidadeGenero: z.string().optional(),
+  orientacaoSexual: z.string().optional(),
+  ufNascimento: z.string().optional(),
+  municipioNascimento: z.string().optional(),
 })
 
 type FormData = z.infer<typeof schema>
@@ -46,29 +53,32 @@ export default function StepDemografico({ pacienteId, onNext, onBack }: Props) {
           </select>
         </Field>
 
-        <Field label="Situação conjugal" error={errors.situacaoConjugal?.message}>
-          <select {...register('situacaoConjugal')} className={inputCls(false)}>
+        <Field label="Identidade de gênero (opcional)" error={undefined}>
+          <select {...register('identidadeGenero')} className={inputCls(false)}>
             <option value="">Selecione (opcional)</option>
-            <option value="solteiro">Solteiro(a)</option>
-            <option value="casado">Casado(a) / União estável</option>
-            <option value="separado">Separado(a) / Divorciado(a)</option>
-            <option value="viuvo">Viúvo(a)</option>
+            {IDENTIDADE_GENERO_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </Field>
 
-        <Field label="Renda familiar" error={undefined}>
-          <select {...register('rendaFamiliar')} className={inputCls(false)}>
+        <Field label="Orientação sexual (opcional)" error={undefined}>
+          <select {...register('orientacaoSexual')} className={inputCls(false)}>
             <option value="">Selecione (opcional)</option>
-            <option value="ate_1sm">Até 1 salário mínimo</option>
-            <option value="1_3sm">1 a 3 salários mínimos</option>
-            <option value="3_5sm">3 a 5 salários mínimos</option>
-            <option value="acima_5sm">Acima de 5 salários mínimos</option>
+            {ORIENTACAO_SEXUAL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </Field>
 
-        <Field label="Ocupação" error={undefined}>
-          <input {...register('ocupacao')} className={inputCls(false)} placeholder="Sua profissão ou ocupação atual" />
-        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="UF de nascimento (opcional)" error={undefined}>
+            <select {...register('ufNascimento')} className={inputCls(false)}>
+              <option value="">Selecione</option>
+              {ESTADOS_BR.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
+            </select>
+          </Field>
+
+          <Field label="Município de nascimento (opcional)" error={undefined}>
+            <input {...register('municipioNascimento')} className={inputCls(false)} placeholder="Nome do município" />
+          </Field>
+        </div>
 
         {salvar.error && <p className="text-red-500 text-sm">{salvar.error.message}</p>}
 

@@ -1,57 +1,19 @@
-import { PDFDocument, PDFFont, PDFPage, rgb, StandardFonts } from 'pdf-lib'
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 import { readFile } from 'fs/promises'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import forge from 'node-forge'
+import { SignPdf } from '@signpdf/signpdf'
+import { P12Signer } from '@signpdf/signer-p12'
+import { plainAddPlaceholder } from '@signpdf/placeholder-plain'
+import { SUBFILTER_ETSI_CADES_DETACHED } from '@signpdf/utils'
 import { env } from './_core/env.ts'
+import { desenharCarimboDigital, carimboFromEnv } from './sus/carimboDigital.ts'
+
+const signpdf = new SignPdf()
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const CERTS_DIR = path.join(__dirname, 'certs')
-
-export function desenharCarimboICP(
-  page: PDFPage,
-  font: PDFFont,
-  fontBold: PDFFont,
-  pageWidth: number,
-  margin: number,
-): void {
-  const bX = margin
-  const bY = 8
-  const bW = pageWidth - margin * 2
-  const bH = 46
-
-  page.drawRectangle({
-    x: bX, y: bY, width: bW, height: bH,
-    color: rgb(0.92, 0.95, 1.0),
-    borderColor: rgb(0.07, 0.27, 0.52),
-    borderWidth: 1,
-  })
-
-  const nome = env.MEDICO_NOME
-  const crm  = env.MEDICO_CRM
-  const temMedico = !!(nome || crm)
-
-  page.drawText('DOCUMENTO ASSINADO DIGITALMENTE — PADRÃO ICP-BRASIL', {
-    x: bX + 10, y: bY + (temMedico ? 31 : 24),
-    font: fontBold, size: 8.5, color: rgb(0.07, 0.27, 0.52),
-  })
-
-  if (temMedico) {
-    const linha = [nome, crm ? `CRM ${crm}` : ''].filter(Boolean).join(' · ')
-    page.drawText(linha, {
-      x: bX + 10, y: bY + 19,
-      font: fontBold, size: 8, color: rgb(0.08, 0.08, 0.28),
-    })
-  }
-
-  page.drawText(
-    `Medida Provisória 2.200-2/2001 · Resolução CFM 2.299/2021 · ${env.APP_URL}`,
-    {
-      x: bX + 10, y: bY + (temMedico ? 9 : 12),
-      font, size: 6.5, color: rgb(0.3, 0.3, 0.55),
-    },
-  )
-}
 
 export interface PdfSignResult {
   buffer: Buffer
@@ -59,7 +21,7 @@ export interface PdfSignResult {
   assinadoEm: Date
 }
 
-export async function gerarPrescricaoPdf(paciente: Paciente): Promise<Buffer> {
+export async function gerarPrescricaoPdf(paciente: Paciente & { pacienteId?: number }): Promise<Buffer> {
   const doc = await PDFDocument.create()
   const page = doc.addPage([595, 842]) // A4
   const font = await doc.embedFont(StandardFonts.Helvetica)
@@ -121,17 +83,19 @@ export async function gerarPrescricaoPdf(paciente: Paciente): Promise<Buffer> {
   page.drawText('Validade da Receita:', { x: margin, y, font: fontBold, size: 10, color: rgb(0.07, 0.27, 0.52) })
   page.drawText(`Até ${dataValidade} (4 meses)`, { x: margin + 120, y, font, size: 10, color: rgb(0.1, 0.1, 0.1) })
 
-  // Data de emissão + carimbo digital
+  // Data de emissão + carimbo digital com QR Code
   const dataEmissao = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
   page.drawText(`Emitido em: ${dataEmissao}`, {
-    x: margin, y: 62, font, size: 8, color: rgb(0.5, 0.5, 0.5),
+    x: margin, y: 72, font, size: 8, color: rgb(0.5, 0.5, 0.5),
   })
-  desenharCarimboICP(page, font, fontBold, width, margin)
+  const carimboPresc = carimboFromEnv('prescricao', paciente.pacienteId ?? 0)
+  await desenharCarimboDigital(doc, page, { x: margin, y: 8, width: width - margin * 2, height: 60 }, carimboPresc)
 
   return Buffer.from(await doc.save())
 }
 
 export interface PacienteCompleto {
+  pacienteId?: number
   nome: string
   cpf?: string
   dataNascimento: string | null
@@ -254,30 +218,108 @@ export async function gerarFormularioPdf(paciente: PacienteCompleto): Promise<Bu
 
   const emitido = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
   page.drawText(`Emitido em: ${emitido}`, {
-    x: m, y: 62, font, size: 8, color: rgb(0.5, 0.5, 0.5),
+    x: m, y: 72, font, size: 8, color: rgb(0.5, 0.5, 0.5),
   })
-  desenharCarimboICP(page, font, fontBold, width, m)
+  const carimboForm = carimboFromEnv('formulario', paciente.pacienteId ?? 0)
+  await desenharCarimboDigital(doc, page, { x: m, y: 8, width: width - m * 2, height: 60 }, carimboForm)
 
   return Buffer.from(await doc.save())
 }
 
-export async function assinarPdf(pdfBuffer: Buffer, titulo = 'Documento PrEP — Facilita PrEP'): Promise<PdfSignResult> {
-  const pfxPassword = env.ICP_PFX_PASSWORD ?? ''
+/**
+ * Lê o certificado .pfx do ICP-Brasil — prioridade:
+ *   1. env.ICP_PFX_BASE64 (Railway/produção)
+ *   2. server/certs/werciley.pfx (desenvolvimento)
+ */
+async function lerPfx(): Promise<Buffer | null> {
+  if (env.ICP_PFX_BASE64) return Buffer.from(env.ICP_PFX_BASE64, 'base64')
+  try { return await readFile(path.join(CERTS_DIR, 'werciley.pfx')) }
+  catch { return null }
+}
 
-  // Prioridade 1: env var ICP_PFX_BASE64 (Railway/produção)
-  // Prioridade 2: arquivo local server/certs/werciley.pfx (desenvolvimento)
-  let pfxData: Buffer | null = null
+/** Lê o serial do certificado a partir do .pfx para registro de auditoria. */
+function extrairSerial(pfxData: Buffer, password: string): string {
+  const pfxDer = pfxData.toString('binary')
+  const pfxAsn1 = forge.asn1.fromDer(pfxDer)
+  const pfxObj = forge.pkcs12.pkcs12FromAsn1(pfxAsn1, password)
+  const certBag = pfxObj.getBags({ bagType: forge.pki.oids.certBag })[forge.pki.oids.certBag]?.[0]
+  return certBag?.cert?.serialNumber ?? 'unknown'
+}
 
-  if (env.ICP_PFX_BASE64) {
-    pfxData = Buffer.from(env.ICP_PFX_BASE64, 'base64')
-  } else {
-    const pfxPath = path.join(CERTS_DIR, 'werciley.pfx')
-    try {
-      pfxData = await readFile(pfxPath)
-    } catch {
-      // Certificado não encontrado
+export interface CertificadoInfo {
+  status: 'configurado' | 'demo' | 'erro'
+  /** CN (Common Name) do titular */
+  titular?: string
+  /** CN do emissor */
+  emissor?: string
+  serial?: string
+  validoDe?: Date
+  validoAte?: Date
+  diasRestantes?: number
+  /** True se está dentro do período de validade */
+  valido?: boolean
+  /** True se vence em menos de 60 dias */
+  vencendoEm60Dias?: boolean
+  mensagem?: string
+}
+
+/**
+ * Inspeciona o certificado .pfx ICP-Brasil configurado e retorna informações
+ * de validade. Útil para painel de admin acompanhar vencimento do certificado.
+ *
+ * Não lança exceção em nenhum caso — sempre retorna um status.
+ */
+export async function inspecionarCertificado(): Promise<CertificadoInfo> {
+  const pfxData = await lerPfx()
+  if (!pfxData) {
+    return {
+      status: 'demo',
+      mensagem: 'Certificado ICP-Brasil não configurado (modo DEMO em desenvolvimento)',
     }
   }
+
+  try {
+    const password = env.ICP_PFX_PASSWORD ?? ''
+    const pfxDer = pfxData.toString('binary')
+    const pfxAsn1 = forge.asn1.fromDer(pfxDer)
+    const pfxObj = forge.pkcs12.pkcs12FromAsn1(pfxAsn1, password)
+    const certBag = pfxObj.getBags({ bagType: forge.pki.oids.certBag })[forge.pki.oids.certBag]?.[0]
+    const cert = certBag?.cert
+    if (!cert) {
+      return { status: 'erro', mensagem: 'Não foi possível extrair certificado do .pfx' }
+    }
+
+    const agora = new Date()
+    const validoDe = cert.validity.notBefore
+    const validoAte = cert.validity.notAfter
+    const diasRestantes = Math.floor((validoAte.getTime() - agora.getTime()) / 86_400_000)
+    const valido = agora >= validoDe && agora <= validoAte
+
+    return {
+      status: 'configurado',
+      titular: cert.subject.getField('CN')?.value,
+      emissor: cert.issuer.getField('CN')?.value,
+      serial: cert.serialNumber,
+      validoDe,
+      validoAte,
+      diasRestantes,
+      valido,
+      vencendoEm60Dias: valido && diasRestantes <= 60,
+    }
+  } catch (err) {
+    return {
+      status: 'erro',
+      mensagem: `Erro ao ler certificado: ${(err as Error).message}`,
+    }
+  }
+}
+
+export async function assinarPdf(
+  pdfBuffer: Buffer,
+  titulo = 'Documento PrEP — Facilita PrEP',
+): Promise<PdfSignResult> {
+  const pfxPassword = env.ICP_PFX_PASSWORD ?? ''
+  const pfxData = await lerPfx()
 
   // Sem certificado: modo DEMO (apenas em desenvolvimento)
   if (!pfxData) {
@@ -297,44 +339,36 @@ export async function assinarPdf(pdfBuffer: Buffer, titulo = 'Documento PrEP —
     throw new Error('Certificado ICP-Brasil não configurado. Defina ICP_PFX_BASE64 no Railway ou coloque werciley.pfx em server/certs/')
   }
 
-  const pfxDer = pfxData.toString('binary')
-  const pfxAsn1 = forge.asn1.fromDer(pfxDer)
-  const pfxObj = forge.pkcs12.pkcs12FromAsn1(pfxAsn1, pfxPassword)
-
-  // Extrair certificado e chave privada
-  const certBags = pfxObj.getBags({ bagType: forge.pki.oids.certBag })
-  const keyBags = pfxObj.getBags({ bagType: forge.pki.oids.pkcs8ShroudedKeyBag })
-
-  const certBag = certBags[forge.pki.oids.certBag]?.[0]
-  const keyBag = keyBags[forge.pki.oids.pkcs8ShroudedKeyBag]?.[0]
-
-  if (!certBag?.cert || !keyBag?.key) {
-    throw new Error('Certificado ICP-Brasil não encontrado em server/certs/werciley.pfx')
-  }
-
-  const cert = certBag.cert
-  const privateKey = keyBag.key as forge.pki.rsa.PrivateKey
-
-  // Criar assinatura PKCS#7
-  const md = forge.md.sha256.create()
-  md.update(pdfBuffer.toString('binary'))
-  const signature = privateKey.sign(md)
-
-  const serial = cert.serialNumber
+  // 1. Atualiza metadados antes da assinatura (para que sejam parte do que é assinado)
+  const docComMetadados = await PDFDocument.load(pdfBuffer)
+  docComMetadados.setTitle(titulo)
+  docComMetadados.setProducer('Facilita PrEP — ICP-Brasil')
+  docComMetadados.setCreator('Facilita PrEP')
   const assinadoEm = new Date()
+  docComMetadados.setModificationDate(assinadoEm)
+  const pdfComMetadados = Buffer.from(await docComMetadados.save({ useObjectStreams: false }))
 
-  // Embedar metadados de assinatura no PDF
-  const doc = await PDFDocument.load(pdfBuffer)
-  doc.setTitle(titulo)
-  doc.setAuthor(cert.subject.getField('CN')?.value ?? 'Médico Responsável')
-  doc.setCreationDate(assinadoEm)
-  doc.setModificationDate(assinadoEm)
+  // 2. Adiciona placeholder de assinatura no PDF (PAdES SubFilter ETSI.CAdES.detached)
+  const pdfComPlaceholder = plainAddPlaceholder({
+    pdfBuffer: pdfComMetadados,
+    reason: 'Documento médico assinado digitalmente — Facilita PrEP',
+    contactInfo: env.MEDICO_NOME,
+    name: env.MEDICO_NOME,
+    location: `${env.MEDICO_CRM_TIPO}/${env.MEDICO_CRM_UF} ${env.MEDICO_CRM}`,
+    signingTime: assinadoEm,
+    subFilter: SUBFILTER_ETSI_CADES_DETACHED,
+    appName: 'Facilita PrEP',
+  })
 
-  const signedBuffer = Buffer.from(await doc.save())
+  // 3. Assina o placeholder com o .pfx (PKCS#7 detached SignedData)
+  const signer = new P12Signer(pfxData, { passphrase: pfxPassword })
+  const signedBuffer = await signpdf.sign(pdfComPlaceholder, signer)
+
+  const certificadoSerial = extrairSerial(pfxData, pfxPassword)
 
   return {
-    buffer: signedBuffer,
-    certificadoSerial: serial,
+    buffer: Buffer.from(signedBuffer),
+    certificadoSerial,
     assinadoEm,
   }
 }

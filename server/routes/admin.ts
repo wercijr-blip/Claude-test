@@ -7,6 +7,7 @@ import { eq, desc, inArray } from 'drizzle-orm'
 import type { Role } from '../../shared/types.ts'
 import { decrypt } from '../_core/encryption.ts'
 import { filtrarExamePorStatus } from '../examUtils.ts'
+import { inspecionarCertificado } from '../pdfSigner.ts'
 
 type ResultadoIaJson = {
   status?: string
@@ -235,6 +236,13 @@ export const adminRouter = router({
         .orderBy(desc(securityEvents.createdAt))
         .limit(input.limit)
     }),
+
+  // ── Saúde do certificado ICP-Brasil ─────────────────────────
+  // Mostra status, titular, emissor, serial e dias até expirar do .pfx
+  // configurado (via ICP_PFX_BASE64 ou server/certs/werciley.pfx).
+  saudeCertificado: adminProcedure.query(async () => {
+    return inspecionarCertificado()
+  }),
 
   // Exportar auditoria como CSV (retorna string CSV)
   exportarAuditoria: adminProcedure.query(async () => {
