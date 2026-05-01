@@ -145,6 +145,7 @@ export const consultaRouter = router({
       const { completo, ist, hiv, densitometria } = await gerarPedidosExames(
         consulta.tipoConsulta as 'primeiro_atendimento' | 'ja_faco_prep',
         info.nome,
+        ctx.session.tokenId,
       )
 
       const [

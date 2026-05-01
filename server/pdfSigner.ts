@@ -1,61 +1,19 @@
-import { PDFDocument, PDFFont, PDFPage, rgb, StandardFonts } from 'pdf-lib'
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 import { readFile } from 'fs/promises'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import forge from 'node-forge'
-import signpdf from '@signpdf/signpdf'
+import { SignPdf } from '@signpdf/signpdf'
 import { P12Signer } from '@signpdf/signer-p12'
 import { plainAddPlaceholder } from '@signpdf/placeholder-plain'
 import { SUBFILTER_ETSI_CADES_DETACHED } from '@signpdf/utils'
 import { env } from './_core/env.ts'
+import { desenharCarimboDigital, carimboFromEnv } from './sus/carimboDigital.ts'
+
+const signpdf = new SignPdf()
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const CERTS_DIR = path.join(__dirname, 'certs')
-
-export function desenharCarimboICP(
-  page: PDFPage,
-  font: PDFFont,
-  fontBold: PDFFont,
-  pageWidth: number,
-  margin: number,
-): void {
-  const bX = margin
-  const bY = 8
-  const bW = pageWidth - margin * 2
-  const bH = 46
-
-  page.drawRectangle({
-    x: bX, y: bY, width: bW, height: bH,
-    color: rgb(0.92, 0.95, 1.0),
-    borderColor: rgb(0.07, 0.27, 0.52),
-    borderWidth: 1,
-  })
-
-  const nome = env.MEDICO_NOME
-  const crm  = env.MEDICO_CRM
-  const temMedico = !!(nome || crm)
-
-  page.drawText('DOCUMENTO ASSINADO DIGITALMENTE — PADRÃO ICP-BRASIL', {
-    x: bX + 10, y: bY + (temMedico ? 31 : 24),
-    font: fontBold, size: 8.5, color: rgb(0.07, 0.27, 0.52),
-  })
-
-  if (temMedico) {
-    const linha = [nome, crm ? `CRM ${crm}` : ''].filter(Boolean).join(' · ')
-    page.drawText(linha, {
-      x: bX + 10, y: bY + 19,
-      font: fontBold, size: 8, color: rgb(0.08, 0.08, 0.28),
-    })
-  }
-
-  page.drawText(
-    `Medida Provisória 2.200-2/2001 · Resolução CFM 2.299/2021 · ${env.APP_URL}`,
-    {
-      x: bX + 10, y: bY + (temMedico ? 9 : 12),
-      font, size: 6.5, color: rgb(0.3, 0.3, 0.55),
-    },
-  )
-}
 
 export interface PdfSignResult {
   buffer: Buffer
@@ -63,7 +21,7 @@ export interface PdfSignResult {
   assinadoEm: Date
 }
 
-export async function gerarPrescricaoPdf(paciente: Paciente): Promise<Buffer> {
+export async function gerarPrescricaoPdf(paciente: Paciente & { pacienteId?: number }): Promise<Buffer> {
   const doc = await PDFDocument.create()
   const page = doc.addPage([595, 842]) // A4
   const font = await doc.embedFont(StandardFonts.Helvetica)
@@ -125,17 +83,19 @@ export async function gerarPrescricaoPdf(paciente: Paciente): Promise<Buffer> {
   page.drawText('Validade da Receita:', { x: margin, y, font: fontBold, size: 10, color: rgb(0.07, 0.27, 0.52) })
   page.drawText(`Até ${dataValidade} (4 meses)`, { x: margin + 120, y, font, size: 10, color: rgb(0.1, 0.1, 0.1) })
 
-  // Data de emissão + carimbo digital
+  // Data de emissão + carimbo digital com QR Code
   const dataEmissao = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
   page.drawText(`Emitido em: ${dataEmissao}`, {
-    x: margin, y: 62, font, size: 8, color: rgb(0.5, 0.5, 0.5),
+    x: margin, y: 72, font, size: 8, color: rgb(0.5, 0.5, 0.5),
   })
-  desenharCarimboICP(page, font, fontBold, width, margin)
+  const carimboPresc = carimboFromEnv('prescricao', paciente.pacienteId ?? 0)
+  await desenharCarimboDigital(doc, page, { x: margin, y: 8, width: width - margin * 2, height: 60 }, carimboPresc)
 
   return Buffer.from(await doc.save())
 }
 
 export interface PacienteCompleto {
+  pacienteId?: number
   nome: string
   cpf?: string
   dataNascimento: string | null
@@ -258,9 +218,10 @@ export async function gerarFormularioPdf(paciente: PacienteCompleto): Promise<Bu
 
   const emitido = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
   page.drawText(`Emitido em: ${emitido}`, {
-    x: m, y: 62, font, size: 8, color: rgb(0.5, 0.5, 0.5),
+    x: m, y: 72, font, size: 8, color: rgb(0.5, 0.5, 0.5),
   })
-  desenharCarimboICP(page, font, fontBold, width, m)
+  const carimboForm = carimboFromEnv('formulario', paciente.pacienteId ?? 0)
+  await desenharCarimboDigital(doc, page, { x: m, y: 8, width: width - m * 2, height: 60 }, carimboForm)
 
   return Buffer.from(await doc.save())
 }

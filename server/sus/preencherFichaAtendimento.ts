@@ -145,7 +145,7 @@ export async function preencherFichaAtendimento(
 
   // ── Carimbo digital + QR Code (na área do Signature2) ─────────
   // Signature2 rect: (291, 280) w=279 h=29 — pequeno, mas é o local oficial
-  const info = carimbo ?? carimboFromEnv(dados.pacienteId, 'ficha')
+  const info = carimbo ?? carimboFromEnv('ficha', dados.pacienteId)
   const page = pdfDoc.getPages()[0]
   await desenharCarimboDigital(pdfDoc, page, { x: 291, y: 280, width: 279, height: 29 }, info)
 

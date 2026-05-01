@@ -87,8 +87,8 @@ export async function desenharCarimboDigital(
   })
 }
 
-/** Helper que monta o objeto CarimboInfo a partir das ENV vars + paciente. */
-export function carimboFromEnv(pacienteId: number, tipoDoc: string): CarimboInfo {
+/** Helper que monta CarimboInfo a partir das ENV vars + identificador do documento. */
+export function carimboFromEnv(tipoDoc: string, identifier: string | number): CarimboInfo {
   const now = new Date()
   const dd = String(now.getDate()).padStart(2, '0')
   const mm = String(now.getMonth() + 1).padStart(2, '0')
@@ -101,7 +101,7 @@ export function carimboFromEnv(pacienteId: number, tipoDoc: string): CarimboInfo
     crmTipo: env.MEDICO_CRM_TIPO,
     crmUf: env.MEDICO_CRM_UF,
     crmNumero: env.MEDICO_CRM,
-    verificationUrl: `${env.APP_URL}/v/${tipoDoc}-${pacienteId}`,
+    verificationUrl: `${env.APP_URL}/v/${tipoDoc}-${identifier}`,
     emitidoEm: `${dd}/${mm}/${yyyy} ${hh}:${min}`,
   }
 }

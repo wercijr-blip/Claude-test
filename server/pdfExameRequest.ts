@@ -7,13 +7,20 @@ import {
   EXAMES_DENSITOMETRIA,
   type Exame,
 } from '../shared/const.ts'
-import { desenharCarimboICP } from './pdfSigner.ts'
+import { desenharCarimboDigital, carimboFromEnv } from './sus/carimboDigital.ts'
+
+/** Identificador único para o QR code do carimbo (usado em /v/...). */
+function makeIdentifier(tokenId: number, tipo: string): string {
+  return `${tipo}-${tokenId}`
+}
 
 async function gerarPdfPedido(
   exames: readonly Exame[],
   titulo: string,
   subtitulo: string,
   nomePaciente: string,
+  tokenId: number,
+  tipoDoc: string,
   observacao?: string,
 ): Promise<Buffer> {
   const doc = await PDFDocument.create()
@@ -33,6 +40,9 @@ async function gerarPdfPedido(
   }
 
   let { page, y } = novaPage()
+  const carimbo = carimboFromEnv(tipoDoc, makeIdentifier(tokenId, tipoDoc))
+  const desenharCarimboNaPagina = (p: import('pdf-lib').PDFPage) =>
+    desenharCarimboDigital(doc, p, { x: margin, y: 8, width: PAGE_W - margin * 2, height: 60 }, carimbo)
 
   // Header (primeira página)
   page.drawText('FACILITA PrEP', { x: margin, y, font: fontBold, size: 18, color: rgb(0.07, 0.27, 0.52) })
@@ -63,7 +73,7 @@ async function gerarPdfPedido(
   for (const exame of exames) {
     // Quebra de página quando o espaço acabar
     if (y < MIN_Y) {
-      desenharCarimboICP(page, font, fontBold, PAGE_W, margin)
+      await desenharCarimboNaPagina(page)
       ;({ page, y } = novaPage())
       // Cabeçalho de continuação
       page.drawText(`${titulo} (continuação)`, { x: margin, y, font: fontBold, size: 11, color: rgb(0.07, 0.27, 0.52) })
@@ -78,7 +88,7 @@ async function gerarPdfPedido(
 
   if (observacao) {
     if (y < MIN_Y + 40) {
-      desenharCarimboICP(page, font, fontBold, PAGE_W, margin)
+      await desenharCarimboNaPagina(page)
       ;({ page, y } = novaPage())
     }
     y -= 8
@@ -87,10 +97,10 @@ async function gerarPdfPedido(
     page.drawText(observacao, { x: margin, y, font, size: 9, color: rgb(0.4, 0.4, 0.4), maxWidth: PAGE_W - margin * 2 })
   }
 
-  // Data de emissão + carimbo digital na última página
+  // Data de emissão + carimbo digital com QR Code na última página
   const dataEmissao = new Date().toLocaleDateString('pt-BR')
-  page.drawText(`Data de emissão: ${dataEmissao}`, { x: margin, y: 62, font, size: 8, color: rgb(0.5, 0.5, 0.5) })
-  desenharCarimboICP(page, font, fontBold, PAGE_W, margin)
+  page.drawText(`Data de emissão: ${dataEmissao}`, { x: margin, y: 72, font, size: 8, color: rgb(0.5, 0.5, 0.5) })
+  await desenharCarimboNaPagina(page)
 
   return Buffer.from(await doc.save())
 }
@@ -98,6 +108,7 @@ async function gerarPdfPedido(
 export async function gerarPedidosExames(
   tipoConsulta: 'primeiro_atendimento' | 'ja_faco_prep',
   nomePaciente: string,
+  tokenId: number,
 ): Promise<{ completo: Buffer; ist: Buffer; hiv: Buffer; densitometria: Buffer }> {
   const examesCompleto = tipoConsulta === 'primeiro_atendimento'
     ? EXAMES_PRIMEIRO_ATENDIMENTO
@@ -113,24 +124,32 @@ export async function gerarPedidosExames(
       'Pedido de Exames Completo',
       subtituloCompleto,
       nomePaciente,
+      tokenId,
+      'pedido_completo',
     ),
     gerarPdfPedido(
       EXAMES_SOROLOGICOS_IST,
       'Pedido de Exames Sorológicos de IST',
       'Infecções sexualmente transmissíveis — rastreamento PrEP',
       nomePaciente,
+      tokenId,
+      'pedido_ist',
     ),
     gerarPdfPedido(
       EXAMES_HIV_ISOLADO,
       'Pedido de Exame Anti-HIV',
       'Anti-HIV 1/2 com Ag p24 — 4ª geração',
       nomePaciente,
+      tokenId,
+      'pedido_hiv',
     ),
     gerarPdfPedido(
       EXAMES_DENSITOMETRIA,
       'Pedido de Densitometria Óssea',
       'Monitoramento de densidade mineral óssea — uso de Tenofovir (TDF)',
       nomePaciente,
+      tokenId,
+      'pedido_densitometria',
       'Indicado para monitoramento de pacientes em uso de Tenofovir Disoproxil Fumarato (TDF). Repetir a cada 12 meses.',
     ),
   ])

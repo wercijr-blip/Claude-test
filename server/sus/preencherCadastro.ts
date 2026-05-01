@@ -164,7 +164,7 @@ export async function preencherCadastroSUS(
   }
 
   // ── 6. Carimbo digital + QR Code (área confirmada no rodapé) ──
-  const info = carimbo ?? carimboFromEnv(dados.pacienteId, 'cadastro')
+  const info = carimbo ?? carimboFromEnv('cadastro', dados.pacienteId)
   const page = pdfDoc.getPages()[0]
   await desenharCarimboDigital(pdfDoc, page, { x: 20, y: 15, width: 290, height: 85 }, info)
 
