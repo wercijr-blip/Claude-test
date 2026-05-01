@@ -53,6 +53,7 @@ export default function SegundaParteInicio() {
   const [tipoConsulta, setTipoConsulta] = useState<TipoConsulta | null>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const [exameNome, setExameNome] = useState<string | null>(null)
   const [iniciarError, setIniciarError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -97,6 +98,7 @@ export default function SegundaParteInicio() {
   async function uploadExame(file: File) {
     setUploading(true)
     setUploadError(null)
+    setExameNome(file.name)
     try {
       const fd = new FormData()
       fd.append('file', file)
@@ -534,13 +536,21 @@ export default function SegundaParteInicio() {
           </p>
         </div>
 
-        <label className="flex flex-col items-center justify-center w-full border-2 border-dashed border-slate-200 hover:border-sage rounded-2xl py-10 cursor-pointer bg-slate-50 hover:bg-sage-pale transition-all mb-4 group">
+        <label className="flex flex-col items-center justify-center w-full border-2 border-dashed border-slate-200 hover:border-sage rounded-2xl py-10 cursor-pointer bg-slate-50 hover:bg-sage-pale transition-all mb-4 group px-4">
           {uploading ? (
             <>
-              <svg className="w-10 h-10 text-sage animate-bounce mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-              </svg>
+              <div className="w-10 h-10 border-2 border-sage-light border-t-sage rounded-full animate-spin mb-3" />
               <p className="text-sage text-sm font-medium">Enviando…</p>
+              {exameNome && <p className="text-slate-500 text-xs mt-1 max-w-full truncate">{exameNome}</p>}
+            </>
+          ) : exameNome ? (
+            <>
+              <svg className="w-10 h-10 text-sage mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-sage text-sm font-medium">Exame anexado</p>
+              <p className="text-slate-600 text-xs mt-1 max-w-full truncate font-medium">{exameNome}</p>
+              <p className="text-brand text-xs mt-2 underline">Clique para trocar</p>
             </>
           ) : (
             <>
@@ -559,6 +569,7 @@ export default function SegundaParteInicio() {
             onChange={(e) => {
               const file = e.target.files?.[0]
               if (file) uploadExame(file)
+              e.target.value = ''
             }}
           />
         </label>

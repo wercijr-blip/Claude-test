@@ -88,7 +88,11 @@ export default function IntakePage() {
   const [dentroHorario, setDentroHorario] = useState(isDentroHorarioAtendimento())
   const [precadastroId, setPrecadastroId] = useState<number | null>(null)
   const [carteirinhaKey, setCarteirinhaKey] = useState<string | null>(null)
+  const [carteirinhaNome, setCarteirinhaNome] = useState<string | null>(null)
+  const [carteirinhaUploading, setCarteirinhaUploading] = useState(false)
   const [documentoKey, setDocumentoKey] = useState<string | null>(null)
+  const [documentoNome, setDocumentoNome] = useState<string | null>(null)
+  const [documentoUploading, setDocumentoUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [planosAbertos, setPlanosAbertos] = useState(false)
 
@@ -465,43 +469,97 @@ export default function IntakePage() {
                 <div>
                   <label className={labelCls}>Carteirinha do plano</label>
                   <label className="flex flex-col items-center justify-center w-full border-2 border-dashed border-slate-200 hover:border-brand rounded-2xl py-5 cursor-pointer bg-slate-50 hover:bg-brand-pale transition-all">
-                    <svg className="w-8 h-8 text-slate-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                    </svg>
-                    <span className="text-sm text-slate-400">{carteirinhaKey ? '✓ Carteirinha enviada' : 'Clique para enviar'}</span>
-                    <span className="text-xs text-slate-300 mt-0.5">PDF, JPG ou PNG</span>
+                    {carteirinhaUploading ? (
+                      <>
+                        <div className="w-8 h-8 border-2 border-brand-light border-t-brand rounded-full animate-spin mb-2" />
+                        <span className="text-sm text-brand">Enviando…</span>
+                      </>
+                    ) : carteirinhaKey ? (
+                      <>
+                        <svg className="w-8 h-8 text-sage mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className="text-sm text-sage font-medium">Carteirinha enviada</span>
+                        <span className="text-xs text-slate-500 mt-1 max-w-[90%] truncate">{carteirinhaNome}</span>
+                        <span className="text-xs text-brand mt-1 underline">Trocar arquivo</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-8 h-8 text-slate-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                        <span className="text-sm text-slate-400">Clique para enviar</span>
+                        <span className="text-xs text-slate-300 mt-0.5">PDF, JPG ou PNG</span>
+                      </>
+                    )}
                     <input
                       type="file" accept="image/*,.pdf" className="hidden"
                       onChange={async (e) => {
                         const file = e.target.files?.[0]
                         if (!file) return
-                        try { setCarteirinhaKey(await uploadArquivo(file)) }
-                        catch { setUploadError('Erro ao enviar carteirinha. Tente novamente.') }
+                        setUploadError(null)
+                        setCarteirinhaUploading(true)
+                        try {
+                          const key = await uploadArquivo(file)
+                          setCarteirinhaKey(key)
+                          setCarteirinhaNome(file.name)
+                        } catch {
+                          setUploadError('Erro ao enviar carteirinha. Tente novamente.')
+                        } finally {
+                          setCarteirinhaUploading(false)
+                          e.target.value = ''
+                        }
                       }}
                     />
                   </label>
-                  {carteirinhaKey && <p className="text-sage text-xs mt-1.5 flex items-center gap-1">✓ Carteirinha recebida com sucesso</p>}
                 </div>
 
                 <div>
                   <label className={labelCls}>Documento de identidade (RG ou CNH)</label>
                   <label className="flex flex-col items-center justify-center w-full border-2 border-dashed border-slate-200 hover:border-brand rounded-2xl py-5 cursor-pointer bg-slate-50 hover:bg-brand-pale transition-all">
-                    <svg className="w-8 h-8 text-slate-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                    </svg>
-                    <span className="text-sm text-slate-400">{documentoKey ? '✓ Documento enviado' : 'Clique para enviar'}</span>
-                    <span className="text-xs text-slate-300 mt-0.5">PDF, JPG ou PNG</span>
+                    {documentoUploading ? (
+                      <>
+                        <div className="w-8 h-8 border-2 border-brand-light border-t-brand rounded-full animate-spin mb-2" />
+                        <span className="text-sm text-brand">Enviando…</span>
+                      </>
+                    ) : documentoKey ? (
+                      <>
+                        <svg className="w-8 h-8 text-sage mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className="text-sm text-sage font-medium">Documento enviado</span>
+                        <span className="text-xs text-slate-500 mt-1 max-w-[90%] truncate">{documentoNome}</span>
+                        <span className="text-xs text-brand mt-1 underline">Trocar arquivo</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-8 h-8 text-slate-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                        <span className="text-sm text-slate-400">Clique para enviar</span>
+                        <span className="text-xs text-slate-300 mt-0.5">PDF, JPG ou PNG</span>
+                      </>
+                    )}
                     <input
                       type="file" accept="image/*,.pdf" className="hidden"
                       onChange={async (e) => {
                         const file = e.target.files?.[0]
                         if (!file) return
-                        try { setDocumentoKey(await uploadArquivo(file)) }
-                        catch { setUploadError('Erro ao enviar documento. Tente novamente.') }
+                        setUploadError(null)
+                        setDocumentoUploading(true)
+                        try {
+                          const key = await uploadArquivo(file)
+                          setDocumentoKey(key)
+                          setDocumentoNome(file.name)
+                        } catch {
+                          setUploadError('Erro ao enviar documento. Tente novamente.')
+                        } finally {
+                          setDocumentoUploading(false)
+                          e.target.value = ''
+                        }
                       }}
                     />
                   </label>
-                  {documentoKey && <p className="text-sage text-xs mt-1.5 flex items-center gap-1">✓ Documento recebido com sucesso</p>}
                 </div>
               </>
             )}
@@ -512,10 +570,16 @@ export default function IntakePage() {
             {isPlano ? (
               <button
                 type="submit"
-                disabled={foraHorario || criar.isPending}
-                className="w-full bg-sage text-white py-3.5 rounded-2xl font-semibold disabled:opacity-50 hover:bg-sage-dark transition-all shadow-md hover:shadow-lg text-sm"
+                disabled={foraHorario || criar.isPending || carteirinhaUploading || documentoUploading || !carteirinhaKey || !documentoKey}
+                className="w-full bg-sage text-white py-3.5 rounded-2xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-sage-dark transition-all shadow-md hover:shadow-lg text-sm"
               >
-                {criar.isPending ? 'Enviando…' : 'Enviar para validação →'}
+                {criar.isPending
+                  ? 'Enviando…'
+                  : (carteirinhaUploading || documentoUploading)
+                    ? 'Aguarde upload terminar…'
+                    : (!carteirinhaKey || !documentoKey)
+                      ? 'Anexe a carteirinha e o documento'
+                      : 'Enviar para validação →'}
               </button>
             ) : (
               <button
