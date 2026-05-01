@@ -1,4 +1,4 @@
-import { Component, useEffect, useRef, type ReactNode } from 'react'
+import { Component, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Route, Switch, useLocation } from 'wouter'
 import { useAuth, parseJwtPayload } from './_core/hooks/useAuth.ts'
 import IntakePage from './components/IntakePage.tsx'
@@ -180,6 +180,36 @@ function AuthCallback() {
 }
 
 function PagamentoSucesso() {
+  const params = new URLSearchParams(window.location.search)
+  const sessionId = params.get('session_id') ?? ''
+  const [, navigate] = useLocation()
+  const { setToken } = useAuth()
+  const hasAttempted = useRef(false)
+  const [erro, setErro] = useState<string | null>(null)
+
+  const validarToken = trpc.token.validar.useMutation({
+    onSuccess: (data: { sessionToken: string }) => {
+      setToken(data.sessionToken)
+      navigate('/inicio')
+    },
+    onError: (err: { message: string }) => setErro(err.message),
+  })
+
+  const acesso = trpc.intake.acessoPosPagamento.useMutation({
+    onSuccess: (data: { token: string }) => {
+      validarToken.mutate({ token: data.token })
+    },
+    onError: (err: { message: string }) => setErro(err.message),
+  })
+
+  useEffect(() => {
+    if (sessionId && !hasAttempted.current) {
+      hasAttempted.current = true
+      acesso.mutate({ sessionId })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId])
+
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 max-w-md w-full text-center">
@@ -189,10 +219,19 @@ function PagamentoSucesso() {
           </svg>
         </div>
         <h2 className="text-xl font-bold text-slate-800 mb-2">Pagamento confirmado!</h2>
-        <p className="text-slate-500 text-sm">
-          Em instantes você receberá o link de acesso ao formulário por <strong>e-mail</strong> e <strong>WhatsApp</strong>.
-        </p>
-        <p className="text-slate-400 text-xs mt-4">Verifique também sua caixa de spam.</p>
+        {erro ? (
+          <>
+            <p className="text-slate-500 text-sm mb-2">
+              Em instantes você receberá o link de acesso ao formulário por <strong>e-mail</strong> e <strong>WhatsApp</strong>.
+            </p>
+            <p className="text-slate-400 text-xs mt-4">Verifique também sua caixa de spam.</p>
+          </>
+        ) : (
+          <>
+            <p className="text-slate-500 text-sm">Te levando para o próximo passo…</p>
+            <div className="w-6 h-6 border-2 border-slate-200 border-t-emerald-600 rounded-full animate-spin mx-auto mt-4" />
+          </>
+        )}
       </div>
     </div>
   )

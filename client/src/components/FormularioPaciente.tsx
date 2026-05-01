@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useLocation } from 'wouter'
 import { FORM_STEPS, TOTAL_FORM_STEPS } from '@shared/const.ts'
 import { LogoWordmark } from './Logo.tsx'
 import StepPaciente from './steps/StepPaciente.tsx'
@@ -124,7 +125,7 @@ function TelaDocumentos({ pacienteId }: { pacienteId: number }) {
                         'Ficha de Cadastro (gerada pelo Facilita PrEP)',
                         'Receita Médica (gerada pelo Facilita PrEP)',
                         'Formulário PrEP (gerado pelo Facilita PrEP)',
-                        'Resultado do exame Anti-HIV (menos de 7 dias — o mesmo enviado aqui)',
+                        'Resultado do exame Anti-HIV (até 7 dias — o mesmo enviado aqui)',
                       ].map(item => (
                         <li key={item} className="flex items-start gap-1.5 text-xs text-sage-dark">
                           <svg className="w-3.5 h-3.5 text-sage shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -142,7 +143,7 @@ function TelaDocumentos({ pacienteId }: { pacienteId: number }) {
                       {[
                         'Receita Médica (gerada pelo Facilita PrEP)',
                         'Formulário PrEP (gerado pelo Facilita PrEP)',
-                        'Resultado do exame Anti-HIV (menos de 7 dias — o mesmo enviado aqui)',
+                        'Resultado do exame Anti-HIV (até 7 dias — o mesmo enviado aqui)',
                       ].map(item => (
                         <li key={item} className="flex items-start gap-1.5 text-xs text-sage-dark">
                           <svg className="w-3.5 h-3.5 text-sage shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -176,6 +177,7 @@ function TelaDocumentos({ pacienteId }: { pacienteId: number }) {
 }
 
 export default function FormularioPaciente({ pacienteId: initialPacienteId, initialStep = 1 }: Props) {
+  const [, navigate] = useLocation()
   const [currentStep, setCurrentStep] = useState(initialStep)
   const [pacienteId, setPacienteId] = useState<number | null>(initialPacienteId ?? null)
   const [finalizado, setFinalizado] = useState(false)
@@ -205,6 +207,16 @@ export default function FormularioPaciente({ pacienteId: initialPacienteId, init
     <div className="min-h-screen bg-warm-bg py-8 px-4">
       <div className="max-w-2xl mx-auto">
         <div className="mb-8">
+          <button
+            type="button"
+            onClick={() => navigate('/inicio')}
+            className="text-xs text-slate-500 hover:text-brand transition-colors flex items-center gap-1 mb-2"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Voltar para etapas anteriores
+          </button>
           <h1 className="text-xl font-bold text-brand">Facilita PrEP</h1>
           <p className="text-sm text-slate-500 mt-0.5">
             Etapa {currentStep} de {TOTAL_FORM_STEPS} — {FORM_STEPS[currentStep - 1]?.titulo}

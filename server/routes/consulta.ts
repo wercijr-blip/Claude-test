@@ -280,7 +280,7 @@ export const consultaRouter = router({
           await enviarExameRejeitadoData(info.email, info.nome, novasTentativas, env.APP_URL).catch(console.error)
         }
         if (info.telefone) {
-          const msg = `Olá ${info.nome}, seu exame foi rejeitado: precisa ter menos de 7 dias. Envie um novo: ${env.APP_URL}/inicio (Tentativa ${novasTentativas}/2)`
+          const msg = `Olá ${info.nome}, seu exame foi rejeitado: precisa ter sido realizado há até 7 dias (inclusive). Envie um novo: ${env.APP_URL}/inicio (Tentativa ${novasTentativas}/2)`
           await enviarWhatsApp(info.telefone, msg).catch(console.error)
         }
 
@@ -303,20 +303,45 @@ export const consultaRouter = router({
       }
 
       // ── REGRA D — Nome não bate ──────────────────────────────────
+      // Mesma lógica de retry da regra de data: 1ª tentativa devolve para o paciente
+      // reenviar (ele pode ter mandado o exame errado). Na 2ª, escala para médico.
       if (extracao.nomeExame && nomeCadastro) {
         const sim = calcularSimilaridadeNome(extracao.nomeExame, nomeCadastro)
         if (sim < 0.70) {
+          const novasTentativas = tentativasAtuais + 1
+          const motivoCurto = `Nome divergente — exame: "${extracao.nomeExame}", cadastro: "${nomeCadastro}" (${Math.round(sim * 100)}%)`
+
+          if (novasTentativas >= 2) {
+            await db.update(consultasInicio)
+              .set({
+                status: 'pendente_revisao_medica',
+                resultadoIa: extracao,
+                motivoRejeicao: `Limite de tentativas por nome divergente atingido — ${motivoCurto}`,
+                tentativasReenvio: novasTentativas,
+                updatedAt: new Date(),
+              })
+              .where(eq(consultasInicio.id, consulta.id))
+
+            await _notificarMedicosEPaciente(info, false, motivoCurto)
+            return { status: 'pendente_revisao_medica' as const, tentativasReenvio: novasTentativas }
+          }
+
           await db.update(consultasInicio)
             .set({
-              status: 'pendente_revisao_medica',
+              status: 'rejeitado_nome_invalido',
               resultadoIa: extracao,
-              motivoRejeicao: `Nome no exame divergente (similaridade ${Math.round(sim * 100)}%)`,
+              motivoRejeicao: motivoCurto,
+              tentativasReenvio: novasTentativas,
               updatedAt: new Date(),
             })
             .where(eq(consultasInicio.id, consulta.id))
 
-          await _notificarMedicosEPaciente(info, false, `Nome no exame (${extracao.nomeExame}) diverge do cadastro`)
-          return { status: 'pendente_revisao_medica' as const }
+          if (info.telefone) {
+            const msg = `Olá ${info.nome}, o nome no exame ("${extracao.nomeExame}") não confere com o cadastro ("${nomeCadastro}"). Verifique e envie novamente: ${env.APP_URL}/inicio (Tentativa ${novasTentativas}/2)`
+            await enviarWhatsApp(info.telefone, msg).catch(console.error)
+          }
+
+          return { status: 'rejeitado_nome_invalido' as const, tentativasReenvio: novasTentativas }
         }
       }
 
@@ -368,9 +393,28 @@ export const consultaRouter = router({
         .where(eq(consultasInicio.tokenId, ctx.session.tokenId))
         .limit(1)
 
-      if (!consulta) return { status: 'aguardando_escolha' as const, tipoConsulta: null, tentativasReenvio: 0 }
+      if (!consulta) {
+        return {
+          status: 'aguardando_escolha' as const,
+          tipoConsulta: null,
+          temExameRecente: null,
+          motivoRejeicao: null,
+          linkExpiresAt: null,
+          tentativasReenvio: 0,
+          dataExame: null,
+          resultadoHiv: null,
+          nomeExame: null,
+          nomeCadastro: null,
+        }
+      }
 
-      const resultadoIa = consulta.resultadoIa as { dataExame?: string; resultadoHiv?: string } | null
+      const resultadoIa = consulta.resultadoIa as
+        | { dataExame?: string; resultadoHiv?: string; nomeExame?: string }
+        | null
+
+      // Nome cadastrado para comparação visual (mostrar ao paciente
+      // o que a IA leu vs. o que está no cadastro).
+      const info = await getInfoPaciente(ctx.session.tokenId).catch(() => null)
 
       return {
         status: consulta.status,
@@ -381,6 +425,8 @@ export const consultaRouter = router({
         tentativasReenvio: consulta.tentativasReenvio ?? 0,
         dataExame: consulta.dataExameValidado ?? resultadoIa?.dataExame ?? null,
         resultadoHiv: consulta.resultadoHivValidado ?? resultadoIa?.resultadoHiv ?? null,
+        nomeExame: resultadoIa?.nomeExame ?? null,
+        nomeCadastro: info?.nome ?? null,
       }
     }),
 

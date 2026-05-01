@@ -207,20 +207,28 @@ Responda APENAS com JSON, sem texto adicional:
 export function parseDateBR(dataStr: string): Date | null {
   // Aceita "DD/MM/AAAA" mesmo com sufixos como horário ("24/04/2026 - 13:16:00")
   // ou texto adicional. Pega a primeira ocorrência válida.
+  // Usa Date.UTC para ancorar a meia-noite e evitar shift de fuso quando o
+  // servidor roda em UTC e o paciente está em BRT.
   const match = dataStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/)
   if (!match) return null
   const [, dd, mm, yyyy] = match
-  const d = new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd))
+  const d = new Date(Date.UTC(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd)))
   if (isNaN(d.getTime())) return null
   return d
 }
 
+// Janela inclusiva: aceita exames com idade entre 0 e `diasMaximos` dias
+// (ex.: 7 dias inclusive). "Hoje" é calculado no calendário de São Paulo,
+// não no fuso do servidor — Railway roda em UTC, e a partir de 21:00 BRT
+// "hoje" no servidor já era o dia seguinte, encurtando a janela em 1 dia.
 export function isDataValida(dataExame: Date | null, diasMaximos = 7): boolean {
   if (!dataExame) return false
-  const hoje = new Date()
-  hoje.setHours(23, 59, 59, 999)
-  const limite = new Date(hoje)
-  limite.setDate(limite.getDate() - diasMaximos)
-  limite.setHours(0, 0, 0, 0)
-  return dataExame >= limite && dataExame <= hoje
+  const hojeBR = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date())
+  const [y, m, d] = hojeBR.split('-').map(Number)
+  const hojeUTC = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999))
+  const limiteUTC = new Date(Date.UTC(y, m - 1, d - diasMaximos, 0, 0, 0, 0))
+  return dataExame >= limiteUTC && dataExame <= hojeUTC
 }

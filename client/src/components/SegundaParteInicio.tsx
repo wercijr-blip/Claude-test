@@ -3,7 +3,7 @@ import { trpc } from '../lib/trpc.ts'
 import { useLocation } from 'wouter'
 import { LogoWordmark } from './Logo.tsx'
 
-type Etapa = 'tipo_consulta' | 'tem_exame' | 'upload_exame' | 'gerar_pedido' | 'aguardando_ia' | 'em_revisao_medica' | 'aprovado' | 'rejeitado' | 'rejeitado_data_invalida' | 'expirado'
+type Etapa = 'tipo_consulta' | 'tem_exame' | 'upload_exame' | 'gerar_pedido' | 'aguardando_ia' | 'em_revisao_medica' | 'aprovado' | 'rejeitado' | 'rejeitado_data_invalida' | 'rejeitado_nome_invalido' | 'expirado'
 type TipoConsulta = 'primeiro_atendimento' | 'ja_faco_prep'
 
 const btnPrimary = 'w-full bg-brand text-white py-3.5 rounded-2xl font-semibold hover:bg-brand-dark disabled:opacity-50 transition-all shadow-md hover:shadow-lg text-sm'
@@ -69,6 +69,7 @@ export default function SegundaParteInicio() {
     if (s.status === 'aprovado' || s.status === 'aprovado_ia') { setEtapa('aprovado'); return }
     if (s.status === 'rejeitado') { setEtapa('rejeitado'); return }
     if (s.status === 'rejeitado_data_invalida') { setEtapa('rejeitado_data_invalida'); return }
+    if (s.status === 'rejeitado_nome_invalido') { setEtapa('rejeitado_nome_invalido'); return }
     if (
       s.status === 'pendente_revisao_medica' ||
       s.status === 'pendente_revisao_medica_urgente' ||
@@ -114,6 +115,8 @@ export default function SegundaParteInicio() {
         setEtapa('aprovado')
       } else if (result.status === 'rejeitado_data_invalida') {
         setEtapa('rejeitado_data_invalida')
+      } else if (result.status === 'rejeitado_nome_invalido') {
+        setEtapa('rejeitado_nome_invalido')
       } else {
         setEtapa('em_revisao_medica')
       }
@@ -157,6 +160,8 @@ export default function SegundaParteInicio() {
 
   // ── Aprovado ──────────────────────────────────────────────────
   if (etapa === 'aprovado') {
+    const nomeNoExame = statusQuery.data?.nomeExame
+    const dataValidada = statusQuery.data?.dataExame
     return (
       <StatusCard
         icon={<svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
@@ -164,6 +169,22 @@ export default function SegundaParteInicio() {
         title="Tudo certo! Você pode seguir com segurança"
         subtitle="Seu exame não apresentou nenhuma alteração — você está no caminho certo. Estamos aqui para acompanhar cada passo do seu cuidado."
       >
+        {(nomeNoExame || dataValidada) && (
+          <div className="bg-sage-pale border border-sage-light rounded-2xl p-4 mb-4 text-left space-y-1.5">
+            {nomeNoExame && (
+              <p className="text-sage-dark text-sm">
+                <span className="text-sage-dark/70">Nome confirmado:</span>{' '}
+                <strong>{nomeNoExame}</strong>
+              </p>
+            )}
+            {dataValidada && (
+              <p className="text-sage-dark text-sm">
+                <span className="text-sage-dark/70">Data do exame:</span>{' '}
+                <strong>{dataValidada}</strong>
+              </p>
+            )}
+          </div>
+        )}
         <div className="bg-sage-pale border border-sage-light rounded-2xl p-4 mb-6 text-left">
           <p className="text-sage-dark text-sm font-medium mb-1">Próximo passo:</p>
           <p className="text-sage text-sm">Preencha o formulário clínico para que nosso médico possa emitir sua receita com total segurança.</p>
@@ -241,7 +262,49 @@ export default function SegundaParteInicio() {
         </div>
         <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-4 text-left">
           <p className="text-slate-700 text-sm font-medium mb-1">O que fazer agora:</p>
-          <p className="text-slate-500 text-sm">Realize um novo exame Anti-HIV (4ª geração) em qualquer laboratório e envie o resultado aqui assim que obtiver — ele precisa ter menos de 7 dias.</p>
+          <p className="text-slate-500 text-sm">Realize um novo exame Anti-HIV (4ª geração) em qualquer laboratório e envie o resultado aqui assim que obtiver — ele precisa ter sido realizado há até 7 dias (inclusive).</p>
+        </div>
+        <button onClick={() => setEtapa('upload_exame')} className={btnPrimary}>
+          Enviar novo exame →
+        </button>
+      </StatusCard>
+    )
+  }
+
+  // ── Nome divergente (pode reenviar) ───────────────────────────
+  if (etapa === 'rejeitado_nome_invalido') {
+    const tentativas = statusQuery.data?.tentativasReenvio ?? 1
+    const restantes = 2 - tentativas
+    const nomeNoExame = statusQuery.data?.nomeExame
+    const nomeNoCadastro = statusQuery.data?.nomeCadastro
+    return (
+      <StatusCard
+        icon={
+          <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+        }
+        iconBg="bg-honey-light" iconColor="text-honey"
+        title="O nome do exame não confere com o cadastro"
+        subtitle="Para garantir sua segurança, o nome no resultado do exame precisa ser o mesmo que está no cadastro."
+      >
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-4 text-left space-y-2">
+          <div>
+            <p className="text-slate-400 text-xs uppercase tracking-wide">Nome lido no exame</p>
+            <p className="text-slate-700 text-sm font-medium">{nomeNoExame ?? '—'}</p>
+          </div>
+          <div>
+            <p className="text-slate-400 text-xs uppercase tracking-wide">Nome no seu cadastro</p>
+            <p className="text-slate-700 text-sm font-medium">{nomeNoCadastro ?? '—'}</p>
+          </div>
+        </div>
+        <div className="bg-honey-light border border-honey-light rounded-2xl p-4 mb-4 text-left">
+          <p className="text-honey-dark text-sm font-medium mb-1">Tentativa {tentativas} de 2</p>
+          <p className="text-honey text-sm">
+            {restantes > 0
+              ? `Confira se enviou o exame correto. Você ainda tem ${restantes} tentativa${restantes > 1 ? 's' : ''}.`
+              : 'Seu caso será analisado por um de nossos médicos.'}
+          </p>
         </div>
         <button onClick={() => setEtapa('upload_exame')} className={btnPrimary}>
           Enviar novo exame →
@@ -358,7 +421,7 @@ export default function SegundaParteInicio() {
               </svg>
             </div>
             <h2 className="text-xl font-bold text-slate-800">Você tem exame de HIV recente?</h2>
-            <p className="text-slate-400 text-sm mt-1">O exame precisa ter sido realizado há <strong className="text-slate-600">menos de 7 dias</strong>.</p>
+            <p className="text-slate-400 text-sm mt-1">O exame precisa ter sido realizado há <strong className="text-slate-600">até 7 dias</strong> (inclusive).</p>
           </div>
 
           <div className="space-y-3">
@@ -467,7 +530,7 @@ export default function SegundaParteInicio() {
           </div>
           <h2 className="text-xl font-bold text-slate-800">Envio do exame de HIV</h2>
           <p className="text-slate-400 text-sm mt-1">
-            Envie o resultado do exame <strong className="text-slate-600">Anti-HIV 1/2 (4ª geração)</strong> realizado há menos de 7 dias.
+            Envie o resultado do exame <strong className="text-slate-600">Anti-HIV 1/2 (4ª geração)</strong> realizado há até 7 dias (inclusive).
           </p>
         </div>
 
@@ -507,7 +570,7 @@ export default function SegundaParteInicio() {
           <p className="text-brand-dark text-sm font-semibold mb-2">Critérios de validação automática</p>
           <div className="space-y-1.5">
             {[
-              'Exame realizado há menos de 7 dias',
+              'Exame realizado há até 7 dias (inclusive)',
               'Imagem legível, sem cortes ou desfoque',
               'Nome do paciente visível e compatível',
               'Resultado não reagente / negativo',

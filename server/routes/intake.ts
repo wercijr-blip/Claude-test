@@ -7,7 +7,7 @@ import { precadastros, accessTokens, users } from '../../drizzle/schema.ts'
 import { eq, desc, inArray } from 'drizzle-orm'
 import { encrypt, decrypt, hashCpf } from '../_core/encryption.ts'
 import { validarCpf, normalizarCpf } from '../_core/cpfValidator.ts'
-import { criarCheckoutIntake } from '../stripe/products.ts'
+import { criarCheckoutIntake, stripe } from '../stripe/products.ts'
 import { enviarNotificacaoNovoPlano, enviarConfirmacaoPlano } from '../email.ts'
 import { getPresignedUrl } from '../storage.ts'
 import { env } from '../_core/env.ts'
@@ -25,7 +25,10 @@ function isDentroHorarioAtendimento(): boolean {
   return isDiaUtil && isDentroHorario
 }
 
-export async function gerarEEnviarLinkAcesso(precadastroId: number, validadoPorId?: number): Promise<void> {
+export async function gerarEEnviarLinkAcesso(
+  precadastroId: number,
+  validadoPorId?: number,
+): Promise<{ raw: string }> {
   const [precad] = await db.select().from(precadastros).where(eq(precadastros.id, precadastroId)).limit(1)
   if (!precad) throw new Error(`Pré-cadastro ${precadastroId} não encontrado`)
 
@@ -89,6 +92,8 @@ export async function gerarEEnviarLinkAcesso(precadastroId: number, validadoPorI
   // Enqueue instead of direct send — BullMQ provides retry with backoff
   // so a transient email/WA failure doesn't silently lose the patient's link.
   await enqueueEnviarLinkAcesso(emailDecrypted, nomeDecrypted, telefoneDecrypted, link, expiresAt)
+
+  return { raw }
 }
 
 export const intakeRouter = router({
@@ -155,6 +160,38 @@ export const intakeRouter = router({
       }
 
       return { precadastroId: inserted.id }
+    }),
+
+  // Após o Stripe redirecionar para /pagamento/sucesso?session_id=...
+  // o cliente troca o session_id pelo raw access token, sem depender do
+  // e-mail/WhatsApp. O webhook checkout.session.completed também roda em
+  // paralelo e enviará as notificações como backup — a checagem
+  // `precad.status === 'link_enviado'` no webhook garante idempotência.
+  acessoPosPagamento: publicProcedure
+    .input(z.object({ sessionId: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      let session
+      try {
+        session = await stripe.checkout.sessions.retrieve(input.sessionId)
+      } catch {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Sessão de pagamento não encontrada.' })
+      }
+
+      if (session.payment_status !== 'paid') {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Pagamento ainda não foi confirmado pelo Stripe. Tente novamente em instantes.',
+        })
+      }
+
+      const rawPrecadastroId = (session.metadata as { precadastroId?: string } | null)?.precadastroId
+      if (!rawPrecadastroId) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Sessão sem precadastroId.' })
+      }
+      const precadastroId = parseInt(rawPrecadastroId, 10)
+
+      const { raw } = await gerarEEnviarLinkAcesso(precadastroId)
+      return { token: raw }
     }),
 
   // Iniciar pagamento Stripe (particular)

@@ -274,7 +274,7 @@ export default function IntakePage() {
               },
               {
                 n: '2', cor: 'bg-sage', titulo: 'Exame de HIV válido',
-                desc: 'Envie seu exame Anti-HIV realizado há menos de 7 dias. Sem exame? O Facilita PrEP gera o pedido assinado digitalmente para você levar ao laboratório.',
+                desc: 'Envie seu exame Anti-HIV realizado há até 7 dias (inclusive). Sem exame? O Facilita PrEP gera o pedido assinado digitalmente para você levar ao laboratório.',
               },
               {
                 n: '3', cor: 'bg-brand-dark', titulo: 'Validação por IA + médico',
