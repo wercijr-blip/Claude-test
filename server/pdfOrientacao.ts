@@ -376,10 +376,10 @@ function desenharLinhaCronograma(
 function desenharItemDocumento(
   page: PDFPage, font: PDFFont, fontBold: PDFFont, y: number, nome: string, descricao: string,
 ): number {
-  page.drawText('✓', { x: MARGIN + 2, y, font: fontBold, size: 10, color: rgb(0.18, 0.55, 0.34) })
+  // Quadradinho verde como "checkmark" (Helvetica/WinAnsi não suporta ✓)
+  page.drawRectangle({ x: MARGIN + 1, y: y - 1, width: 8, height: 8, color: rgb(0.18, 0.55, 0.34) })
   page.drawText(nome, { x: MARGIN + 16, y, font: fontBold, size: 9, color: COR_TEXTO })
   y -= 11
-  // Descrição em itálico
   page.drawText(descricao, { x: MARGIN + 16, y, font, size: 8, color: COR_LABEL, maxWidth: PAGE_W - MARGIN * 2 - 16 })
   return y - 13
 }
