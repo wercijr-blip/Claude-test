@@ -97,7 +97,7 @@ export function carimboFromEnv(pacienteId: number, tipoDoc: string): CarimboInfo
   const min = String(now.getMinutes()).padStart(2, '0')
 
   return {
-    medicoNome: env.MEDICO_NOME ?? 'Médico Responsável',
+    medicoNome: env.MEDICO_NOME,
     crmTipo: env.MEDICO_CRM_TIPO,
     crmUf: env.MEDICO_CRM_UF,
     crmNumero: env.MEDICO_CRM,
