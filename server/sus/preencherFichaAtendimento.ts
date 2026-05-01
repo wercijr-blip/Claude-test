@@ -110,9 +110,10 @@ export async function preencherFichaAtendimento(
   // ── Indicação PrEP ────────────────────────────────────────────
   setDropdown('11-USOPreprelacionado', 'não se aplica')
 
-  // ── 16. Sintomas IST: nenhum marcado, exceto "Não" (CB11) ────
+  // ── 16. Sintomas IST: todos desmarcados; apenas o "Não" (CB12, y=467 x=346) marcado ──
+  // Layout: 12 checkboxes — 11 sintomas + opção "Não" (instrução do cliente)
   for (let i = 1; i <= 12; i++) {
-    checkBox(`Caixa de verificação ${i}`, i === 11)
+    checkBox(`Caixa de verificação ${i}`, i === 12)
   }
 
   // ── 17/18/19. Conduta de risco ────────────────────────────────

@@ -3,6 +3,10 @@ import { readFile } from 'fs/promises'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import forge from 'node-forge'
+import signpdf from '@signpdf/signpdf'
+import { P12Signer } from '@signpdf/signer-p12'
+import { plainAddPlaceholder } from '@signpdf/placeholder-plain'
+import { SUBFILTER_ETSI_CADES_DETACHED } from '@signpdf/utils'
 import { env } from './_core/env.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -261,23 +265,32 @@ export async function gerarFormularioPdf(paciente: PacienteCompleto): Promise<Bu
   return Buffer.from(await doc.save())
 }
 
-export async function assinarPdf(pdfBuffer: Buffer, titulo = 'Documento PrEP — Facilita PrEP'): Promise<PdfSignResult> {
+/**
+ * Lê o certificado .pfx do ICP-Brasil — prioridade:
+ *   1. env.ICP_PFX_BASE64 (Railway/produção)
+ *   2. server/certs/werciley.pfx (desenvolvimento)
+ */
+async function lerPfx(): Promise<Buffer | null> {
+  if (env.ICP_PFX_BASE64) return Buffer.from(env.ICP_PFX_BASE64, 'base64')
+  try { return await readFile(path.join(CERTS_DIR, 'werciley.pfx')) }
+  catch { return null }
+}
+
+/** Lê o serial do certificado a partir do .pfx para registro de auditoria. */
+function extrairSerial(pfxData: Buffer, password: string): string {
+  const pfxDer = pfxData.toString('binary')
+  const pfxAsn1 = forge.asn1.fromDer(pfxDer)
+  const pfxObj = forge.pkcs12.pkcs12FromAsn1(pfxAsn1, password)
+  const certBag = pfxObj.getBags({ bagType: forge.pki.oids.certBag })[forge.pki.oids.certBag]?.[0]
+  return certBag?.cert?.serialNumber ?? 'unknown'
+}
+
+export async function assinarPdf(
+  pdfBuffer: Buffer,
+  titulo = 'Documento PrEP — Facilita PrEP',
+): Promise<PdfSignResult> {
   const pfxPassword = env.ICP_PFX_PASSWORD ?? ''
-
-  // Prioridade 1: env var ICP_PFX_BASE64 (Railway/produção)
-  // Prioridade 2: arquivo local server/certs/werciley.pfx (desenvolvimento)
-  let pfxData: Buffer | null = null
-
-  if (env.ICP_PFX_BASE64) {
-    pfxData = Buffer.from(env.ICP_PFX_BASE64, 'base64')
-  } else {
-    const pfxPath = path.join(CERTS_DIR, 'werciley.pfx')
-    try {
-      pfxData = await readFile(pfxPath)
-    } catch {
-      // Certificado não encontrado
-    }
-  }
+  const pfxData = await lerPfx()
 
   // Sem certificado: modo DEMO (apenas em desenvolvimento)
   if (!pfxData) {
@@ -297,44 +310,36 @@ export async function assinarPdf(pdfBuffer: Buffer, titulo = 'Documento PrEP —
     throw new Error('Certificado ICP-Brasil não configurado. Defina ICP_PFX_BASE64 no Railway ou coloque werciley.pfx em server/certs/')
   }
 
-  const pfxDer = pfxData.toString('binary')
-  const pfxAsn1 = forge.asn1.fromDer(pfxDer)
-  const pfxObj = forge.pkcs12.pkcs12FromAsn1(pfxAsn1, pfxPassword)
-
-  // Extrair certificado e chave privada
-  const certBags = pfxObj.getBags({ bagType: forge.pki.oids.certBag })
-  const keyBags = pfxObj.getBags({ bagType: forge.pki.oids.pkcs8ShroudedKeyBag })
-
-  const certBag = certBags[forge.pki.oids.certBag]?.[0]
-  const keyBag = keyBags[forge.pki.oids.pkcs8ShroudedKeyBag]?.[0]
-
-  if (!certBag?.cert || !keyBag?.key) {
-    throw new Error('Certificado ICP-Brasil não encontrado em server/certs/werciley.pfx')
-  }
-
-  const cert = certBag.cert
-  const privateKey = keyBag.key as forge.pki.rsa.PrivateKey
-
-  // Criar assinatura PKCS#7
-  const md = forge.md.sha256.create()
-  md.update(pdfBuffer.toString('binary'))
-  const signature = privateKey.sign(md)
-
-  const serial = cert.serialNumber
+  // 1. Atualiza metadados antes da assinatura (para que sejam parte do que é assinado)
+  const docComMetadados = await PDFDocument.load(pdfBuffer)
+  docComMetadados.setTitle(titulo)
+  docComMetadados.setProducer('Facilita PrEP — ICP-Brasil')
+  docComMetadados.setCreator('Facilita PrEP')
   const assinadoEm = new Date()
+  docComMetadados.setModificationDate(assinadoEm)
+  const pdfComMetadados = Buffer.from(await docComMetadados.save({ useObjectStreams: false }))
 
-  // Embedar metadados de assinatura no PDF
-  const doc = await PDFDocument.load(pdfBuffer)
-  doc.setTitle(titulo)
-  doc.setAuthor(cert.subject.getField('CN')?.value ?? 'Médico Responsável')
-  doc.setCreationDate(assinadoEm)
-  doc.setModificationDate(assinadoEm)
+  // 2. Adiciona placeholder de assinatura no PDF (PAdES SubFilter ETSI.CAdES.detached)
+  const pdfComPlaceholder = plainAddPlaceholder({
+    pdfBuffer: pdfComMetadados,
+    reason: 'Documento médico assinado digitalmente — Facilita PrEP',
+    contactInfo: env.MEDICO_NOME,
+    name: env.MEDICO_NOME,
+    location: `${env.MEDICO_CRM_TIPO}/${env.MEDICO_CRM_UF} ${env.MEDICO_CRM}`,
+    signingTime: assinadoEm,
+    subFilter: SUBFILTER_ETSI_CADES_DETACHED,
+    appName: 'Facilita PrEP',
+  })
 
-  const signedBuffer = Buffer.from(await doc.save())
+  // 3. Assina o placeholder com o .pfx (PKCS#7 detached SignedData)
+  const signer = new P12Signer(pfxData, { passphrase: pfxPassword })
+  const signedBuffer = await signpdf.sign(pdfComPlaceholder, signer)
+
+  const certificadoSerial = extrairSerial(pfxData, pfxPassword)
 
   return {
-    buffer: signedBuffer,
-    certificadoSerial: serial,
+    buffer: Buffer.from(signedBuffer),
+    certificadoSerial,
     assinadoEm,
   }
 }
