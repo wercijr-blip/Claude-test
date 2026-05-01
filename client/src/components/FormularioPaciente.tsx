@@ -182,7 +182,7 @@ export default function FormularioPaciente({ pacienteId: initialPacienteId, init
   const [pacienteId, setPacienteId] = useState<number | null>(initialPacienteId ?? null)
   const [finalizado, setFinalizado] = useState(false)
 
-  const { data: intakeData } = trpc.paciente.dadosIntake.useQuery(undefined, { retry: false })
+  const { data: intakeData, isLoading: intakeLoading } = trpc.paciente.dadosIntake.useQuery(undefined, { retry: false })
   const { data: consultaStatus } = trpc.consulta.status.useQuery(undefined, { retry: false })
 
   const next = (newPacienteId?: number) => {
@@ -198,6 +198,17 @@ export default function FormularioPaciente({ pacienteId: initialPacienteId, init
 
   if (finalizado && pacienteId) {
     return <TelaDocumentos pacienteId={pacienteId} />
+  }
+
+  // Aguarda o query do cadastro inicial — o React Hook Form usa os valores
+  // recebidos como defaultValues e só os lê uma vez no mount, então renderizar
+  // antes do dadosIntake chegar deixaria os campos vazios.
+  if (intakeLoading) {
+    return (
+      <div className="min-h-screen bg-warm-bg flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-slate-200 border-t-brand rounded-full animate-spin" />
+      </div>
+    )
   }
 
   const progress = ((currentStep - 1) / (TOTAL_FORM_STEPS - 1)) * 100
