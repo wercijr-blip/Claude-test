@@ -239,6 +239,47 @@ export const consultaRouter = router({
 
       const tentativasAtuais = consulta.tentativasReenvio ?? 0
 
+      // ── REGRA PRÉ-A — Tipo de exame ≠ HIV ──────────────────────
+      // Se a IA detectou que o documento NÃO é um exame de HIV
+      // (ex.: creatinina, hemograma, RG, comprovante), não dá pra
+      // auto-aprovar. Devolve ao paciente — pode ter mandado o
+      // arquivo errado.
+      if (extracao.tipoExameDetectado === 'outro') {
+        const novasTentativas = tentativasAtuais + 1
+        const motivo = 'Documento enviado não parece ser um exame de HIV'
+
+        if (novasTentativas >= 2) {
+          await db.update(consultasInicio)
+            .set({
+              status: 'pendente_revisao_medica',
+              resultadoIa: extracao,
+              motivoRejeicao: motivo,
+              tentativasReenvio: novasTentativas,
+              updatedAt: new Date(),
+            })
+            .where(eq(consultasInicio.id, consulta.id))
+          await _notificarMedicosEPaciente(info, false, motivo)
+          return { status: 'pendente_revisao_medica' as const, tentativasReenvio: novasTentativas }
+        }
+
+        await db.update(consultasInicio)
+          .set({
+            status: 'rejeitado_data_invalida',
+            resultadoIa: extracao,
+            motivoRejeicao: motivo,
+            tentativasReenvio: novasTentativas,
+            updatedAt: new Date(),
+          })
+          .where(eq(consultasInicio.id, consulta.id))
+
+        if (info.telefone) {
+          const msg = `Olá ${info.nome}, o documento enviado não parece ser um exame de HIV. Confira o arquivo e envie novamente: ${env.APP_URL}/inicio (Tentativa ${novasTentativas}/2)`
+          await enviarWhatsApp(info.telefone, msg).catch(console.error)
+        }
+
+        return { status: 'rejeitado_data_invalida' as const, tentativasReenvio: novasTentativas }
+      }
+
       // ── REGRA A — Data inválida ──────────────────────────────────
       const dataExame = extracao.dataExame ? parseDateBR(extracao.dataExame) : null
       if (!isDataValida(dataExame)) {

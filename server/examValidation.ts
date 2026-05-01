@@ -2,8 +2,14 @@ import { env } from './_core/env.ts'
 import { getPresignedUrl } from './storage.ts'
 
 export interface ExtracacaoExame {
+  // Tipo de exame identificado pela IA — usado para garantir que estamos
+  // analisando um exame de HIV e não outro (creatinina, hepatite, etc).
+  tipoExameDetectado: 'hiv' | 'outro' | 'nao_identificado'
   nomeExame: string | null
   resultadoHiv: 'reagente' | 'nao_reagente' | 'inconclusivo' | 'nao_identificado'
+  // Texto literal do resultado conforme escrito no laudo
+  // (ex.: "Não reagente", "Negativo", "Anti-HIV: NEGATIVO"). Auditoria.
+  resultadoTexto: string | null
   dataColeta: string | null // DD/MM/YYYY — data da coleta do material
   dataResultado: string | null // DD/MM/YYYY — data de emissão/liberação do laudo
   dataExame: string | null // DD/MM/YYYY — efetiva: a MAIS RECENTE entre coleta e resultado
@@ -94,34 +100,94 @@ export async function extrairDadosExame(s3Key: string): Promise<ExtracacaoExame>
   const imageUrl = await getPresignedUrl(s3Key, 300)
   const isPdf = /\.pdf$/i.test(s3Key)
 
-  const prompt = `Você é especialista em leitura de exames laboratoriais brasileiros.
+  const prompt = `Você é um especialista em leitura de laudos laboratoriais brasileiros.
+Sua tarefa é analisar a imagem/PDF de UM EXAME DE HIV e extrair dados estruturados.
 
-Analise a imagem e extraia APENAS as seguintes informações do exame de HIV:
-1. nomeExame: nome completo do paciente escrito no exame (string ou null se não encontrado)
-2. resultadoHiv: resultado do exame HIV — use EXATAMENTE um destes valores:
-   "reagente" (positivo), "nao_reagente" (negativo), "inconclusivo", "nao_identificado"
-3. dataColeta: data em que o material biológico foi coletado, no formato "DD/MM/AAAA".
-   Procure por rótulos como: "Data da coleta", "Coletado em", "Coleta:", "Data coleta".
-   (string ou null se não encontrado)
-4. dataResultado: data em que o resultado/laudo foi emitido/liberado, no formato "DD/MM/AAAA".
-   Procure por rótulos como: "Data de emissão", "Emitido em", "Liberado em",
-   "Data de liberação", "Resultado liberado em", "Data do resultado".
-   (string ou null se não encontrado)
-5. confianca: sua confiança de 0 a 1 na leitura (1 = exame claro e legível)
+═══════════════════════════════════════════════════════════════
+ETAPA 1 — IDENTIFICAR O TIPO DE EXAME
+═══════════════════════════════════════════════════════════════
+Antes de extrair qualquer dado, identifique se o documento é um exame
+de HIV (também chamado de Anti-HIV, HIV 1/2, sorologia para HIV,
+teste rápido HIV, ELISA HIV, quimioluminescência HIV, ECLIA HIV).
 
-REGRAS CRÍTICAS:
-- NUNCA confunda data de nascimento do paciente, data de impressão do PDF
-  ou data de validade com as datas acima.
-- Confira o ANO com cuidado (atualmente estamos em 2026).
-- Se houver apenas UMA data no exame, coloque-a em dataColeta E dataResultado
-  (ambos os campos com o mesmo valor).
+Se o documento NÃO é um exame de HIV (ex.: creatinina, hepatite,
+hemograma, glicemia, ficha cadastral, RG, comprovante etc.), defina
+"tipoExameDetectado": "outro" e devolva os demais campos como null/0.
 
-Responda APENAS com JSON, sem texto adicional:
+Se você não consegue determinar com clareza, use "nao_identificado".
+
+═══════════════════════════════════════════════════════════════
+ETAPA 2 — EXTRAÇÃO (somente se tipoExameDetectado == "hiv")
+═══════════════════════════════════════════════════════════════
+
+CAMPOS:
+
+1. nomeExame
+   Nome completo do paciente exatamente como está escrito no exame
+   (preserve maiúsculas/minúsculas e acentuação). Não invente —
+   se o nome não estiver visível, use null.
+
+2. resultadoHiv (use EXATAMENTE um destes códigos):
+   • "nao_reagente" — quando o laudo diz: NÃO REAGENTE, NEGATIVO,
+     NON-REACTIVE, AUSENTE, INDETECTÁVEL, < limite de detecção, ou
+     equivalente. É o resultado esperado para PrEP.
+   • "reagente" — REAGENTE, POSITIVO, REACTIVE, DETECTÁVEL, > corte.
+   • "inconclusivo" — INCONCLUSIVO, INDETERMINADO, BORDERLINE,
+     ZONA CINZENTA, NECESSÁRIO REPETIR.
+   • "nao_identificado" — quando não conseguiu ler o resultado.
+
+   ATENÇÃO: NÃO interprete valores de cargas virais sem rótulo.
+   Confie no texto do laudo, não em números soltos.
+
+3. resultadoTexto
+   Copie LITERALMENTE como o resultado está escrito no laudo
+   (ex.: "Não Reagente", "NEGATIVO", "Anti-HIV: NÃO REAGENTE - 0.12").
+   Use null se não conseguiu ler.
+
+4. dataColeta — formato "DD/MM/AAAA"
+   Data em que o material biológico foi coletado.
+   Rótulos típicos: "Data da coleta", "Coletado em", "Coleta:",
+   "Data coleta", "Material coletado em".
+
+5. dataResultado — formato "DD/MM/AAAA"
+   Data em que o resultado/laudo foi emitido/liberado/assinado.
+   Rótulos típicos: "Data de emissão", "Emitido em", "Liberado em",
+   "Data de liberação", "Resultado liberado em", "Data do resultado",
+   "Assinado em".
+
+6. confianca — número de 0 a 1
+   1.00 = laudo claro, todos os campos legíveis, sem ambiguidade
+   0.85 = leitura boa, talvez 1 campo dúbio
+   0.50 = imagem ruim ou laudo parcialmente ilegível
+   0.00 = não conseguiu ler quase nada
+
+═══════════════════════════════════════════════════════════════
+REGRAS ANTI-ALUCINAÇÃO (CRÍTICAS)
+═══════════════════════════════════════════════════════════════
+
+• NUNCA invente datas. Se não conseguir ler com certeza, use null.
+• NUNCA confunda data de nascimento, data de impressão do PDF,
+  data de validade, ou data do convênio com as datas do exame.
+• Datas válidas estão geralmente próximas a "hoje" — atualmente
+  estamos em 2026. Datas de 2020, 2021, 2022 quase certamente
+  são de nascimento.
+• Se houver apenas UMA data no laudo, coloque-a em ambas
+  (dataColeta E dataResultado).
+• Se o nome no exame difere visualmente do que você espera,
+  copie EXATAMENTE como está — não corrija.
+• Se a imagem está borrada/cortada, abaixe a confiança.
+
+═══════════════════════════════════════════════════════════════
+FORMATO DA RESPOSTA — APENAS JSON, SEM TEXTO EXTRA
+═══════════════════════════════════════════════════════════════
+
 {
-  "nomeExame": "Nome Completo",
+  "tipoExameDetectado": "hiv",
+  "nomeExame": "JOÃO DA SILVA SAUDE",
   "resultadoHiv": "nao_reagente",
-  "dataColeta": "15/04/2026",
-  "dataResultado": "16/04/2026",
+  "resultadoTexto": "Anti-HIV 1+2: Não Reagente",
+  "dataColeta": "24/04/2026",
+  "dataResultado": "25/04/2026",
   "confianca": 0.95
 }`
 
@@ -140,8 +206,12 @@ Responda APENAS com JSON, sem texto adicional:
       },
       signal: AbortSignal.timeout(30000),
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 300,
+        // Sonnet 4.6: vision mais robusta para texto manuscrito/digitalizado
+        // que Haiku. Custo é maior, mas exames são raros e o impacto de
+        // erro é alto (paciente recebe PrEP errado). Mantemos Haiku como
+        // fallback se Sonnet estiver indisponível.
+        model: 'claude-sonnet-4-6',
+        max_tokens: 600,
         messages: [
           {
             role: 'user',
@@ -167,7 +237,10 @@ Responda APENAS com JSON, sem texto adicional:
   const text = data.content[0]?.text ?? '{}'
 
   try {
-    const parsed = JSON.parse(text) as Partial<Omit<ExtracacaoExame, 'processadoEm'>>
+    // Modelos vision às vezes embrulham o JSON em ```json ... ```. Extrai bloco.
+    const jsonMatch = text.match(/\{[\s\S]*\}/)
+    const jsonStr = jsonMatch ? jsonMatch[0] : text
+    const parsed = JSON.parse(jsonStr) as Partial<Omit<ExtracacaoExame, 'processadoEm'>>
     const dataColeta = parsed.dataColeta ?? null
     const dataResultado = parsed.dataResultado ?? null
     // dataExame efetiva = a mais recente entre coleta e resultado (ou a única que existir).
@@ -180,19 +253,30 @@ Responda APENAS com JSON, sem texto adicional:
     } else {
       dataExameEfetiva = dataColeta ?? dataResultado
     }
+    const tipoDetectado = parsed.tipoExameDetectado ?? 'nao_identificado'
     return {
+      tipoExameDetectado: ['hiv', 'outro', 'nao_identificado'].includes(tipoDetectado)
+        ? tipoDetectado as 'hiv' | 'outro' | 'nao_identificado'
+        : 'nao_identificado',
       nomeExame: parsed.nomeExame ?? null,
       resultadoHiv: parsed.resultadoHiv ?? 'nao_identificado',
+      resultadoTexto: parsed.resultadoTexto ?? null,
       dataColeta,
       dataResultado,
       dataExame: dataExameEfetiva,
       confianca: typeof parsed.confianca === 'number' ? Math.max(0, Math.min(1, parsed.confianca)) : 0,
       processadoEm: new Date().toISOString(),
     }
-  } catch {
+  } catch (parseErr) {
+    console.error('[examValidation] Falha ao parsear resposta da IA', {
+      error: (parseErr as Error).message,
+      textPreview: text.slice(0, 300),
+    })
     return {
+      tipoExameDetectado: 'nao_identificado',
       nomeExame: null,
       resultadoHiv: 'nao_identificado',
+      resultadoTexto: null,
       dataColeta: null,
       dataResultado: null,
       dataExame: null,
