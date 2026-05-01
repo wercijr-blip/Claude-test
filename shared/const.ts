@@ -5,11 +5,10 @@ export const FORM_STEPS = [
   { step: 4, titulo: 'Conduta', rota: 'conduta' },
   { step: 5, titulo: 'Prescrição', rota: 'prescricao' },
   { step: 6, titulo: 'Serviço', rota: 'servico' },
-  { step: 7, titulo: 'Autorizados', rota: 'autorizados' },
-  { step: 8, titulo: 'TCLE', rota: 'tcle' },
+  { step: 7, titulo: 'TCLE', rota: 'tcle' },
 ] as const
 
-export const TOTAL_FORM_STEPS = 8
+export const TOTAL_FORM_STEPS = 7
 
 export const ERROR_MESSAGES = {
   UNAUTHORIZED: 'Não autorizado. Faça login para continuar.',

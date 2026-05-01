@@ -5,16 +5,9 @@ import { z } from 'zod'
 import { trpc } from '../../lib/trpc.ts'
 import { ESTADOS_BR } from '@shared/const.ts'
 
-const TIPOS_TELEFONE = [
-  { value: 'celular_whatsapp', label: 'Celular / WhatsApp' },
-  { value: 'fixo', label: 'Fixo' },
-  { value: 'comercial', label: 'Comercial' },
-] as const
-
 const schema = z.object({
   pacienteId: z.number(),
   email: z.string().email('E-mail inválido'),
-  tipoTelefone: z.string().optional(),
   telefone: z.string().min(10, 'Telefone inválido'),
   cep: z.string().regex(/^\d{8}$/, 'CEP deve ter 8 dígitos'),
   logradouro: z.string().min(2),
@@ -23,8 +16,6 @@ const schema = z.object({
   bairro: z.string().min(2),
   cidade: z.string().min(2),
   estado: z.string().length(2),
-  permiteContato: z.boolean().optional(),
-  tipoContato: z.enum(['residencial', 'celular', 'email', 'outros']).optional(),
 })
 
 type FormData = z.infer<typeof schema>
@@ -47,7 +38,6 @@ export default function StepContato({ pacienteId, onNext, onBack, defaultValues 
     defaultValues: {
       pacienteId: pacienteId ?? 0,
       email: defaultValues?.email ?? '',
-      tipoTelefone: 'celular_whatsapp',
       telefone: defaultValues?.telefone ?? '',
     },
   })
@@ -93,27 +83,15 @@ export default function StepContato({ pacienteId, onNext, onBack, defaultValues 
           {hasIntakeEmail && <p className="mt-0.5 text-xs text-slate-400">Preenchido automaticamente do cadastro · você pode editar</p>}
         </Field>
 
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Telefone</label>
-          <div className="flex gap-2">
-            <select
-              {...register('tipoTelefone')}
-              className={`${inputCls(false)} w-44 shrink-0`}
-            >
-              {TIPOS_TELEFONE.map((t) => (
-                <option key={t.value} value={t.value}>{t.label}</option>
-              ))}
-            </select>
-            <input
-              {...register('telefone')}
-              className={`${inputCls(!!errors.telefone)} flex-1`}
-              placeholder="(00) 00000-0000"
-              maxLength={15}
-            />
-          </div>
-          {errors.telefone && <p className="mt-1 text-xs text-red-500">{errors.telefone.message}</p>}
+        <Field label="Telefone celular" error={errors.telefone?.message}>
+          <input
+            {...register('telefone')}
+            className={inputCls(!!errors.telefone)}
+            placeholder="(00) 00000-0000"
+            maxLength={15}
+          />
           {hasIntakeTelefone && <p className="mt-0.5 text-xs text-slate-400">Preenchido automaticamente do cadastro · você pode editar</p>}
-        </div>
+        </Field>
 
         <div className="grid grid-cols-2 gap-4">
           <Field label="CEP" error={errors.cep?.message ?? cepErro ?? undefined}>
@@ -169,24 +147,6 @@ export default function StepContato({ pacienteId, onNext, onBack, defaultValues 
           <Field label="Cidade" error={errors.cidade?.message}>
             <input {...register('cidade')} className={inputCls(!!errors.cidade)} />
           </Field>
-        </div>
-
-        <div className="border border-slate-200 rounded-xl p-4 space-y-3">
-          <p className="text-sm font-medium text-slate-700">Preferência de contato (opcional)</p>
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input type="checkbox" {...register('permiteContato')} className="w-4 h-4 rounded border-slate-300 text-blue-600" />
-            <span className="text-sm text-slate-600">Autorizo contato para fins de saúde pública</span>
-          </label>
-          <div>
-            <label className="block text-xs text-slate-600 mb-1">Tipo de contato preferido</label>
-            <select {...register('tipoContato')} className={inputCls(false)}>
-              <option value="">Selecione (opcional)</option>
-              <option value="celular">Celular</option>
-              <option value="residencial">Telefone residencial</option>
-              <option value="email">E-mail</option>
-              <option value="outros">Outros</option>
-            </select>
-          </div>
         </div>
 
         {salvar.error && <p className="text-red-500 text-sm">{salvar.error.message}</p>}

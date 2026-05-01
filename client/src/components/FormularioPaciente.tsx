@@ -9,7 +9,6 @@ import StepContato from './steps/StepContato.tsx'
 import StepConduta from './steps/StepConduta.tsx'
 import StepPrescricao from './steps/StepPrescricao.tsx'
 import StepServico from './steps/StepServico.tsx'
-import StepAutorizados from './steps/StepAutorizados.tsx'
 import StepTcle from './StepTcle.tsx'
 import { trpc } from '../lib/trpc.ts'
 
@@ -281,8 +280,7 @@ export default function FormularioPaciente({ pacienteId: initialPacienteId, init
                 } : undefined}
               />
             )}
-            {currentStep === 7 && <StepAutorizados {...stepProps} />}
-            {currentStep === 8 && <StepTcle {...stepProps} />}
+            {currentStep === 7 && <StepTcle {...stepProps} />}
           </motion.div>
         </AnimatePresence>
       </div>

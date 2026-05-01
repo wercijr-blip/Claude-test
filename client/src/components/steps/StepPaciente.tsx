@@ -11,9 +11,7 @@ const schema = z.object({
   nome: z.string().min(3, 'Nome muito curto'),
   dataNascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida'),
   nomeMae: z.string().min(3, 'Informe o nome completo da mãe'),
-  cns: z.string().max(20).optional(),
   sexo: z.enum(['masculino', 'feminino', 'outro']),
-  nomeSocial: z.string().optional(),
 })
 
 type FormData = z.infer<typeof schema>
@@ -85,26 +83,13 @@ export default function StepPaciente({ pacienteId, onNext, defaultValues }: Prop
           />
         </Field>
 
-        <Field label="CNS — Cartão Nacional de Saúde (opcional)" error={errors.cns?.message}>
-          <input
-            {...register('cns')}
-            className={inputCls(false)}
-            placeholder="000 0000 0000 0000"
-            maxLength={20}
-          />
-        </Field>
-
-        <Field label="Sexo biológico" error={errors.sexo?.message}>
+        <Field label="Sexo ao nascimento" error={errors.sexo?.message}>
           <select {...register('sexo')} className={inputCls(!!errors.sexo)}>
             <option value="">Selecione</option>
             <option value="masculino">Masculino</option>
             <option value="feminino">Feminino</option>
-            <option value="outro">Outro</option>
+            <option value="outro">Intersexo</option>
           </select>
-        </Field>
-
-        <Field label="Nome social (opcional)" error={errors.nomeSocial?.message}>
-          <input {...register('nomeSocial')} className={inputCls(false)} placeholder="Nome pelo qual prefere ser chamado(a)" />
         </Field>
 
         {salvar.error && <p className="text-red-500 text-sm">{salvar.error.message}</p>}

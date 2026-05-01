@@ -254,7 +254,7 @@ export const pacienteRouter = router({
       return { ok: true }
     }),
 
-  // Step 6 — Serviço
+  // Step 6 — Serviço (avança direto para TCLE — etapa 7 antiga "Autorizados" foi removida)
   salvarStep6: protectedProcedure
     .input(
       z.object({
@@ -282,32 +282,7 @@ export const pacienteRouter = router({
       return { ok: true }
     }),
 
-  // Step 7 — Autorizados
-  salvarStep7: protectedProcedure
-    .input(
-      z.object({
-        pacienteId: z.number(),
-        autorizados: z.array(
-          z.object({
-            nome: z.string().max(255),
-            parentesco: z.string().max(50),
-            telefone: z.string().max(20).optional(),
-            cpfRg: z.string().max(20).optional(),
-          }),
-        ).max(3),
-      }),
-    )
-    .mutation(async ({ input, ctx }) => {
-      assertPatient(ctx.session)
-      const p = await validarEtapaPaciente(input.pacienteId, ctx.session.tokenId, 7)
-      await db
-        .update(pacientes)
-        .set({ autorizadosJson: input.autorizados, currentStep: Math.max(p.currentStep, 8), updatedAt: new Date() })
-        .where(and(eq(pacientes.id, input.pacienteId), eq(pacientes.tokenId, ctx.session.tokenId)))
-      return { ok: true }
-    }),
-
-  // Salvar assinatura TCLE
+  // Salvar assinatura TCLE (etapa 7 — antiga etapa 8)
   salvarTcle: protectedProcedure
     .input(z.object({
       pacienteId: z.number(),
@@ -315,7 +290,7 @@ export const pacienteRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       assertPatient(ctx.session)
-      await validarEtapaPaciente(input.pacienteId, ctx.session.tokenId, 8)
+      await validarEtapaPaciente(input.pacienteId, ctx.session.tokenId, 7)
       await db
         .insert(tcleAssinaturas)
         .values({ pacienteId: input.pacienteId, assinaturaDataUrl: input.assinaturaDataUrl })

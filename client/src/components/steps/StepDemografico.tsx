@@ -14,15 +14,10 @@ const schema = z.object({
   pacienteId: z.number(),
   corRaca: z.string().min(1, 'Selecione uma opção'),
   escolaridade: z.string().min(1, 'Selecione uma opção'),
-  situacaoConjugal: z.string().optional(),
-  rendaFamiliar: z.string().optional(),
-  ocupacao: z.string().optional(),
   identidadeGenero: z.string().optional(),
   orientacaoSexual: z.string().optional(),
   ufNascimento: z.string().optional(),
   municipioNascimento: z.string().optional(),
-  situacaoRua: z.boolean().optional(),
-  privadoLiberdade: z.boolean().optional(),
 })
 
 type FormData = z.infer<typeof schema>
@@ -83,42 +78,6 @@ export default function StepDemografico({ pacienteId, onNext, onBack }: Props) {
           <Field label="Município de nascimento (opcional)" error={undefined}>
             <input {...register('municipioNascimento')} className={inputCls(false)} placeholder="Nome do município" />
           </Field>
-        </div>
-
-        <Field label="Situação conjugal (opcional)" error={undefined}>
-          <select {...register('situacaoConjugal')} className={inputCls(false)}>
-            <option value="">Selecione (opcional)</option>
-            <option value="solteiro">Solteiro(a)</option>
-            <option value="casado">Casado(a) / União estável</option>
-            <option value="separado">Separado(a) / Divorciado(a)</option>
-            <option value="viuvo">Viúvo(a)</option>
-          </select>
-        </Field>
-
-        <Field label="Renda familiar (opcional)" error={undefined}>
-          <select {...register('rendaFamiliar')} className={inputCls(false)}>
-            <option value="">Selecione (opcional)</option>
-            <option value="ate_1sm">Até 1 salário mínimo</option>
-            <option value="1_3sm">1 a 3 salários mínimos</option>
-            <option value="3_5sm">3 a 5 salários mínimos</option>
-            <option value="acima_5sm">Acima de 5 salários mínimos</option>
-          </select>
-        </Field>
-
-        <Field label="Ocupação (opcional)" error={undefined}>
-          <input {...register('ocupacao')} className={inputCls(false)} placeholder="Sua profissão ou ocupação atual" />
-        </Field>
-
-        <div className="border border-slate-200 rounded-xl p-4 space-y-3">
-          <p className="text-sm font-medium text-slate-700">Dados sociais (opcionais)</p>
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input type="checkbox" {...register('situacaoRua')} className="w-4 h-4 rounded border-slate-300 text-blue-600" />
-            <span className="text-sm text-slate-600">Está em situação de rua</span>
-          </label>
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input type="checkbox" {...register('privadoLiberdade')} className="w-4 h-4 rounded border-slate-300 text-blue-600" />
-            <span className="text-sm text-slate-600">Privado(a) de liberdade (sistema prisional)</span>
-          </label>
         </div>
 
         {salvar.error && <p className="text-red-500 text-sm">{salvar.error.message}</p>}
