@@ -241,7 +241,11 @@ export default function FormularioPaciente({ pacienteId: initialPacienteId, init
             {currentStep === 1 && (
               <StepPaciente
                 {...stepProps}
-                defaultValues={{ nome: intakeData?.nome, cpf: intakeData?.cpf }}
+                defaultValues={{
+                  nome: intakeData?.nome,
+                  cpf: intakeData?.cpf,
+                  dataNascimento: intakeData?.dataNascimento ?? undefined,
+                }}
               />
             )}
             {currentStep === 2 && <StepDemografico {...stepProps} />}
