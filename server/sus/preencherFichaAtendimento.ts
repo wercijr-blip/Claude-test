@@ -143,11 +143,15 @@ export async function preencherFichaAtendimento(
     try { form.removeField(form.getButton(btn)) } catch {}
   }
 
-  // ── Carimbo digital + QR Code (na área do Signature2) ─────────
-  // Signature2 rect: (291, 280) w=279 h=29 — pequeno, mas é o local oficial
+  // ── Carimbo digital + QR Code ─────────────────────────────────
+  // Signature2 rect oficial: (291, 280) w=279 h=29 — porém com altura
+  // 29pt o QR fica em ~25pt (≈9mm), abaixo do mínimo confiável (~15mm)
+  // para leitura por scanner/celular. Estendemos para baixo (y=250,
+  // h=60), mantendo a borda direita e topo originais. QR resultante
+  // fica ~56pt (≈2cm), legível em condições normais.
   const info = carimbo ?? carimboFromEnv('ficha', dados.pacienteId)
   const page = pdfDoc.getPages()[0]
-  await desenharCarimboDigital(pdfDoc, page, { x: 291, y: 280, width: 279, height: 29 }, info)
+  await desenharCarimboDigital(pdfDoc, page, { x: 291, y: 250, width: 279, height: 60 }, info)
 
   // Descartar página 2 (instruções — não precisa imprimir)
   while (pdfDoc.getPageCount() > 1) {
