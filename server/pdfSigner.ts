@@ -14,6 +14,7 @@ import {
   desenharBannerTitulo,
   desenharBlocoPaciente,
   desenharIndicacaoCID,
+  drawTextWrapped,
 } from './pdfHeader.ts'
 
 const signpdf = new SignPdf()
@@ -69,8 +70,15 @@ export async function gerarPrescricaoPdf(paciente: Paciente & { pacienteId?: num
 
   const linhaPrescricao = (label: string, value: string) => {
     page.drawText(`${label}:`, { x: margin, y, font: fontBold, size: 10, color: rgb(0.2, 0.2, 0.25) })
-    page.drawText(value, { x: margin + 110, y, font, size: 10, color: rgb(0.1, 0.1, 0.15), maxWidth: PAGE_W - margin * 2 - 110 })
-    y -= 18
+    const valueX = margin + 110
+    const valueMaxW = PAGE_W - margin - valueX
+    const yStart = y
+    const yAfter = drawTextWrapped(page, value, {
+      x: valueX, y, font, size: 10, color: rgb(0.1, 0.1, 0.15),
+      maxWidth: valueMaxW, lineHeight: 14,
+    })
+    // garante pelo menos um avanço de 18pt mesmo se valor for vazio
+    y = Math.min(yAfter - 4, yStart - 18)
   }
 
   linhaPrescricao('Medicamento', medicamento)
@@ -81,8 +89,11 @@ export async function gerarPrescricaoPdf(paciente: Paciente & { pacienteId?: num
     y -= 4
     page.drawText('Observações:', { x: margin, y, font: fontBold, size: 9, color: rgb(0.4, 0.4, 0.45) })
     y -= 13
-    page.drawText(prescricao.observacoes, { x: margin, y, font, size: 9, color: rgb(0.2, 0.2, 0.25), maxWidth: PAGE_W - margin * 2 })
-    y -= 18
+    y = drawTextWrapped(page, prescricao.observacoes, {
+      x: margin, y, font, size: 9, color: rgb(0.2, 0.2, 0.25),
+      maxWidth: PAGE_W - margin * 2, lineHeight: 12,
+    })
+    y -= 4
   }
 
   // Indicação clínica + CID + validade (mesmo bloco dos pedidos)
@@ -146,8 +157,13 @@ export async function gerarFormularioPdf(paciente: PacienteCompleto): Promise<Bu
     const v = valor ?? '—'
     const maxW = width - m * 2 - 160
     page.drawText(label + ':', { x: m, y, font: fontBold, size: 9, color: rgb(0.4, 0.4, 0.4) })
-    page.drawText(v.length > 55 ? v.slice(0, 55) + '…' : v, { x: m + 160, y, font, size: 9, color: rgb(0.1, 0.1, 0.1), maxWidth: maxW })
-    y -= 16
+    const yStart = y
+    const yAfter = drawTextWrapped(page, v, {
+      x: m + 160, y, font, size: 9, color: rgb(0.1, 0.1, 0.1),
+      maxWidth: maxW, lineHeight: 12,
+    })
+    // mantém pelo menos 16pt de avanço (compatibilidade com layout existente)
+    y = Math.min(yAfter - 4, yStart - 16)
   }
 
   // Header
