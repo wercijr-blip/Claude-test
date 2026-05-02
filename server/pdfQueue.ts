@@ -305,7 +305,13 @@ export function startPdfWorker() {
 
       return { pdfsGerados: gerados.length }
     },
-    { connection, concurrency: 3, ...PDF_WORKER_OPTS },
+    // concurrency: 2 — reduzido de 3 para mitigar pico de memória.
+    // Cada job pode embedar uma imagem PNG/JPG de até 10MB (limite do
+    // upload), e pdf-lib expande a imagem decodificada em RAM. Com 3
+    // workers e imagens próximas do limite, o pico passava de 300MB —
+    // arriscado em containers Railway pequenos. 2 workers mantém
+    // throughput aceitável (PDFs levam ~3-8s) com pico previsível.
+    { connection, concurrency: 2, ...PDF_WORKER_OPTS },
   )
 
   worker.on('failed', (job, err) => {
