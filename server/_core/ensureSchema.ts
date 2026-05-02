@@ -131,12 +131,17 @@ const DDL_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS tcle_assinaturas (
     id INT PRIMARY KEY AUTO_INCREMENT,
     paciente_id INT NOT NULL,
-    assinatura_data_url TEXT NOT NULL,
+    assinatura_data_url TEXT NULL,
     ip_address VARCHAR(45),
     user_agent TEXT,
     signed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE INDEX idx_tcle_paciente (paciente_id)
   )`,
+
+  // Aceite eletrônico via checkbox: a coluna assinatura_data_url passa a ser
+  // opcional. Em DBs pré-existentes onde a coluna foi criada NOT NULL,
+  // converte para NULL. Idempotente — MODIFY não falha se já estiver NULL.
+  `ALTER TABLE tcle_assinaturas MODIFY COLUMN assinatura_data_url TEXT NULL`,
 
   `CREATE TABLE IF NOT EXISTS pdfs (
     id INT PRIMARY KEY AUTO_INCREMENT,

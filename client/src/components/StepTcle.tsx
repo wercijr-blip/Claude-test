@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { trpc } from '../lib/trpc.ts'
-import SignaturePad from './SignaturePad.tsx'
 
 interface Props {
   pacienteId: number | null
@@ -24,25 +23,23 @@ Este documento tem validade legal conforme CFM 2.299/2021 e possui assinatura di
 `.trim()
 
 export default function StepTcle({ pacienteId, onNext, onBack }: Props) {
-  const [assinatura, setAssinatura] = useState<string | null>(null)
   const [lido, setLido] = useState(false)
   const [error, setError] = useState('')
 
   const finalizar = trpc.paciente.finalizar.useMutation({ onSuccess: () => onNext() })
-  const salvarAssinatura = trpc.paciente.salvarTcle.useMutation({
+  const salvarAceite = trpc.paciente.salvarTcle.useMutation({
     onSuccess: () => { if (pacienteId) finalizar.mutate({ pacienteId }) },
     onError: (err) => setError(err.message),
   })
 
-  const isPending = salvarAssinatura.isPending || finalizar.isPending
+  const isPending = salvarAceite.isPending || finalizar.isPending
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     if (!lido) { setError('Confirme que leu e compreendeu o TCLE.'); return }
-    if (!assinatura) { setError('A assinatura é obrigatória.'); return }
     if (!pacienteId) return
-    salvarAssinatura.mutate({ pacienteId, assinaturaDataUrl: assinatura })
+    salvarAceite.mutate({ pacienteId, aceite: true })
   }
 
   if (!pacienteId) return null
@@ -65,21 +62,17 @@ export default function StepTcle({ pacienteId, onNext, onBack }: Props) {
               className="mt-0.5 rounded"
             />
             <span className="text-sm text-slate-700">
-              Li e compreendi o Termo de Consentimento Livre e Esclarecido acima e concordo com seus termos.
+              Li, compreendi e <strong>aceito</strong> o Termo de Consentimento Livre e Esclarecido acima.
+              Este aceite tem validade legal e será registrado eletronicamente com data, hora e endereço de IP.
             </span>
           </label>
-
-          <div>
-            <p className="text-sm font-medium text-slate-700 mb-2">Assinatura digital</p>
-            <SignaturePad onChange={setAssinatura} />
-          </div>
 
           {error && <p className="text-red-500 text-sm">{error}</p>}
 
           <div className="flex justify-between pt-2">
             <button type="button" onClick={onBack} className={btnSecondary}>← Anterior</button>
-            <button type="submit" disabled={isPending || !lido || !assinatura} className={btnPrimary}>
-              {isPending ? 'Enviando…' : 'Finalizar e enviar ✓'}
+            <button type="submit" disabled={isPending || !lido} className={btnPrimary}>
+              {isPending ? 'Enviando…' : 'Aceitar e finalizar ✓'}
             </button>
           </div>
         </form>

@@ -281,18 +281,22 @@ export const pacienteRouter = router({
       return { ok: true }
     }),
 
-  // Salvar assinatura TCLE (etapa 7 — antiga etapa 8)
+  // Aceite eletrônico do TCLE (etapa 7).
+  // Substituiu a assinatura desenhada; a evidência legal são IP, user-agent
+  // e timestamp registrados no momento do clique no checkbox.
   salvarTcle: protectedProcedure
     .input(z.object({
       pacienteId: z.number(),
-      assinaturaDataUrl: z.string().min(1).max(500_000),
+      aceite: z.literal(true),
     }))
     .mutation(async ({ input, ctx }) => {
       assertPatient(ctx.session)
       await validarEtapaPaciente(input.pacienteId, ctx.session.tokenId, 7)
+      const ipAddress = (ctx.req.ip ?? ctx.req.socket?.remoteAddress ?? null)?.slice(0, 45) ?? null
+      const userAgent = ctx.req.headers['user-agent']?.slice(0, 500) ?? null
       await db
         .insert(tcleAssinaturas)
-        .values({ pacienteId: input.pacienteId, assinaturaDataUrl: input.assinaturaDataUrl })
+        .values({ pacienteId: input.pacienteId, ipAddress, userAgent })
       return { ok: true }
     }),
 
