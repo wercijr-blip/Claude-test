@@ -30,7 +30,11 @@ console.log('Gerando PDFs de teste...')
 
 const [prescricao, pedidos] = await Promise.all([
   gerarPrescricaoPdf(paciente as never),
-  gerarPedidosExames('primeiro_atendimento', 'João da Silva Santos'),
+  gerarPedidosExames(
+    'primeiro_atendimento',
+    { nome: 'João da Silva Santos', cpf: '123.456.789-00' },
+    1,
+  ),
 ])
 
 await Promise.all([
