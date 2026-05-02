@@ -180,15 +180,25 @@ export function startPdfWorker() {
 
         for (const { key, tipo, filename, titulo } of pedidos) {
           if (!key) continue
-          const rawBuf = await getBuffer(key)
-          const { buffer: signedBuf, certificadoSerial: serialPedido, assinadoEm: assinadoPedido } =
-            await assinarPdf(rawBuf, titulo)
-          // Salva o PDF JÁ ASSINADO numa nova key para preservar o original
-          // (o original em `key` é o template não-assinado emitido na validação).
-          const signedKey = `pdfs/${pacienteId}/${Date.now() + 4}-${tipo}-assinado.pdf`
-          await uploadBuffer(signedKey, signedBuf, 'application/pdf')
-          await db.insert(pdfs).values({ pacienteId, s3Key: signedKey, tipo, certificadoSerial: serialPedido, assinadoEm: assinadoPedido })
-          gerados.push({ filename, buffer: signedBuf })
+          try {
+            const rawBuf = await getBuffer(key)
+            const { buffer: signedBuf, certificadoSerial: serialPedido, assinadoEm: assinadoPedido } =
+              await assinarPdf(rawBuf, titulo)
+            // Salva o PDF JÁ ASSINADO numa nova key para preservar o original
+            // (o original em `key` é o template não-assinado emitido na validação).
+            const signedKey = `pdfs/${pacienteId}/${Date.now() + 4}-${tipo}-assinado.pdf`
+            await uploadBuffer(signedKey, signedBuf, 'application/pdf')
+            await db.insert(pdfs).values({ pacienteId, s3Key: signedKey, tipo, certificadoSerial: serialPedido, assinadoEm: assinadoPedido })
+            gerados.push({ filename, buffer: signedBuf })
+          } catch (err) {
+            // Falha em UM pedido não pode derrubar os outros documentos
+            // (receita, ficha SUS, exame anexado, orientação) nem o
+            // disparo de e-mail/WhatsApp. A fila BullMQ retentaria 3x
+            // e cada retry duplicaria os PDFs anteriores em `pdfs`.
+            logger.error('[pdfQueue] Falha ao assinar pedido (continuando)', {
+              pacienteId, tipo, key, error: String(err),
+            })
+          }
         }
       }
 
