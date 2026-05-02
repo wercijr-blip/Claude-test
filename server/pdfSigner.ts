@@ -39,9 +39,11 @@ export async function gerarPrescricaoPdf(paciente: Paciente & { pacienteId?: num
 
   const margin = 50
 
-  // Cabeçalho institucional padronizado (mesmo layout dos pedidos de exame)
+  // Cabeçalho institucional padronizado (mesmo layout dos pedidos de exame).
+  // startY = PAGE_H corresponde ao topo da página — equivalente ao padrão
+  // de pdfExameRequest/pdfOrientacao que usam (PAGE_H - 60) + 60.
   let y = desenharCabecalhoInstitucional({
-    doc, page, font, fontBold, pageWidth: PAGE_W, margin, startY: PAGE_H - 60 + 60,
+    doc, page, font, fontBold, pageWidth: PAGE_W, margin, startY: PAGE_H,
   })
 
   // Banner roxo "RECEITA MÉDICA"
