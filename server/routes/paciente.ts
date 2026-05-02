@@ -44,12 +44,6 @@ async function validarEtapaPaciente(pacienteId: number, tokenId: number, etapaRe
 }
 
 const condutaSchema = z.object({
-  relacoesSexuais: z.object({
-    tipos: z.array(z.enum(['vaginal', 'anal_receptivo', 'anal_insertivo', 'oral'])),
-    frequencia: z.enum(['diaria', 'semanal', 'mensal', 'esporadica']),
-    parceirosUltimos6Meses: z.number().min(0),
-    usaPreservativo: z.enum(['sempre', 'quase_sempre', 'as_vezes', 'nunca']),
-  }),
   historicoDst: z.boolean(),
   dstDescricao: z.string().max(1000).optional(),
   prepAnterior: z.boolean(),
@@ -269,7 +263,6 @@ export const pacienteRouter = router({
         tipoAtendimento: z.enum(['particular', 'convenio', 'sus']),
         convenio: z.string().max(255).optional(),
         numeroConvenio: z.string().max(100).optional(),
-        valorCentavos: z.number().optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -281,7 +274,6 @@ export const pacienteRouter = router({
           tipoAtendimento: input.tipoAtendimento,
           convenio: input.convenio,
           numeroConvenio: input.numeroConvenio,
-          valorCentavos: input.valorCentavos,
           currentStep: Math.max(p.currentStep, 7),
           updatedAt: new Date(),
         })

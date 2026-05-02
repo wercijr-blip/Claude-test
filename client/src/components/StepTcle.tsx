@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { trpc } from '../lib/trpc.ts'
 import SignaturePad from './SignaturePad.tsx'
-import ExameUpload from './ExameUpload.tsx'
 
 interface Props {
   pacienteId: number | null
@@ -49,15 +48,7 @@ export default function StepTcle({ pacienteId, onNext, onBack }: Props) {
   if (!pacienteId) return null
 
   return (
-    <div className="space-y-6">
-      {/* Upload de exames */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-800 mb-1">Upload de Exames</h2>
-        <p className="text-sm text-slate-500 mb-4">Envie os resultados dos exames solicitados (HIV, Hepatite B/C, Sífilis, Creatinina).</p>
-        <ExameUpload pacienteId={pacienteId} />
-      </div>
-
-      {/* TCLE */}
+    <div>
       <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-800 mb-4">Termo de Consentimento (TCLE)</h2>
 
@@ -96,6 +87,7 @@ export default function StepTcle({ pacienteId, onNext, onBack }: Props) {
     </div>
   )
 }
+
 
 const btnPrimary = 'bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-medium py-2 px-6 rounded-lg transition-colors'
 const btnSecondary = 'text-slate-600 hover:text-slate-800 font-medium py-2 px-4 rounded-lg transition-colors'

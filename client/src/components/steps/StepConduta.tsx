@@ -6,12 +6,6 @@ import { trpc } from '../../lib/trpc.ts'
 const schema = z.object({
   pacienteId: z.number(),
   conduta: z.object({
-    relacoesSexuais: z.object({
-      tipos: z.array(z.enum(['vaginal', 'anal_receptivo', 'anal_insertivo', 'oral'])).min(1, 'Selecione ao menos um'),
-      frequencia: z.enum(['diaria', 'semanal', 'mensal', 'esporadica']),
-      parceirosUltimos6Meses: z.coerce.number().min(0),
-      usaPreservativo: z.enum(['sempre', 'quase_sempre', 'as_vezes', 'nunca']),
-    }),
     historicoDst: z.boolean(),
     dstDescricao: z.string().optional(),
     prepAnterior: z.boolean(),
@@ -24,13 +18,6 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>
 
-const TIPOS_RELACAO = [
-  { value: 'vaginal', label: 'Vaginal' },
-  { value: 'anal_receptivo', label: 'Anal receptivo' },
-  { value: 'anal_insertivo', label: 'Anal insertivo' },
-  { value: 'oral', label: 'Oral' },
-]
-
 interface Props {
   pacienteId: number | null
   onNext: () => void
@@ -39,7 +26,7 @@ interface Props {
 }
 
 export default function StepConduta({ pacienteId, onNext, onBack, examData }: Props) {
-  const { register, handleSubmit, watch, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, watch } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       pacienteId: pacienteId ?? 0,
@@ -72,47 +59,6 @@ export default function StepConduta({ pacienteId, onNext, onBack, examData }: Pr
       )}
 
       <form onSubmit={handleSubmit((d) => salvar.mutate(d))} className="space-y-5">
-        {/* Tipos de relação */}
-        <div>
-          <p className="text-sm font-medium text-slate-700 mb-2">Tipos de relação sexual praticadas</p>
-          <div className="grid grid-cols-2 gap-2">
-            {TIPOS_RELACAO.map((t) => (
-              <label key={t.value} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                <input type="checkbox" value={t.value} {...register('conduta.relacoesSexuais.tipos')} className="rounded" />
-                {t.label}
-              </label>
-            ))}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Frequência</label>
-            <select {...register('conduta.relacoesSexuais.frequencia')} className={inputCls(false)}>
-              <option value="">Selecione</option>
-              <option value="diaria">Diária</option>
-              <option value="semanal">Semanal</option>
-              <option value="mensal">Mensal</option>
-              <option value="esporadica">Esporádica</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Parceiros (últimos 6 meses)</label>
-            <input type="number" min={0} {...register('conduta.relacoesSexuais.parceirosUltimos6Meses')} className={inputCls(false)} />
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Uso de preservativo</label>
-          <select {...register('conduta.relacoesSexuais.usaPreservativo')} className={inputCls(false)}>
-            <option value="">Selecione</option>
-            <option value="sempre">Sempre</option>
-            <option value="quase_sempre">Quase sempre</option>
-            <option value="as_vezes">Às vezes</option>
-            <option value="nunca">Nunca</option>
-          </select>
-        </div>
-
         <BoolField label="Histórico de DST/IST?" {...register('conduta.historicoDst')}>
           {historicoDst && (
             <textarea {...register('conduta.dstDescricao')} rows={2} className={inputCls(false)} placeholder="Descreva as DSTs anteriores" />
