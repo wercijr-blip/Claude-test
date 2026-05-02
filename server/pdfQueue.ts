@@ -6,7 +6,7 @@ import { db } from './db.ts'
 import { pacientes, pdfs, consultasInicio, accessTokens, precadastros, pesquisaTokens } from '../drizzle/schema.ts'
 import { eq, and, gt } from 'drizzle-orm'
 import { decrypt } from './_core/encryption.ts'
-import { gerarPrescricaoPdf, assinarPdf } from './pdfSigner.ts'
+import { gerarPrescricaoPdf, assinarPdf, prepararExameAnexadoComoPdf } from './pdfSigner.ts'
 import { preencherCadastroSUS } from './sus/preencherCadastro.ts'
 import { preencherFichaAtendimento } from './sus/preencherFichaAtendimento.ts'
 import { gerarOrientacaoPdf } from './pdfOrientacao.ts'
@@ -189,6 +189,38 @@ export function startPdfWorker() {
           await uploadBuffer(signedKey, signedBuf, 'application/pdf')
           await db.insert(pdfs).values({ pacienteId, s3Key: signedKey, tipo, certificadoSerial: serialPedido, assinadoEm: assinadoPedido })
           gerados.push({ filename, buffer: signedBuf })
+        }
+      }
+
+      // 5b. Exame anexado pelo paciente (anti-HIV)
+      // Sempre que o paciente subiu um arquivo na validação inicial, ele
+      // entra no bundle final como PDF assinado ICP-Brasil. Imagens são
+      // convertidas para PDF A4 com cabeçalho institucional + carimbo;
+      // PDFs vão diretos. Em ambos os casos passa por assinarPdf.
+      if (consulta?.exameS3Key) {
+        try {
+          const rawExame = await getBuffer(consulta.exameS3Key)
+          const examePreparadoBuf = await prepararExameAnexadoComoPdf({
+            rawBuffer: rawExame,
+            pacienteNome: nome,
+            pacienteCpf: cpf,
+            pacienteId,
+          })
+          const { buffer: signedExame, certificadoSerial: serialExame, assinadoEm: assinadoExame } =
+            await assinarPdf(examePreparadoBuf, 'Exame Anti-HIV anexado pelo paciente — Facilita PrEP')
+          const exameKey = `pdfs/${pacienteId}/${Date.now() + 5}-exame-anexado-assinado.pdf`
+          await uploadBuffer(exameKey, signedExame, 'application/pdf')
+          await db.insert(pdfs).values({
+            pacienteId, s3Key: exameKey, tipo: 'exame_anexado',
+            certificadoSerial: serialExame, assinadoEm: assinadoExame,
+          })
+          gerados.push({ filename: 'exame-anti-hiv-anexado.pdf', buffer: signedExame })
+        } catch (err) {
+          // Falha ao processar o exame não deve derrubar a finalização
+          // dos outros documentos (receita, ficha SUS, etc).
+          logger.error('[pdfQueue] Falha ao anexar exame do paciente (continuando)', {
+            pacienteId, s3Key: consulta.exameS3Key, error: String(err),
+          })
         }
       }
 
