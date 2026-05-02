@@ -6,7 +6,7 @@ import { db } from './db.ts'
 import { pacientes, pdfs, consultasInicio, accessTokens, precadastros, pesquisaTokens } from '../drizzle/schema.ts'
 import { eq, and, gt } from 'drizzle-orm'
 import { decrypt } from './_core/encryption.ts'
-import { gerarPrescricaoPdf, gerarFormularioPdf, assinarPdf } from './pdfSigner.ts'
+import { gerarPrescricaoPdf, assinarPdf, prepararExameAnexadoComoPdf } from './pdfSigner.ts'
 import { preencherCadastroSUS } from './sus/preencherCadastro.ts'
 import { preencherFichaAtendimento } from './sus/preencherFichaAtendimento.ts'
 import { gerarOrientacaoPdf } from './pdfOrientacao.ts'
@@ -104,16 +104,11 @@ export function startPdfWorker() {
 
       const gerados: { filename: string; buffer: Buffer }[] = []
 
-      // 1. Formulário clínico (sempre)
-      const formularioBuf = await gerarFormularioPdf(pacienteDecrypted)
-      const { buffer: signedForm, certificadoSerial: serialForm, assinadoEm: assinadoForm } =
-        await assinarPdf(formularioBuf, 'Formulário Clínico PrEP — Facilita PrEP')
-      const formKey = `pdfs/${pacienteId}/${Date.now()}-formulario.pdf`
-      await uploadBuffer(formKey, signedForm, 'application/pdf')
-      await db.insert(pdfs).values({ pacienteId, s3Key: formKey, tipo: 'formulario', certificadoSerial: serialForm, assinadoEm: assinadoForm })
-      gerados.push({ filename: 'formulario-clinico-prep.pdf', buffer: signedForm })
-
-      // 2. Receita / Prescrição (sempre)
+      // 1. Receita / Prescrição (sempre)
+      // O Formulário Clínico foi descontinuado — informações clínicas
+      // relevantes ficam no banco e nos PDFs SUS oficiais (Cadastro,
+      // Ficha de Atendimento). Não há valor regulatório em duplicar
+      // os dados em um PDF custom adicional.
       const prescBuf = await gerarPrescricaoPdf(pacienteDecrypted)
       const { buffer: signedPresc, certificadoSerial: serialPresc, assinadoEm: assinadoPresc } =
         await assinarPdf(prescBuf, 'Receita PrEP — Facilita PrEP')
@@ -171,19 +166,61 @@ export function startPdfWorker() {
       gerados.push({ filename: 'ficha-atendimento-prep.pdf', buffer: signedFicha })
 
       // 5. Pedidos de exame (quando o paciente não tinha exame recente)
+      // Os pedidos foram gerados sem assinatura no momento da validação
+      // do exame (consulta.ts → gerarPedidosExames). Aqui, no fluxo de
+      // finalização, aplicamos a assinatura ICP-Brasil (PAdES) para
+      // entregar ao paciente um documento com validade legal.
       if (consulta && !consulta.temExameRecente) {
         const pedidos = [
-          { key: consulta.pedidoCompletoS3Key, tipo: 'pedido_completo', filename: 'pedido-exames-completo.pdf' },
-          { key: consulta.pedidoIstS3Key, tipo: 'pedido_ist', filename: 'pedido-sorologicos-ist.pdf' },
-          { key: consulta.pedidoHivS3Key, tipo: 'pedido_hiv', filename: 'pedido-anti-hiv.pdf' },
-          { key: consulta.pedidoDensitometriaS3Key, tipo: 'pedido_densitometria', filename: 'pedido-densitometria-ossea.pdf' },
+          { key: consulta.pedidoCompletoS3Key, tipo: 'pedido_completo', filename: 'pedido-exames-completo.pdf', titulo: 'Pedido de Exames Completo — Facilita PrEP' },
+          { key: consulta.pedidoIstS3Key, tipo: 'pedido_ist', filename: 'pedido-sorologicos-ist.pdf', titulo: 'Pedido de Sorologias IST — Facilita PrEP' },
+          { key: consulta.pedidoHivS3Key, tipo: 'pedido_hiv', filename: 'pedido-anti-hiv.pdf', titulo: 'Pedido de Anti-HIV — Facilita PrEP' },
+          { key: consulta.pedidoDensitometriaS3Key, tipo: 'pedido_densitometria', filename: 'pedido-densitometria-ossea.pdf', titulo: 'Pedido de Densitometria Óssea — Facilita PrEP' },
         ] as const
 
-        for (const { key, tipo, filename } of pedidos) {
+        for (const { key, tipo, filename, titulo } of pedidos) {
           if (!key) continue
-          const buf = await getBuffer(key)
-          await db.insert(pdfs).values({ pacienteId, s3Key: key, tipo, assinadoEm: consulta.createdAt })
-          gerados.push({ filename, buffer: buf })
+          const rawBuf = await getBuffer(key)
+          const { buffer: signedBuf, certificadoSerial: serialPedido, assinadoEm: assinadoPedido } =
+            await assinarPdf(rawBuf, titulo)
+          // Salva o PDF JÁ ASSINADO numa nova key para preservar o original
+          // (o original em `key` é o template não-assinado emitido na validação).
+          const signedKey = `pdfs/${pacienteId}/${Date.now() + 4}-${tipo}-assinado.pdf`
+          await uploadBuffer(signedKey, signedBuf, 'application/pdf')
+          await db.insert(pdfs).values({ pacienteId, s3Key: signedKey, tipo, certificadoSerial: serialPedido, assinadoEm: assinadoPedido })
+          gerados.push({ filename, buffer: signedBuf })
+        }
+      }
+
+      // 5b. Exame anexado pelo paciente (anti-HIV)
+      // Sempre que o paciente subiu um arquivo na validação inicial, ele
+      // entra no bundle final como PDF assinado ICP-Brasil. Imagens são
+      // convertidas para PDF A4 com cabeçalho institucional + carimbo;
+      // PDFs vão diretos. Em ambos os casos passa por assinarPdf.
+      if (consulta?.exameS3Key) {
+        try {
+          const rawExame = await getBuffer(consulta.exameS3Key)
+          const examePreparadoBuf = await prepararExameAnexadoComoPdf({
+            rawBuffer: rawExame,
+            pacienteNome: nome,
+            pacienteCpf: cpf,
+            pacienteId,
+          })
+          const { buffer: signedExame, certificadoSerial: serialExame, assinadoEm: assinadoExame } =
+            await assinarPdf(examePreparadoBuf, 'Exame Anti-HIV anexado pelo paciente — Facilita PrEP')
+          const exameKey = `pdfs/${pacienteId}/${Date.now() + 5}-exame-anexado-assinado.pdf`
+          await uploadBuffer(exameKey, signedExame, 'application/pdf')
+          await db.insert(pdfs).values({
+            pacienteId, s3Key: exameKey, tipo: 'exame_anexado',
+            certificadoSerial: serialExame, assinadoEm: assinadoExame,
+          })
+          gerados.push({ filename: 'exame-anti-hiv-anexado.pdf', buffer: signedExame })
+        } catch (err) {
+          // Falha ao processar o exame não deve derrubar a finalização
+          // dos outros documentos (receita, ficha SUS, etc).
+          logger.error('[pdfQueue] Falha ao anexar exame do paciente (continuando)', {
+            pacienteId, s3Key: consulta.exameS3Key, error: String(err),
+          })
         }
       }
 

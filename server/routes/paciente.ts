@@ -31,7 +31,7 @@ function assertPatient(session: unknown): asserts session is { type: 'patient'; 
 
 async function validarEtapaPaciente(pacienteId: number, tokenId: number, etapaRequerida: number) {
   const [p] = await db
-    .select({ id: pacientes.id, currentStep: pacientes.currentStep })
+    .select({ id: pacientes.id, currentStep: pacientes.currentStep, status: pacientes.status })
     .from(pacientes)
     .where(and(eq(pacientes.id, pacienteId), eq(pacientes.tokenId, tokenId)))
     .limit(1)
@@ -291,12 +291,24 @@ export const pacienteRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       assertPatient(ctx.session)
-      await validarEtapaPaciente(input.pacienteId, ctx.session.tokenId, 7)
+      const p = await validarEtapaPaciente(input.pacienteId, ctx.session.tokenId, 7)
+
+      // Trava de evidência legal: depois do paciente clicar em finalizar
+      // (status muda de 'rascunho' para 'pendente'), o aceite original
+      // não pode mais ser sobrescrito — IP, user-agent e timestamp do
+      // momento do clique são prova auditada do consentimento.
+      if (p.status !== 'rascunho') {
+        throw new TRPCError({
+          code: 'CONFLICT',
+          message: 'TCLE já foi aceito e o formulário já foi finalizado.',
+        })
+      }
+
       const ipAddress = (ctx.req.ip ?? ctx.req.socket?.remoteAddress ?? null)?.slice(0, 45) ?? null
       const userAgent = ctx.req.headers['user-agent']?.slice(0, 500) ?? null
       // upsert: idempotente em caso de retry de rede ou clique duplo.
-      // O uniqueIndex em paciente_id (drizzle/schema.ts:163) impede dois
-      // registros para o mesmo paciente.
+      // Antes do finalizar, regravar o aceite com IP/UA atual é seguro —
+      // ainda é o mesmo paciente na mesma sessão tentando concluir.
       await db
         .insert(tcleAssinaturas)
         .values({ pacienteId: input.pacienteId, ipAddress, userAgent })

@@ -16,7 +16,6 @@ import {
   desenharIndicacaoCID,
   drawTextWrapped,
 } from './pdfHeader.ts'
-import { formatarCpf } from './_core/cpfValidator.ts'
 
 const signpdf = new SignPdf()
 
@@ -39,9 +38,11 @@ export async function gerarPrescricaoPdf(paciente: Paciente & { pacienteId?: num
 
   const margin = 50
 
-  // Cabeçalho institucional padronizado (mesmo layout dos pedidos de exame)
+  // Cabeçalho institucional padronizado (mesmo layout dos pedidos de exame).
+  // startY = PAGE_H corresponde ao topo da página — equivalente ao padrão
+  // de pdfExameRequest/pdfOrientacao que usam (PAGE_H - 60) + 60.
   let y = desenharCabecalhoInstitucional({
-    doc, page, font, fontBold, pageWidth: PAGE_W, margin, startY: PAGE_H - 60 + 60,
+    doc, page, font, fontBold, pageWidth: PAGE_W, margin, startY: PAGE_H,
   })
 
   // Banner roxo "RECEITA MÉDICA"
@@ -112,139 +113,94 @@ export async function gerarPrescricaoPdf(paciente: Paciente & { pacienteId?: num
   return Buffer.from(await doc.save())
 }
 
-export interface PacienteCompleto {
-  pacienteId?: number
-  nome: string
-  cpf?: string
-  dataNascimento: string | null
-  sexo: string | null
-  nomeSocial?: string | null
-  corRaca?: string | null
-  escolaridade?: string | null
-  situacaoConjugal?: string | null
-  email?: string | null
-  telefone?: string | null
-  cep?: string | null
-  logradouro?: string | null
-  numero?: string | null
-  complemento?: string | null
-  bairro?: string | null
-  cidade?: string | null
-  estado?: string | null
-  tipoAtendimento?: string | null
-  convenio?: string | null
-  condutaJson: unknown
-  prescricaoJson: unknown
-}
+// gerarFormularioPdf removido — o Formulário Clínico foi descontinuado.
+// Os dados clínicos relevantes ficam nos PDFs SUS oficiais (Cadastro
+// e Ficha de Atendimento) gerados em pdfQueue.ts.
 
-export async function gerarFormularioPdf(paciente: PacienteCompleto): Promise<Buffer> {
+/**
+ * Prepara um documento de exame anexado pelo paciente para ser entregue
+ * no bundle final, com cabeçalho institucional e carimbo do médico.
+ *
+ * - Se o arquivo já for PDF, devolve o buffer original (a assinatura ICP
+ *   será aplicada por assinarPdf no pdfQueue).
+ * - Se for imagem (PNG/JPG), gera um PDF A4 com cabeçalho institucional
+ *   + bloco do paciente + a imagem do exame embedada + carimbo digital.
+ *
+ * Formatos não suportados (ex.: WEBP, HEIC) lançam erro — o validador
+ * de upload deveria ter rejeitado antes, mas aqui defendemos contra
+ * regressão.
+ */
+export async function prepararExameAnexadoComoPdf(args: {
+  rawBuffer: Buffer
+  pacienteNome: string
+  pacienteCpf?: string | null
+  pacienteId?: number
+}): Promise<Buffer> {
+  const { rawBuffer, pacienteNome, pacienteCpf, pacienteId } = args
+
+  // Detecta tipo por magic bytes
+  const isPdf = rawBuffer.length >= 4 && rawBuffer.subarray(0, 4).toString('ascii') === '%PDF'
+  if (isPdf) return rawBuffer
+
+  const isPng = rawBuffer.length >= 8 && rawBuffer[0] === 0x89 && rawBuffer[1] === 0x50 && rawBuffer[2] === 0x4e && rawBuffer[3] === 0x47
+  const isJpg = rawBuffer.length >= 3 && rawBuffer[0] === 0xff && rawBuffer[1] === 0xd8 && rawBuffer[2] === 0xff
+  if (!isPng && !isJpg) {
+    throw new Error('Formato de exame não suportado para anexação (esperado PDF, PNG ou JPG).')
+  }
+
   const doc = await PDFDocument.create()
-  const page = doc.addPage([595, 842])
+  const PAGE_W = 595
+  const PAGE_H = 842
+  const page = doc.addPage([PAGE_W, PAGE_H])
   const font = await doc.embedFont(StandardFonts.Helvetica)
   const fontBold = await doc.embedFont(StandardFonts.HelveticaBold)
+  const margin = 50
 
-  const { width, height } = page.getSize()
-  const m = 50
-  let y = height - 60
-
-  const titulo = (txt: string) => {
-    page.drawText(txt, { x: m, y, font: fontBold, size: 11, color: rgb(0.07, 0.27, 0.52) })
-    y -= 6
-    page.drawLine({ start: { x: m, y }, end: { x: width - m, y }, thickness: 0.5, color: rgb(0.8, 0.8, 0.8) })
-    y -= 16
-  }
-
-  const campo = (label: string, valor: string | null | undefined) => {
-    const v = valor ?? '—'
-    const maxW = width - m * 2 - 160
-    page.drawText(label + ':', { x: m, y, font: fontBold, size: 9, color: rgb(0.4, 0.4, 0.4) })
-    const yStart = y
-    const yAfter = drawTextWrapped(page, v, {
-      x: m + 160, y, font, size: 9, color: rgb(0.1, 0.1, 0.1),
-      maxWidth: maxW, lineHeight: 12,
-    })
-    // mantém pelo menos 16pt de avanço (compatibilidade com layout existente)
-    y = Math.min(yAfter - 4, yStart - 16)
-  }
-
-  // Header
-  page.drawText('FACILITA PrEP', { x: m, y, font: fontBold, size: 18, color: rgb(0.07, 0.27, 0.52) })
-  y -= 20
-  page.drawText('Formulário Clínico PrEP', { x: m, y, font, size: 10, color: rgb(0.4, 0.4, 0.4) })
-  y -= 12
-  page.drawLine({ start: { x: m, y }, end: { x: width - m, y }, thickness: 1.5, color: rgb(0.07, 0.27, 0.52) })
-  y -= 24
-
-  titulo('1. DADOS PESSOAIS')
-  campo('Nome completo', paciente.nome)
-  if (paciente.cpf) campo('CPF', formatarCpf(paciente.cpf))
-  campo('Data de nascimento', paciente.dataNascimento ? paciente.dataNascimento.split('-').reverse().join('/') : null)
-  campo('Sexo biológico', paciente.sexo)
-  if (paciente.nomeSocial) campo('Nome social', paciente.nomeSocial)
-  y -= 8
-
-  titulo('2. DADOS DEMOGRÁFICOS')
-  campo('Cor/Raça', paciente.corRaca)
-  campo('Escolaridade', paciente.escolaridade)
-  campo('Situação conjugal', paciente.situacaoConjugal)
-  y -= 8
-
-  titulo('3. CONTATO')
-  campo('E-mail', paciente.email)
-  campo('Telefone', paciente.telefone)
-  const end = [paciente.logradouro, paciente.numero, paciente.complemento, paciente.bairro, paciente.cidade, paciente.estado].filter(Boolean).join(', ')
-  if (end) campo('Endereço', end)
-  campo('CEP', paciente.cep)
-  y -= 8
-
-  const conduta = paciente.condutaJson as {
-    relacoesSexuais?: { tipos?: string[]; frequencia?: string; parceirosUltimos6Meses?: number; usaPreservativo?: string }
-    historicoDst?: boolean; dstDescricao?: string; prepAnterior?: boolean; prepPeriodo?: string
-    usoDrogas?: boolean; drogasDescricao?: string; outrasInformacoes?: string
-  } | null
-
-  titulo('4. CONDUTA / HISTÓRICO')
-  if (conduta) {
-    campo('Práticas sexuais', conduta.relacoesSexuais?.tipos?.join(', '))
-    campo('Frequência', conduta.relacoesSexuais?.frequencia)
-    campo('Parceiros (6 meses)', conduta.relacoesSexuais?.parceirosUltimos6Meses != null ? String(conduta.relacoesSexuais.parceirosUltimos6Meses) : null)
-    campo('Uso preservativo', conduta.relacoesSexuais?.usaPreservativo)
-    campo('Histórico DST', conduta.historicoDst != null ? (conduta.historicoDst ? 'Sim' : 'Não') : null)
-    if (conduta.dstDescricao) campo('DST — descrição', conduta.dstDescricao)
-    campo('PrEP anterior', conduta.prepAnterior != null ? (conduta.prepAnterior ? 'Sim' : 'Não') : null)
-    if (conduta.prepPeriodo) campo('Período PrEP', conduta.prepPeriodo)
-    campo('Uso de drogas', conduta.usoDrogas != null ? (conduta.usoDrogas ? 'Sim' : 'Não') : null)
-    if (conduta.drogasDescricao) campo('Drogas — descrição', conduta.drogasDescricao)
-    if (conduta.outrasInformacoes) campo('Outras informações', conduta.outrasInformacoes)
-  }
-  y -= 8
-
-  const prescricao = paciente.prescricaoJson as {
-    medicamento?: string; nomeMedicamento?: string; posologia?: string; duracao?: string; observacoes?: string
-  } | null
-
-  titulo('5. PRESCRIÇÃO')
-  if (prescricao) {
-    const med = prescricao.medicamento === 'tenofovir_emtricitabina'
-      ? 'Tenofovir/Emtricitabina (TDF+FTC)'
-      : (prescricao.nomeMedicamento ?? prescricao.medicamento)
-    campo('Medicamento', med)
-    campo('Posologia', prescricao.posologia)
-    campo('Duração', prescricao.duracao)
-    if (prescricao.observacoes) campo('Observações', prescricao.observacoes)
-  }
-  y -= 8
-
-  titulo('6. TIPO DE ATENDIMENTO')
-  campo('Modalidade', paciente.tipoAtendimento)
-  if (paciente.convenio) campo('Convênio', paciente.convenio)
-
-  const emitido = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-  page.drawText(`Emitido em: ${emitido}`, {
-    x: m, y: 72, font, size: 8, color: rgb(0.5, 0.5, 0.5),
+  // Cabeçalho institucional padrão (mesmo dos pedidos/receita)
+  let y = desenharCabecalhoInstitucional({
+    doc, page, font, fontBold, pageWidth: PAGE_W, margin, startY: PAGE_H,
   })
-  const carimboForm = carimboFromEnv('formulario', paciente.pacienteId ?? 0)
-  await desenharCarimboDigital(doc, page, { x: m, y: 8, width: width - m * 2, height: 60 }, carimboForm)
+
+  // Banner identificando o documento
+  y = desenharBannerTitulo({
+    page, font, fontBold, pageWidth: PAGE_W, margin, startY: y,
+    titulo: 'EXAME ANEXADO PELO PACIENTE',
+    subtitulo: 'Anti-HIV — documento original recebido pelo Facilita PrEP',
+  })
+
+  // Bloco do paciente
+  y = desenharBlocoPaciente({
+    page, font, fontBold, pageWidth: PAGE_W, margin, startY: y,
+    paciente: { nome: pacienteNome, cpf: pacienteCpf },
+  })
+
+  // Embed da imagem com aspect ratio preservado
+  const image = isPng ? await doc.embedPng(rawBuffer) : await doc.embedJpg(rawBuffer)
+  const availableWidth = PAGE_W - margin * 2
+  const availableHeight = y - 90 // reserva 90pt para o carimbo
+
+  let imgW = image.width
+  let imgH = image.height
+  if (imgW > availableWidth) {
+    const ratio = availableWidth / imgW
+    imgW = availableWidth
+    imgH = imgH * ratio
+  }
+  if (imgH > availableHeight) {
+    const ratio = availableHeight / imgH
+    imgH = availableHeight
+    imgW = imgW * ratio
+  }
+
+  const imgX = margin + (availableWidth - imgW) / 2
+  const imgY = y - imgH
+  page.drawImage(image, { x: imgX, y: imgY, width: imgW, height: imgH })
+
+  // Carimbo digital — a assinatura ICP-Brasil é aplicada por assinarPdf depois
+  const carimboInfo = carimboFromEnv('exame-anexado', pacienteId ?? 0)
+  await desenharCarimboDigital(doc, page, {
+    x: margin, y: 8, width: PAGE_W - margin * 2, height: 60,
+  }, carimboInfo)
 
   return Buffer.from(await doc.save())
 }
