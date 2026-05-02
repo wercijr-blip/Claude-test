@@ -322,6 +322,10 @@ const COLUMN_PATCHES: Record<string, Array<{ name: string; ddl: string }>> = {
     { name: 'erro_descricao', ddl: 'TEXT' },
     { name: 'emitido_em', ddl: 'DATETIME' },
   ],
+  tcle_assinaturas: [
+    { name: 'ip_address', ddl: 'VARCHAR(45)' },
+    { name: 'user_agent', ddl: 'TEXT' },
+  ],
 }
 
 async function getExistingColumns(table: string): Promise<Set<string>> {
