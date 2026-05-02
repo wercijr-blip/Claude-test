@@ -9,6 +9,14 @@ import { plainAddPlaceholder } from '@signpdf/placeholder-plain'
 import { SUBFILTER_ETSI_CADES_DETACHED } from '@signpdf/utils'
 import { env } from './_core/env.ts'
 import { desenharCarimboDigital, carimboFromEnv } from './sus/carimboDigital.ts'
+import {
+  desenharCabecalhoInstitucional,
+  desenharBannerTitulo,
+  desenharBlocoPaciente,
+  desenharIndicacaoCID,
+  drawTextWrapped,
+} from './pdfHeader.ts'
+import { formatarCpf } from './_core/cpfValidator.ts'
 
 const signpdf = new SignPdf()
 
@@ -21,75 +29,85 @@ export interface PdfSignResult {
   assinadoEm: Date
 }
 
-export async function gerarPrescricaoPdf(paciente: Paciente & { pacienteId?: number }): Promise<Buffer> {
+export async function gerarPrescricaoPdf(paciente: Paciente & { pacienteId?: number; cpf?: string | null }): Promise<Buffer> {
   const doc = await PDFDocument.create()
-  const page = doc.addPage([595, 842]) // A4
+  const PAGE_W = 595
+  const PAGE_H = 842
+  const page = doc.addPage([PAGE_W, PAGE_H])
   const font = await doc.embedFont(StandardFonts.Helvetica)
   const fontBold = await doc.embedFont(StandardFonts.HelveticaBold)
 
-  const { width, height } = page.getSize()
   const margin = 50
 
-  // Header
-  page.drawText('FACILITA PrEP', {
-    x: margin, y: height - 60,
-    font: fontBold, size: 18, color: rgb(0.07, 0.27, 0.52),
-  })
-  page.drawText('Plataforma de Saúde Digital — Prescrição Médica', {
-    x: margin, y: height - 78,
-    font, size: 10, color: rgb(0.4, 0.4, 0.4),
+  // Cabeçalho institucional padronizado (mesmo layout dos pedidos de exame)
+  let y = desenharCabecalhoInstitucional({
+    doc, page, font, fontBold, pageWidth: PAGE_W, margin, startY: PAGE_H - 60 + 60,
   })
 
-  // Linha divisória
-  page.drawLine({ start: { x: margin, y: height - 90 }, end: { x: width - margin, y: height - 90 }, thickness: 1, color: rgb(0.8, 0.8, 0.8) })
-
-  let y = height - 120
-
-  const field = (label: string, value: string) => {
-    page.drawText(label + ':', { x: margin, y, font: fontBold, size: 10, color: rgb(0.3, 0.3, 0.3) })
-    page.drawText(value, { x: margin + 120, y, font, size: 10, color: rgb(0.1, 0.1, 0.1) })
-    y -= 20
-  }
-
-  page.drawText('DADOS DO PACIENTE', { x: margin, y, font: fontBold, size: 12, color: rgb(0.07, 0.27, 0.52) })
-  y -= 22
-
-  field('Nome', paciente.nome)
-  field('Data de Nascimento', paciente.dataNascimento ?? '—')
-  field('Sexo', paciente.sexo ?? '—')
-  y -= 10
-
-  page.drawText('PRESCRIÇÃO', { x: margin, y, font: fontBold, size: 12, color: rgb(0.07, 0.27, 0.52) })
-  y -= 22
-
-  const prescricao = paciente.prescricaoJson as { medicamento?: string; posologia?: string; duracao?: string; observacoes?: string } | null
-
-  field('Medicamento', prescricao?.medicamento === 'tenofovir_emtricitabina' ? 'Tenofovir/Emtricitabina' : prescricao?.medicamento ?? '—')
-  field('Posologia', prescricao?.posologia ?? '—')
-  field('Duração', prescricao?.duracao ?? '—')
-
-  if (prescricao?.observacoes) {
-    page.drawText('Observações:', { x: margin, y, font: fontBold, size: 10, color: rgb(0.3, 0.3, 0.3) })
-    y -= 16
-    page.drawText(prescricao.observacoes, { x: margin, y, font, size: 9, color: rgb(0.2, 0.2, 0.2), maxWidth: width - margin * 2 })
-    y -= 30
-  }
-
-  // Validade (4 meses)
-  y -= 20
+  // Banner roxo "RECEITA MÉDICA"
   const validadeDate = new Date()
   validadeDate.setMonth(validadeDate.getMonth() + 4)
   const dataValidade = validadeDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
-  page.drawText('Validade da Receita:', { x: margin, y, font: fontBold, size: 10, color: rgb(0.07, 0.27, 0.52) })
-  page.drawText(`Até ${dataValidade} (4 meses)`, { x: margin + 120, y, font, size: 10, color: rgb(0.1, 0.1, 0.1) })
-
-  // Data de emissão + carimbo digital com QR Code
-  const dataEmissao = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-  page.drawText(`Emitido em: ${dataEmissao}`, {
-    x: margin, y: 72, font, size: 8, color: rgb(0.5, 0.5, 0.5),
+  y = desenharBannerTitulo({
+    page, font, fontBold, pageWidth: PAGE_W, margin, startY: y,
+    titulo: 'RECEITA MÉDICA',
+    subtitulo: `Profilaxia Pré-Exposição (PrEP) ao HIV · Validade até ${dataValidade}`,
   })
+
+  // Bloco do paciente (nome + CPF)
+  y = desenharBlocoPaciente({
+    page, font, fontBold, pageWidth: PAGE_W, margin, startY: y,
+    paciente: { nome: paciente.nome, cpf: paciente.cpf },
+  })
+
+  // Bloco PRESCRIÇÃO
+  const prescricao = paciente.prescricaoJson as { medicamento?: string; posologia?: string; duracao?: string; observacoes?: string } | null
+  const medicamento = prescricao?.medicamento === 'tenofovir_emtricitabina'
+    ? 'Tenofovir 300 mg + Entricitabina 200 mg (TDF/FTC)'
+    : prescricao?.medicamento ?? '—'
+
+  page.drawText('PRESCRIÇÃO', { x: margin, y, font: fontBold, size: 9, color: rgb(0.4, 0.4, 0.45) })
+  y -= 16
+
+  const linhaPrescricao = (label: string, value: string) => {
+    page.drawText(`${label}:`, { x: margin, y, font: fontBold, size: 10, color: rgb(0.2, 0.2, 0.25) })
+    const valueX = margin + 110
+    const valueMaxW = PAGE_W - margin - valueX
+    const yStart = y
+    const yAfter = drawTextWrapped(page, value, {
+      x: valueX, y, font, size: 10, color: rgb(0.1, 0.1, 0.15),
+      maxWidth: valueMaxW, lineHeight: 14,
+    })
+    // garante pelo menos um avanço de 18pt mesmo se valor for vazio
+    y = Math.min(yAfter - 4, yStart - 18)
+  }
+
+  linhaPrescricao('Medicamento', medicamento)
+  linhaPrescricao('Posologia', prescricao?.posologia ?? '—')
+  linhaPrescricao('Duração', prescricao?.duracao ?? '—')
+
+  if (prescricao?.observacoes) {
+    y -= 4
+    page.drawText('Observações:', { x: margin, y, font: fontBold, size: 9, color: rgb(0.4, 0.4, 0.45) })
+    y -= 13
+    y = drawTextWrapped(page, prescricao.observacoes, {
+      x: margin, y, font, size: 9, color: rgb(0.2, 0.2, 0.25),
+      maxWidth: PAGE_W - margin * 2, lineHeight: 12,
+    })
+    y -= 4
+  }
+
+  // Indicação clínica + CID + validade (mesmo bloco dos pedidos)
+  y = Math.max(y - 8, 160)
+  desenharIndicacaoCID({
+    page, font, fontBold, margin, pageWidth: PAGE_W, startY: y,
+    indicacao: 'Profilaxia Pré-Exposição (PrEP) ao HIV — protocolo Ministério da Saúde 2024.',
+    validadeDias: 120,
+  })
+
+  // Carimbo digital com QR Code (assinatura ICP-Brasil é aplicada por assinarPdf)
   const carimboPresc = carimboFromEnv('prescricao', paciente.pacienteId ?? 0)
-  await desenharCarimboDigital(doc, page, { x: margin, y: 8, width: width - margin * 2, height: 60 }, carimboPresc)
+  await desenharCarimboDigital(doc, page, { x: margin, y: 8, width: PAGE_W - margin * 2, height: 60 }, carimboPresc)
 
   return Buffer.from(await doc.save())
 }
@@ -140,8 +158,13 @@ export async function gerarFormularioPdf(paciente: PacienteCompleto): Promise<Bu
     const v = valor ?? '—'
     const maxW = width - m * 2 - 160
     page.drawText(label + ':', { x: m, y, font: fontBold, size: 9, color: rgb(0.4, 0.4, 0.4) })
-    page.drawText(v.length > 55 ? v.slice(0, 55) + '…' : v, { x: m + 160, y, font, size: 9, color: rgb(0.1, 0.1, 0.1), maxWidth: maxW })
-    y -= 16
+    const yStart = y
+    const yAfter = drawTextWrapped(page, v, {
+      x: m + 160, y, font, size: 9, color: rgb(0.1, 0.1, 0.1),
+      maxWidth: maxW, lineHeight: 12,
+    })
+    // mantém pelo menos 16pt de avanço (compatibilidade com layout existente)
+    y = Math.min(yAfter - 4, yStart - 16)
   }
 
   // Header
@@ -154,7 +177,7 @@ export async function gerarFormularioPdf(paciente: PacienteCompleto): Promise<Bu
 
   titulo('1. DADOS PESSOAIS')
   campo('Nome completo', paciente.nome)
-  if (paciente.cpf) campo('CPF', paciente.cpf)
+  if (paciente.cpf) campo('CPF', formatarCpf(paciente.cpf))
   campo('Data de nascimento', paciente.dataNascimento ? paciente.dataNascimento.split('-').reverse().join('/') : null)
   campo('Sexo biológico', paciente.sexo)
   if (paciente.nomeSocial) campo('Nome social', paciente.nomeSocial)
@@ -237,13 +260,33 @@ async function lerPfx(): Promise<Buffer | null> {
   catch { return null }
 }
 
-/** Lê o serial do certificado a partir do .pfx para registro de auditoria. */
+/**
+ * Lê o serial do certificado a partir do .pfx para registro de auditoria.
+ *
+ * Cacheado por byteLength + primeiros 32 bytes do .pfx — em workload de
+ * fila (cada PDF assinado), evita re-parsear ASN.1 em todo job.
+ *
+ * Nunca lança: erro de parsing retorna 'unknown' (a assinatura PAdES já
+ * foi aplicada com sucesso pelo P12Signer; a auditoria não deve
+ * derrubar o resultado).
+ */
+let serialCache: { key: string; serial: string } | null = null
+
 function extrairSerial(pfxData: Buffer, password: string): string {
-  const pfxDer = pfxData.toString('binary')
-  const pfxAsn1 = forge.asn1.fromDer(pfxDer)
-  const pfxObj = forge.pkcs12.pkcs12FromAsn1(pfxAsn1, password)
-  const certBag = pfxObj.getBags({ bagType: forge.pki.oids.certBag })[forge.pki.oids.certBag]?.[0]
-  return certBag?.cert?.serialNumber ?? 'unknown'
+  const cacheKey = `${pfxData.byteLength}:${pfxData.subarray(0, 32).toString('hex')}`
+  if (serialCache?.key === cacheKey) return serialCache.serial
+
+  try {
+    const pfxDer = pfxData.toString('binary')
+    const pfxAsn1 = forge.asn1.fromDer(pfxDer)
+    const pfxObj = forge.pkcs12.pkcs12FromAsn1(pfxAsn1, password)
+    const certBag = pfxObj.getBags({ bagType: forge.pki.oids.certBag })[forge.pki.oids.certBag]?.[0]
+    const serial = certBag?.cert?.serialNumber ?? 'unknown'
+    serialCache = { key: cacheKey, serial }
+    return serial
+  } catch {
+    return 'unknown'
+  }
 }
 
 export interface CertificadoInfo {

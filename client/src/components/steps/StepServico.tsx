@@ -8,7 +8,6 @@ const schema = z.object({
   tipoAtendimento: z.enum(['particular', 'convenio', 'sus']),
   convenio: z.string().optional(),
   numeroConvenio: z.string().optional(),
-  valorCentavos: z.coerce.number().optional(),
 })
 
 type FormData = z.infer<typeof schema>
@@ -74,19 +73,6 @@ export default function StepServico({ pacienteId, onNext, onBack, defaultValues 
               <input {...register('numeroConvenio')} className={inputCls(false)} />
             </Field>
           </>
-        )}
-
-        {tipo === 'particular' && (
-          <Field label="Valor da consulta (R$)" error={undefined}>
-            <input
-              type="number"
-              step="0.01"
-              min={0}
-              {...register('valorCentavos', { setValueAs: (v) => Math.round(parseFloat(v) * 100) })}
-              className={inputCls(false)}
-              placeholder="0,00"
-            />
-          </Field>
         )}
 
         {salvar.error && <p className="text-red-500 text-sm">{salvar.error.message}</p>}

@@ -152,7 +152,9 @@ export const exames = mysqlTable('exames', {
 export const tcleAssinaturas = mysqlTable('tcle_assinaturas', {
   id: int('id').primaryKey().autoincrement(),
   pacienteId: int('paciente_id').notNull().references(() => pacientes.id),
-  assinaturaDataUrl: text('assinatura_data_url').notNull(),
+  // Nullable a partir do aceite eletrônico via checkbox.
+  // Pode estar preenchido em registros antigos (quando havia SignaturePad).
+  assinaturaDataUrl: text('assinatura_data_url'),
   ipAddress: varchar('ip_address', { length: 45 }),
   userAgent: text('user_agent'),
   signedAt: datetime('signed_at').notNull().default(sql`CURRENT_TIMESTAMP`),

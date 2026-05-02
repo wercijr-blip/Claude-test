@@ -44,12 +44,6 @@ async function validarEtapaPaciente(pacienteId: number, tokenId: number, etapaRe
 }
 
 const condutaSchema = z.object({
-  relacoesSexuais: z.object({
-    tipos: z.array(z.enum(['vaginal', 'anal_receptivo', 'anal_insertivo', 'oral'])),
-    frequencia: z.enum(['diaria', 'semanal', 'mensal', 'esporadica']),
-    parceirosUltimos6Meses: z.number().min(0),
-    usaPreservativo: z.enum(['sempre', 'quase_sempre', 'as_vezes', 'nunca']),
-  }),
   historicoDst: z.boolean(),
   dstDescricao: z.string().max(1000).optional(),
   prepAnterior: z.boolean(),
@@ -269,7 +263,6 @@ export const pacienteRouter = router({
         tipoAtendimento: z.enum(['particular', 'convenio', 'sus']),
         convenio: z.string().max(255).optional(),
         numeroConvenio: z.string().max(100).optional(),
-        valorCentavos: z.number().optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -281,7 +274,6 @@ export const pacienteRouter = router({
           tipoAtendimento: input.tipoAtendimento,
           convenio: input.convenio,
           numeroConvenio: input.numeroConvenio,
-          valorCentavos: input.valorCentavos,
           currentStep: Math.max(p.currentStep, 7),
           updatedAt: new Date(),
         })
@@ -289,18 +281,26 @@ export const pacienteRouter = router({
       return { ok: true }
     }),
 
-  // Salvar assinatura TCLE (etapa 7 — antiga etapa 8)
+  // Aceite eletrônico do TCLE (etapa 7).
+  // Substituiu a assinatura desenhada; a evidência legal são IP, user-agent
+  // e timestamp registrados no momento do clique no checkbox.
   salvarTcle: protectedProcedure
     .input(z.object({
       pacienteId: z.number(),
-      assinaturaDataUrl: z.string().min(1).max(500_000),
+      aceite: z.literal(true),
     }))
     .mutation(async ({ input, ctx }) => {
       assertPatient(ctx.session)
       await validarEtapaPaciente(input.pacienteId, ctx.session.tokenId, 7)
+      const ipAddress = (ctx.req.ip ?? ctx.req.socket?.remoteAddress ?? null)?.slice(0, 45) ?? null
+      const userAgent = ctx.req.headers['user-agent']?.slice(0, 500) ?? null
+      // upsert: idempotente em caso de retry de rede ou clique duplo.
+      // O uniqueIndex em paciente_id (drizzle/schema.ts:163) impede dois
+      // registros para o mesmo paciente.
       await db
         .insert(tcleAssinaturas)
-        .values({ pacienteId: input.pacienteId, assinaturaDataUrl: input.assinaturaDataUrl })
+        .values({ pacienteId: input.pacienteId, ipAddress, userAgent })
+        .onDuplicateKeyUpdate({ set: { ipAddress, userAgent, signedAt: new Date() } })
       return { ok: true }
     }),
 
