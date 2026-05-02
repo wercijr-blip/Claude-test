@@ -260,13 +260,33 @@ async function lerPfx(): Promise<Buffer | null> {
   catch { return null }
 }
 
-/** Lê o serial do certificado a partir do .pfx para registro de auditoria. */
+/**
+ * Lê o serial do certificado a partir do .pfx para registro de auditoria.
+ *
+ * Cacheado por byteLength + primeiros 32 bytes do .pfx — em workload de
+ * fila (cada PDF assinado), evita re-parsear ASN.1 em todo job.
+ *
+ * Nunca lança: erro de parsing retorna 'unknown' (a assinatura PAdES já
+ * foi aplicada com sucesso pelo P12Signer; a auditoria não deve
+ * derrubar o resultado).
+ */
+let serialCache: { key: string; serial: string } | null = null
+
 function extrairSerial(pfxData: Buffer, password: string): string {
-  const pfxDer = pfxData.toString('binary')
-  const pfxAsn1 = forge.asn1.fromDer(pfxDer)
-  const pfxObj = forge.pkcs12.pkcs12FromAsn1(pfxAsn1, password)
-  const certBag = pfxObj.getBags({ bagType: forge.pki.oids.certBag })[forge.pki.oids.certBag]?.[0]
-  return certBag?.cert?.serialNumber ?? 'unknown'
+  const cacheKey = `${pfxData.byteLength}:${pfxData.subarray(0, 32).toString('hex')}`
+  if (serialCache?.key === cacheKey) return serialCache.serial
+
+  try {
+    const pfxDer = pfxData.toString('binary')
+    const pfxAsn1 = forge.asn1.fromDer(pfxDer)
+    const pfxObj = forge.pkcs12.pkcs12FromAsn1(pfxAsn1, password)
+    const certBag = pfxObj.getBags({ bagType: forge.pki.oids.certBag })[forge.pki.oids.certBag]?.[0]
+    const serial = certBag?.cert?.serialNumber ?? 'unknown'
+    serialCache = { key: cacheKey, serial }
+    return serial
+  } catch {
+    return 'unknown'
+  }
 }
 
 export interface CertificadoInfo {
