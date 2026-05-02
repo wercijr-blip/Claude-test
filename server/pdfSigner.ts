@@ -198,17 +198,12 @@ export async function gerarFormularioPdf(paciente: PacienteCompleto): Promise<Bu
   y -= 8
 
   const conduta = paciente.condutaJson as {
-    relacoesSexuais?: { tipos?: string[]; frequencia?: string; parceirosUltimos6Meses?: number; usaPreservativo?: string }
     historicoDst?: boolean; dstDescricao?: string; prepAnterior?: boolean; prepPeriodo?: string
     usoDrogas?: boolean; drogasDescricao?: string; outrasInformacoes?: string
   } | null
 
   titulo('4. CONDUTA / HISTÓRICO')
   if (conduta) {
-    campo('Práticas sexuais', conduta.relacoesSexuais?.tipos?.join(', '))
-    campo('Frequência', conduta.relacoesSexuais?.frequencia)
-    campo('Parceiros (6 meses)', conduta.relacoesSexuais?.parceirosUltimos6Meses != null ? String(conduta.relacoesSexuais.parceirosUltimos6Meses) : null)
-    campo('Uso preservativo', conduta.relacoesSexuais?.usaPreservativo)
     campo('Histórico DST', conduta.historicoDst != null ? (conduta.historicoDst ? 'Sim' : 'Não') : null)
     if (conduta.dstDescricao) campo('DST — descrição', conduta.dstDescricao)
     campo('PrEP anterior', conduta.prepAnterior != null ? (conduta.prepAnterior ? 'Sim' : 'Não') : null)
