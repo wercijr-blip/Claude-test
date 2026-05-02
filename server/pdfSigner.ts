@@ -16,6 +16,7 @@ import {
   desenharIndicacaoCID,
   drawTextWrapped,
 } from './pdfHeader.ts'
+import { formatarCpf } from './_core/cpfValidator.ts'
 
 const signpdf = new SignPdf()
 
@@ -176,7 +177,7 @@ export async function gerarFormularioPdf(paciente: PacienteCompleto): Promise<Bu
 
   titulo('1. DADOS PESSOAIS')
   campo('Nome completo', paciente.nome)
-  if (paciente.cpf) campo('CPF', paciente.cpf)
+  if (paciente.cpf) campo('CPF', formatarCpf(paciente.cpf))
   campo('Data de nascimento', paciente.dataNascimento ? paciente.dataNascimento.split('-').reverse().join('/') : null)
   campo('Sexo biológico', paciente.sexo)
   if (paciente.nomeSocial) campo('Nome social', paciente.nomeSocial)

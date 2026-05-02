@@ -12,6 +12,7 @@
 
 import { PDFDocument, PDFFont, PDFPage, rgb } from 'pdf-lib'
 import { CLINICA_INFO } from '../shared/const.ts'
+import { formatarCpf } from './_core/cpfValidator.ts'
 
 export interface DadosPaciente {
   nome: string
@@ -160,7 +161,7 @@ export function desenharBlocoPaciente(args: {
   y -= 14
 
   // Calcula espaço disponível para o nome considerando o CPF à direita
-  const cpfTexto = paciente.cpf ? `CPF ${paciente.cpf}` : ''
+  const cpfTexto = paciente.cpf ? `CPF ${formatarCpf(paciente.cpf)}` : ''
   const cpfW = cpfTexto ? font.widthOfTextAtSize(cpfTexto, 9) : 0
   const nomeMaxWidth = pageWidth - margin * 2 - (cpfW ? cpfW + 12 : 0)
   const nomeTruncado = truncarParaLargura(paciente.nome, fontBold, 11, nomeMaxWidth)
