@@ -138,11 +138,6 @@ const DDL_STATEMENTS = [
     UNIQUE INDEX idx_tcle_paciente (paciente_id)
   )`,
 
-  // Aceite eletrônico via checkbox: a coluna assinatura_data_url passa a ser
-  // opcional. Em DBs pré-existentes onde a coluna foi criada NOT NULL,
-  // converte para NULL. Idempotente — MODIFY não falha se já estiver NULL.
-  `ALTER TABLE tcle_assinaturas MODIFY COLUMN assinatura_data_url TEXT NULL`,
-
   `CREATE TABLE IF NOT EXISTS pdfs (
     id INT PRIMARY KEY AUTO_INCREMENT,
     paciente_id INT NOT NULL,
@@ -328,6 +323,15 @@ const COLUMN_PATCHES: Record<string, Array<{ name: string; ddl: string }>> = {
   ],
 }
 
+// Mapa de tabela.coluna -> DDL para conversão de NOT NULL → NULL.
+// Cada entrada SÓ executa o ALTER se IS_NULLABLE='NO' no momento do boot,
+// evitando rodar DDL custosa em deploys subsequentes.
+const NULLABILITY_PATCHES: Array<{ table: string; column: string; ddl: string }> = [
+  // Aceite eletrônico via checkbox substituiu a assinatura desenhada;
+  // a coluna deixa de ser obrigatória.
+  { table: 'tcle_assinaturas', column: 'assinatura_data_url', ddl: 'TEXT NULL' },
+]
+
 async function getExistingColumns(table: string): Promise<Set<string>> {
   const rows = (await db.execute(sql.raw(
     `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '${table}'`,
@@ -340,6 +344,40 @@ async function getExistingColumns(table: string): Promise<Set<string>> {
     : (list as Array<{ COLUMN_NAME?: string; column_name?: string }>)
 
   return new Set(flat.map((r) => r.COLUMN_NAME ?? r.column_name ?? '').filter(Boolean))
+}
+
+async function getColumnIsNullable(table: string, column: string): Promise<boolean | null> {
+  try {
+    const rows = (await db.execute(sql.raw(
+      `SELECT IS_NULLABLE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '${table}' AND COLUMN_NAME = '${column}'`,
+    ))) as unknown as Array<{ IS_NULLABLE?: string; is_nullable?: string }> | { rows?: Array<{ IS_NULLABLE?: string; is_nullable?: string }> }
+
+    const list = Array.isArray(rows) ? rows : (rows.rows ?? [])
+    const flat: Array<{ IS_NULLABLE?: string; is_nullable?: string }> = Array.isArray(list[0])
+      ? (list[0] as Array<{ IS_NULLABLE?: string; is_nullable?: string }>)
+      : (list as Array<{ IS_NULLABLE?: string; is_nullable?: string }>)
+
+    const value = flat[0]?.IS_NULLABLE ?? flat[0]?.is_nullable
+    if (!value) return null
+    return value.toUpperCase() === 'YES'
+  } catch (err) {
+    logger.error('[ensureSchema] Falha ao consultar IS_NULLABLE', { table, column, error: String(err) })
+    return null
+  }
+}
+
+async function patchColumnNullability(table: string, column: string, ddl: string): Promise<void> {
+  const isNullable = await getColumnIsNullable(table, column)
+  if (isNullable === null) return // coluna ou tabela não existe — nada a fazer
+  if (isNullable) return           // já é NULL — não precisa rodar DDL
+  try {
+    await db.execute(sql.raw(`ALTER TABLE ${table} MODIFY COLUMN ${column} ${ddl}`))
+    logger.info('[ensureSchema] Coluna convertida para NULL', { table, column })
+  } catch (err) {
+    logger.error('[ensureSchema] Falha ao alterar nullability (continuando)', {
+      table, column, error: String(err),
+    })
+  }
 }
 
 async function patchTableColumns(table: string, columns: Array<{ name: string; ddl: string }>): Promise<void> {
@@ -388,6 +426,12 @@ export async function ensureSchema(): Promise<void> {
   // Patch de colunas faltantes em tabelas pré-existentes
   for (const [table, columns] of Object.entries(COLUMN_PATCHES)) {
     await patchTableColumns(table, columns)
+  }
+
+  // Patch de colunas que precisam virar NULL (idempotente — só roda
+  // o ALTER se a coluna ainda estiver NOT NULL).
+  for (const { table, column, ddl } of NULLABILITY_PATCHES) {
+    await patchColumnNullability(table, column, ddl)
   }
 
   logger.info('[ensureSchema] Verificação concluída.')
