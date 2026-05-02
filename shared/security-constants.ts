@@ -14,10 +14,14 @@ export const JWT_EXPIRY_PATIENT = '4h'
 export const MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024 // 10MB per file
 export const MAX_REQUEST_SIZE_BYTES = 20 * 1024 * 1024 // 20MB ceiling for any request body
 
+// WEBP NÃO está aqui porque pdf-lib não suporta WEBP nativamente —
+// o exame anexado seria perdido na finalização da documentação
+// (prepararExameAnexadoComoPdf rejeita formatos não-PDF/PNG/JPG).
+// Para suportar WEBP no futuro, adicionar conversão (sharp) antes
+// do embed em PDF.
 export const ALLOWED_MIME_TYPES = [
   'image/jpeg',
   'image/png',
-  'image/webp',
   'application/pdf',
 ] as const
 

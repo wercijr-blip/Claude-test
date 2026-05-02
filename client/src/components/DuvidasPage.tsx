@@ -52,7 +52,7 @@ const FAQS = [
   },
   {
     q: 'O que levar para retirar minha PrEP na rede pública (UDM)?',
-    a: 'Se for sua primeira retirada, leve: Ficha de Cadastro, Receita Médica, Formulário PrEP e o resultado do exame Anti-HIV realizado há até 7 dias (inclusive). Todos esses documentos são gerados pelo Facilita PrEP com assinatura digital ICP-Brasil. Se já usa PrEP regularmente, leve: Receita Médica, Formulário PrEP e o resultado do exame Anti-HIV com até 7 dias — também gerados pela plataforma. Localize a UDM mais próxima em azt.aids.gov.br → "Consulte uma UDM".',
+    a: 'Se for sua primeira retirada, leve: Ficha de Cadastro, Receita Médica, Ficha de Atendimento PrEP e o resultado do exame Anti-HIV realizado há até 7 dias (inclusive). Todos esses documentos são gerados pelo Facilita PrEP com assinatura digital ICP-Brasil. Se já usa PrEP regularmente, leve: Receita Médica, Ficha de Atendimento PrEP e o resultado do exame Anti-HIV com até 7 dias — também gerados pela plataforma. Localize a UDM mais próxima em azt.aids.gov.br → "Consulte uma UDM".',
   },
   {
     q: 'Por que recebo pedidos de exames de IST, HIV e densitometria óssea?',
@@ -386,7 +386,7 @@ export default function DuvidasPage() {
                   {[
                     'Ficha de Cadastro',
                     'Receita Médica',
-                    'Formulário PrEP',
+                    'Ficha de Atendimento PrEP',
                     'Exame Anti-HIV (até 7 dias)',
                   ].map(item => (
                     <li key={item} className="flex items-start gap-1.5 text-xs text-brand-dark">
@@ -404,7 +404,7 @@ export default function DuvidasPage() {
                 <ul className="space-y-1.5">
                   {[
                     'Receita Médica',
-                    'Formulário PrEP',
+                    'Ficha de Atendimento PrEP',
                     'Exame Anti-HIV (até 7 dias)',
                   ].map(item => (
                     <li key={item} className="flex items-start gap-1.5 text-xs text-sage-dark">

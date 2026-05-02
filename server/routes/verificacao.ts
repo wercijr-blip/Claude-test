@@ -25,12 +25,15 @@ const TIPO_DOC_LABEL: Record<string, string> = {
   cadastro:             'Cadastro de Usuário SUS PrEP',
   ficha:                'Ficha de Atendimento PrEP',
   prescricao:           'Receita PrEP',
+  // 'formulario' mantido para compat com PDFs antigos (gerarFormularioPdf
+  //  foi descontinuado, mas registros antigos em pdfs.tipo continuam).
   formulario:           'Formulário Clínico PrEP',
   orientacao:           'Documento de Orientação ao Paciente PrEP',
   pedido_completo:      'Pedido de Exames Completo PrEP',
   pedido_ist:           'Pedido de Sorológicos IST',
   pedido_hiv:           'Pedido de Anti-HIV',
   pedido_densitometria: 'Pedido de Densitometria Óssea',
+  exame_anexado:        'Exame Anti-HIV anexado pelo paciente',
 }
 
 // tipoDoc do QR → tipo armazenado em pdfs.tipo
@@ -44,6 +47,7 @@ const QR_TO_DB_TIPO: Record<string, string> = {
   pedido_ist:           'pedido_ist',
   pedido_hiv:           'pedido_hiv',
   pedido_densitometria: 'pedido_densitometria',
+  exame_anexado:        'exame_anexado',
 }
 
 export const verificacaoRouter = router({
