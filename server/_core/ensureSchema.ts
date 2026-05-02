@@ -321,6 +321,35 @@ const COLUMN_PATCHES: Record<string, Array<{ name: string; ddl: string }>> = {
     { name: 'ip_address', ddl: 'VARCHAR(45)' },
     { name: 'user_agent', ddl: 'TEXT' },
   ],
+  users: [
+    { name: 'email', ddl: 'VARCHAR(255)' },
+    { name: 'nome', ddl: 'VARCHAR(255)' },
+    { name: 'role', ddl: "VARCHAR(50) NOT NULL DEFAULT 'user'" },
+    { name: 'ativo', ddl: 'TINYINT(1) NOT NULL DEFAULT 1' },
+  ],
+  security_events: [
+    { name: 'user_id', ddl: 'INT' },
+    { name: 'ip_address', ddl: 'VARCHAR(45)' },
+    { name: 'user_agent', ddl: 'TEXT' },
+    { name: 'detalhes', ddl: 'JSON' },
+  ],
+  satisfacao_pesquisas: [
+    { name: 'achou_facil', ddl: 'TINYINT(1)' },
+    { name: 'conseguiu_medicacao', ddl: 'TINYINT(1)' },
+    { name: 'indicaria', ddl: 'TINYINT(1)' },
+    { name: 'comentario', ddl: 'TEXT' },
+  ],
+  pagamentos: [
+    { name: 'stripe_payment_id', ddl: 'VARCHAR(100)' },
+    { name: 'stripe_session_id', ddl: 'VARCHAR(100)' },
+    { name: 'status', ddl: "VARCHAR(50) NOT NULL DEFAULT 'pendente'" },
+    // valor_centavos é NOT NULL sem DEFAULT — ALTER TABLE ADD COLUMN
+    // com NOT NULL falha em tabela com dados, então não é patchável.
+    // Em ambientes pré-existentes a coluna já deve existir; deploys
+    // novos pegam via CREATE TABLE.
+  ],
+  // stripe_events e pesquisa_tokens só têm colunas NOT NULL essenciais
+  // (event_id PK / token / expira_em). Nada para patch.
 }
 
 // Mapa de tabela.coluna -> DDL para conversão de NOT NULL → NULL.
