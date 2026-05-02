@@ -6,7 +6,7 @@ import { db } from './db.ts'
 import { pacientes, pdfs, consultasInicio, accessTokens, precadastros, pesquisaTokens } from '../drizzle/schema.ts'
 import { eq, and, gt } from 'drizzle-orm'
 import { decrypt } from './_core/encryption.ts'
-import { gerarPrescricaoPdf, gerarFormularioPdf, assinarPdf } from './pdfSigner.ts'
+import { gerarPrescricaoPdf, assinarPdf } from './pdfSigner.ts'
 import { preencherCadastroSUS } from './sus/preencherCadastro.ts'
 import { preencherFichaAtendimento } from './sus/preencherFichaAtendimento.ts'
 import { gerarOrientacaoPdf } from './pdfOrientacao.ts'
@@ -104,16 +104,11 @@ export function startPdfWorker() {
 
       const gerados: { filename: string; buffer: Buffer }[] = []
 
-      // 1. Formulário clínico (sempre)
-      const formularioBuf = await gerarFormularioPdf(pacienteDecrypted)
-      const { buffer: signedForm, certificadoSerial: serialForm, assinadoEm: assinadoForm } =
-        await assinarPdf(formularioBuf, 'Formulário Clínico PrEP — Facilita PrEP')
-      const formKey = `pdfs/${pacienteId}/${Date.now()}-formulario.pdf`
-      await uploadBuffer(formKey, signedForm, 'application/pdf')
-      await db.insert(pdfs).values({ pacienteId, s3Key: formKey, tipo: 'formulario', certificadoSerial: serialForm, assinadoEm: assinadoForm })
-      gerados.push({ filename: 'formulario-clinico-prep.pdf', buffer: signedForm })
-
-      // 2. Receita / Prescrição (sempre)
+      // 1. Receita / Prescrição (sempre)
+      // O Formulário Clínico foi descontinuado — informações clínicas
+      // relevantes ficam no banco e nos PDFs SUS oficiais (Cadastro,
+      // Ficha de Atendimento). Não há valor regulatório em duplicar
+      // os dados em um PDF custom adicional.
       const prescBuf = await gerarPrescricaoPdf(pacienteDecrypted)
       const { buffer: signedPresc, certificadoSerial: serialPresc, assinadoEm: assinadoPresc } =
         await assinarPdf(prescBuf, 'Receita PrEP — Facilita PrEP')

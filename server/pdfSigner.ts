@@ -16,7 +16,6 @@ import {
   desenharIndicacaoCID,
   drawTextWrapped,
 } from './pdfHeader.ts'
-import { formatarCpf } from './_core/cpfValidator.ts'
 
 const signpdf = new SignPdf()
 
@@ -114,137 +113,9 @@ export async function gerarPrescricaoPdf(paciente: Paciente & { pacienteId?: num
   return Buffer.from(await doc.save())
 }
 
-export interface PacienteCompleto {
-  pacienteId?: number
-  nome: string
-  cpf?: string
-  dataNascimento: string | null
-  sexo: string | null
-  nomeSocial?: string | null
-  corRaca?: string | null
-  escolaridade?: string | null
-  situacaoConjugal?: string | null
-  email?: string | null
-  telefone?: string | null
-  cep?: string | null
-  logradouro?: string | null
-  numero?: string | null
-  complemento?: string | null
-  bairro?: string | null
-  cidade?: string | null
-  estado?: string | null
-  tipoAtendimento?: string | null
-  convenio?: string | null
-  condutaJson: unknown
-  prescricaoJson: unknown
-}
-
-export async function gerarFormularioPdf(paciente: PacienteCompleto): Promise<Buffer> {
-  const doc = await PDFDocument.create()
-  const page = doc.addPage([595, 842])
-  const font = await doc.embedFont(StandardFonts.Helvetica)
-  const fontBold = await doc.embedFont(StandardFonts.HelveticaBold)
-
-  const { width, height } = page.getSize()
-  const m = 50
-  let y = height - 60
-
-  const titulo = (txt: string) => {
-    page.drawText(txt, { x: m, y, font: fontBold, size: 11, color: rgb(0.07, 0.27, 0.52) })
-    y -= 6
-    page.drawLine({ start: { x: m, y }, end: { x: width - m, y }, thickness: 0.5, color: rgb(0.8, 0.8, 0.8) })
-    y -= 16
-  }
-
-  const campo = (label: string, valor: string | null | undefined) => {
-    const v = valor ?? '—'
-    const maxW = width - m * 2 - 160
-    page.drawText(label + ':', { x: m, y, font: fontBold, size: 9, color: rgb(0.4, 0.4, 0.4) })
-    const yStart = y
-    const yAfter = drawTextWrapped(page, v, {
-      x: m + 160, y, font, size: 9, color: rgb(0.1, 0.1, 0.1),
-      maxWidth: maxW, lineHeight: 12,
-    })
-    // mantém pelo menos 16pt de avanço (compatibilidade com layout existente)
-    y = Math.min(yAfter - 4, yStart - 16)
-  }
-
-  // Header
-  page.drawText('FACILITA PrEP', { x: m, y, font: fontBold, size: 18, color: rgb(0.07, 0.27, 0.52) })
-  y -= 20
-  page.drawText('Formulário Clínico PrEP', { x: m, y, font, size: 10, color: rgb(0.4, 0.4, 0.4) })
-  y -= 12
-  page.drawLine({ start: { x: m, y }, end: { x: width - m, y }, thickness: 1.5, color: rgb(0.07, 0.27, 0.52) })
-  y -= 24
-
-  titulo('1. DADOS PESSOAIS')
-  campo('Nome completo', paciente.nome)
-  if (paciente.cpf) campo('CPF', formatarCpf(paciente.cpf))
-  campo('Data de nascimento', paciente.dataNascimento ? paciente.dataNascimento.split('-').reverse().join('/') : null)
-  campo('Sexo biológico', paciente.sexo)
-  if (paciente.nomeSocial) campo('Nome social', paciente.nomeSocial)
-  y -= 8
-
-  titulo('2. DADOS DEMOGRÁFICOS')
-  campo('Cor/Raça', paciente.corRaca)
-  campo('Escolaridade', paciente.escolaridade)
-  campo('Situação conjugal', paciente.situacaoConjugal)
-  y -= 8
-
-  titulo('3. CONTATO')
-  campo('E-mail', paciente.email)
-  campo('Telefone', paciente.telefone)
-  const end = [paciente.logradouro, paciente.numero, paciente.complemento, paciente.bairro, paciente.cidade, paciente.estado].filter(Boolean).join(', ')
-  if (end) campo('Endereço', end)
-  campo('CEP', paciente.cep)
-  y -= 8
-
-  const conduta = paciente.condutaJson as {
-    historicoDst?: boolean; dstDescricao?: string; prepAnterior?: boolean; prepPeriodo?: string
-    usoDrogas?: boolean; drogasDescricao?: string; outrasInformacoes?: string
-  } | null
-
-  titulo('4. CONDUTA / HISTÓRICO')
-  if (conduta) {
-    campo('Histórico DST', conduta.historicoDst != null ? (conduta.historicoDst ? 'Sim' : 'Não') : null)
-    if (conduta.dstDescricao) campo('DST — descrição', conduta.dstDescricao)
-    campo('PrEP anterior', conduta.prepAnterior != null ? (conduta.prepAnterior ? 'Sim' : 'Não') : null)
-    if (conduta.prepPeriodo) campo('Período PrEP', conduta.prepPeriodo)
-    campo('Uso de drogas', conduta.usoDrogas != null ? (conduta.usoDrogas ? 'Sim' : 'Não') : null)
-    if (conduta.drogasDescricao) campo('Drogas — descrição', conduta.drogasDescricao)
-    if (conduta.outrasInformacoes) campo('Outras informações', conduta.outrasInformacoes)
-  }
-  y -= 8
-
-  const prescricao = paciente.prescricaoJson as {
-    medicamento?: string; nomeMedicamento?: string; posologia?: string; duracao?: string; observacoes?: string
-  } | null
-
-  titulo('5. PRESCRIÇÃO')
-  if (prescricao) {
-    const med = prescricao.medicamento === 'tenofovir_emtricitabina'
-      ? 'Tenofovir/Emtricitabina (TDF+FTC)'
-      : (prescricao.nomeMedicamento ?? prescricao.medicamento)
-    campo('Medicamento', med)
-    campo('Posologia', prescricao.posologia)
-    campo('Duração', prescricao.duracao)
-    if (prescricao.observacoes) campo('Observações', prescricao.observacoes)
-  }
-  y -= 8
-
-  titulo('6. TIPO DE ATENDIMENTO')
-  campo('Modalidade', paciente.tipoAtendimento)
-  if (paciente.convenio) campo('Convênio', paciente.convenio)
-
-  const emitido = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-  page.drawText(`Emitido em: ${emitido}`, {
-    x: m, y: 72, font, size: 8, color: rgb(0.5, 0.5, 0.5),
-  })
-  const carimboForm = carimboFromEnv('formulario', paciente.pacienteId ?? 0)
-  await desenharCarimboDigital(doc, page, { x: m, y: 8, width: width - m * 2, height: 60 }, carimboForm)
-
-  return Buffer.from(await doc.save())
-}
+// gerarFormularioPdf removido — o Formulário Clínico foi descontinuado.
+// Os dados clínicos relevantes ficam nos PDFs SUS oficiais (Cadastro
+// e Ficha de Atendimento) gerados em pdfQueue.ts.
 
 /**
  * Lê o certificado .pfx do ICP-Brasil — prioridade:
