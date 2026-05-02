@@ -58,6 +58,21 @@ export function startPdfWorker() {
       const [p] = await db.select().from(pacientes).where(eq(pacientes.id, pacienteId)).limit(1)
       if (!p) throw new Error(`Paciente ${pacienteId} não encontrado`)
 
+      // Idempotência: se este job já tinha rodado em uma tentativa anterior
+      // (e falhou após inserir os PDFs em `pdfs`), evita duplicação. A
+      // existência do PDF de prescrição é o melhor proxy — é o segundo
+      // PDF gerado e nunca falha sozinho. Se está lá, todos os outros
+      // também estão. Pulamos a geração e re-disparamos só as notificações.
+      const [prescricaoExistente] = await db
+        .select({ id: pdfs.id })
+        .from(pdfs)
+        .where(and(eq(pdfs.pacienteId, pacienteId), eq(pdfs.tipo, 'prescricao')))
+        .limit(1)
+      if (prescricaoExistente) {
+        logger.info('[pdfQueue] PDFs já existentes, pulando geração (retry)', { pacienteId })
+        return { skipped: true, reason: 'pdfs-already-generated' }
+      }
+
       // Determine tipoConsulta e buscar chaves dos pedidos de exame
       const [consulta] = await db
         .select()
@@ -290,7 +305,13 @@ export function startPdfWorker() {
 
       return { pdfsGerados: gerados.length }
     },
-    { connection, concurrency: 3, ...PDF_WORKER_OPTS },
+    // concurrency: 2 — reduzido de 3 para mitigar pico de memória.
+    // Cada job pode embedar uma imagem PNG/JPG de até 10MB (limite do
+    // upload), e pdf-lib expande a imagem decodificada em RAM. Com 3
+    // workers e imagens próximas do limite, o pico passava de 300MB —
+    // arriscado em containers Railway pequenos. 2 workers mantém
+    // throughput aceitável (PDFs levam ~3-8s) com pico previsível.
+    { connection, concurrency: 2, ...PDF_WORKER_OPTS },
   )
 
   worker.on('failed', (job, err) => {
@@ -408,7 +429,12 @@ export async function agendarLembreteDiario() {
 }
 
 export async function enqueueGerarPdf(pacienteId: number) {
+  // jobId determinístico evita que múltiplas chamadas a `finalizar` (clique
+  // duplo, retry de rede) enfileirem jobs duplicados. BullMQ rejeita add()
+  // se já existir um job com o mesmo jobId (ativo, em espera ou completo
+  // dentro do removeOnComplete window).
   return pdfQueue.add('gerar', { pacienteId }, {
+    jobId: `pdf-${pacienteId}`,
     attempts: 3,
     backoff: { type: 'exponential', delay: 5000 },
   })
