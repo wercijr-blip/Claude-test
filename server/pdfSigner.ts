@@ -197,7 +197,7 @@ export async function prepararExameAnexadoComoPdf(args: {
   page.drawImage(image, { x: imgX, y: imgY, width: imgW, height: imgH })
 
   // Carimbo digital — a assinatura ICP-Brasil é aplicada por assinarPdf depois
-  const carimboInfo = carimboFromEnv('exame-anexado', pacienteId ?? 0)
+  const carimboInfo = carimboFromEnv('exame_anexado', pacienteId ?? 0)
   await desenharCarimboDigital(doc, page, {
     x: margin, y: 8, width: PAGE_W - margin * 2, height: 60,
   }, carimboInfo)
