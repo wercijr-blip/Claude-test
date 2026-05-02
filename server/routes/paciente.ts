@@ -294,9 +294,13 @@ export const pacienteRouter = router({
       await validarEtapaPaciente(input.pacienteId, ctx.session.tokenId, 7)
       const ipAddress = (ctx.req.ip ?? ctx.req.socket?.remoteAddress ?? null)?.slice(0, 45) ?? null
       const userAgent = ctx.req.headers['user-agent']?.slice(0, 500) ?? null
+      // upsert: idempotente em caso de retry de rede ou clique duplo.
+      // O uniqueIndex em paciente_id (drizzle/schema.ts:163) impede dois
+      // registros para o mesmo paciente.
       await db
         .insert(tcleAssinaturas)
         .values({ pacienteId: input.pacienteId, ipAddress, userAgent })
+        .onDuplicateKeyUpdate({ set: { ipAddress, userAgent, signedAt: new Date() } })
       return { ok: true }
     }),
 
