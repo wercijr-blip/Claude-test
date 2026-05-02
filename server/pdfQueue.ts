@@ -161,6 +161,7 @@ export function startPdfWorker() {
         dataExameHiv: consulta?.dataExameValidado ?? null,
         prepModalidade: (p.prepModalidade as 'PrEP diária' | 'PrEP sob demanda' | null) ?? 'PrEP diária',
         tipoConsulta: tipoConsulta as 'primeiro_atendimento' | 'ja_faco_prep',
+        prepAdesao: 'Esquema diário',
       }, configClinica))
       const { buffer: signedFicha, certificadoSerial: serialFicha, assinadoEm: assinadoFicha } =
         await assinarPdf(fichaBuf, 'Ficha de Atendimento PrEP — Facilita PrEP')
