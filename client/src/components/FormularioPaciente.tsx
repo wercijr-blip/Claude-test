@@ -128,7 +128,7 @@ function TelaDocumentos({ pacienteId }: { pacienteId: number }) {
                       {[
                         'Ficha de Cadastro (gerada pelo Facilita PrEP)',
                         'Receita Médica (gerada pelo Facilita PrEP)',
-                        'Formulário PrEP (gerado pelo Facilita PrEP)',
+                        'Ficha de Atendimento PrEP (gerada pelo Facilita PrEP)',
                         'Resultado do exame Anti-HIV (até 7 dias — o mesmo enviado aqui)',
                       ].map(item => (
                         <li key={item} className="flex items-start gap-1.5 text-xs text-sage-dark">
@@ -146,7 +146,7 @@ function TelaDocumentos({ pacienteId }: { pacienteId: number }) {
                     <ul className="space-y-1">
                       {[
                         'Receita Médica (gerada pelo Facilita PrEP)',
-                        'Formulário PrEP (gerado pelo Facilita PrEP)',
+                        'Ficha de Atendimento PrEP (gerada pelo Facilita PrEP)',
                         'Resultado do exame Anti-HIV (até 7 dias — o mesmo enviado aqui)',
                       ].map(item => (
                         <li key={item} className="flex items-start gap-1.5 text-xs text-sage-dark">
