@@ -166,19 +166,29 @@ export function startPdfWorker() {
       gerados.push({ filename: 'ficha-atendimento-prep.pdf', buffer: signedFicha })
 
       // 5. Pedidos de exame (quando o paciente não tinha exame recente)
+      // Os pedidos foram gerados sem assinatura no momento da validação
+      // do exame (consulta.ts → gerarPedidosExames). Aqui, no fluxo de
+      // finalização, aplicamos a assinatura ICP-Brasil (PAdES) para
+      // entregar ao paciente um documento com validade legal.
       if (consulta && !consulta.temExameRecente) {
         const pedidos = [
-          { key: consulta.pedidoCompletoS3Key, tipo: 'pedido_completo', filename: 'pedido-exames-completo.pdf' },
-          { key: consulta.pedidoIstS3Key, tipo: 'pedido_ist', filename: 'pedido-sorologicos-ist.pdf' },
-          { key: consulta.pedidoHivS3Key, tipo: 'pedido_hiv', filename: 'pedido-anti-hiv.pdf' },
-          { key: consulta.pedidoDensitometriaS3Key, tipo: 'pedido_densitometria', filename: 'pedido-densitometria-ossea.pdf' },
+          { key: consulta.pedidoCompletoS3Key, tipo: 'pedido_completo', filename: 'pedido-exames-completo.pdf', titulo: 'Pedido de Exames Completo — Facilita PrEP' },
+          { key: consulta.pedidoIstS3Key, tipo: 'pedido_ist', filename: 'pedido-sorologicos-ist.pdf', titulo: 'Pedido de Sorologias IST — Facilita PrEP' },
+          { key: consulta.pedidoHivS3Key, tipo: 'pedido_hiv', filename: 'pedido-anti-hiv.pdf', titulo: 'Pedido de Anti-HIV — Facilita PrEP' },
+          { key: consulta.pedidoDensitometriaS3Key, tipo: 'pedido_densitometria', filename: 'pedido-densitometria-ossea.pdf', titulo: 'Pedido de Densitometria Óssea — Facilita PrEP' },
         ] as const
 
-        for (const { key, tipo, filename } of pedidos) {
+        for (const { key, tipo, filename, titulo } of pedidos) {
           if (!key) continue
-          const buf = await getBuffer(key)
-          await db.insert(pdfs).values({ pacienteId, s3Key: key, tipo, assinadoEm: consulta.createdAt })
-          gerados.push({ filename, buffer: buf })
+          const rawBuf = await getBuffer(key)
+          const { buffer: signedBuf, certificadoSerial: serialPedido, assinadoEm: assinadoPedido } =
+            await assinarPdf(rawBuf, titulo)
+          // Salva o PDF JÁ ASSINADO numa nova key para preservar o original
+          // (o original em `key` é o template não-assinado emitido na validação).
+          const signedKey = `pdfs/${pacienteId}/${Date.now() + 4}-${tipo}-assinado.pdf`
+          await uploadBuffer(signedKey, signedBuf, 'application/pdf')
+          await db.insert(pdfs).values({ pacienteId, s3Key: signedKey, tipo, certificadoSerial: serialPedido, assinadoEm: assinadoPedido })
+          gerados.push({ filename, buffer: signedBuf })
         }
       }
 
