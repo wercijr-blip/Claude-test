@@ -296,6 +296,27 @@ const COLUMN_PATCHES: Record<string, Array<{ name: string; ddl: string }>> = {
     { name: 'tipo_contato', ddl: 'VARCHAR(20)' },
     { name: 'prep_modalidade', ddl: 'VARCHAR(30)' },
   ],
+  exames: [
+    { name: 'tipo_exame', ddl: 'VARCHAR(100)' },
+    { name: 'mime_type', ddl: 'VARCHAR(100)' },
+    { name: 'tamanho_bytes', ddl: 'INT' },
+    { name: 'resultado_ia', ddl: 'JSON' },
+    { name: 'revisado_por_id', ddl: 'INT' },
+    { name: 'revisado_em', ddl: 'DATETIME' },
+    { name: 'liberado_por_medico_id', ddl: 'INT' },
+    { name: 'liberado_em', ddl: 'DATETIME' },
+  ],
+  pdfs: [
+    { name: 'certificado_serial', ddl: 'VARCHAR(100)' },
+    { name: 'assinado_em', ddl: 'DATETIME' },
+  ],
+  nfse_registros: [
+    { name: 'precadastro_id', ddl: 'INT' },
+    { name: 'numero_nfse', ddl: 'VARCHAR(50)' },
+    { name: 'focusnfe_ref', ddl: 'VARCHAR(100)' },
+    { name: 'erro_descricao', ddl: 'TEXT' },
+    { name: 'emitido_em', ddl: 'DATETIME' },
+  ],
 }
 
 async function getExistingColumns(table: string): Promise<Set<string>> {
