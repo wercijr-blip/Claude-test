@@ -44,7 +44,7 @@ const envSchema = z.object({
 
   SUS_CNES: z.string().default('9843744'),
 
-  APP_URL: z.string().url().default('https://facilitaprep.com.br'),
+  APP_URL: z.string().url().default('https://www.facilitaprep.com.br'),
   ALLOWED_ORIGINS: z.string().optional(),
 
   PORT: z.coerce.number().default(3000),
