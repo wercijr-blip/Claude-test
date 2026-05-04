@@ -28,7 +28,7 @@ interface Props {
 export default function StepConduta({ pacienteId, onNext, onBack, examData, tipoConsulta }: Props) {
   const isJaFazPrep = tipoConsulta === 'ja_faco_prep'
 
-  const { register, handleSubmit, watch, setError, clearErrors, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, watch, setValue, setError, clearErrors, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       pacienteId: pacienteId ?? 0,
@@ -38,8 +38,10 @@ export default function StepConduta({ pacienteId, onNext, onBack, examData, tipo
 
   const salvar = trpc.paciente.salvarStep4.useMutation({ onSuccess: () => onNext() })
 
+  const temSintomasDst = watch('conduta.temSintomasDst') ?? false
+  const usoDrogas = watch('conduta.usoDrogas') ?? false
+
   const onSubmit = (d: FormData) => {
-    // Validação cruzada: prepAdesao obrigatório se já faz PrEP
     if (isJaFazPrep && !d.conduta.prepAdesao) {
       setError('conduta.prepAdesao', { message: 'Selecione como tem tomado a PrEP.' })
       return
@@ -70,14 +72,14 @@ export default function StepConduta({ pacienteId, onNext, onBack, examData, tipo
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         <BoolGroup
           label="Tem sintomas de DST/IST?"
-          value={watch('conduta.temSintomasDst')}
-          register={register('conduta.temSintomasDst', { setValueAs: (v) => v === 'true' || v === true })}
+          value={temSintomasDst}
+          onChange={(v) => setValue('conduta.temSintomasDst', v, { shouldValidate: true, shouldDirty: true })}
         />
 
         <BoolGroup
           label="Faz uso de drogas?"
-          value={watch('conduta.usoDrogas')}
-          register={register('conduta.usoDrogas', { setValueAs: (v) => v === 'true' || v === true })}
+          value={usoDrogas}
+          onChange={(v) => setValue('conduta.usoDrogas', v, { shouldValidate: true, shouldDirty: true })}
         />
 
         {isJaFazPrep && (
@@ -120,21 +122,27 @@ export default function StepConduta({ pacienteId, onNext, onBack, examData, tipo
   )
 }
 
-function BoolGroup({ label, value, register }: { label: string; value: boolean | undefined; register: ReturnType<ReturnType<typeof useForm>['register']> }) {
+function BoolGroup({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
+  const opts: { val: boolean; label: string }[] = [
+    { val: false, label: 'Não' },
+    { val: true, label: 'Sim' },
+  ]
   return (
     <div>
       <p className="text-sm font-medium text-slate-700 mb-2">{label}</p>
       <div className="flex gap-3">
-        {([['false', 'Não'], ['true', 'Sim']] as const).map(([v, l]) => {
-          const checked = value === (v === 'true')
+        {opts.map((opt) => {
+          const checked = value === opt.val
           return (
-            <label
-              key={v}
+            <button
+              type="button"
+              key={String(opt.val)}
+              onClick={() => onChange(opt.val)}
+              aria-pressed={checked}
               className={`flex-1 flex items-center justify-center gap-2 border rounded-lg py-2.5 px-4 cursor-pointer text-sm font-medium transition-colors ${checked ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}
             >
-              <input type="radio" value={v} {...register} className="sr-only" />
-              {l}
-            </label>
+              {opt.label}
+            </button>
           )
         })}
       </div>
