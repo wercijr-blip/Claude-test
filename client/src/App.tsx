@@ -149,7 +149,7 @@ function AuthCallback() {
   useEffect(() => {
     if (code && !hasAttempted.current) {
       hasAttempted.current = true
-      callbackMutation.mutate({ code })
+      callbackMutation.mutate({ code, redirectUri: `${window.location.origin}/auth/callback` })
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code])
@@ -164,7 +164,7 @@ function AuthCallback() {
             className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-medium hover:bg-blue-700 transition-colors"
             onClick={() => {
               hasAttempted.current = false
-              callbackMutation.mutate({ code })
+              callbackMutation.mutate({ code, redirectUri: `${window.location.origin}/auth/callback` })
             }}
           >
             Tentar novamente
