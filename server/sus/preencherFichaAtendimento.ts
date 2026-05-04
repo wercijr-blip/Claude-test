@@ -37,6 +37,10 @@ export interface DadosFichaAtendimento {
   tipoConsulta?: 'primeiro_atendimento' | 'ja_faco_prep' | null
   /** Como tomou PrEP desde a última dispensa (apenas se ja_faco_prep) */
   prepAdesao?: 'Esquema diário' | 'Esquema sob demanda' | 'Ambos' | 'Eu não tomei' | null
+  /** Item 16 — paciente declarou ter sintomas IST? Se null/undefined, marca "Não". */
+  temSintomasDst?: boolean | null
+  /** Itens 18 e 19 — paciente declarou uso de drogas? Se null/undefined, marca "Não". */
+  usoDrogas?: boolean | null
 }
 
 export interface ConfigClinica {
@@ -132,16 +136,27 @@ export async function preencherFichaAtendimento(
   // ── Indicação PrEP ────────────────────────────────────────────
   setDropdown('11-USOPreprelacionado', 'não se aplica')
 
-  // ── 16. Sintomas IST: todos desmarcados; apenas o "Não" (CB12, y=467 x=346) marcado ──
-  // Layout: 12 checkboxes — 11 sintomas + opção "Não" (instrução do cliente)
+  // ── 16. Sintomas IST ──────────────────────────────────────────
+  // Layout: 12 checkboxes — 11 sintomas específicos (CB1-CB11) + CB12 ("Não").
+  // Quando o paciente declara que NÃO tem sintomas, marcamos o CB12.
+  // Quando declara que TEM, deixamos os 12 desmarcados — o paciente não
+  // detalha quais sintomas, então o médico avalia presencialmente.
   for (let i = 1; i <= 12; i++) {
-    checkBox(`Caixa de verificação ${i}`, i === 12)
+    const marcarNao = dados.temSintomasDst !== true
+    checkBox(`Caixa de verificação ${i}`, marcarNao && i === 12)
   }
 
   // ── 17/18/19. Conduta de risco ────────────────────────────────
+  // Item 17 (sexo por dinheiro): mantido oculto e fixo em "Não" por
+  //   decisão do cliente — pergunta sensível não é exposta ao paciente.
+  // Itens 18 e 19 (drogas): vêm do `usoDrogas` do Step 4. Como o
+  //   paciente responde uma pergunta única ("faz uso de drogas?"), o
+  //   "Sim" propaga para os dois itens (injetáveis e psicoativas) —
+  //   o médico desmembra na consulta se houver detalhamento.
   setDropdown('17-SEXOPORDINHEIRO', 'Não')
-  setDropdown('18-droga_inj', 'Não')
-  setDropdown('19-PSICOATIVAS', 'Não')
+  const drogas = dados.usoDrogas === true ? 'Sim' : 'Não'
+  setDropdown('18-droga_inj', drogas)
+  setDropdown('19-PSICOATIVAS', drogas)
 
   // ── 20. Como tomou PrEP — só preenche se já faz PrEP ─────────
   if (dados.tipoConsulta === 'ja_faco_prep' && dados.prepAdesao) {

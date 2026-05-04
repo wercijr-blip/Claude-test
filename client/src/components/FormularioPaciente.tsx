@@ -273,6 +273,7 @@ export default function FormularioPaciente({ pacienteId: initialPacienteId, init
                   dataExame: (consultaStatus as { dataExame?: string | null })?.dataExame,
                   resultadoHiv: (consultaStatus as { resultadoHiv?: string | null })?.resultadoHiv,
                 }}
+                tipoConsulta={(consultaStatus as { tipoConsulta?: 'primeiro_atendimento' | 'ja_faco_prep' | null })?.tipoConsulta ?? null}
               />
             )}
             {currentStep === 5 && <StepPrescricao {...stepProps} />}

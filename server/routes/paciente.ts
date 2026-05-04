@@ -43,13 +43,17 @@ async function validarEtapaPaciente(pacienteId: number, tokenId: number, etapaRe
   return p
 }
 
+// Schema clínico do Step 4 — alinhado com os campos preenchidos na
+// Ficha de Atendimento PrEP SUS (Form 02 FEV/2025):
+//   - temSintomasDst → item 16 (sintomas IST)
+//   - usoDrogas      → itens 18 (drogas injetáveis) e 19 (psicoativas)
+//   - prepAdesao     → item 20 (apenas se tipoConsulta === 'ja_faco_prep')
+// 'outrasInformacoes' é livre para o médico ler no painel; não vai pro
+// formulário oficial.
 const condutaSchema = z.object({
-  historicoDst: z.boolean(),
-  dstDescricao: z.string().max(1000).optional(),
-  prepAnterior: z.boolean(),
-  prepPeriodo: z.string().max(255).optional(),
+  temSintomasDst: z.boolean(),
   usoDrogas: z.boolean(),
-  drogasDescricao: z.string().max(1000).optional(),
+  prepAdesao: z.enum(['diaria', 'sob_demanda']).optional(),
   outrasInformacoes: z.string().max(2000).optional(),
 })
 

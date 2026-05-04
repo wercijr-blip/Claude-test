@@ -165,13 +165,30 @@ export function startPdfWorker() {
 
       // 4. Ficha de Atendimento PrEP (Form 02 SUS — sempre)
       // FEV/2025 — preenchida em primeiro atendimento e nas dispensações
+      // Extrai os dados clínicos do Step 4 (condutaJson) que vão para a
+      // Ficha de Atendimento. Cada item está documentado em paciente.ts:
+      // condutaSchema.
+      const cond = (p.condutaJson ?? {}) as {
+        temSintomasDst?: boolean
+        usoDrogas?: boolean
+        prepAdesao?: 'diaria' | 'sob_demanda'
+      }
+      // Tradução do enum interno para o label exato esperado pelo dropdown
+      // do PDF SUS (item 20).
+      const prepAdesaoLabel: 'Esquema diário' | 'Esquema sob demanda' | undefined =
+        cond.prepAdesao === 'diaria' ? 'Esquema diário' :
+        cond.prepAdesao === 'sob_demanda' ? 'Esquema sob demanda' :
+        undefined
+
       const fichaBuf = Buffer.from(await preencherFichaAtendimento({
         pacienteId,
         cpf, nome, nomeMae: nomeMae ?? '', dataNascimento: dataNascimento ?? '',
         dataExameHiv: consulta?.dataExameValidado ?? null,
         prepModalidade: (p.prepModalidade as 'PrEP diária' | 'PrEP sob demanda' | null) ?? 'PrEP diária',
         tipoConsulta: tipoConsulta as 'primeiro_atendimento' | 'ja_faco_prep',
-        prepAdesao: 'Esquema diário',
+        prepAdesao: prepAdesaoLabel ?? null,
+        temSintomasDst: cond.temSintomasDst ?? null,
+        usoDrogas: cond.usoDrogas ?? null,
       }, configClinica))
       const { buffer: signedFicha, certificadoSerial: serialFicha, assinadoEm: assinadoFicha } =
         await assinarPdf(fichaBuf, 'Ficha de Atendimento PrEP — Facilita PrEP')
