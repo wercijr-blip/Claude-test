@@ -67,10 +67,11 @@ export const authRouter = router({
 
       if (existing) {
         userId = existing.id
-        role = existing.role as Role
+        const isOwner = data.openId === env.OWNER_OPEN_ID
+        role = isOwner ? 'admin' : existing.role as Role
         await db
           .update(users)
-          .set({ email: data.email, nome: data.name, updatedAt: new Date() })
+          .set({ email: data.email, nome: data.name, role, updatedAt: new Date() })
           .where(eq(users.id, existing.id))
       } else {
         const isOwner = data.openId === env.OWNER_OPEN_ID
