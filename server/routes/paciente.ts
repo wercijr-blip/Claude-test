@@ -48,13 +48,10 @@ async function validarEtapaPaciente(pacienteId: number, tokenId: number, etapaRe
 //   - temSintomasDst → item 16 (sintomas IST)
 //   - usoDrogas      → itens 18 (drogas injetáveis) e 19 (psicoativas)
 //   - prepAdesao     → item 20 (apenas se tipoConsulta === 'ja_faco_prep')
-// 'outrasInformacoes' é livre para o médico ler no painel; não vai pro
-// formulário oficial.
 const condutaSchema = z.object({
   temSintomasDst: z.boolean(),
   usoDrogas: z.boolean(),
   prepAdesao: z.enum(['diaria', 'sob_demanda']).optional(),
-  outrasInformacoes: z.string().max(2000).optional(),
 })
 
 export const pacienteRouter = router({

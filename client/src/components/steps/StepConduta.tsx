@@ -11,7 +11,6 @@ const schema = z.object({
     // 'prepAdesao' é obrigatório só quando tipoConsulta === 'ja_faco_prep'.
     // A validação cruzada acontece no submit (depende de prop externa).
     prepAdesao: z.enum(['diaria', 'sob_demanda']).optional(),
-    outrasInformacoes: z.string().optional(),
   }),
 })
 
@@ -98,16 +97,6 @@ export default function StepConduta({ pacienteId, onNext, onBack, examData, tipo
             )}
           </div>
         )}
-
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Outras informações relevantes</label>
-          <textarea
-            {...register('conduta.outrasInformacoes')}
-            rows={3}
-            className={inputCls(false)}
-            placeholder="Informações adicionais para o médico"
-          />
-        </div>
 
         {salvar.error && <p className="text-red-500 text-sm">{salvar.error.message}</p>}
 
