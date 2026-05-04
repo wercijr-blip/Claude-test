@@ -20,16 +20,6 @@ const app = express()
 // Trust Railway's reverse proxy so X-Forwarded-For is recognized
 app.set('trust proxy', 1)
 
-// Redirecionar www → sem www (domínio canônico)
-app.use((req, res, next) => {
-  const host = req.hostname
-  if (host.startsWith('www.')) {
-    const canonical = host.slice(4)
-    return res.redirect(301, `https://${canonical}${req.originalUrl}`)
-  }
-  next()
-})
-
 applySecurityMiddleware(app)
 app.use(cookieParser())
 
