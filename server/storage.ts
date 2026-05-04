@@ -1,5 +1,12 @@
 import { randomUUID } from 'crypto'
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+  GetBucketLifecycleConfigurationCommand,
+  PutBucketLifecycleConfigurationCommand,
+} from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import multer from 'multer'
 import { fileTypeFromBuffer } from 'file-type'
@@ -16,7 +23,6 @@ import { createContext } from './_core/context.ts'
 const MIME_TO_EXT: Record<string, string> = {
   'image/jpeg': 'jpg',
   'image/png': 'png',
-  'image/webp': 'webp',
   'application/pdf': 'pdf',
 }
 
@@ -65,6 +71,68 @@ export async function getPresignedUrl(key: string, expiresIn = 3600): Promise<st
 
 export async function deleteObject(key: string): Promise<void> {
   await s3.send(new DeleteObjectCommand({ Bucket: env.AWS_S3_BUCKET, Key: key }))
+}
+
+// ── S3 Lifecycle ─────────────────────────────────────────────────────
+//
+// Os exames anexados pelo paciente (prefix `exames-inicio/`) servem
+// apenas para a análise por IA + revisão médica — após processamento,
+// os dados extraídos (resultadoHivValidado, dataExameValidado) ficam no
+// banco em texto. O arquivo bruto não tem valor permanente e expira em
+// 30 dias por princípio de minimização de dados (LGPD art. 6º, III).
+//
+// Outros prefixes (`pdfs/`, `pedidos/`, `intake/documentos/`) são
+// documentos médicos com retenção legal de 20 anos (CFM 2.218/2018) e
+// NÃO entram nesta regra.
+const LIFECYCLE_RULE_ID = 'expire-exames-inicio-30d'
+const EXAMES_RETENTION_DAYS = 30
+
+export async function ensureS3Lifecycle(): Promise<void> {
+  // Idempotente: se a regra já existe com mesmo ID, não faz nada.
+  try {
+    const current = await s3.send(new GetBucketLifecycleConfigurationCommand({
+      Bucket: env.AWS_S3_BUCKET,
+    }))
+    const exists = current.Rules?.some((r) => r.ID === LIFECYCLE_RULE_ID)
+    if (exists) {
+      logger.info('[ensureS3Lifecycle] Regra já configurada', { rule: LIFECYCLE_RULE_ID })
+      return
+    }
+  } catch (err) {
+    // NoSuchLifecycleConfiguration é esperado quando o bucket não tem
+    // nenhuma regra ainda — só seguimos para criar.
+    const name = (err as { name?: string }).name
+    if (name !== 'NoSuchLifecycleConfiguration') {
+      logger.error('[ensureS3Lifecycle] Falha ao consultar lifecycle (tentando criar)', {
+        error: String(err),
+      })
+    }
+  }
+
+  try {
+    await s3.send(new PutBucketLifecycleConfigurationCommand({
+      Bucket: env.AWS_S3_BUCKET,
+      LifecycleConfiguration: {
+        Rules: [{
+          ID: LIFECYCLE_RULE_ID,
+          Status: 'Enabled',
+          Filter: { Prefix: 'exames-inicio/' },
+          Expiration: { Days: EXAMES_RETENTION_DAYS },
+        }],
+      },
+    }))
+    logger.info('[ensureS3Lifecycle] Regra criada — exames-inicio/ expira em 30 dias', {
+      rule: LIFECYCLE_RULE_ID,
+    })
+  } catch (err) {
+    // Falta de permissão IAM (s3:PutLifecycleConfiguration) é o caso
+    // mais comum de falha aqui. Não derrubamos o boot — o admin pode
+    // configurar manualmente no console da AWS.
+    logger.error('[ensureS3Lifecycle] Falha ao criar lifecycle (configurar manualmente no AWS)', {
+      bucket: env.AWS_S3_BUCKET,
+      error: String(err),
+    })
+  }
 }
 
 // Handler de upload de exames (usado pelo Express diretamente)

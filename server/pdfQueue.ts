@@ -6,11 +6,12 @@ import { db } from './db.ts'
 import { pacientes, pdfs, consultasInicio, accessTokens, precadastros, pesquisaTokens } from '../drizzle/schema.ts'
 import { eq, and, gt } from 'drizzle-orm'
 import { decrypt } from './_core/encryption.ts'
-import { gerarPrescricaoPdf, gerarFormularioPdf, assinarPdf } from './pdfSigner.ts'
+import { gerarPrescricaoPdf, assinarPdf } from './pdfSigner.ts'
+import { gerarPedidosExames } from './pdfExameRequest.ts'
 import { preencherCadastroSUS } from './sus/preencherCadastro.ts'
 import { preencherFichaAtendimento } from './sus/preencherFichaAtendimento.ts'
 import { gerarOrientacaoPdf } from './pdfOrientacao.ts'
-import { uploadBuffer, getBuffer } from './storage.ts'
+import { uploadBuffer } from './storage.ts'
 import { enviarLinkAcessoIntake, enviarPrescricaoPronta, enviarPesquisaSatisfacao } from './email.ts'
 import { enviarWhatsApp } from './whatsapp.ts'
 import { logger } from './_core/logger.ts'
@@ -58,6 +59,21 @@ export function startPdfWorker() {
       const [p] = await db.select().from(pacientes).where(eq(pacientes.id, pacienteId)).limit(1)
       if (!p) throw new Error(`Paciente ${pacienteId} não encontrado`)
 
+      // Idempotência: se este job já tinha rodado em uma tentativa anterior
+      // (e falhou após inserir os PDFs em `pdfs`), evita duplicação. A
+      // existência do PDF de prescrição é o melhor proxy — é o segundo
+      // PDF gerado e nunca falha sozinho. Se está lá, todos os outros
+      // também estão. Pulamos a geração e re-disparamos só as notificações.
+      const [prescricaoExistente] = await db
+        .select({ id: pdfs.id })
+        .from(pdfs)
+        .where(and(eq(pdfs.pacienteId, pacienteId), eq(pdfs.tipo, 'prescricao')))
+        .limit(1)
+      if (prescricaoExistente) {
+        logger.info('[pdfQueue] PDFs já existentes, pulando geração (retry)', { pacienteId })
+        return { skipped: true, reason: 'pdfs-already-generated' }
+      }
+
       // Determine tipoConsulta e buscar chaves dos pedidos de exame
       const [consulta] = await db
         .select()
@@ -104,16 +120,11 @@ export function startPdfWorker() {
 
       const gerados: { filename: string; buffer: Buffer }[] = []
 
-      // 1. Formulário clínico (sempre)
-      const formularioBuf = await gerarFormularioPdf(pacienteDecrypted)
-      const { buffer: signedForm, certificadoSerial: serialForm, assinadoEm: assinadoForm } =
-        await assinarPdf(formularioBuf, 'Formulário Clínico PrEP — Facilita PrEP')
-      const formKey = `pdfs/${pacienteId}/${Date.now()}-formulario.pdf`
-      await uploadBuffer(formKey, signedForm, 'application/pdf')
-      await db.insert(pdfs).values({ pacienteId, s3Key: formKey, tipo: 'formulario', certificadoSerial: serialForm, assinadoEm: assinadoForm })
-      gerados.push({ filename: 'formulario-clinico-prep.pdf', buffer: signedForm })
-
-      // 2. Receita / Prescrição (sempre)
+      // 1. Receita / Prescrição (sempre)
+      // O Formulário Clínico foi descontinuado — informações clínicas
+      // relevantes ficam no banco e nos PDFs SUS oficiais (Cadastro,
+      // Ficha de Atendimento). Não há valor regulatório em duplicar
+      // os dados em um PDF custom adicional.
       const prescBuf = await gerarPrescricaoPdf(pacienteDecrypted)
       const { buffer: signedPresc, certificadoSerial: serialPresc, assinadoEm: assinadoPresc } =
         await assinarPdf(prescBuf, 'Receita PrEP — Facilita PrEP')
@@ -155,12 +166,30 @@ export function startPdfWorker() {
 
       // 4. Ficha de Atendimento PrEP (Form 02 SUS — sempre)
       // FEV/2025 — preenchida em primeiro atendimento e nas dispensações
+      // Extrai os dados clínicos do Step 4 (condutaJson) que vão para a
+      // Ficha de Atendimento. Cada item está documentado em paciente.ts:
+      // condutaSchema.
+      const cond = (p.condutaJson ?? {}) as {
+        temSintomasDst?: boolean
+        usoDrogas?: boolean
+        prepAdesao?: 'diaria' | 'sob_demanda'
+      }
+      // Tradução do enum interno para o label exato esperado pelo dropdown
+      // do PDF SUS (item 20).
+      const prepAdesaoLabel: 'Esquema diário' | 'Esquema sob demanda' | undefined =
+        cond.prepAdesao === 'diaria' ? 'Esquema diário' :
+        cond.prepAdesao === 'sob_demanda' ? 'Esquema sob demanda' :
+        undefined
+
       const fichaBuf = Buffer.from(await preencherFichaAtendimento({
         pacienteId,
         cpf, nome, nomeMae: nomeMae ?? '', dataNascimento: dataNascimento ?? '',
         dataExameHiv: consulta?.dataExameValidado ?? null,
         prepModalidade: (p.prepModalidade as 'PrEP diária' | 'PrEP sob demanda' | null) ?? 'PrEP diária',
         tipoConsulta: tipoConsulta as 'primeiro_atendimento' | 'ja_faco_prep',
+        prepAdesao: prepAdesaoLabel ?? null,
+        temSintomasDst: cond.temSintomasDst ?? null,
+        usoDrogas: cond.usoDrogas ?? null,
       }, configClinica))
       const { buffer: signedFicha, certificadoSerial: serialFicha, assinadoEm: assinadoFicha } =
         await assinarPdf(fichaBuf, 'Ficha de Atendimento PrEP — Facilita PrEP')
@@ -169,22 +198,63 @@ export function startPdfWorker() {
       await db.insert(pdfs).values({ pacienteId, s3Key: fichaKey, tipo: 'ficha_atendimento', certificadoSerial: serialFicha, assinadoEm: assinadoFicha })
       gerados.push({ filename: 'ficha-atendimento-prep.pdf', buffer: signedFicha })
 
-      // 5. Pedidos de exame (quando o paciente não tinha exame recente)
-      if (consulta && !consulta.temExameRecente) {
-        const pedidos = [
-          { key: consulta.pedidoCompletoS3Key, tipo: 'pedido_completo', filename: 'pedido-exames-completo.pdf' },
-          { key: consulta.pedidoIstS3Key, tipo: 'pedido_ist', filename: 'pedido-sorologicos-ist.pdf' },
-          { key: consulta.pedidoHivS3Key, tipo: 'pedido_hiv', filename: 'pedido-anti-hiv.pdf' },
-          { key: consulta.pedidoDensitometriaS3Key, tipo: 'pedido_densitometria', filename: 'pedido-densitometria-ossea.pdf' },
+      // 5. Pedidos de exame — SEMPRE gerados no bundle final.
+      //
+      // Mesmo pacientes que tinham exame Anti-HIV recente precisam dos
+      // pedidos para os outros exames de rotina/seguimento (sorologias
+      // IST, função renal, densitometria). O comportamento anterior só
+      // gerava se temExameRecente=false, deixando esses pacientes sem
+      // os pedidos clinicamente necessários.
+      //
+      // Geramos fresh aqui (em vez de baixar do S3) para garantir a lista
+      // atual de exames de shared/const.ts e simplificar o fluxo — não
+      // dependemos mais das keys salvas em consultas_inicio.pedido*S3Key.
+      try {
+        const tipoConsultaParaPedidos = (tipoConsulta ?? 'primeiro_atendimento') as
+          'primeiro_atendimento' | 'ja_faco_prep'
+        const { completo, ist, hiv, densitometria } = await gerarPedidosExames(
+          tipoConsultaParaPedidos,
+          { nome, cpf },
+          p.tokenId,
+        )
+
+        const pedidosBuffers = [
+          { buf: completo,      tipo: 'pedido_completo',      filename: 'pedido-exames-completo.pdf',      titulo: 'Pedido de Exames Completo — Facilita PrEP' },
+          { buf: ist,           tipo: 'pedido_ist',           filename: 'pedido-sorologicos-ist.pdf',      titulo: 'Pedido de Sorologias IST — Facilita PrEP' },
+          { buf: hiv,           tipo: 'pedido_hiv',           filename: 'pedido-anti-hiv.pdf',             titulo: 'Pedido de Anti-HIV — Facilita PrEP' },
+          { buf: densitometria, tipo: 'pedido_densitometria', filename: 'pedido-densitometria-ossea.pdf',  titulo: 'Pedido de Densitometria Óssea — Facilita PrEP' },
         ] as const
 
-        for (const { key, tipo, filename } of pedidos) {
-          if (!key) continue
-          const buf = await getBuffer(key)
-          await db.insert(pdfs).values({ pacienteId, s3Key: key, tipo, assinadoEm: consulta.createdAt })
-          gerados.push({ filename, buffer: buf })
+        for (const { buf, tipo, filename, titulo } of pedidosBuffers) {
+          try {
+            const { buffer: signedBuf, certificadoSerial: serialPedido, assinadoEm: assinadoPedido } =
+              await assinarPdf(buf, titulo)
+            const signedKey = `pdfs/${pacienteId}/${Date.now() + 4}-${tipo}-assinado.pdf`
+            await uploadBuffer(signedKey, signedBuf, 'application/pdf')
+            await db.insert(pdfs).values({
+              pacienteId, s3Key: signedKey, tipo,
+              certificadoSerial: serialPedido, assinadoEm: assinadoPedido,
+            })
+            gerados.push({ filename, buffer: signedBuf })
+          } catch (err) {
+            // Falha em UM pedido não pode derrubar os outros documentos
+            logger.error('[pdfQueue] Falha ao assinar pedido (continuando)', {
+              pacienteId, tipo, error: String(err),
+            })
+          }
         }
+      } catch (err) {
+        // Falha geral em gerar os pedidos (gerarPedidosExames) — log e
+        // segue para os documentos seguintes (orientação, e-mail).
+        logger.error('[pdfQueue] Falha ao gerar pedidos de exame (continuando)', {
+          pacienteId, error: String(err),
+        })
       }
+
+      // O exame Anti-HIV anexado pelo paciente NÃO entra no bundle final
+      // — fica armazenado em consultas_inicio.exameS3Key apenas para
+      // auditoria e revisão médica. Reentregar ao próprio paciente o
+      // documento que ele mesmo subiu não acrescenta valor.
 
       // 6. Documento de Orientação (sempre — guia ao paciente sobre os documentos
       //    recebidos, retirada de medicação, cronograma de exames e contato)
@@ -242,7 +312,13 @@ export function startPdfWorker() {
 
       return { pdfsGerados: gerados.length }
     },
-    { connection, concurrency: 3, ...PDF_WORKER_OPTS },
+    // concurrency: 2 — reduzido de 3 para mitigar pico de memória.
+    // Cada job pode embedar uma imagem PNG/JPG de até 10MB (limite do
+    // upload), e pdf-lib expande a imagem decodificada em RAM. Com 3
+    // workers e imagens próximas do limite, o pico passava de 300MB —
+    // arriscado em containers Railway pequenos. 2 workers mantém
+    // throughput aceitável (PDFs levam ~3-8s) com pico previsível.
+    { connection, concurrency: 2, ...PDF_WORKER_OPTS },
   )
 
   worker.on('failed', (job, err) => {
@@ -360,7 +436,12 @@ export async function agendarLembreteDiario() {
 }
 
 export async function enqueueGerarPdf(pacienteId: number) {
+  // jobId determinístico evita que múltiplas chamadas a `finalizar` (clique
+  // duplo, retry de rede) enfileirem jobs duplicados. BullMQ rejeita add()
+  // se já existir um job com o mesmo jobId (ativo, em espera ou completo
+  // dentro do removeOnComplete window).
   return pdfQueue.add('gerar', { pacienteId }, {
+    jobId: `pdf-${pacienteId}`,
     attempts: 3,
     backoff: { type: 'exponential', delay: 5000 },
   })

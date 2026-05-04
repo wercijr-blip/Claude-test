@@ -116,6 +116,12 @@ await ensureSchema().catch((err) => {
   logger.error('[server] ensureSchema falhou (continuando)', { error: String(err) })
 })
 
+// Configura a regra de lifecycle do S3 (exames-inicio/ expira em 30 dias)
+const { ensureS3Lifecycle } = await import('../storage.ts')
+await ensureS3Lifecycle().catch((err) => {
+  logger.error('[server] ensureS3Lifecycle falhou (continuando)', { error: String(err) })
+})
+
 const server = app.listen(env.PORT, async () => {
   logger.info(`Facilita PrEP rodando na porta ${env.PORT}`, { env: env.NODE_ENV })
 

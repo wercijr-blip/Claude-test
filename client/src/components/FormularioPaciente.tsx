@@ -8,7 +8,6 @@ import StepDemografico from './steps/StepDemografico.tsx'
 import StepContato from './steps/StepContato.tsx'
 import StepConduta from './steps/StepConduta.tsx'
 import StepPrescricao from './steps/StepPrescricao.tsx'
-import StepServico from './steps/StepServico.tsx'
 import StepTcle from './StepTcle.tsx'
 import { trpc } from '../lib/trpc.ts'
 
@@ -21,6 +20,8 @@ type TipoPdf = { id: number; tipo: string; assinadoEm: Date | null; url: string 
 
 const LABEL_PDF: Record<string, string> = {
   orientacao: '📘 Documento de Orientação ao Paciente',
+  // 'formulario' mantido para compat com PDFs antigos (gerador foi
+  // descontinuado; novos pacientes não recebem esse tipo).
   formulario: 'Formulário Clínico',
   prescricao: 'Receita PrEP',
   cadastro: 'Cadastro SUS PrEP',
@@ -29,6 +30,7 @@ const LABEL_PDF: Record<string, string> = {
   pedido_ist: 'Pedido de Sorológicos IST',
   pedido_hiv: 'Pedido Anti-HIV',
   pedido_densitometria: 'Pedido de Densitometria Óssea',
+  exame_anexado: 'Exame Anti-HIV anexado',
 }
 
 function TelaDocumentos({ pacienteId }: { pacienteId: number }) {
@@ -125,7 +127,7 @@ function TelaDocumentos({ pacienteId }: { pacienteId: number }) {
                       {[
                         'Ficha de Cadastro (gerada pelo Facilita PrEP)',
                         'Receita Médica (gerada pelo Facilita PrEP)',
-                        'Formulário PrEP (gerado pelo Facilita PrEP)',
+                        'Ficha de Atendimento PrEP (gerada pelo Facilita PrEP)',
                         'Resultado do exame Anti-HIV (até 7 dias — o mesmo enviado aqui)',
                       ].map(item => (
                         <li key={item} className="flex items-start gap-1.5 text-xs text-sage-dark">
@@ -143,7 +145,7 @@ function TelaDocumentos({ pacienteId }: { pacienteId: number }) {
                     <ul className="space-y-1">
                       {[
                         'Receita Médica (gerada pelo Facilita PrEP)',
-                        'Formulário PrEP (gerado pelo Facilita PrEP)',
+                        'Ficha de Atendimento PrEP (gerada pelo Facilita PrEP)',
                         'Resultado do exame Anti-HIV (até 7 dias — o mesmo enviado aqui)',
                       ].map(item => (
                         <li key={item} className="flex items-start gap-1.5 text-xs text-sage-dark">
@@ -270,19 +272,11 @@ export default function FormularioPaciente({ pacienteId: initialPacienteId, init
                   dataExame: (consultaStatus as { dataExame?: string | null })?.dataExame,
                   resultadoHiv: (consultaStatus as { resultadoHiv?: string | null })?.resultadoHiv,
                 }}
+                tipoConsulta={(consultaStatus as { tipoConsulta?: 'primeiro_atendimento' | 'ja_faco_prep' | null })?.tipoConsulta ?? null}
               />
             )}
             {currentStep === 5 && <StepPrescricao {...stepProps} />}
-            {currentStep === 6 && (
-              <StepServico
-                {...stepProps}
-                defaultValues={intakeData ? {
-                  tipoAtendimento: intakeData.tipo === 'plano' ? 'convenio' : 'particular',
-                  convenio: intakeData.plano ?? undefined,
-                } : undefined}
-              />
-            )}
-            {currentStep === 7 && <StepTcle {...stepProps} />}
+            {currentStep === 6 && <StepTcle {...stepProps} />}
           </motion.div>
         </AnimatePresence>
       </div>

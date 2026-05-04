@@ -12,10 +12,99 @@
 
 import { PDFDocument, PDFFont, PDFPage, rgb } from 'pdf-lib'
 import { CLINICA_INFO } from '../shared/const.ts'
+import { formatarCpf } from './_core/cpfValidator.ts'
 
 export interface DadosPaciente {
   nome: string
   cpf?: string | null
+}
+
+/**
+ * Word-wrap manual para pdf-lib. O `maxWidth` nativo quebra visualmente
+ * mas NÃO incrementa o cursor Y, causando sobreposição com o conteúdo
+ * seguinte. Esta helper desenha linha-a-linha e retorna o Y final.
+ *
+ * Quebra preferencialmente em espaço; palavras maiores que `maxWidth`
+ * são quebradas a meio-caractere (último recurso).
+ */
+export function drawTextWrapped(
+  page: PDFPage,
+  text: string,
+  opts: {
+    x: number
+    y: number
+    font: PDFFont
+    size: number
+    color: ReturnType<typeof rgb>
+    maxWidth: number
+    /** Espaçamento entre linhas (default = size * 1.2) */
+    lineHeight?: number
+  },
+): number {
+  const { x, font, size, color, maxWidth } = opts
+  const lineHeight = opts.lineHeight ?? size * 1.2
+  let y = opts.y
+  if (!text) return y
+
+  const words = String(text).split(/\s+/)
+  let line = ''
+
+  const flush = () => {
+    if (line) {
+      page.drawText(line, { x, y, font, size, color })
+      y -= lineHeight
+      line = ''
+    }
+  }
+
+  for (const word of words) {
+    const candidate = line ? `${line} ${word}` : word
+    if (font.widthOfTextAtSize(candidate, size) <= maxWidth) {
+      line = candidate
+      continue
+    }
+    flush()
+    // Palavra sozinha excede maxWidth: quebra em pedaços
+    if (font.widthOfTextAtSize(word, size) > maxWidth) {
+      let chunk = ''
+      for (const ch of word) {
+        if (font.widthOfTextAtSize(chunk + ch, size) <= maxWidth) {
+          chunk += ch
+        } else {
+          page.drawText(chunk, { x, y, font, size, color })
+          y -= lineHeight
+          chunk = ch
+        }
+      }
+      line = chunk
+    } else {
+      line = word
+    }
+  }
+  flush()
+  return y
+}
+
+/**
+ * Trunca texto para caber em `maxWidth` adicionando '…' no fim.
+ * Se já couber, retorna o texto original.
+ */
+export function truncarParaLargura(
+  text: string,
+  font: PDFFont,
+  size: number,
+  maxWidth: number,
+): string {
+  if (!text) return ''
+  if (font.widthOfTextAtSize(text, size) <= maxWidth) return text
+  const ellipsis = '…'
+  const ellipsisW = font.widthOfTextAtSize(ellipsis, size)
+  let result = ''
+  for (const ch of text) {
+    if (font.widthOfTextAtSize(result + ch, size) + ellipsisW > maxWidth) break
+    result += ch
+  }
+  return result + ellipsis
 }
 
 /**
@@ -70,11 +159,16 @@ export function desenharBlocoPaciente(args: {
 
   page.drawText('PACIENTE', { x: margin, y, font: fontBold, size: 9, color: rgb(0.4, 0.4, 0.45) })
   y -= 14
-  page.drawText(paciente.nome, { x: margin, y, font: fontBold, size: 11, color: rgb(0.1, 0.1, 0.15) })
-  if (paciente.cpf) {
-    const cpfTexto = `CPF ${paciente.cpf}`
-    const w = font.widthOfTextAtSize(cpfTexto, 9)
-    page.drawText(cpfTexto, { x: pageWidth - margin - w, y, font, size: 9, color: rgb(0.45, 0.45, 0.5) })
+
+  // Calcula espaço disponível para o nome considerando o CPF à direita
+  const cpfTexto = paciente.cpf ? `CPF ${formatarCpf(paciente.cpf)}` : ''
+  const cpfW = cpfTexto ? font.widthOfTextAtSize(cpfTexto, 9) : 0
+  const nomeMaxWidth = pageWidth - margin * 2 - (cpfW ? cpfW + 12 : 0)
+  const nomeTruncado = truncarParaLargura(paciente.nome, fontBold, 11, nomeMaxWidth)
+
+  page.drawText(nomeTruncado, { x: margin, y, font: fontBold, size: 11, color: rgb(0.1, 0.1, 0.15) })
+  if (cpfTexto) {
+    page.drawText(cpfTexto, { x: pageWidth - margin - cpfW, y, font, size: 9, color: rgb(0.45, 0.45, 0.5) })
   }
   y -= 8
   page.drawLine({
@@ -108,8 +202,11 @@ export function desenharIndicacaoCID(args: {
 
   page.drawText('INDICAÇÃO CLÍNICA', { x: margin, y, font: fontBold, size: 9, color: rgb(0.4, 0.4, 0.45) })
   y -= 13
-  page.drawText(indicacao, { x: margin, y, font, size: 9, color: rgb(0.1, 0.1, 0.15), maxWidth: pageWidth - margin * 2 })
-  y -= 14
+  y = drawTextWrapped(page, indicacao, {
+    x: margin, y, font, size: 9, color: rgb(0.1, 0.1, 0.15),
+    maxWidth: pageWidth - margin * 2, lineHeight: 12,
+  })
+  y -= 2
   page.drawText('CID-10: Z20.6 (Contato/exposição ao HIV) · Z29.2 (Outra quimioprofilaxia profilática)', {
     x: margin, y, font, size: 8, color: rgb(0.4, 0.4, 0.45),
   })

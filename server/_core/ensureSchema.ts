@@ -40,6 +40,8 @@ const DDL_STATEMENTS = [
     cpf_hash VARCHAR(64) NOT NULL,
     nome_encrypted TEXT NOT NULL,
     data_nascimento_encrypted TEXT,
+    nome_mae_encrypted TEXT,
+    cns VARCHAR(20),
     sexo VARCHAR(20),
     nome_social VARCHAR(255),
     cor_raca VARCHAR(50),
@@ -47,9 +49,17 @@ const DDL_STATEMENTS = [
     situacao_conjugal VARCHAR(50),
     renda_familiar VARCHAR(50),
     ocupacao VARCHAR(100),
+    identidade_genero VARCHAR(50),
+    orientacao_sexual VARCHAR(50),
+    uf_nascimento VARCHAR(2),
+    municipio_nascimento VARCHAR(100),
+    situacao_rua TINYINT(1),
+    privado_liberdade TINYINT(1),
     email_encrypted TEXT,
     tipo_telefone VARCHAR(20),
     telefone_encrypted TEXT,
+    permite_contato TINYINT(1),
+    tipo_contato VARCHAR(20),
     cep VARCHAR(10),
     logradouro VARCHAR(255),
     numero VARCHAR(20),
@@ -59,6 +69,7 @@ const DDL_STATEMENTS = [
     estado VARCHAR(2),
     conduta_json JSON,
     prescricao_json JSON,
+    prep_modalidade VARCHAR(30),
     tipo_atendimento VARCHAR(50),
     convenio VARCHAR(100),
     numero_convenio VARCHAR(100),
@@ -120,7 +131,7 @@ const DDL_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS tcle_assinaturas (
     id INT PRIMARY KEY AUTO_INCREMENT,
     paciente_id INT NOT NULL,
-    assinatura_data_url TEXT NOT NULL,
+    assinatura_data_url TEXT NULL,
     ip_address VARCHAR(45),
     user_agent TEXT,
     signed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -272,7 +283,83 @@ const COLUMN_PATCHES: Record<string, Array<{ name: string; ddl: string }>> = {
     { name: 'used_at', ddl: 'DATETIME' },
     { name: 'revoked_at', ddl: 'DATETIME' },
   ],
+  pacientes: [
+    { name: 'nome_mae_encrypted', ddl: 'TEXT' },
+    { name: 'cns', ddl: 'VARCHAR(20)' },
+    { name: 'identidade_genero', ddl: 'VARCHAR(50)' },
+    { name: 'orientacao_sexual', ddl: 'VARCHAR(50)' },
+    { name: 'uf_nascimento', ddl: 'VARCHAR(2)' },
+    { name: 'municipio_nascimento', ddl: 'VARCHAR(100)' },
+    { name: 'situacao_rua', ddl: 'TINYINT(1)' },
+    { name: 'privado_liberdade', ddl: 'TINYINT(1)' },
+    { name: 'permite_contato', ddl: 'TINYINT(1)' },
+    { name: 'tipo_contato', ddl: 'VARCHAR(20)' },
+    { name: 'prep_modalidade', ddl: 'VARCHAR(30)' },
+  ],
+  exames: [
+    { name: 'tipo_exame', ddl: 'VARCHAR(100)' },
+    { name: 'mime_type', ddl: 'VARCHAR(100)' },
+    { name: 'tamanho_bytes', ddl: 'INT' },
+    { name: 'resultado_ia', ddl: 'JSON' },
+    { name: 'revisado_por_id', ddl: 'INT' },
+    { name: 'revisado_em', ddl: 'DATETIME' },
+    { name: 'liberado_por_medico_id', ddl: 'INT' },
+    { name: 'liberado_em', ddl: 'DATETIME' },
+  ],
+  pdfs: [
+    { name: 'certificado_serial', ddl: 'VARCHAR(100)' },
+    { name: 'assinado_em', ddl: 'DATETIME' },
+  ],
+  nfse_registros: [
+    { name: 'precadastro_id', ddl: 'INT' },
+    { name: 'numero_nfse', ddl: 'VARCHAR(50)' },
+    { name: 'focusnfe_ref', ddl: 'VARCHAR(100)' },
+    { name: 'erro_descricao', ddl: 'TEXT' },
+    { name: 'emitido_em', ddl: 'DATETIME' },
+  ],
+  tcle_assinaturas: [
+    { name: 'ip_address', ddl: 'VARCHAR(45)' },
+    { name: 'user_agent', ddl: 'TEXT' },
+  ],
+  users: [
+    { name: 'email', ddl: 'VARCHAR(255)' },
+    { name: 'nome', ddl: 'VARCHAR(255)' },
+    { name: 'role', ddl: "VARCHAR(50) NOT NULL DEFAULT 'user'" },
+    { name: 'ativo', ddl: 'TINYINT(1) NOT NULL DEFAULT 1' },
+  ],
+  security_events: [
+    { name: 'user_id', ddl: 'INT' },
+    { name: 'ip_address', ddl: 'VARCHAR(45)' },
+    { name: 'user_agent', ddl: 'TEXT' },
+    { name: 'detalhes', ddl: 'JSON' },
+  ],
+  satisfacao_pesquisas: [
+    { name: 'achou_facil', ddl: 'TINYINT(1)' },
+    { name: 'conseguiu_medicacao', ddl: 'TINYINT(1)' },
+    { name: 'indicaria', ddl: 'TINYINT(1)' },
+    { name: 'comentario', ddl: 'TEXT' },
+  ],
+  pagamentos: [
+    { name: 'stripe_payment_id', ddl: 'VARCHAR(100)' },
+    { name: 'stripe_session_id', ddl: 'VARCHAR(100)' },
+    { name: 'status', ddl: "VARCHAR(50) NOT NULL DEFAULT 'pendente'" },
+    // valor_centavos é NOT NULL sem DEFAULT — ALTER TABLE ADD COLUMN
+    // com NOT NULL falha em tabela com dados, então não é patchável.
+    // Em ambientes pré-existentes a coluna já deve existir; deploys
+    // novos pegam via CREATE TABLE.
+  ],
+  // stripe_events e pesquisa_tokens só têm colunas NOT NULL essenciais
+  // (event_id PK / token / expira_em). Nada para patch.
 }
+
+// Mapa de tabela.coluna -> DDL para conversão de NOT NULL → NULL.
+// Cada entrada SÓ executa o ALTER se IS_NULLABLE='NO' no momento do boot,
+// evitando rodar DDL custosa em deploys subsequentes.
+const NULLABILITY_PATCHES: Array<{ table: string; column: string; ddl: string }> = [
+  // Aceite eletrônico via checkbox substituiu a assinatura desenhada;
+  // a coluna deixa de ser obrigatória.
+  { table: 'tcle_assinaturas', column: 'assinatura_data_url', ddl: 'TEXT NULL' },
+]
 
 async function getExistingColumns(table: string): Promise<Set<string>> {
   const rows = (await db.execute(sql.raw(
@@ -286,6 +373,40 @@ async function getExistingColumns(table: string): Promise<Set<string>> {
     : (list as Array<{ COLUMN_NAME?: string; column_name?: string }>)
 
   return new Set(flat.map((r) => r.COLUMN_NAME ?? r.column_name ?? '').filter(Boolean))
+}
+
+async function getColumnIsNullable(table: string, column: string): Promise<boolean | null> {
+  try {
+    const rows = (await db.execute(sql.raw(
+      `SELECT IS_NULLABLE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '${table}' AND COLUMN_NAME = '${column}'`,
+    ))) as unknown as Array<{ IS_NULLABLE?: string; is_nullable?: string }> | { rows?: Array<{ IS_NULLABLE?: string; is_nullable?: string }> }
+
+    const list = Array.isArray(rows) ? rows : (rows.rows ?? [])
+    const flat: Array<{ IS_NULLABLE?: string; is_nullable?: string }> = Array.isArray(list[0])
+      ? (list[0] as Array<{ IS_NULLABLE?: string; is_nullable?: string }>)
+      : (list as Array<{ IS_NULLABLE?: string; is_nullable?: string }>)
+
+    const value = flat[0]?.IS_NULLABLE ?? flat[0]?.is_nullable
+    if (!value) return null
+    return value.toUpperCase() === 'YES'
+  } catch (err) {
+    logger.error('[ensureSchema] Falha ao consultar IS_NULLABLE', { table, column, error: String(err) })
+    return null
+  }
+}
+
+async function patchColumnNullability(table: string, column: string, ddl: string): Promise<void> {
+  const isNullable = await getColumnIsNullable(table, column)
+  if (isNullable === null) return // coluna ou tabela não existe — nada a fazer
+  if (isNullable) return           // já é NULL — não precisa rodar DDL
+  try {
+    await db.execute(sql.raw(`ALTER TABLE ${table} MODIFY COLUMN ${column} ${ddl}`))
+    logger.info('[ensureSchema] Coluna convertida para NULL', { table, column })
+  } catch (err) {
+    logger.error('[ensureSchema] Falha ao alterar nullability (continuando)', {
+      table, column, error: String(err),
+    })
+  }
 }
 
 async function patchTableColumns(table: string, columns: Array<{ name: string; ddl: string }>): Promise<void> {
@@ -334,6 +455,12 @@ export async function ensureSchema(): Promise<void> {
   // Patch de colunas faltantes em tabelas pré-existentes
   for (const [table, columns] of Object.entries(COLUMN_PATCHES)) {
     await patchTableColumns(table, columns)
+  }
+
+  // Patch de colunas que precisam virar NULL (idempotente — só roda
+  // o ALTER se a coluna ainda estiver NOT NULL).
+  for (const { table, column, ddl } of NULLABILITY_PATCHES) {
+    await patchColumnNullability(table, column, ddl)
   }
 
   logger.info('[ensureSchema] Verificação concluída.')

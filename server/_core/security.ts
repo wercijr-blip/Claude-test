@@ -47,7 +47,10 @@ export function applySecurityMiddleware(app: Express): void {
           // React inline style={{}} attributes require 'unsafe-inline' for style-src
           styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
           imgSrc: ["'self'", 'data:', 'blob:'],
-          connectSrc: ["'self'"],
+          // 'self' = tRPC e /api/upload (same-origin)
+          // viacep.com.br = auto-preenchimento de endereço por CEP
+          //   (StepContato.tsx; API pública gratuita sem autenticação)
+          connectSrc: ["'self'", 'https://viacep.com.br'],
           fontSrc: ["'self'", 'https://fonts.gstatic.com'],
           objectSrc: ["'none'"],
           frameSrc: ["'none'"],

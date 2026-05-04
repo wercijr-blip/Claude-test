@@ -6,51 +6,48 @@ import { trpc } from '../../lib/trpc.ts'
 const schema = z.object({
   pacienteId: z.number(),
   conduta: z.object({
-    relacoesSexuais: z.object({
-      tipos: z.array(z.enum(['vaginal', 'anal_receptivo', 'anal_insertivo', 'oral'])).min(1, 'Selecione ao menos um'),
-      frequencia: z.enum(['diaria', 'semanal', 'mensal', 'esporadica']),
-      parceirosUltimos6Meses: z.coerce.number().min(0),
-      usaPreservativo: z.enum(['sempre', 'quase_sempre', 'as_vezes', 'nunca']),
-    }),
-    historicoDst: z.boolean(),
-    dstDescricao: z.string().optional(),
-    prepAnterior: z.boolean(),
-    prepPeriodo: z.string().optional(),
+    temSintomasDst: z.boolean(),
     usoDrogas: z.boolean(),
-    drogasDescricao: z.string().optional(),
-    outrasInformacoes: z.string().optional(),
+    // 'prepAdesao' é obrigatório só quando tipoConsulta === 'ja_faco_prep'.
+    // A validação cruzada acontece no submit (depende de prop externa).
+    prepAdesao: z.enum(['diaria', 'sob_demanda']).optional(),
   }),
 })
 
 type FormData = z.infer<typeof schema>
-
-const TIPOS_RELACAO = [
-  { value: 'vaginal', label: 'Vaginal' },
-  { value: 'anal_receptivo', label: 'Anal receptivo' },
-  { value: 'anal_insertivo', label: 'Anal insertivo' },
-  { value: 'oral', label: 'Oral' },
-]
 
 interface Props {
   pacienteId: number | null
   onNext: () => void
   onBack: () => void
   examData?: { dataExame?: string | null; resultadoHiv?: string | null }
+  tipoConsulta?: 'primeiro_atendimento' | 'ja_faco_prep' | null
 }
 
-export default function StepConduta({ pacienteId, onNext, onBack, examData }: Props) {
-  const { register, handleSubmit, watch, formState: { errors } } = useForm<FormData>({
+export default function StepConduta({ pacienteId, onNext, onBack, examData, tipoConsulta }: Props) {
+  const isJaFazPrep = tipoConsulta === 'ja_faco_prep'
+
+  const { register, handleSubmit, watch, setValue, setError, clearErrors, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       pacienteId: pacienteId ?? 0,
-      conduta: { historicoDst: false, prepAnterior: false, usoDrogas: false },
+      conduta: { temSintomasDst: false, usoDrogas: false },
     },
   })
 
   const salvar = trpc.paciente.salvarStep4.useMutation({ onSuccess: () => onNext() })
-  const historicoDst = watch('conduta.historicoDst')
-  const prepAnterior = watch('conduta.prepAnterior')
-  const usoDrogas = watch('conduta.usoDrogas')
+
+  const temSintomasDst = watch('conduta.temSintomasDst') ?? false
+  const usoDrogas = watch('conduta.usoDrogas') ?? false
+
+  const onSubmit = (d: FormData) => {
+    if (isJaFazPrep && !d.conduta.prepAdesao) {
+      setError('conduta.prepAdesao', { message: 'Selecione como tem tomado a PrEP.' })
+      return
+    }
+    clearErrors('conduta.prepAdesao')
+    salvar.mutate(d)
+  }
 
   if (!pacienteId) return null
 
@@ -71,70 +68,35 @@ export default function StepConduta({ pacienteId, onNext, onBack, examData }: Pr
         </div>
       )}
 
-      <form onSubmit={handleSubmit((d) => salvar.mutate(d))} className="space-y-5">
-        {/* Tipos de relação */}
-        <div>
-          <p className="text-sm font-medium text-slate-700 mb-2">Tipos de relação sexual praticadas</p>
-          <div className="grid grid-cols-2 gap-2">
-            {TIPOS_RELACAO.map((t) => (
-              <label key={t.value} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                <input type="checkbox" value={t.value} {...register('conduta.relacoesSexuais.tipos')} className="rounded" />
-                {t.label}
-              </label>
-            ))}
-          </div>
-        </div>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+        <BoolGroup
+          label="Tem sintomas de DST/IST?"
+          value={temSintomasDst}
+          onChange={(v) => setValue('conduta.temSintomasDst', v, { shouldValidate: true, shouldDirty: true })}
+        />
 
-        <div className="grid grid-cols-2 gap-4">
+        <BoolGroup
+          label="Faz uso de drogas?"
+          value={usoDrogas}
+          onChange={(v) => setValue('conduta.usoDrogas', v, { shouldValidate: true, shouldDirty: true })}
+        />
+
+        {isJaFazPrep && (
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Frequência</label>
-            <select {...register('conduta.relacoesSexuais.frequencia')} className={inputCls(false)}>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Como tem tomado a PrEP?</label>
+            <select
+              {...register('conduta.prepAdesao')}
+              className={inputCls(!!errors.conduta?.prepAdesao)}
+            >
               <option value="">Selecione</option>
-              <option value="diaria">Diária</option>
-              <option value="semanal">Semanal</option>
-              <option value="mensal">Mensal</option>
-              <option value="esporadica">Esporádica</option>
+              <option value="diaria">Diária (1 comprimido por dia)</option>
+              <option value="sob_demanda">Sob demanda (antes/depois da exposição)</option>
             </select>
+            {errors.conduta?.prepAdesao && (
+              <p className="mt-1 text-xs text-red-500">{errors.conduta.prepAdesao.message}</p>
+            )}
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Parceiros (últimos 6 meses)</label>
-            <input type="number" min={0} {...register('conduta.relacoesSexuais.parceirosUltimos6Meses')} className={inputCls(false)} />
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Uso de preservativo</label>
-          <select {...register('conduta.relacoesSexuais.usaPreservativo')} className={inputCls(false)}>
-            <option value="">Selecione</option>
-            <option value="sempre">Sempre</option>
-            <option value="quase_sempre">Quase sempre</option>
-            <option value="as_vezes">Às vezes</option>
-            <option value="nunca">Nunca</option>
-          </select>
-        </div>
-
-        <BoolField label="Histórico de DST/IST?" {...register('conduta.historicoDst')}>
-          {historicoDst && (
-            <textarea {...register('conduta.dstDescricao')} rows={2} className={inputCls(false)} placeholder="Descreva as DSTs anteriores" />
-          )}
-        </BoolField>
-
-        <BoolField label="Já usou PrEP anteriormente?" {...register('conduta.prepAnterior')}>
-          {prepAnterior && (
-            <input {...register('conduta.prepPeriodo')} className={inputCls(false)} placeholder="Período de uso" />
-          )}
-        </BoolField>
-
-        <BoolField label="Faz uso de drogas?" {...register('conduta.usoDrogas')}>
-          {usoDrogas && (
-            <input {...register('conduta.drogasDescricao')} className={inputCls(false)} placeholder="Quais drogas?" />
-          )}
-        </BoolField>
-
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Outras informações relevantes</label>
-          <textarea {...register('conduta.outrasInformacoes')} rows={3} className={inputCls(false)} placeholder="Informações adicionais para o médico" />
-        </div>
+        )}
 
         {salvar.error && <p className="text-red-500 text-sm">{salvar.error.message}</p>}
 
@@ -149,14 +111,30 @@ export default function StepConduta({ pacienteId, onNext, onBack, examData }: Pr
   )
 }
 
-function BoolField({ label, children, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string; children?: React.ReactNode }) {
+function BoolGroup({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
+  const opts: { val: boolean; label: string }[] = [
+    { val: false, label: 'Não' },
+    { val: true, label: 'Sim' },
+  ]
   return (
     <div>
-      <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">
-        <input type="checkbox" {...props} className="rounded" />
-        {label}
-      </label>
-      {children && <div className="mt-2 pl-6">{children}</div>}
+      <p className="text-sm font-medium text-slate-700 mb-2">{label}</p>
+      <div className="flex gap-3">
+        {opts.map((opt) => {
+          const checked = value === opt.val
+          return (
+            <button
+              type="button"
+              key={String(opt.val)}
+              onClick={() => onChange(opt.val)}
+              aria-pressed={checked}
+              className={`flex-1 flex items-center justify-center gap-2 border rounded-lg py-2.5 px-4 cursor-pointer text-sm font-medium transition-colors ${checked ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}
+            >
+              {opt.label}
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }

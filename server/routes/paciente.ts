@@ -3,7 +3,7 @@ import { SignJWT } from 'jose'
 import { router, protectedProcedure } from '../_core/trpc.ts'
 import { TRPCError } from '@trpc/server'
 import { db } from '../db.ts'
-import { pacientes, precadastros, pdfs, tcleAssinaturas } from '../../drizzle/schema.ts'
+import { pacientes, precadastros, pdfs, tcleAssinaturas, accessTokens } from '../../drizzle/schema.ts'
 import { eq, and } from 'drizzle-orm'
 import { encrypt, decrypt, hashCpf } from '../_core/encryption.ts'
 import { validarCpf } from '../_core/cpfValidator.ts'
@@ -31,7 +31,7 @@ function assertPatient(session: unknown): asserts session is { type: 'patient'; 
 
 async function validarEtapaPaciente(pacienteId: number, tokenId: number, etapaRequerida: number) {
   const [p] = await db
-    .select({ id: pacientes.id, currentStep: pacientes.currentStep })
+    .select({ id: pacientes.id, currentStep: pacientes.currentStep, status: pacientes.status })
     .from(pacientes)
     .where(and(eq(pacientes.id, pacienteId), eq(pacientes.tokenId, tokenId)))
     .limit(1)
@@ -43,20 +43,15 @@ async function validarEtapaPaciente(pacienteId: number, tokenId: number, etapaRe
   return p
 }
 
+// Schema clínico do Step 4 — alinhado com os campos preenchidos na
+// Ficha de Atendimento PrEP SUS (Form 02 FEV/2025):
+//   - temSintomasDst → item 16 (sintomas IST)
+//   - usoDrogas      → itens 18 (drogas injetáveis) e 19 (psicoativas)
+//   - prepAdesao     → item 20 (apenas se tipoConsulta === 'ja_faco_prep')
 const condutaSchema = z.object({
-  relacoesSexuais: z.object({
-    tipos: z.array(z.enum(['vaginal', 'anal_receptivo', 'anal_insertivo', 'oral'])),
-    frequencia: z.enum(['diaria', 'semanal', 'mensal', 'esporadica']),
-    parceirosUltimos6Meses: z.number().min(0),
-    usaPreservativo: z.enum(['sempre', 'quase_sempre', 'as_vezes', 'nunca']),
-  }),
-  historicoDst: z.boolean(),
-  dstDescricao: z.string().max(1000).optional(),
-  prepAnterior: z.boolean(),
-  prepPeriodo: z.string().max(255).optional(),
+  temSintomasDst: z.boolean(),
   usoDrogas: z.boolean(),
-  drogasDescricao: z.string().max(1000).optional(),
-  outrasInformacoes: z.string().max(2000).optional(),
+  prepAdesao: z.enum(['diaria', 'sob_demanda']).optional(),
 })
 
 export const pacienteRouter = router({
@@ -81,6 +76,18 @@ export const pacienteRouter = router({
       const retentionUntil = new Date()
       retentionUntil.setFullYear(retentionUntil.getFullYear() + 20)
 
+      // Deriva tipoAtendimento e convenio do accessToken (preenchido pelo
+      // intake/Stripe). O Step "Serviço" foi removido do fluxo, então
+      // precisamos capturar essas informações na criação do paciente —
+      // continuam sendo usadas em dashboards (medico, admin, secretaria).
+      const [tokenInfo] = await db
+        .select({ tipo: accessTokens.tipo, convenio: accessTokens.convenio })
+        .from(accessTokens)
+        .where(eq(accessTokens.id, tokenId))
+        .limit(1)
+      const tipoAtendimento = tokenInfo?.tipo === 'convenio' ? 'convenio' : 'particular'
+      const convenio = tokenInfo?.convenio ?? null
+
       const targetId = ctx.session.pacienteId ?? await (async () => {
         const [existing] = await db
           .select({ id: pacientes.id })
@@ -102,6 +109,8 @@ export const pacienteRouter = router({
             cns: input.cns,
             sexo: input.sexo,
             nomeSocial: input.nomeSocial,
+            tipoAtendimento,
+            convenio,
             currentStep: 2,
             updatedAt: new Date(),
           })
@@ -123,6 +132,8 @@ export const pacienteRouter = router({
         cns: input.cns,
         sexo: input.sexo,
         nomeSocial: input.nomeSocial,
+        tipoAtendimento,
+        convenio,
         currentStep: 2,
         retentionUntil,
       })
@@ -261,46 +272,42 @@ export const pacienteRouter = router({
       return { ok: true }
     }),
 
-  // Step 6 — Serviço (avança direto para TCLE — etapa 7 antiga "Autorizados" foi removida)
-  salvarStep6: protectedProcedure
-    .input(
-      z.object({
-        pacienteId: z.number(),
-        tipoAtendimento: z.enum(['particular', 'convenio', 'sus']),
-        convenio: z.string().max(255).optional(),
-        numeroConvenio: z.string().max(100).optional(),
-        valorCentavos: z.number().optional(),
-      }),
-    )
-    .mutation(async ({ input, ctx }) => {
-      assertPatient(ctx.session)
-      const p = await validarEtapaPaciente(input.pacienteId, ctx.session.tokenId, 6)
-      await db
-        .update(pacientes)
-        .set({
-          tipoAtendimento: input.tipoAtendimento,
-          convenio: input.convenio,
-          numeroConvenio: input.numeroConvenio,
-          valorCentavos: input.valorCentavos,
-          currentStep: Math.max(p.currentStep, 7),
-          updatedAt: new Date(),
-        })
-        .where(and(eq(pacientes.id, input.pacienteId), eq(pacientes.tokenId, ctx.session.tokenId)))
-      return { ok: true }
-    }),
+  // O antigo Step 6 (Serviço) foi removido. tipoAtendimento e convenio
+  // são preenchidos automaticamente em salvarStep1 a partir do
+  // accessToken; numeroConvenio (carteirinha) deixou de ser coletado.
 
-  // Salvar assinatura TCLE (etapa 7 — antiga etapa 8)
+  // Aceite eletrônico do TCLE (etapa 6 — antiga etapa 7).
+  // Substituiu a assinatura desenhada; a evidência legal são IP, user-agent
+  // e timestamp registrados no momento do clique no checkbox.
   salvarTcle: protectedProcedure
     .input(z.object({
       pacienteId: z.number(),
-      assinaturaDataUrl: z.string().min(1).max(500_000),
+      aceite: z.literal(true),
     }))
     .mutation(async ({ input, ctx }) => {
       assertPatient(ctx.session)
-      await validarEtapaPaciente(input.pacienteId, ctx.session.tokenId, 7)
+      const p = await validarEtapaPaciente(input.pacienteId, ctx.session.tokenId, 6)
+
+      // Trava de evidência legal: depois do paciente clicar em finalizar
+      // (status muda de 'rascunho' para 'pendente'), o aceite original
+      // não pode mais ser sobrescrito — IP, user-agent e timestamp do
+      // momento do clique são prova auditada do consentimento.
+      if (p.status !== 'rascunho') {
+        throw new TRPCError({
+          code: 'CONFLICT',
+          message: 'TCLE já foi aceito e o formulário já foi finalizado.',
+        })
+      }
+
+      const ipAddress = (ctx.req.ip ?? ctx.req.socket?.remoteAddress ?? null)?.slice(0, 45) ?? null
+      const userAgent = ctx.req.headers['user-agent']?.slice(0, 500) ?? null
+      // upsert: idempotente em caso de retry de rede ou clique duplo.
+      // Antes do finalizar, regravar o aceite com IP/UA atual é seguro —
+      // ainda é o mesmo paciente na mesma sessão tentando concluir.
       await db
         .insert(tcleAssinaturas)
-        .values({ pacienteId: input.pacienteId, assinaturaDataUrl: input.assinaturaDataUrl })
+        .values({ pacienteId: input.pacienteId, ipAddress, userAgent })
+        .onDuplicateKeyUpdate({ set: { ipAddress, userAgent, signedAt: new Date() } })
       return { ok: true }
     }),
 

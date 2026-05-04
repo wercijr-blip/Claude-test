@@ -9,6 +9,13 @@ import { plainAddPlaceholder } from '@signpdf/placeholder-plain'
 import { SUBFILTER_ETSI_CADES_DETACHED } from '@signpdf/utils'
 import { env } from './_core/env.ts'
 import { desenharCarimboDigital, carimboFromEnv } from './sus/carimboDigital.ts'
+import {
+  desenharCabecalhoInstitucional,
+  desenharBannerTitulo,
+  desenharBlocoPaciente,
+  desenharIndicacaoCID,
+  drawTextWrapped,
+} from './pdfHeader.ts'
 
 const signpdf = new SignPdf()
 
@@ -21,210 +28,95 @@ export interface PdfSignResult {
   assinadoEm: Date
 }
 
-export async function gerarPrescricaoPdf(paciente: Paciente & { pacienteId?: number }): Promise<Buffer> {
+export async function gerarPrescricaoPdf(paciente: Paciente & { pacienteId?: number; cpf?: string | null }): Promise<Buffer> {
   const doc = await PDFDocument.create()
-  const page = doc.addPage([595, 842]) // A4
+  const PAGE_W = 595
+  const PAGE_H = 842
+  const page = doc.addPage([PAGE_W, PAGE_H])
   const font = await doc.embedFont(StandardFonts.Helvetica)
   const fontBold = await doc.embedFont(StandardFonts.HelveticaBold)
 
-  const { width, height } = page.getSize()
   const margin = 50
 
-  // Header
-  page.drawText('FACILITA PrEP', {
-    x: margin, y: height - 60,
-    font: fontBold, size: 18, color: rgb(0.07, 0.27, 0.52),
-  })
-  page.drawText('Plataforma de Saúde Digital — Prescrição Médica', {
-    x: margin, y: height - 78,
-    font, size: 10, color: rgb(0.4, 0.4, 0.4),
+  // Cabeçalho institucional padronizado (mesmo layout dos pedidos de exame).
+  // startY = PAGE_H corresponde ao topo da página — equivalente ao padrão
+  // de pdfExameRequest/pdfOrientacao que usam (PAGE_H - 60) + 60.
+  let y = desenharCabecalhoInstitucional({
+    doc, page, font, fontBold, pageWidth: PAGE_W, margin, startY: PAGE_H,
   })
 
-  // Linha divisória
-  page.drawLine({ start: { x: margin, y: height - 90 }, end: { x: width - margin, y: height - 90 }, thickness: 1, color: rgb(0.8, 0.8, 0.8) })
-
-  let y = height - 120
-
-  const field = (label: string, value: string) => {
-    page.drawText(label + ':', { x: margin, y, font: fontBold, size: 10, color: rgb(0.3, 0.3, 0.3) })
-    page.drawText(value, { x: margin + 120, y, font, size: 10, color: rgb(0.1, 0.1, 0.1) })
-    y -= 20
-  }
-
-  page.drawText('DADOS DO PACIENTE', { x: margin, y, font: fontBold, size: 12, color: rgb(0.07, 0.27, 0.52) })
-  y -= 22
-
-  field('Nome', paciente.nome)
-  field('Data de Nascimento', paciente.dataNascimento ?? '—')
-  field('Sexo', paciente.sexo ?? '—')
-  y -= 10
-
-  page.drawText('PRESCRIÇÃO', { x: margin, y, font: fontBold, size: 12, color: rgb(0.07, 0.27, 0.52) })
-  y -= 22
-
-  const prescricao = paciente.prescricaoJson as { medicamento?: string; posologia?: string; duracao?: string; observacoes?: string } | null
-
-  field('Medicamento', prescricao?.medicamento === 'tenofovir_emtricitabina' ? 'Tenofovir/Emtricitabina' : prescricao?.medicamento ?? '—')
-  field('Posologia', prescricao?.posologia ?? '—')
-  field('Duração', prescricao?.duracao ?? '—')
-
-  if (prescricao?.observacoes) {
-    page.drawText('Observações:', { x: margin, y, font: fontBold, size: 10, color: rgb(0.3, 0.3, 0.3) })
-    y -= 16
-    page.drawText(prescricao.observacoes, { x: margin, y, font, size: 9, color: rgb(0.2, 0.2, 0.2), maxWidth: width - margin * 2 })
-    y -= 30
-  }
-
-  // Validade (4 meses)
-  y -= 20
+  // Banner roxo "RECEITA MÉDICA"
   const validadeDate = new Date()
   validadeDate.setMonth(validadeDate.getMonth() + 4)
   const dataValidade = validadeDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
-  page.drawText('Validade da Receita:', { x: margin, y, font: fontBold, size: 10, color: rgb(0.07, 0.27, 0.52) })
-  page.drawText(`Até ${dataValidade} (4 meses)`, { x: margin + 120, y, font, size: 10, color: rgb(0.1, 0.1, 0.1) })
-
-  // Data de emissão + carimbo digital com QR Code
-  const dataEmissao = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-  page.drawText(`Emitido em: ${dataEmissao}`, {
-    x: margin, y: 72, font, size: 8, color: rgb(0.5, 0.5, 0.5),
+  y = desenharBannerTitulo({
+    page, font, fontBold, pageWidth: PAGE_W, margin, startY: y,
+    titulo: 'RECEITA MÉDICA',
+    subtitulo: `Profilaxia Pré-Exposição (PrEP) ao HIV · Validade até ${dataValidade}`,
   })
+
+  // Bloco do paciente (nome + CPF)
+  y = desenharBlocoPaciente({
+    page, font, fontBold, pageWidth: PAGE_W, margin, startY: y,
+    paciente: { nome: paciente.nome, cpf: paciente.cpf },
+  })
+
+  // Bloco PRESCRIÇÃO
+  const prescricao = paciente.prescricaoJson as { medicamento?: string; posologia?: string; duracao?: string; observacoes?: string } | null
+  const medicamento = prescricao?.medicamento === 'tenofovir_emtricitabina'
+    ? 'Tenofovir 300 mg + Entricitabina 200 mg (TDF/FTC)'
+    : prescricao?.medicamento ?? '—'
+
+  page.drawText('PRESCRIÇÃO', { x: margin, y, font: fontBold, size: 9, color: rgb(0.4, 0.4, 0.45) })
+  y -= 16
+
+  const linhaPrescricao = (label: string, value: string) => {
+    page.drawText(`${label}:`, { x: margin, y, font: fontBold, size: 10, color: rgb(0.2, 0.2, 0.25) })
+    const valueX = margin + 110
+    const valueMaxW = PAGE_W - margin - valueX
+    const yStart = y
+    const yAfter = drawTextWrapped(page, value, {
+      x: valueX, y, font, size: 10, color: rgb(0.1, 0.1, 0.15),
+      maxWidth: valueMaxW, lineHeight: 14,
+    })
+    // garante pelo menos um avanço de 18pt mesmo se valor for vazio
+    y = Math.min(yAfter - 4, yStart - 18)
+  }
+
+  linhaPrescricao('Medicamento', medicamento)
+  linhaPrescricao('Posologia', prescricao?.posologia ?? '—')
+  linhaPrescricao('Duração', prescricao?.duracao ?? '—')
+
+  if (prescricao?.observacoes) {
+    y -= 4
+    page.drawText('Observações:', { x: margin, y, font: fontBold, size: 9, color: rgb(0.4, 0.4, 0.45) })
+    y -= 13
+    y = drawTextWrapped(page, prescricao.observacoes, {
+      x: margin, y, font, size: 9, color: rgb(0.2, 0.2, 0.25),
+      maxWidth: PAGE_W - margin * 2, lineHeight: 12,
+    })
+    y -= 4
+  }
+
+  // Indicação clínica + CID + validade (mesmo bloco dos pedidos)
+  y = Math.max(y - 8, 160)
+  desenharIndicacaoCID({
+    page, font, fontBold, margin, pageWidth: PAGE_W, startY: y,
+    indicacao: 'Profilaxia Pré-Exposição (PrEP) ao HIV — protocolo Ministério da Saúde 2024.',
+    validadeDias: 120,
+  })
+
+  // Carimbo digital com QR Code (assinatura ICP-Brasil é aplicada por assinarPdf)
   const carimboPresc = carimboFromEnv('prescricao', paciente.pacienteId ?? 0)
-  await desenharCarimboDigital(doc, page, { x: margin, y: 8, width: width - margin * 2, height: 60 }, carimboPresc)
+  await desenharCarimboDigital(doc, page, { x: margin, y: 8, width: PAGE_W - margin * 2, height: 60 }, carimboPresc)
 
   return Buffer.from(await doc.save())
 }
 
-export interface PacienteCompleto {
-  pacienteId?: number
-  nome: string
-  cpf?: string
-  dataNascimento: string | null
-  sexo: string | null
-  nomeSocial?: string | null
-  corRaca?: string | null
-  escolaridade?: string | null
-  situacaoConjugal?: string | null
-  email?: string | null
-  telefone?: string | null
-  cep?: string | null
-  logradouro?: string | null
-  numero?: string | null
-  complemento?: string | null
-  bairro?: string | null
-  cidade?: string | null
-  estado?: string | null
-  tipoAtendimento?: string | null
-  convenio?: string | null
-  condutaJson: unknown
-  prescricaoJson: unknown
-}
-
-export async function gerarFormularioPdf(paciente: PacienteCompleto): Promise<Buffer> {
-  const doc = await PDFDocument.create()
-  const page = doc.addPage([595, 842])
-  const font = await doc.embedFont(StandardFonts.Helvetica)
-  const fontBold = await doc.embedFont(StandardFonts.HelveticaBold)
-
-  const { width, height } = page.getSize()
-  const m = 50
-  let y = height - 60
-
-  const titulo = (txt: string) => {
-    page.drawText(txt, { x: m, y, font: fontBold, size: 11, color: rgb(0.07, 0.27, 0.52) })
-    y -= 6
-    page.drawLine({ start: { x: m, y }, end: { x: width - m, y }, thickness: 0.5, color: rgb(0.8, 0.8, 0.8) })
-    y -= 16
-  }
-
-  const campo = (label: string, valor: string | null | undefined) => {
-    const v = valor ?? '—'
-    const maxW = width - m * 2 - 160
-    page.drawText(label + ':', { x: m, y, font: fontBold, size: 9, color: rgb(0.4, 0.4, 0.4) })
-    page.drawText(v.length > 55 ? v.slice(0, 55) + '…' : v, { x: m + 160, y, font, size: 9, color: rgb(0.1, 0.1, 0.1), maxWidth: maxW })
-    y -= 16
-  }
-
-  // Header
-  page.drawText('FACILITA PrEP', { x: m, y, font: fontBold, size: 18, color: rgb(0.07, 0.27, 0.52) })
-  y -= 20
-  page.drawText('Formulário Clínico PrEP', { x: m, y, font, size: 10, color: rgb(0.4, 0.4, 0.4) })
-  y -= 12
-  page.drawLine({ start: { x: m, y }, end: { x: width - m, y }, thickness: 1.5, color: rgb(0.07, 0.27, 0.52) })
-  y -= 24
-
-  titulo('1. DADOS PESSOAIS')
-  campo('Nome completo', paciente.nome)
-  if (paciente.cpf) campo('CPF', paciente.cpf)
-  campo('Data de nascimento', paciente.dataNascimento ? paciente.dataNascimento.split('-').reverse().join('/') : null)
-  campo('Sexo biológico', paciente.sexo)
-  if (paciente.nomeSocial) campo('Nome social', paciente.nomeSocial)
-  y -= 8
-
-  titulo('2. DADOS DEMOGRÁFICOS')
-  campo('Cor/Raça', paciente.corRaca)
-  campo('Escolaridade', paciente.escolaridade)
-  campo('Situação conjugal', paciente.situacaoConjugal)
-  y -= 8
-
-  titulo('3. CONTATO')
-  campo('E-mail', paciente.email)
-  campo('Telefone', paciente.telefone)
-  const end = [paciente.logradouro, paciente.numero, paciente.complemento, paciente.bairro, paciente.cidade, paciente.estado].filter(Boolean).join(', ')
-  if (end) campo('Endereço', end)
-  campo('CEP', paciente.cep)
-  y -= 8
-
-  const conduta = paciente.condutaJson as {
-    relacoesSexuais?: { tipos?: string[]; frequencia?: string; parceirosUltimos6Meses?: number; usaPreservativo?: string }
-    historicoDst?: boolean; dstDescricao?: string; prepAnterior?: boolean; prepPeriodo?: string
-    usoDrogas?: boolean; drogasDescricao?: string; outrasInformacoes?: string
-  } | null
-
-  titulo('4. CONDUTA / HISTÓRICO')
-  if (conduta) {
-    campo('Práticas sexuais', conduta.relacoesSexuais?.tipos?.join(', '))
-    campo('Frequência', conduta.relacoesSexuais?.frequencia)
-    campo('Parceiros (6 meses)', conduta.relacoesSexuais?.parceirosUltimos6Meses != null ? String(conduta.relacoesSexuais.parceirosUltimos6Meses) : null)
-    campo('Uso preservativo', conduta.relacoesSexuais?.usaPreservativo)
-    campo('Histórico DST', conduta.historicoDst != null ? (conduta.historicoDst ? 'Sim' : 'Não') : null)
-    if (conduta.dstDescricao) campo('DST — descrição', conduta.dstDescricao)
-    campo('PrEP anterior', conduta.prepAnterior != null ? (conduta.prepAnterior ? 'Sim' : 'Não') : null)
-    if (conduta.prepPeriodo) campo('Período PrEP', conduta.prepPeriodo)
-    campo('Uso de drogas', conduta.usoDrogas != null ? (conduta.usoDrogas ? 'Sim' : 'Não') : null)
-    if (conduta.drogasDescricao) campo('Drogas — descrição', conduta.drogasDescricao)
-    if (conduta.outrasInformacoes) campo('Outras informações', conduta.outrasInformacoes)
-  }
-  y -= 8
-
-  const prescricao = paciente.prescricaoJson as {
-    medicamento?: string; nomeMedicamento?: string; posologia?: string; duracao?: string; observacoes?: string
-  } | null
-
-  titulo('5. PRESCRIÇÃO')
-  if (prescricao) {
-    const med = prescricao.medicamento === 'tenofovir_emtricitabina'
-      ? 'Tenofovir/Emtricitabina (TDF+FTC)'
-      : (prescricao.nomeMedicamento ?? prescricao.medicamento)
-    campo('Medicamento', med)
-    campo('Posologia', prescricao.posologia)
-    campo('Duração', prescricao.duracao)
-    if (prescricao.observacoes) campo('Observações', prescricao.observacoes)
-  }
-  y -= 8
-
-  titulo('6. TIPO DE ATENDIMENTO')
-  campo('Modalidade', paciente.tipoAtendimento)
-  if (paciente.convenio) campo('Convênio', paciente.convenio)
-
-  const emitido = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-  page.drawText(`Emitido em: ${emitido}`, {
-    x: m, y: 72, font, size: 8, color: rgb(0.5, 0.5, 0.5),
-  })
-  const carimboForm = carimboFromEnv('formulario', paciente.pacienteId ?? 0)
-  await desenharCarimboDigital(doc, page, { x: m, y: 8, width: width - m * 2, height: 60 }, carimboForm)
-
-  return Buffer.from(await doc.save())
-}
+// gerarFormularioPdf removido — o Formulário Clínico foi descontinuado.
+// prepararExameAnexadoComoPdf removido — o exame que o paciente subiu
+// fica em consultas_inicio.exameS3Key apenas para auditoria e revisão
+// médica; não é reentregue ao paciente no bundle final.
 
 /**
  * Lê o certificado .pfx do ICP-Brasil — prioridade:
@@ -237,13 +129,33 @@ async function lerPfx(): Promise<Buffer | null> {
   catch { return null }
 }
 
-/** Lê o serial do certificado a partir do .pfx para registro de auditoria. */
+/**
+ * Lê o serial do certificado a partir do .pfx para registro de auditoria.
+ *
+ * Cacheado por byteLength + primeiros 32 bytes do .pfx — em workload de
+ * fila (cada PDF assinado), evita re-parsear ASN.1 em todo job.
+ *
+ * Nunca lança: erro de parsing retorna 'unknown' (a assinatura PAdES já
+ * foi aplicada com sucesso pelo P12Signer; a auditoria não deve
+ * derrubar o resultado).
+ */
+let serialCache: { key: string; serial: string } | null = null
+
 function extrairSerial(pfxData: Buffer, password: string): string {
-  const pfxDer = pfxData.toString('binary')
-  const pfxAsn1 = forge.asn1.fromDer(pfxDer)
-  const pfxObj = forge.pkcs12.pkcs12FromAsn1(pfxAsn1, password)
-  const certBag = pfxObj.getBags({ bagType: forge.pki.oids.certBag })[forge.pki.oids.certBag]?.[0]
-  return certBag?.cert?.serialNumber ?? 'unknown'
+  const cacheKey = `${pfxData.byteLength}:${pfxData.subarray(0, 32).toString('hex')}`
+  if (serialCache?.key === cacheKey) return serialCache.serial
+
+  try {
+    const pfxDer = pfxData.toString('binary')
+    const pfxAsn1 = forge.asn1.fromDer(pfxDer)
+    const pfxObj = forge.pkcs12.pkcs12FromAsn1(pfxAsn1, password)
+    const certBag = pfxObj.getBags({ bagType: forge.pki.oids.certBag })[forge.pki.oids.certBag]?.[0]
+    const serial = certBag?.cert?.serialNumber ?? 'unknown'
+    serialCache = { key: cacheKey, serial }
+    return serial
+  } catch {
+    return 'unknown'
+  }
 }
 
 export interface CertificadoInfo {
