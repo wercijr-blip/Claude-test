@@ -32,6 +32,7 @@ pnpm-debug.log*
 .turbo/
 .nyc_output/
 coverage/
+*.tsbuildinfo
 
 # ── Sistema Operacional ───────────────────────────────────
 .DS_Store
