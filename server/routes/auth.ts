@@ -7,16 +7,20 @@ import { db } from '../db.ts'
 import { users } from '../../drizzle/schema.ts'
 import { eq } from 'drizzle-orm'
 import { JWT_EXPIRY_STAFF } from '../../shared/security-constants.ts'
+import { isAllowedRedirectUri } from '../_core/originValidator.ts'
 import type { Role } from '../../shared/types.ts'
 import type { ResultSetHeader } from 'mysql2'
 
 export const authRouter = router({
   // Callback OAuth — troca code por JWT interno
   callback: publicProcedure
-    .input(z.object({ code: z.string(), state: z.string().optional() }))
+    .input(z.object({ code: z.string(), state: z.string().optional(), redirectUri: z.string().url().optional() }))
     .mutation(async ({ input }) => {
-      // Trocar code por tokens do Google
-      const redirectUri = `${env.APP_URL}/auth/callback`
+      // Usa o redirectUri enviado pelo cliente (mesmo que Google usou no início do fluxo).
+      // Valida contra origens permitidas para evitar open redirect.
+      const redirectUri = (input.redirectUri && isAllowedRedirectUri(input.redirectUri))
+        ? input.redirectUri
+        : `${env.APP_URL}/auth/callback`
       const tokenResp = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

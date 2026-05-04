@@ -49,3 +49,6 @@ drizzle/meta/
 
 # ── PDFs de teste/preview (gerados localmente) ────────────
 pdf-preview/
+
+# ── Aplicações externas (não fazem parte do FacilitaPrEP) ─
+marketing-agents/
