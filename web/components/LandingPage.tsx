@@ -328,6 +328,14 @@ export default function LandingPage() {
               <p className="text-fp-dark-soft text-sm leading-relaxed mb-5">
                 Pagamento único por PIX, cartão de crédito ou débito. Acesso liberado imediatamente após confirmação.
               </p>
+              <div className="mb-5 pb-5 border-b border-fp-lavender-100">
+                <div className="flex items-baseline gap-1">
+                  <span className="text-fp-dark-soft text-sm">R$</span>
+                  <span className="font-display text-4xl text-fp-accent font-semibold leading-none">150</span>
+                  <span className="text-fp-dark-soft text-sm">,00</span>
+                </div>
+                <p className="text-fp-dark-soft text-xs mt-1">Pagamento único · sem mensalidades</p>
+              </div>
               <ul className="space-y-2 mb-6">
                 {['Consulta médica online', 'Análise dos seus exames', 'Receita ICP-Brasil', 'Acompanhamento pós-consulta'].map((item) => (
                   <li key={item} className="flex items-center gap-2 text-sm text-fp-dark">
@@ -477,7 +485,7 @@ export default function LandingPage() {
               onClick={() => openForm('particular')}
               className="inline-flex items-center justify-center gap-2 bg-fp-lilac text-fp-dark px-10 py-4 rounded-2xl text-base font-bold hover:bg-fp-lilac-soft transition-all shadow-xl active:scale-95"
             >
-              Particular — começar agora
+              Começar por R$ 150
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
               </svg>
