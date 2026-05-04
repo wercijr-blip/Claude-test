@@ -45,9 +45,14 @@ function TrustBadge({ icon, text }: { icon: string; text: string }) {
   )
 }
 
-export default function IntakePage() {
-  const [etapa, setEtapa] = useState<Etapa>('escolha')
-  const [tipo, setTipo] = useState<Tipo>('particular')
+type Props = {
+  initialTipo?: Tipo
+  autoStart?: boolean
+}
+
+export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
+  const [etapa, setEtapa] = useState<Etapa>(autoStart ? 'formulario' : 'escolha')
+  const [tipo, setTipo] = useState<Tipo>(initialTipo ?? 'particular')
   const [dentroHorario, setDentroHorario] = useState(isDentroHorarioAtendimento())
   const [carteirinhaKey, setCarteirinhaKey] = useState<string | null>(null)
   const [documentoKey, setDocumentoKey] = useState<string | null>(null)
@@ -57,6 +62,11 @@ export default function IntakePage() {
   useEffect(() => {
     const interval = setInterval(() => setDentroHorario(isDentroHorarioAtendimento()), 60_000)
     return () => clearInterval(interval)
+  }, [])
+
+  useEffect(() => {
+    if (autoStart) trackFormStart()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
