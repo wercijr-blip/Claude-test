@@ -1,14 +1,17 @@
+// O step "Serviço" foi removido do fluxo — não tinha campo útil pro
+// paciente (tipo de atendimento e convênio já vêm do intake/Stripe).
+// Pacientes existentes com currentStep=6 (estavam no Serviço antigo)
+// passam direto pro TCLE — comportamento idempotente.
 export const FORM_STEPS = [
   { step: 1, titulo: 'Dados Pessoais', rota: 'paciente' },
   { step: 2, titulo: 'Dados Demográficos', rota: 'demografico' },
   { step: 3, titulo: 'Contato', rota: 'contato' },
   { step: 4, titulo: 'Conduta', rota: 'conduta' },
   { step: 5, titulo: 'Prescrição', rota: 'prescricao' },
-  { step: 6, titulo: 'Serviço', rota: 'servico' },
-  { step: 7, titulo: 'TCLE', rota: 'tcle' },
+  { step: 6, titulo: 'TCLE', rota: 'tcle' },
 ] as const
 
-export const TOTAL_FORM_STEPS = 7
+export const TOTAL_FORM_STEPS = 6
 
 export const ERROR_MESSAGES = {
   UNAUTHORIZED: 'Não autorizado. Faça login para continuar.',

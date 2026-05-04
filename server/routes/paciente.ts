@@ -3,7 +3,7 @@ import { SignJWT } from 'jose'
 import { router, protectedProcedure } from '../_core/trpc.ts'
 import { TRPCError } from '@trpc/server'
 import { db } from '../db.ts'
-import { pacientes, precadastros, pdfs, tcleAssinaturas } from '../../drizzle/schema.ts'
+import { pacientes, precadastros, pdfs, tcleAssinaturas, accessTokens } from '../../drizzle/schema.ts'
 import { eq, and } from 'drizzle-orm'
 import { encrypt, decrypt, hashCpf } from '../_core/encryption.ts'
 import { validarCpf } from '../_core/cpfValidator.ts'
@@ -79,6 +79,18 @@ export const pacienteRouter = router({
       const retentionUntil = new Date()
       retentionUntil.setFullYear(retentionUntil.getFullYear() + 20)
 
+      // Deriva tipoAtendimento e convenio do accessToken (preenchido pelo
+      // intake/Stripe). O Step "Serviço" foi removido do fluxo, então
+      // precisamos capturar essas informações na criação do paciente —
+      // continuam sendo usadas em dashboards (medico, admin, secretaria).
+      const [tokenInfo] = await db
+        .select({ tipo: accessTokens.tipo, convenio: accessTokens.convenio })
+        .from(accessTokens)
+        .where(eq(accessTokens.id, tokenId))
+        .limit(1)
+      const tipoAtendimento = tokenInfo?.tipo === 'convenio' ? 'convenio' : 'particular'
+      const convenio = tokenInfo?.convenio ?? null
+
       const targetId = ctx.session.pacienteId ?? await (async () => {
         const [existing] = await db
           .select({ id: pacientes.id })
@@ -100,6 +112,8 @@ export const pacienteRouter = router({
             cns: input.cns,
             sexo: input.sexo,
             nomeSocial: input.nomeSocial,
+            tipoAtendimento,
+            convenio,
             currentStep: 2,
             updatedAt: new Date(),
           })
@@ -121,6 +135,8 @@ export const pacienteRouter = router({
         cns: input.cns,
         sexo: input.sexo,
         nomeSocial: input.nomeSocial,
+        tipoAtendimento,
+        convenio,
         currentStep: 2,
         retentionUntil,
       })
@@ -259,33 +275,11 @@ export const pacienteRouter = router({
       return { ok: true }
     }),
 
-  // Step 6 — Serviço (avança direto para TCLE — etapa 7 antiga "Autorizados" foi removida)
-  salvarStep6: protectedProcedure
-    .input(
-      z.object({
-        pacienteId: z.number(),
-        tipoAtendimento: z.enum(['particular', 'convenio', 'sus']),
-        convenio: z.string().max(255).optional(),
-        numeroConvenio: z.string().max(100).optional(),
-      }),
-    )
-    .mutation(async ({ input, ctx }) => {
-      assertPatient(ctx.session)
-      const p = await validarEtapaPaciente(input.pacienteId, ctx.session.tokenId, 6)
-      await db
-        .update(pacientes)
-        .set({
-          tipoAtendimento: input.tipoAtendimento,
-          convenio: input.convenio,
-          numeroConvenio: input.numeroConvenio,
-          currentStep: Math.max(p.currentStep, 7),
-          updatedAt: new Date(),
-        })
-        .where(and(eq(pacientes.id, input.pacienteId), eq(pacientes.tokenId, ctx.session.tokenId)))
-      return { ok: true }
-    }),
+  // O antigo Step 6 (Serviço) foi removido. tipoAtendimento e convenio
+  // são preenchidos automaticamente em salvarStep1 a partir do
+  // accessToken; numeroConvenio (carteirinha) deixou de ser coletado.
 
-  // Aceite eletrônico do TCLE (etapa 7).
+  // Aceite eletrônico do TCLE (etapa 6 — antiga etapa 7).
   // Substituiu a assinatura desenhada; a evidência legal são IP, user-agent
   // e timestamp registrados no momento do clique no checkbox.
   salvarTcle: protectedProcedure
@@ -295,7 +289,7 @@ export const pacienteRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       assertPatient(ctx.session)
-      const p = await validarEtapaPaciente(input.pacienteId, ctx.session.tokenId, 7)
+      const p = await validarEtapaPaciente(input.pacienteId, ctx.session.tokenId, 6)
 
       // Trava de evidência legal: depois do paciente clicar em finalizar
       // (status muda de 'rascunho' para 'pendente'), o aceite original
