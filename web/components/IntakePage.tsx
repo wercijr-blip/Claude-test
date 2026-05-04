@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { trpc } from '../lib/trpc'
 import { PLANOS_VALIDOS, HORARIO_ATENDIMENTO } from '@shared/const'
 import { Logo, LogoWordmark } from './Logo'
+import { trackFormStart, trackFormSubmit, trackConversion } from '../lib/analytics'
 
 const ABERTURA = HORARIO_ATENDIMENTO.ABERTURA_HORA
 const FECHAMENTO = HORARIO_ATENDIMENTO.FECHAMENTO_HORA
@@ -65,6 +66,7 @@ export default function IntakePage() {
   const criar = trpc.intake.criar.useMutation()
   const iniciarPagamento = trpc.intake.iniciarPagamento.useMutation({
     onSuccess: (data) => {
+      trackConversion(undefined, 'BRL')
       if (data.url) window.location.href = data.url
     },
   })
@@ -72,6 +74,7 @@ export default function IntakePage() {
   function escolher(t: Tipo) {
     setTipo(t)
     setEtapa('formulario')
+    trackFormStart()
   }
 
   async function uploadArquivo(file: File): Promise<string> {
@@ -102,8 +105,11 @@ export default function IntakePage() {
         documentoS3Key: documentoKey ?? undefined,
       })
       if (tipo === 'particular') {
+        trackFormSubmit('particular')
         await iniciarPagamento.mutateAsync({ precadastroId: result.precadastroId })
       } else {
+        trackFormSubmit('plano')
+        trackConversion(undefined, 'BRL')
         setEtapa('aguardando')
       }
     } catch (err: unknown) {
