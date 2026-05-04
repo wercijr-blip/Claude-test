@@ -6,11 +6,12 @@ import { db } from './db.ts'
 import { pacientes, pdfs, consultasInicio, accessTokens, precadastros, pesquisaTokens } from '../drizzle/schema.ts'
 import { eq, and, gt } from 'drizzle-orm'
 import { decrypt } from './_core/encryption.ts'
-import { gerarPrescricaoPdf, assinarPdf, prepararExameAnexadoComoPdf } from './pdfSigner.ts'
+import { gerarPrescricaoPdf, assinarPdf } from './pdfSigner.ts'
+import { gerarPedidosExames } from './pdfExameRequest.ts'
 import { preencherCadastroSUS } from './sus/preencherCadastro.ts'
 import { preencherFichaAtendimento } from './sus/preencherFichaAtendimento.ts'
 import { gerarOrientacaoPdf } from './pdfOrientacao.ts'
-import { uploadBuffer, getBuffer } from './storage.ts'
+import { uploadBuffer } from './storage.ts'
 import { enviarLinkAcessoIntake, enviarPrescricaoPronta, enviarPesquisaSatisfacao } from './email.ts'
 import { enviarWhatsApp } from './whatsapp.ts'
 import { logger } from './_core/logger.ts'
@@ -165,13 +166,30 @@ export function startPdfWorker() {
 
       // 4. Ficha de Atendimento PrEP (Form 02 SUS — sempre)
       // FEV/2025 — preenchida em primeiro atendimento e nas dispensações
+      // Extrai os dados clínicos do Step 4 (condutaJson) que vão para a
+      // Ficha de Atendimento. Cada item está documentado em paciente.ts:
+      // condutaSchema.
+      const cond = (p.condutaJson ?? {}) as {
+        temSintomasDst?: boolean
+        usoDrogas?: boolean
+        prepAdesao?: 'diaria' | 'sob_demanda'
+      }
+      // Tradução do enum interno para o label exato esperado pelo dropdown
+      // do PDF SUS (item 20).
+      const prepAdesaoLabel: 'Esquema diário' | 'Esquema sob demanda' | undefined =
+        cond.prepAdesao === 'diaria' ? 'Esquema diário' :
+        cond.prepAdesao === 'sob_demanda' ? 'Esquema sob demanda' :
+        undefined
+
       const fichaBuf = Buffer.from(await preencherFichaAtendimento({
         pacienteId,
         cpf, nome, nomeMae: nomeMae ?? '', dataNascimento: dataNascimento ?? '',
         dataExameHiv: consulta?.dataExameValidado ?? null,
         prepModalidade: (p.prepModalidade as 'PrEP diária' | 'PrEP sob demanda' | null) ?? 'PrEP diária',
         tipoConsulta: tipoConsulta as 'primeiro_atendimento' | 'ja_faco_prep',
-        prepAdesao: 'Esquema diário',
+        prepAdesao: prepAdesaoLabel ?? null,
+        temSintomasDst: cond.temSintomasDst ?? null,
+        usoDrogas: cond.usoDrogas ?? null,
       }, configClinica))
       const { buffer: signedFicha, certificadoSerial: serialFicha, assinadoEm: assinadoFicha } =
         await assinarPdf(fichaBuf, 'Ficha de Atendimento PrEP — Facilita PrEP')
@@ -180,74 +198,63 @@ export function startPdfWorker() {
       await db.insert(pdfs).values({ pacienteId, s3Key: fichaKey, tipo: 'ficha_atendimento', certificadoSerial: serialFicha, assinadoEm: assinadoFicha })
       gerados.push({ filename: 'ficha-atendimento-prep.pdf', buffer: signedFicha })
 
-      // 5. Pedidos de exame (quando o paciente não tinha exame recente)
-      // Os pedidos foram gerados sem assinatura no momento da validação
-      // do exame (consulta.ts → gerarPedidosExames). Aqui, no fluxo de
-      // finalização, aplicamos a assinatura ICP-Brasil (PAdES) para
-      // entregar ao paciente um documento com validade legal.
-      if (consulta && !consulta.temExameRecente) {
-        const pedidos = [
-          { key: consulta.pedidoCompletoS3Key, tipo: 'pedido_completo', filename: 'pedido-exames-completo.pdf', titulo: 'Pedido de Exames Completo — Facilita PrEP' },
-          { key: consulta.pedidoIstS3Key, tipo: 'pedido_ist', filename: 'pedido-sorologicos-ist.pdf', titulo: 'Pedido de Sorologias IST — Facilita PrEP' },
-          { key: consulta.pedidoHivS3Key, tipo: 'pedido_hiv', filename: 'pedido-anti-hiv.pdf', titulo: 'Pedido de Anti-HIV — Facilita PrEP' },
-          { key: consulta.pedidoDensitometriaS3Key, tipo: 'pedido_densitometria', filename: 'pedido-densitometria-ossea.pdf', titulo: 'Pedido de Densitometria Óssea — Facilita PrEP' },
+      // 5. Pedidos de exame — SEMPRE gerados no bundle final.
+      //
+      // Mesmo pacientes que tinham exame Anti-HIV recente precisam dos
+      // pedidos para os outros exames de rotina/seguimento (sorologias
+      // IST, função renal, densitometria). O comportamento anterior só
+      // gerava se temExameRecente=false, deixando esses pacientes sem
+      // os pedidos clinicamente necessários.
+      //
+      // Geramos fresh aqui (em vez de baixar do S3) para garantir a lista
+      // atual de exames de shared/const.ts e simplificar o fluxo — não
+      // dependemos mais das keys salvas em consultas_inicio.pedido*S3Key.
+      try {
+        const tipoConsultaParaPedidos = (tipoConsulta ?? 'primeiro_atendimento') as
+          'primeiro_atendimento' | 'ja_faco_prep'
+        const { completo, ist, hiv, densitometria } = await gerarPedidosExames(
+          tipoConsultaParaPedidos,
+          { nome, cpf },
+          p.tokenId,
+        )
+
+        const pedidosBuffers = [
+          { buf: completo,      tipo: 'pedido_completo',      filename: 'pedido-exames-completo.pdf',      titulo: 'Pedido de Exames Completo — Facilita PrEP' },
+          { buf: ist,           tipo: 'pedido_ist',           filename: 'pedido-sorologicos-ist.pdf',      titulo: 'Pedido de Sorologias IST — Facilita PrEP' },
+          { buf: hiv,           tipo: 'pedido_hiv',           filename: 'pedido-anti-hiv.pdf',             titulo: 'Pedido de Anti-HIV — Facilita PrEP' },
+          { buf: densitometria, tipo: 'pedido_densitometria', filename: 'pedido-densitometria-ossea.pdf',  titulo: 'Pedido de Densitometria Óssea — Facilita PrEP' },
         ] as const
 
-        for (const { key, tipo, filename, titulo } of pedidos) {
-          if (!key) continue
+        for (const { buf, tipo, filename, titulo } of pedidosBuffers) {
           try {
-            const rawBuf = await getBuffer(key)
             const { buffer: signedBuf, certificadoSerial: serialPedido, assinadoEm: assinadoPedido } =
-              await assinarPdf(rawBuf, titulo)
-            // Salva o PDF JÁ ASSINADO numa nova key para preservar o original
-            // (o original em `key` é o template não-assinado emitido na validação).
+              await assinarPdf(buf, titulo)
             const signedKey = `pdfs/${pacienteId}/${Date.now() + 4}-${tipo}-assinado.pdf`
             await uploadBuffer(signedKey, signedBuf, 'application/pdf')
-            await db.insert(pdfs).values({ pacienteId, s3Key: signedKey, tipo, certificadoSerial: serialPedido, assinadoEm: assinadoPedido })
+            await db.insert(pdfs).values({
+              pacienteId, s3Key: signedKey, tipo,
+              certificadoSerial: serialPedido, assinadoEm: assinadoPedido,
+            })
             gerados.push({ filename, buffer: signedBuf })
           } catch (err) {
             // Falha em UM pedido não pode derrubar os outros documentos
-            // (receita, ficha SUS, exame anexado, orientação) nem o
-            // disparo de e-mail/WhatsApp. A fila BullMQ retentaria 3x
-            // e cada retry duplicaria os PDFs anteriores em `pdfs`.
             logger.error('[pdfQueue] Falha ao assinar pedido (continuando)', {
-              pacienteId, tipo, key, error: String(err),
+              pacienteId, tipo, error: String(err),
             })
           }
         }
+      } catch (err) {
+        // Falha geral em gerar os pedidos (gerarPedidosExames) — log e
+        // segue para os documentos seguintes (orientação, e-mail).
+        logger.error('[pdfQueue] Falha ao gerar pedidos de exame (continuando)', {
+          pacienteId, error: String(err),
+        })
       }
 
-      // 5b. Exame anexado pelo paciente (anti-HIV)
-      // Sempre que o paciente subiu um arquivo na validação inicial, ele
-      // entra no bundle final como PDF assinado ICP-Brasil. Imagens são
-      // convertidas para PDF A4 com cabeçalho institucional + carimbo;
-      // PDFs vão diretos. Em ambos os casos passa por assinarPdf.
-      if (consulta?.exameS3Key) {
-        try {
-          const rawExame = await getBuffer(consulta.exameS3Key)
-          const examePreparadoBuf = await prepararExameAnexadoComoPdf({
-            rawBuffer: rawExame,
-            pacienteNome: nome,
-            pacienteCpf: cpf,
-            pacienteId,
-          })
-          const { buffer: signedExame, certificadoSerial: serialExame, assinadoEm: assinadoExame } =
-            await assinarPdf(examePreparadoBuf, 'Exame Anti-HIV anexado pelo paciente — Facilita PrEP')
-          const exameKey = `pdfs/${pacienteId}/${Date.now() + 5}-exame-anexado-assinado.pdf`
-          await uploadBuffer(exameKey, signedExame, 'application/pdf')
-          await db.insert(pdfs).values({
-            pacienteId, s3Key: exameKey, tipo: 'exame_anexado',
-            certificadoSerial: serialExame, assinadoEm: assinadoExame,
-          })
-          gerados.push({ filename: 'exame-anti-hiv-anexado.pdf', buffer: signedExame })
-        } catch (err) {
-          // Falha ao processar o exame não deve derrubar a finalização
-          // dos outros documentos (receita, ficha SUS, etc).
-          logger.error('[pdfQueue] Falha ao anexar exame do paciente (continuando)', {
-            pacienteId, s3Key: consulta.exameS3Key, error: String(err),
-          })
-        }
-      }
+      // O exame Anti-HIV anexado pelo paciente NÃO entra no bundle final
+      // — fica armazenado em consultas_inicio.exameS3Key apenas para
+      // auditoria e revisão médica. Reentregar ao próprio paciente o
+      // documento que ele mesmo subiu não acrescenta valor.
 
       // 6. Documento de Orientação (sempre — guia ao paciente sobre os documentos
       //    recebidos, retirada de medicação, cronograma de exames e contato)

@@ -114,96 +114,9 @@ export async function gerarPrescricaoPdf(paciente: Paciente & { pacienteId?: num
 }
 
 // gerarFormularioPdf removido — o Formulário Clínico foi descontinuado.
-// Os dados clínicos relevantes ficam nos PDFs SUS oficiais (Cadastro
-// e Ficha de Atendimento) gerados em pdfQueue.ts.
-
-/**
- * Prepara um documento de exame anexado pelo paciente para ser entregue
- * no bundle final, com cabeçalho institucional e carimbo do médico.
- *
- * - Se o arquivo já for PDF, devolve o buffer original (a assinatura ICP
- *   será aplicada por assinarPdf no pdfQueue).
- * - Se for imagem (PNG/JPG), gera um PDF A4 com cabeçalho institucional
- *   + bloco do paciente + a imagem do exame embedada + carimbo digital.
- *
- * Formatos não suportados (ex.: WEBP, HEIC) lançam erro — o validador
- * de upload deveria ter rejeitado antes, mas aqui defendemos contra
- * regressão.
- */
-export async function prepararExameAnexadoComoPdf(args: {
-  rawBuffer: Buffer
-  pacienteNome: string
-  pacienteCpf?: string | null
-  pacienteId?: number
-}): Promise<Buffer> {
-  const { rawBuffer, pacienteNome, pacienteCpf, pacienteId } = args
-
-  // Detecta tipo por magic bytes
-  const isPdf = rawBuffer.length >= 4 && rawBuffer.subarray(0, 4).toString('ascii') === '%PDF'
-  if (isPdf) return rawBuffer
-
-  const isPng = rawBuffer.length >= 8 && rawBuffer[0] === 0x89 && rawBuffer[1] === 0x50 && rawBuffer[2] === 0x4e && rawBuffer[3] === 0x47
-  const isJpg = rawBuffer.length >= 3 && rawBuffer[0] === 0xff && rawBuffer[1] === 0xd8 && rawBuffer[2] === 0xff
-  if (!isPng && !isJpg) {
-    throw new Error('Formato de exame não suportado para anexação (esperado PDF, PNG ou JPG).')
-  }
-
-  const doc = await PDFDocument.create()
-  const PAGE_W = 595
-  const PAGE_H = 842
-  const page = doc.addPage([PAGE_W, PAGE_H])
-  const font = await doc.embedFont(StandardFonts.Helvetica)
-  const fontBold = await doc.embedFont(StandardFonts.HelveticaBold)
-  const margin = 50
-
-  // Cabeçalho institucional padrão (mesmo dos pedidos/receita)
-  let y = desenharCabecalhoInstitucional({
-    doc, page, font, fontBold, pageWidth: PAGE_W, margin, startY: PAGE_H,
-  })
-
-  // Banner identificando o documento
-  y = desenharBannerTitulo({
-    page, font, fontBold, pageWidth: PAGE_W, margin, startY: y,
-    titulo: 'EXAME ANEXADO PELO PACIENTE',
-    subtitulo: 'Anti-HIV — documento original recebido pelo Facilita PrEP',
-  })
-
-  // Bloco do paciente
-  y = desenharBlocoPaciente({
-    page, font, fontBold, pageWidth: PAGE_W, margin, startY: y,
-    paciente: { nome: pacienteNome, cpf: pacienteCpf },
-  })
-
-  // Embed da imagem com aspect ratio preservado
-  const image = isPng ? await doc.embedPng(rawBuffer) : await doc.embedJpg(rawBuffer)
-  const availableWidth = PAGE_W - margin * 2
-  const availableHeight = y - 90 // reserva 90pt para o carimbo
-
-  let imgW = image.width
-  let imgH = image.height
-  if (imgW > availableWidth) {
-    const ratio = availableWidth / imgW
-    imgW = availableWidth
-    imgH = imgH * ratio
-  }
-  if (imgH > availableHeight) {
-    const ratio = availableHeight / imgH
-    imgH = availableHeight
-    imgW = imgW * ratio
-  }
-
-  const imgX = margin + (availableWidth - imgW) / 2
-  const imgY = y - imgH
-  page.drawImage(image, { x: imgX, y: imgY, width: imgW, height: imgH })
-
-  // Carimbo digital — a assinatura ICP-Brasil é aplicada por assinarPdf depois
-  const carimboInfo = carimboFromEnv('exame_anexado', pacienteId ?? 0)
-  await desenharCarimboDigital(doc, page, {
-    x: margin, y: 8, width: PAGE_W - margin * 2, height: 60,
-  }, carimboInfo)
-
-  return Buffer.from(await doc.save())
-}
+// prepararExameAnexadoComoPdf removido — o exame que o paciente subiu
+// fica em consultas_inicio.exameS3Key apenas para auditoria e revisão
+// médica; não é reentregue ao paciente no bundle final.
 
 /**
  * Lê o certificado .pfx do ICP-Brasil — prioridade:

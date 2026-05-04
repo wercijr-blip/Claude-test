@@ -8,7 +8,6 @@ import StepDemografico from './steps/StepDemografico.tsx'
 import StepContato from './steps/StepContato.tsx'
 import StepConduta from './steps/StepConduta.tsx'
 import StepPrescricao from './steps/StepPrescricao.tsx'
-import StepServico from './steps/StepServico.tsx'
 import StepTcle from './StepTcle.tsx'
 import { trpc } from '../lib/trpc.ts'
 
@@ -273,19 +272,11 @@ export default function FormularioPaciente({ pacienteId: initialPacienteId, init
                   dataExame: (consultaStatus as { dataExame?: string | null })?.dataExame,
                   resultadoHiv: (consultaStatus as { resultadoHiv?: string | null })?.resultadoHiv,
                 }}
+                tipoConsulta={(consultaStatus as { tipoConsulta?: 'primeiro_atendimento' | 'ja_faco_prep' | null })?.tipoConsulta ?? null}
               />
             )}
             {currentStep === 5 && <StepPrescricao {...stepProps} />}
-            {currentStep === 6 && (
-              <StepServico
-                {...stepProps}
-                defaultValues={intakeData ? {
-                  tipoAtendimento: intakeData.tipo === 'plano' ? 'convenio' : 'particular',
-                  convenio: intakeData.plano ?? undefined,
-                } : undefined}
-              />
-            )}
-            {currentStep === 7 && <StepTcle {...stepProps} />}
+            {currentStep === 6 && <StepTcle {...stepProps} />}
           </motion.div>
         </AnimatePresence>
       </div>

@@ -8,7 +8,8 @@
 
 **Facilita PrEP** é uma plataforma de saúde digital brasileira para prevenção do HIV via PrEP (Profilaxia Pré-Exposição). Permite que pacientes preencham formulários clínicos, façam upload de exames, assinem TCLE digitalmente e recebam prescrições com assinatura digital ICP-Brasil conforme CFM/ITI.
 
-**Domínio de produção:** `claude-test-production-8672.up.railway.app`
+**Domínio de produção:** `https://facilitaprep.com.br` (com `www.facilitaprep.com.br` redirecionando para o apex)
+**Hosting:** Railway — URL interna `claude-test-production-8672.up.railway.app` (fallback)
 
 -----
 

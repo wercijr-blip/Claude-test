@@ -18,7 +18,7 @@ const dmSans = DM_Sans({
   display: 'swap',
 })
 
-const DOMAIN = process.env.NEXT_PUBLIC_DOMAIN ?? 'https://claude-test-production-8672.up.railway.app'
+const DOMAIN = process.env.NEXT_PUBLIC_DOMAIN ?? 'https://facilitaprep.com.br'
 
 export const metadata: Metadata = {
   metadataBase: new URL(DOMAIN),
