@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import IntakePage from '@web/components/IntakePage'
+import LandingPage from '@web/components/LandingPage'
 
 export const metadata: Metadata = {
   title: 'Facilita PrEP — Prevenção do HIV com PrEP',
@@ -25,5 +25,5 @@ export const metadata: Metadata = {
 }
 
 export default function HomePage() {
-  return <IntakePage />
+  return <LandingPage />
 }
