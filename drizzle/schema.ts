@@ -21,7 +21,7 @@ export const users = mysqlTable('users', {
   role: varchar('role', { length: 50 }).notNull().default('user'),
   ativo: boolean('ativo').notNull().default(true),
   createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`).$onUpdateFn(() => new Date()),
 }, (t) => ({
   openIdIdx: uniqueIndex('idx_users_open_id').on(t.openId),
   roleIdx: index('idx_users_role').on(t.role),
@@ -111,7 +111,7 @@ export const pacientes = mysqlTable('pacientes', {
   observacoesMedico: text('observacoes_medico'),
   retentionUntil: datetime('retention_until'),
   createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`).$onUpdateFn(() => new Date()),
 }, (t) => ({
   cpfHashIdx: index('idx_pacientes_cpf_hash').on(t.cpfHash),
   statusIdx: index('idx_pacientes_status').on(t.status),
@@ -237,7 +237,7 @@ export const consultasInicio = mysqlTable('consultas_inicio', {
   ultimoLembreteAt: datetime('ultimo_lembrete_at'),
   linkExpiresAt: datetime('link_expires_at'),
   createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`).$onUpdateFn(() => new Date()),
 }, (t) => ({
   tokenIdx: uniqueIndex('idx_consultas_inicio_token').on(t.tokenId),
   statusIdx: index('idx_consultas_inicio_status').on(t.status),
