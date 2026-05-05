@@ -99,6 +99,8 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
 
   async function onSubmit(data: FormData) {
     setUploadError(null)
+    criar.reset()
+    iniciarPagamento.reset()
     if (tipo === 'plano' && (!carteirinhaKey || !documentoKey)) {
       setUploadError('Envie a carteirinha e o documento de identidade.')
       return
