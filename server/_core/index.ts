@@ -158,7 +158,12 @@ if (env.NODE_ENV === 'production') {
       return
     }
     res.set('Cache-Control', 'no-cache, no-store, must-revalidate')
-    res.sendFile(path.join(clientDist, 'index.html'))
+    res.sendFile(path.join(clientDist, 'index.html'), (err) => {
+      if (err) {
+        logger.error('[server] sendFile index.html falhou', { path: req.path, error: String(err) })
+        res.status(503).send('Serviço temporariamente indisponível')
+      }
+    })
   })
 }
 
