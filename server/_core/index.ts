@@ -27,25 +27,39 @@ app.use(cookieParser())
 if (env.NODE_ENV === 'production') {
   const clientDist = path.resolve(__dirname, '../../dist/client')
   const webOut = path.resolve(__dirname, '../../web/out')
+  const clientIndex = path.join(clientDist, 'index.html')
+
+  // Verifica se o build do Next.js está disponível
+  const fs = await import('fs')
+  const webOutExists = fs.existsSync(path.join(webOut, 'index.html'))
+  if (!webOutExists) {
+    logger.warn('[server] web/out/index.html não encontrado — marketing routes vão usar o Vite SPA como fallback')
+  }
 
   // Next.js static assets (_next/static, images, etc.) — serve primeiro
   app.use('/_next', express.static(path.join(webOut, '_next')))
 
-  // Rotas de marketing: Next.js SSG (HTML com conteúdo para crawlers)
+  // Rotas de marketing: Next.js SSG quando disponível, Vite SPA como fallback
   const marketingRoutes = ['/', '/lp/google', '/lp/meta', '/lp/retargeting', '/robots.txt', '/sitemap.xml']
   for (const route of marketingRoutes) {
     if (route === '/robots.txt' || route === '/sitemap.xml') {
       app.get(route, (_req, res) => {
-        res.sendFile(path.join(webOut, route))
+        const filePath = path.join(webOut, route)
+        if (fs.existsSync(filePath)) {
+          res.sendFile(filePath)
+        } else {
+          res.status(404).end()
+        }
       })
     } else {
-      // Serve index.html for the route (Next.js export structure)
       const htmlPath = route === '/'
         ? path.join(webOut, 'index.html')
         : path.join(webOut, route, 'index.html')
       app.get(route, (_req, res) => {
         res.set('Cache-Control', 'no-cache, must-revalidate')
-        res.sendFile(htmlPath)
+        // Fallback para Vite SPA se o build do Next.js não estiver disponível
+        const target = fs.existsSync(htmlPath) ? htmlPath : clientIndex
+        res.sendFile(target)
       })
     }
   }
