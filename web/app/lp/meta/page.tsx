@@ -10,5 +10,5 @@ export const metadata: Metadata = {
 }
 
 export default function MetaLP() {
-  return <LandingPage />
+  return <LandingPage variant="meta" />
 }

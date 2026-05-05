@@ -10,5 +10,5 @@ export const metadata: Metadata = {
 }
 
 export default function RetargetingLP() {
-  return <LandingPage />
+  return <LandingPage variant="retargeting" />
 }

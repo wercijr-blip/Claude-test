@@ -1,20 +1,64 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { LogoWordmark } from './Logo'
 import IntakePage from './IntakePage'
 import { trackAgendarClick, trackWhatsApp } from '../lib/analytics'
 
 type Tipo = 'particular' | 'plano'
+type Variant = 'google' | 'meta' | 'retargeting'
+
+const VARIANT_CONTENT: Record<Variant, {
+  badge: string
+  h1: string
+  h1Accent: string
+  sub: string
+  cta: string
+}> = {
+  google: {
+    badge: 'Resultado de busca — PrEP online',
+    h1: 'Receita PrEP online hoje',
+    h1Accent: 'sem fila, sem deslocamento',
+    sub: 'Você já pesquisou — agora é só dar o próximo passo. Consulta com infectologista e receita com assinatura ICP-Brasil em até 24h.',
+    cta: 'Quero minha PrEP agora →',
+  },
+  meta: {
+    badge: '100% online · Discreta · Legal',
+    h1: 'Saúde sexual preventiva',
+    h1Accent: 'sem julgamentos, sem filas',
+    sub: 'Proteja-se com PrEP de forma moderna, sigilosa e 100% online. Receita digital com validade legal em todo o Brasil.',
+    cta: 'Começar minha proteção →',
+  },
+  retargeting: {
+    badge: 'Você nos conhece — hora de agir',
+    h1: 'Sua proteção está',
+    h1Accent: 'esperando por você',
+    sub: 'Você já conhece a Facilita PrEP. A consulta é rápida, o processo simples e sua receita fica pronta em até 24h.',
+    cta: 'Iniciar agora por R$ 150 →',
+  },
+}
 
 function scrollTop() {
   if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'instant' })
 }
 
-export default function LandingPage() {
+export default function LandingPage({ variant }: { variant?: Variant }) {
   const [showForm, setShowForm] = useState(false)
   const [selectedTipo, setSelectedTipo] = useState<Tipo | undefined>(undefined)
   const [openFaq, setOpenFaq] = useState<number | null>(null)
+  const [showSticky, setShowSticky] = useState(false)
+  const heroRef = useRef<HTMLElement>(null)
+
+  const vc = variant ? VARIANT_CONTENT[variant] : null
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowSticky(!entry.isIntersecting),
+      { threshold: 0 }
+    )
+    if (heroRef.current) observer.observe(heroRef.current)
+    return () => observer.disconnect()
+  }, [])
 
   function openForm(tipo?: Tipo, local = 'generic') {
     trackAgendarClick(local)
@@ -51,8 +95,35 @@ export default function LandingPage() {
         </div>
       </nav>
 
+      {/* ── Sticky CTA bar ─────────────────────────────────────────────── */}
+      <div
+        className={`fixed top-0 left-0 right-0 z-40 bg-fp-dark/95 backdrop-blur-md border-b border-white/10 transition-all duration-300 ${
+          showSticky ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'
+        }`}
+      >
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+          <p className="text-white/80 text-sm font-medium hidden sm:block">
+            Consulta PrEP online · Receita ICP-Brasil em até 24h
+          </p>
+          <div className="flex items-center gap-3 ml-auto">
+            <button
+              onClick={() => openForm('plano', 'sticky_plano')}
+              className="text-white/60 text-sm font-medium hover:text-white transition-colors"
+            >
+              Tenho plano
+            </button>
+            <button
+              onClick={() => openForm('particular', 'sticky_particular')}
+              className="bg-fp-lilac text-fp-dark px-5 py-2 rounded-full text-sm font-bold hover:bg-fp-lilac-soft transition-all active:scale-95"
+            >
+              Começar por R$ 150 →
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* ── Hero ───────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-fp-dark via-fp-dark-mid to-fp-dark-soft pt-20 pb-24 sm:pt-28 sm:pb-32">
+      <section ref={heroRef} className="relative overflow-hidden bg-gradient-to-br from-fp-dark via-fp-dark-mid to-fp-dark-soft pt-20 pb-24 sm:pt-28 sm:pb-32">
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute -top-20 -right-20 w-96 h-96 rounded-full bg-fp-lilac opacity-10 blur-3xl" />
           <div className="absolute bottom-0 -left-20 w-80 h-80 rounded-full bg-fp-blue opacity-10 blur-3xl" />
@@ -65,17 +136,20 @@ export default function LandingPage() {
             <div>
               <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 mb-6">
                 <span className="w-2 h-2 rounded-full bg-fp-success animate-pulse" />
-                <span className="text-white/80 text-xs font-medium">100% online · Receita em até 24 h</span>
+                <span className="text-white/80 text-xs font-medium">
+                  {vc ? vc.badge : '100% online · Receita em até 24 h'}
+                </span>
               </div>
 
               <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl text-white leading-[1.1] mb-5">
-                PrEP com receita<br />
-                <span className="text-fp-lilac-soft">digital e sigilosa</span>
+                {vc ? vc.h1 : 'PrEP com receita'}<br />
+                <span className="text-fp-lilac-soft">{vc ? vc.h1Accent : 'digital e sigilosa'}</span>
               </h1>
 
               <p className="text-white/70 text-lg sm:text-xl leading-relaxed mb-8 max-w-lg">
-                Consulta médica, análise de exames e receita com assinatura
-                ICP-Brasil — sem sair de casa, sem exposição desnecessária.
+                {vc
+                  ? vc.sub
+                  : 'Consulta médica, análise de exames e receita com assinatura ICP-Brasil — sem sair de casa, sem exposição desnecessária.'}
               </p>
 
               <div className="flex flex-col sm:flex-row gap-3 mb-10">
@@ -83,7 +157,7 @@ export default function LandingPage() {
                   onClick={() => openForm('particular', 'hero_primary')}
                   className="bg-fp-lilac text-fp-dark px-8 py-4 rounded-2xl text-base font-bold hover:bg-fp-lilac-soft transition-all shadow-lg active:scale-95"
                 >
-                  Quero minha PrEP agora →
+                  {vc ? vc.cta : 'Quero minha PrEP agora →'}
                 </button>
                 <a
                   href="/duvidas"
