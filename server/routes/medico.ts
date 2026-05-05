@@ -77,6 +77,9 @@ export const medicoRouter = router({
     .mutation(async ({ input, ctx }) => {
       const [p] = await db.select().from(pacientes).where(eq(pacientes.id, input.pacienteId)).limit(1)
       if (!p) throw new TRPCError({ code: 'NOT_FOUND' })
+      if (p.medicoId !== null && p.medicoId !== ctx.session.id && ctx.session.role !== 'admin') {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Paciente em revisão por outro médico.' })
+      }
 
       await db
         .update(pacientes)
@@ -97,6 +100,9 @@ export const medicoRouter = router({
     .mutation(async ({ input, ctx }) => {
       const [p] = await db.select().from(pacientes).where(eq(pacientes.id, input.pacienteId)).limit(1)
       if (!p) throw new TRPCError({ code: 'NOT_FOUND' })
+      if (p.medicoId !== null && p.medicoId !== ctx.session.id && ctx.session.role !== 'admin') {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Paciente em revisão por outro médico.' })
+      }
 
       await db
         .update(pacientes)
