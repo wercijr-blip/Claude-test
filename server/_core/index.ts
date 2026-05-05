@@ -59,6 +59,17 @@ app.use(
     router: appRouter,
     createContext: ({ req }) => createContext({ req }),
     onError: ({ error, path, type, input }) => {
+      const PII_KEYS = ['cpf', 'nome', 'email', 'telefone', 'password', 'senha', 'token']
+      const sanitize = (v: unknown): unknown => {
+        if (v === null || typeof v !== 'object') return v
+        return Object.fromEntries(
+          Object.entries(v as Record<string, unknown>).map(([k, val]) => [
+            k,
+            PII_KEYS.some((p) => k.toLowerCase().includes(p)) ? '[redacted]' : sanitize(val),
+          ]),
+        )
+      }
+      const safeInput = typeof input === 'object' ? JSON.stringify(sanitize(input)) : '[non-object input]'
       logger.error('[trpc] error', {
         path,
         type,
@@ -66,7 +77,7 @@ app.use(
         message: error.message,
         cause: error.cause ? String(error.cause) : undefined,
         stack: error.stack,
-        input: typeof input === 'object' ? JSON.stringify(input) : String(input),
+        input: safeInput,
       })
     },
   }),

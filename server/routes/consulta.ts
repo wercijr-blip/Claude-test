@@ -194,11 +194,11 @@ export const consultaRouter = router({
         .where(eq(consultasInicio.id, consulta.id))
 
       return {
-        urlCompleto: await getPresignedUrl(keyCompleto, 3600),
-        urlIst: await getPresignedUrl(keyIst, 3600),
-        urlHiv: await getPresignedUrl(keyHiv, 3600),
-        urlDensitometria: await getPresignedUrl(keyDensit, 3600),
-        urlOrientacao: await getPresignedUrl(keyOri, 3600),
+        urlCompleto: await getPresignedUrl(keyCompleto, 1800),
+        urlIst: await getPresignedUrl(keyIst, 1800),
+        urlHiv: await getPresignedUrl(keyHiv, 1800),
+        urlDensitometria: await getPresignedUrl(keyDensit, 1800),
+        urlOrientacao: await getPresignedUrl(keyOri, 1800),
       }
     }),
 

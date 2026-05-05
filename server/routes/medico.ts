@@ -20,6 +20,7 @@ export const medicoRouter = router({
       .from(pacientes)
       .where(inArray(pacientes.status, ['pendente', 'em_revisao']))
       .orderBy(pacientes.createdAt)
+      .limit(500)
 
     return rows.map((p) => ({
       id: p.id,
@@ -77,6 +78,9 @@ export const medicoRouter = router({
     .mutation(async ({ input, ctx }) => {
       const [p] = await db.select().from(pacientes).where(eq(pacientes.id, input.pacienteId)).limit(1)
       if (!p) throw new TRPCError({ code: 'NOT_FOUND' })
+      if (p.medicoId !== null && p.medicoId !== ctx.session.id && ctx.session.role !== 'admin') {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Paciente em revisão por outro médico.' })
+      }
 
       await db
         .update(pacientes)
@@ -97,6 +101,9 @@ export const medicoRouter = router({
     .mutation(async ({ input, ctx }) => {
       const [p] = await db.select().from(pacientes).where(eq(pacientes.id, input.pacienteId)).limit(1)
       if (!p) throw new TRPCError({ code: 'NOT_FOUND' })
+      if (p.medicoId !== null && p.medicoId !== ctx.session.id && ctx.session.role !== 'admin') {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Paciente em revisão por outro médico.' })
+      }
 
       await db
         .update(pacientes)

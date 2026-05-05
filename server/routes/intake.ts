@@ -244,7 +244,7 @@ export const intakeRouter = router({
       if (!input.s3Key.startsWith('intake/')) {
         throw new TRPCError({ code: 'FORBIDDEN', message: 'Acesso negado.' })
       }
-      const url = await getPresignedUrl(input.s3Key, 3600)
+      const url = await getPresignedUrl(input.s3Key, 900)
       return { url }
     }),
 

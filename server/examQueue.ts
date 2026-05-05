@@ -1,5 +1,6 @@
 import { Queue, Worker } from 'bullmq'
 import { redis } from './_core/redis.ts'
+import { env } from './_core/env.ts'
 import { logger } from './_core/logger.ts'
 import { db } from './db.ts'
 import { exames, pacientes } from '../drizzle/schema.ts'
@@ -11,8 +12,9 @@ import type { ResultadoIa } from '../shared/types.ts'
 export const EXAM_QUEUE_NAME = 'exam-analysis'
 
 const connection = redis
+const QUEUE_PREFIX = env.NODE_ENV === 'production' ? '{fp-prod}' : `{fp-${env.NODE_ENV}}`
 
-export const examQueue = new Queue(EXAM_QUEUE_NAME, { connection })
+export const examQueue = new Queue(EXAM_QUEUE_NAME, { connection, prefix: QUEUE_PREFIX })
 
 export function startExamWorker() {
   const worker = new Worker(
@@ -77,7 +79,7 @@ export function startExamWorker() {
 
       return { exameId, resultado: resultado.resultado, status: resultado.status }
     },
-    { connection, concurrency: 5 },
+    { connection, concurrency: 5, prefix: QUEUE_PREFIX },
   )
 
   worker.on('failed', (job, err) => {

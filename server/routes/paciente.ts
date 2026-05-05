@@ -122,22 +122,52 @@ export const pacienteRouter = router({
         return { pacienteId: targetId, newSessionToken }
       }
 
-      const [result] = await db.insert(pacientes).values({
-        tokenId,
-        cpfEncrypted: encrypt(input.cpf),
-        cpfHash,
-        nomeEncrypted: encrypt(input.nome),
-        dataNascimentoEncrypted: encrypt(input.dataNascimento),
-        nomeMaeEncrypted: encrypt(input.nomeMae),
-        cns: input.cns,
-        sexo: input.sexo,
-        nomeSocial: input.nomeSocial,
-        tipoAtendimento,
-        convenio,
-        currentStep: 2,
-        retentionUntil,
-      })
-      const newPacienteId = (result as ResultSetHeader).insertId
+      let newPacienteId: number
+      try {
+        const [result] = await db.insert(pacientes).values({
+          tokenId,
+          cpfEncrypted: encrypt(input.cpf),
+          cpfHash,
+          nomeEncrypted: encrypt(input.nome),
+          dataNascimentoEncrypted: encrypt(input.dataNascimento),
+          nomeMaeEncrypted: encrypt(input.nomeMae),
+          cns: input.cns,
+          sexo: input.sexo,
+          nomeSocial: input.nomeSocial,
+          tipoAtendimento,
+          convenio,
+          currentStep: 2,
+          retentionUntil,
+        })
+        newPacienteId = (result as ResultSetHeader).insertId
+      } catch (insertErr) {
+        // Concurrent request already created the record for this tokenId —
+        // fetch the existing row and update it instead of failing.
+        if ((insertErr as NodeJS.ErrnoException).code !== 'ER_DUP_ENTRY') throw insertErr
+        const [existing] = await db
+          .select({ id: pacientes.id })
+          .from(pacientes)
+          .where(eq(pacientes.tokenId, tokenId))
+          .limit(1)
+        if (!existing) throw insertErr
+        newPacienteId = existing.id
+        await db.update(pacientes)
+          .set({
+            cpfEncrypted: encrypt(input.cpf),
+            cpfHash,
+            nomeEncrypted: encrypt(input.nome),
+            dataNascimentoEncrypted: encrypt(input.dataNascimento),
+            nomeMaeEncrypted: encrypt(input.nomeMae),
+            cns: input.cns,
+            sexo: input.sexo,
+            nomeSocial: input.nomeSocial,
+            tipoAtendimento,
+            convenio,
+            currentStep: 2,
+            updatedAt: new Date(),
+          })
+          .where(eq(pacientes.id, newPacienteId))
+      }
       const newSessionToken = await emitirJwtPaciente(tokenId, newPacienteId)
       return { pacienteId: newPacienteId, newSessionToken }
     }),

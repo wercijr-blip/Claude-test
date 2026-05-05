@@ -99,6 +99,8 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
 
   async function onSubmit(data: FormData) {
     setUploadError(null)
+    criar.reset()
+    iniciarPagamento.reset()
     if (tipo === 'plano' && (!carteirinhaKey || !documentoKey)) {
       setUploadError('Envie a carteirinha e o documento de identidade.')
       return
@@ -370,34 +372,34 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             <div>
-              <label className={labelCls}>Nome completo</label>
-              <input {...register('nome')} className={inputCls} placeholder="Seu nome completo" />
+              <label htmlFor="intake-nome" className={labelCls}>Nome completo</label>
+              <input {...register('nome')} id="intake-nome" className={inputCls} placeholder="Seu nome completo" />
               {errors.nome && <p className={errCls}>{errors.nome.message}</p>}
             </div>
 
             <div>
-              <label className={labelCls}>Telefone (WhatsApp)</label>
-              <input {...register('telefone')} className={inputCls} placeholder="(11) 99999-9999" />
+              <label htmlFor="intake-telefone" className={labelCls}>Telefone (WhatsApp)</label>
+              <input {...register('telefone')} id="intake-telefone" className={inputCls} placeholder="(11) 99999-9999" />
               {errors.telefone && <p className={errCls}>{errors.telefone.message}</p>}
             </div>
 
             <div>
-              <label className={labelCls}>CPF</label>
-              <input {...register('cpf')} className={inputCls} placeholder="000.000.000-00" />
+              <label htmlFor="intake-cpf" className={labelCls}>CPF</label>
+              <input {...register('cpf')} id="intake-cpf" className={inputCls} placeholder="000.000.000-00" />
               {errors.cpf && <p className={errCls}>{errors.cpf.message}</p>}
             </div>
 
             <div>
-              <label className={labelCls}>E-mail</label>
-              <input {...register('email')} type="email" className={inputCls} placeholder="seu@email.com" />
+              <label htmlFor="intake-email" className={labelCls}>E-mail</label>
+              <input {...register('email')} id="intake-email" type="email" className={inputCls} placeholder="seu@email.com" />
               {errors.email && <p className={errCls}>{errors.email.message}</p>}
             </div>
 
             {isPlano && (
               <>
                 <div>
-                  <label className={labelCls}>Plano de saúde</label>
-                  <select {...register('plano')} className={inputCls}>
+                  <label htmlFor="intake-plano" className={labelCls}>Plano de saúde</label>
+                  <select {...register('plano')} id="intake-plano" className={inputCls}>
                     <option value="">Selecione seu plano</option>
                     {PLANOS_VALIDOS.map(p => (
                       <option key={p} value={p}>{p}</option>
@@ -413,7 +415,7 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
                 <div>
                   <label className={labelCls}>Carteirinha do plano</label>
                   <label className="flex flex-col items-center justify-center w-full border-2 border-dashed border-slate-200 hover:border-brand rounded-2xl py-5 cursor-pointer bg-slate-50 hover:bg-brand-pale transition-all">
-                    <svg className="w-8 h-8 text-slate-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-8 h-8 text-slate-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                     </svg>
                     <span className="text-sm text-slate-400">{carteirinhaKey ? '✓ Carteirinha enviada' : 'Clique para enviar'}</span>
@@ -434,7 +436,7 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
                 <div>
                   <label className={labelCls}>Documento de identidade (RG ou CNH)</label>
                   <label className="flex flex-col items-center justify-center w-full border-2 border-dashed border-slate-200 hover:border-brand rounded-2xl py-5 cursor-pointer bg-slate-50 hover:bg-brand-pale transition-all">
-                    <svg className="w-8 h-8 text-slate-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-8 h-8 text-slate-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                     </svg>
                     <span className="text-sm text-slate-400">{documentoKey ? '✓ Documento enviado' : 'Clique para enviar'}</span>

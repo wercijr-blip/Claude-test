@@ -123,6 +123,7 @@ export default function App() {
 function AuthCallback() {
   const { setToken } = useAuth()
   const [, navigate] = useLocation()
+  const [timedOut, setTimedOut] = useState(false)
 
   const params = new URLSearchParams(window.location.search)
   const code = params.get('code') ?? ''
@@ -154,15 +155,28 @@ function AuthCallback() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code])
 
-  if (callbackMutation.isError) {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!callbackMutation.isSuccess) setTimedOut(true)
+    }, 15_000)
+    return () => clearTimeout(timer)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  if (callbackMutation.isError || timedOut) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-slate-700 mb-2">Falha na autenticação</h1>
-          <p className="text-slate-500 mb-4">Não foi possível completar o login. Tente novamente.</p>
+          <p className="text-slate-500 mb-4">
+            {timedOut && !callbackMutation.isError
+              ? 'O servidor demorou muito para responder. Tente novamente.'
+              : 'Não foi possível completar o login. Tente novamente.'}
+          </p>
           <button
             className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-medium hover:bg-blue-700 transition-colors"
             onClick={() => {
+              setTimedOut(false)
               hasAttempted.current = false
               callbackMutation.mutate({ code, redirectUri: `${window.location.origin}/auth/callback` })
             }}

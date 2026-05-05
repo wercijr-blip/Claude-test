@@ -27,13 +27,28 @@ export const tokenRouter = router({
       const expiresAt = new Date()
       expiresAt.setDate(expiresAt.getDate() + TOKEN_EXPIRY_DAYS)
 
-      await db.insert(accessTokens).values({
-        tokenHash: hash,
-        patientEmail: input.patientEmail,
-        tipo: input.tipo,
-        convenio: input.convenio,
-        expiresAt,
-        createdById: ctx.session.id,
+      await db.transaction(async (tx) => {
+        // Revoke any prior active tokens for the same email before issuing a new one
+        if (input.patientEmail) {
+          await tx.update(accessTokens)
+            .set({ revokedAt: new Date() })
+            .where(
+              and(
+                eq(accessTokens.patientEmail, input.patientEmail),
+                isNull(accessTokens.revokedAt),
+                gt(accessTokens.expiresAt, new Date()),
+              ),
+            )
+        }
+
+        await tx.insert(accessTokens).values({
+          tokenHash: hash,
+          patientEmail: input.patientEmail,
+          tipo: input.tipo,
+          convenio: input.convenio,
+          expiresAt,
+          createdById: ctx.session.id,
+        })
       })
 
       return { token: raw, expiresAt }
