@@ -21,6 +21,8 @@ export const LEMBRETE_QUEUE_NAME = 'lembrete-exame'
 export const PESQUISA_QUEUE_NAME = 'pesquisa-satisfacao'
 export const LINK_ACESSO_QUEUE_NAME = 'link-acesso'
 
+const QUEUE_PREFIX = env.NODE_ENV === 'production' ? '{fp-prod}' : `{fp-${env.NODE_ENV}}`
+
 const connection = redis
 
 // Upstash Redis free tier: 500k commands/month.
@@ -45,10 +47,10 @@ const PESQUISA_WORKER_OPTS = { ...SHARED_WORKER_SETTINGS, drainDelay: 120 } // 2
 // Daily cron at 11h: poll very infrequently
 const LEMBRETE_WORKER_OPTS = { ...SHARED_WORKER_SETTINGS, drainDelay: 300 } // 5min
 
-export const pdfQueue = new Queue(PDF_QUEUE_NAME, { connection })
-export const lembreteQueue = new Queue(LEMBRETE_QUEUE_NAME, { connection })
-export const pesquisaQueue = new Queue(PESQUISA_QUEUE_NAME, { connection })
-export const linkAcessoQueue = new Queue(LINK_ACESSO_QUEUE_NAME, { connection })
+export const pdfQueue = new Queue(PDF_QUEUE_NAME, { connection, prefix: QUEUE_PREFIX })
+export const lembreteQueue = new Queue(LEMBRETE_QUEUE_NAME, { connection, prefix: QUEUE_PREFIX })
+export const pesquisaQueue = new Queue(PESQUISA_QUEUE_NAME, { connection, prefix: QUEUE_PREFIX })
+export const linkAcessoQueue = new Queue(LINK_ACESSO_QUEUE_NAME, { connection, prefix: QUEUE_PREFIX })
 
 export function startPdfWorker() {
   const worker = new Worker(
@@ -318,7 +320,7 @@ export function startPdfWorker() {
     // workers e imagens próximas do limite, o pico passava de 300MB —
     // arriscado em containers Railway pequenos. 2 workers mantém
     // throughput aceitável (PDFs levam ~3-8s) com pico previsível.
-    { connection, concurrency: 2, ...PDF_WORKER_OPTS },
+    { connection, concurrency: 2, ...PDF_WORKER_OPTS, prefix: QUEUE_PREFIX },
   )
 
   worker.on('failed', (job, err) => {
@@ -359,7 +361,7 @@ export function startPesquisaWorker() {
         await enviarWhatsApp(telefone, msg).catch(console.error)
       }
     },
-    { connection, ...PESQUISA_WORKER_OPTS },
+    { connection, ...PESQUISA_WORKER_OPTS, prefix: QUEUE_PREFIX },
   )
 
   worker.on('failed', (job, err) => {
@@ -418,7 +420,7 @@ export function startLembreteWorker() {
 
       return { enviados: pendentes.length }
     },
-    { connection, ...LEMBRETE_WORKER_OPTS },
+    { connection, ...LEMBRETE_WORKER_OPTS, prefix: QUEUE_PREFIX },
   )
 
   worker.on('failed', (job, err) => {
@@ -491,7 +493,7 @@ export function startLinkAcessoWorker() {
         await enviarWhatsApp(telefone, msg).catch(console.error)
       }
     },
-    { connection, ...SHARED_WORKER_SETTINGS, drainDelay: 15 },
+    { connection, ...SHARED_WORKER_SETTINGS, drainDelay: 15, prefix: QUEUE_PREFIX },
   )
 
   worker.on('failed', (job, err) => {
