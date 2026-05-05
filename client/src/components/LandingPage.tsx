@@ -303,6 +303,127 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── Médico ─────────────────────────────────────────────────────── */}
+      <section className="py-20 sm:py-24">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <div className="text-center mb-14">
+            <p className="text-fp-accent text-sm font-semibold uppercase tracking-widest mb-2">Quem cuida de você</p>
+            <h2 className="font-display text-4xl sm:text-5xl text-fp-dark">Médico infectologista especializado</h2>
+          </div>
+
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            <div className="bg-white rounded-3xl border border-fp-lavender-100 shadow-sm p-8">
+              <div className="flex items-start gap-6 mb-6">
+                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-fp-lavender-50 to-fp-lavender-100 flex items-center justify-center shrink-0">
+                  <svg className="w-10 h-10 text-fp-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="font-display text-2xl text-fp-dark leading-tight">Dr. Werciley Saraiva<br />Vieira Junior</h3>
+                  <p className="text-fp-accent font-semibold text-sm mt-1">Médico Infectologista</p>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    <span className="bg-fp-lavender-50 text-fp-accent text-xs font-medium px-2.5 py-1 rounded-full">CRM/DF 16381</span>
+                    <span className="bg-fp-lavender-50 text-fp-accent text-xs font-medium px-2.5 py-1 rounded-full">RQE 14486</span>
+                  </div>
+                </div>
+              </div>
+              <p className="text-fp-dark-soft text-sm leading-relaxed mb-6">
+                Especialista em Infectologia com atuação em prevenção do HIV, saúde sexual e medicina de viagem.
+                Membro da Sociedade Brasileira de Infectologia, com ampla experiência no acompanhamento de
+                pacientes em uso de PrEP e no manejo clínico de ISTs.
+              </p>
+              <div className="border-t border-fp-lavender-100 pt-5">
+                <p className="text-xs text-fp-dark-soft font-medium mb-3 uppercase tracking-wider">Credenciais e compliance</p>
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { label: 'CFM', sub: 'Telemedicina regulamentada', icon: '⚕️' },
+                    { label: 'ICP-Brasil', sub: 'Receita com validade legal', icon: '✅' },
+                    { label: 'LGPD', sub: 'Dados criptografados', icon: '🔒' },
+                  ].map((item) => (
+                    <div key={item.label} className="bg-fp-fog rounded-xl p-3 text-center">
+                      <span className="text-xl block mb-1">{item.icon}</span>
+                      <p className="font-bold text-fp-dark text-xs">{item.label}</p>
+                      <p className="text-fp-dark-soft text-[10px] leading-tight mt-0.5">{item.sub}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-5">
+              {[
+                { title: 'Especialista em PrEP', desc: 'Protocolo atualizado conforme PCDT/Ministério da Saúde e diretrizes internacionais da OMS e CDC.' },
+                { title: 'Telemedicina com respaldo legal', desc: 'Atendimento regulamentado pela Resolução CFM 2.299/2021 e 2.314/2022. Receita com assinatura ICP-Brasil aceita em todo o Brasil.' },
+                { title: 'Suporte pós-consulta', desc: 'Acompanhamento contínuo via WhatsApp para dúvidas após o atendimento, sem custo adicional.' },
+                { title: 'Resposta em até 24 horas', desc: 'Análise clínica, avaliação de exames e emissão da receita dentro de 24 horas úteis após o envio do formulário.' },
+              ].map((item, i) => (
+                <div key={i} className="flex items-start gap-4 bg-white rounded-2xl p-5 border border-fp-lavender-100">
+                  <div className="w-10 h-10 rounded-xl bg-fp-lavender-50 flex items-center justify-center text-fp-accent shrink-0 text-lg font-display font-semibold">
+                    {i + 1}
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-fp-dark text-sm mb-1">{item.title}</h4>
+                    <p className="text-fp-dark-soft text-xs leading-relaxed">{item.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Comparativo ────────────────────────────────────────────────── */}
+      <section className="bg-white py-20 sm:py-24">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6">
+          <div className="text-center mb-12">
+            <p className="text-fp-accent text-sm font-semibold uppercase tracking-widest mb-2">Comparativo</p>
+            <h2 className="font-display text-4xl sm:text-5xl text-fp-dark mb-4">Por que não o SUS ou clínica?</h2>
+            <p className="text-fp-dark-soft text-lg max-w-xl mx-auto">
+              Cada caminho tem suas vantagens. Veja onde a Facilita PrEP se diferencia.
+            </p>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr>
+                  <th className="text-left text-fp-dark-soft font-medium py-3 pr-4 w-36 sm:w-48" />
+                  <th className="py-3 px-3 sm:px-4 rounded-t-2xl bg-fp-dark text-white font-semibold text-center">
+                    <span className="block text-xs text-fp-lilac-soft uppercase tracking-wider mb-0.5">Recomendado</span>
+                    Facilita PrEP
+                  </th>
+                  <th className="py-3 px-3 sm:px-4 text-fp-dark font-medium text-center">SUS / UBS</th>
+                  <th className="py-3 px-3 sm:px-4 text-fp-dark font-medium text-center">Clínica presencial</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { label: 'Prazo para receita', fp: '< 24 horas', sus: 'Semanas a meses', clinica: '2–5 dias úteis', fpBold: true },
+                  { label: 'Sigilo garantido', fp: '✅ Total', sus: '⚠️ Moderado', clinica: '⚠️ Moderado', fpBold: false },
+                  { label: 'Disponibilidade', fp: 'Todo o Brasil', sus: 'Municípios selecionados', clinica: 'Grandes centros', fpBold: true },
+                  { label: 'Sem deslocamento', fp: '✅ 100% online', sus: '❌ Presencial', clinica: '❌ Presencial', fpBold: false },
+                  { label: 'Custo', fp: 'R$ 150', sus: 'Gratuito*', clinica: 'R$ 300–600', fpBold: false },
+                  { label: 'Receita ICP-Brasil', fp: '✅ Digital válida', sus: 'Receita física', clinica: 'Receita física', fpBold: false },
+                ].map((row, i) => (
+                  <tr key={i} className={i % 2 === 0 ? 'bg-fp-fog' : 'bg-white'}>
+                    <td className="py-3.5 pr-4 font-medium text-fp-dark text-xs sm:text-sm">{row.label}</td>
+                    <td className={`py-3.5 px-3 sm:px-4 text-center bg-fp-dark/5 ${row.fpBold ? 'text-fp-accent font-bold' : 'text-fp-dark font-medium'}`}>
+                      {row.fp}
+                    </td>
+                    <td className="py-3.5 px-3 sm:px-4 text-center text-fp-dark-soft">{row.sus}</td>
+                    <td className="py-3.5 px-3 sm:px-4 text-center text-fp-dark-soft">{row.clinica}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-fp-dark-soft text-xs mt-4 text-center">
+            *SUS gratuito, mas com tempo de espera variável e cobertura geográfica limitada. Dados estimados.
+          </p>
+        </div>
+      </section>
+
       {/* ── Preço ──────────────────────────────────────────────────────── */}
       <section className="py-20 sm:py-24">
         <div className="max-w-5xl mx-auto px-4 sm:px-6">

@@ -10,5 +10,5 @@ export const metadata: Metadata = {
 }
 
 export default function GoogleLP() {
-  return <LandingPage />
+  return <LandingPage variant="google" />
 }

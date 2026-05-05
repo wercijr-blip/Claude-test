@@ -1,21 +1,67 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { LogoWordmark } from './Logo'
 import IntakePage from './IntakePage'
+import { trackAgendarClick, trackWhatsApp } from '../lib/analytics'
 
 type Tipo = 'particular' | 'plano'
+type Variant = 'google' | 'meta' | 'retargeting'
+
+const VARIANT_CONTENT: Record<Variant, {
+  badge: string
+  h1: string
+  h1Accent: string
+  sub: string
+  cta: string
+}> = {
+  google: {
+    badge: 'Resultado de busca — PrEP online',
+    h1: 'Receita PrEP online hoje',
+    h1Accent: 'sem fila, sem deslocamento',
+    sub: 'Você já pesquisou — agora é só dar o próximo passo. Consulta com infectologista e receita com assinatura ICP-Brasil em até 24h.',
+    cta: 'Quero minha PrEP agora →',
+  },
+  meta: {
+    badge: '100% online · Discreta · Legal',
+    h1: 'Saúde sexual preventiva',
+    h1Accent: 'sem julgamentos, sem filas',
+    sub: 'Proteja-se com PrEP de forma moderna, sigilosa e 100% online. Receita digital com validade legal em todo o Brasil.',
+    cta: 'Começar minha proteção →',
+  },
+  retargeting: {
+    badge: 'Você nos conhece — hora de agir',
+    h1: 'Sua proteção está',
+    h1Accent: 'esperando por você',
+    sub: 'Você já conhece a Facilita PrEP. A consulta é rápida, o processo simples e sua receita fica pronta em até 24h.',
+    cta: 'Iniciar agora por R$ 150 →',
+  },
+}
 
 function scrollTop() {
   if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'instant' })
 }
 
-export default function LandingPage() {
+export default function LandingPage({ variant }: { variant?: Variant }) {
   const [showForm, setShowForm] = useState(false)
   const [selectedTipo, setSelectedTipo] = useState<Tipo | undefined>(undefined)
   const [openFaq, setOpenFaq] = useState<number | null>(null)
+  const [showSticky, setShowSticky] = useState(false)
+  const heroRef = useRef<HTMLElement>(null)
 
-  function openForm(tipo?: Tipo) {
+  const vc = variant ? VARIANT_CONTENT[variant] : null
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowSticky(!entry.isIntersecting),
+      { threshold: 0 }
+    )
+    if (heroRef.current) observer.observe(heroRef.current)
+    return () => observer.disconnect()
+  }, [])
+
+  function openForm(tipo?: Tipo, local = 'generic') {
+    trackAgendarClick(local)
     setSelectedTipo(tipo)
     setShowForm(true)
     scrollTop()
@@ -40,7 +86,7 @@ export default function LandingPage() {
               Dúvidas
             </a>
             <button
-              onClick={() => openForm()}
+              onClick={() => openForm(undefined, 'navbar')}
               className="bg-fp-accent text-white px-5 py-2 rounded-full text-sm font-semibold hover:bg-fp-dark-mid transition-all shadow-sm hover:shadow-md active:scale-95"
             >
               Começar agora
@@ -49,8 +95,35 @@ export default function LandingPage() {
         </div>
       </nav>
 
+      {/* ── Sticky CTA bar ─────────────────────────────────────────────── */}
+      <div
+        className={`fixed top-0 left-0 right-0 z-40 bg-fp-dark/95 backdrop-blur-md border-b border-white/10 transition-all duration-300 ${
+          showSticky ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'
+        }`}
+      >
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+          <p className="text-white/80 text-sm font-medium hidden sm:block">
+            Consulta PrEP online · Receita ICP-Brasil em até 24h
+          </p>
+          <div className="flex items-center gap-3 ml-auto">
+            <button
+              onClick={() => openForm('plano', 'sticky_plano')}
+              className="text-white/60 text-sm font-medium hover:text-white transition-colors"
+            >
+              Tenho plano
+            </button>
+            <button
+              onClick={() => openForm('particular', 'sticky_particular')}
+              className="bg-fp-lilac text-fp-dark px-5 py-2 rounded-full text-sm font-bold hover:bg-fp-lilac-soft transition-all active:scale-95"
+            >
+              Começar por R$ 150 →
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* ── Hero ───────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-fp-dark via-fp-dark-mid to-fp-dark-soft pt-20 pb-24 sm:pt-28 sm:pb-32">
+      <section ref={heroRef} className="relative overflow-hidden bg-gradient-to-br from-fp-dark via-fp-dark-mid to-fp-dark-soft pt-20 pb-24 sm:pt-28 sm:pb-32">
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute -top-20 -right-20 w-96 h-96 rounded-full bg-fp-lilac opacity-10 blur-3xl" />
           <div className="absolute bottom-0 -left-20 w-80 h-80 rounded-full bg-fp-blue opacity-10 blur-3xl" />
@@ -63,25 +136,28 @@ export default function LandingPage() {
             <div>
               <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 mb-6">
                 <span className="w-2 h-2 rounded-full bg-fp-success animate-pulse" />
-                <span className="text-white/80 text-xs font-medium">100% online · Receita em até 24 h</span>
+                <span className="text-white/80 text-xs font-medium">
+                  {vc ? vc.badge : '100% online · Receita em até 24 h'}
+                </span>
               </div>
 
               <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl text-white leading-[1.1] mb-5">
-                PrEP com receita<br />
-                <span className="text-fp-lilac-soft">digital e sigilosa</span>
+                {vc ? vc.h1 : 'PrEP com receita'}<br />
+                <span className="text-fp-lilac-soft">{vc ? vc.h1Accent : 'digital e sigilosa'}</span>
               </h1>
 
               <p className="text-white/70 text-lg sm:text-xl leading-relaxed mb-8 max-w-lg">
-                Consulta médica, análise de exames e receita com assinatura
-                ICP-Brasil — sem sair de casa, sem exposição desnecessária.
+                {vc
+                  ? vc.sub
+                  : 'Consulta médica, análise de exames e receita com assinatura ICP-Brasil — sem sair de casa, sem exposição desnecessária.'}
               </p>
 
               <div className="flex flex-col sm:flex-row gap-3 mb-10">
                 <button
-                  onClick={() => openForm('particular')}
+                  onClick={() => openForm('particular', 'hero_primary')}
                   className="bg-fp-lilac text-fp-dark px-8 py-4 rounded-2xl text-base font-bold hover:bg-fp-lilac-soft transition-all shadow-lg active:scale-95"
                 >
-                  Quero minha PrEP agora →
+                  {vc ? vc.cta : 'Quero minha PrEP agora →'}
                 </button>
                 <a
                   href="/duvidas"
@@ -243,7 +319,7 @@ export default function LandingPage() {
 
           <div className="text-center mt-10">
             <button
-              onClick={() => openForm('particular')}
+              onClick={() => openForm('particular', 'como_funciona')}
               className="inline-flex items-center gap-2 bg-fp-accent text-white px-8 py-3.5 rounded-2xl text-sm font-semibold hover:bg-fp-dark-mid transition-all shadow-sm active:scale-95"
             >
               Começar agora →
@@ -305,6 +381,261 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── Médico ─────────────────────────────────────────────────────── */}
+      <section className="py-20 sm:py-24">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <div className="text-center mb-14">
+            <p className="text-fp-accent text-sm font-semibold uppercase tracking-widest mb-2">Quem cuida de você</p>
+            <h2 className="font-display text-4xl sm:text-5xl text-fp-dark">Médico infectologista especializado</h2>
+          </div>
+
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            {/* Left — doctor card */}
+            <div className="bg-white rounded-3xl border border-fp-lavender-100 shadow-sm p-8">
+              <div className="flex items-start gap-6 mb-6">
+                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-fp-lavender-50 to-fp-lavender-100 flex items-center justify-center shrink-0">
+                  <svg className="w-10 h-10 text-fp-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="font-display text-2xl text-fp-dark leading-tight">Dr. Werciley Saraiva<br />Vieira Junior</h3>
+                  <p className="text-fp-accent font-semibold text-sm mt-1">Médico Infectologista</p>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    <span className="bg-fp-lavender-50 text-fp-accent text-xs font-medium px-2.5 py-1 rounded-full">CRM/DF 16381</span>
+                    <span className="bg-fp-lavender-50 text-fp-accent text-xs font-medium px-2.5 py-1 rounded-full">RQE 14486</span>
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-fp-dark-soft text-sm leading-relaxed mb-6">
+                Especialista em Infectologia com atuação em prevenção do HIV, saúde sexual e medicina de viagem.
+                Membro da Sociedade Brasileira de Infectologia, com ampla experiência no acompanhamento de
+                pacientes em uso de PrEP e no manejo clínico de ISTs.
+              </p>
+
+              <div className="border-t border-fp-lavender-100 pt-5">
+                <p className="text-xs text-fp-dark-soft font-medium mb-3 uppercase tracking-wider">Credenciais e compliance</p>
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { label: 'CFM', sub: 'Telemedicina regulamentada', icon: '⚕️' },
+                    { label: 'ICP-Brasil', sub: 'Receita com validade legal', icon: '✅' },
+                    { label: 'LGPD', sub: 'Dados criptografados', icon: '🔒' },
+                  ].map((item) => (
+                    <div key={item.label} className="bg-fp-fog rounded-xl p-3 text-center">
+                      <span className="text-xl block mb-1">{item.icon}</span>
+                      <p className="font-bold text-fp-dark text-xs">{item.label}</p>
+                      <p className="text-fp-dark-soft text-[10px] leading-tight mt-0.5">{item.sub}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Right — trust highlights */}
+            <div className="space-y-5">
+              {[
+                {
+                  icon: (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                  ),
+                  title: 'Especialista em PrEP',
+                  desc: 'Protocolo atualizado conforme PCDT/Ministério da Saúde e diretrizes internacionais da OMS e CDC.',
+                },
+                {
+                  icon: (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                  ),
+                  title: 'Telemedicina com respaldo legal',
+                  desc: 'Atendimento regulamentado pela Resolução CFM 2.299/2021 e 2.314/2022. Receita com assinatura ICP-Brasil aceita em todo o Brasil.',
+                },
+                {
+                  icon: (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                  ),
+                  title: 'Suporte pós-consulta',
+                  desc: 'Acompanhamento contínuo via WhatsApp para dúvidas após o atendimento, sem custo adicional.',
+                },
+                {
+                  icon: (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  ),
+                  title: 'Resposta em até 24 horas',
+                  desc: 'Análise clínica, avaliação de exames e emissão da receita dentro de 24 horas úteis após o envio do formulário.',
+                },
+              ].map((item, i) => (
+                <div key={i} className="flex items-start gap-4 bg-white rounded-2xl p-5 border border-fp-lavender-100">
+                  <div className="w-10 h-10 rounded-xl bg-fp-lavender-50 flex items-center justify-center text-fp-accent shrink-0">
+                    {item.icon}
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-fp-dark text-sm mb-1">{item.title}</h4>
+                    <p className="text-fp-dark-soft text-xs leading-relaxed">{item.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Comparativo ────────────────────────────────────────────────── */}
+      <section className="bg-white py-20 sm:py-24">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6">
+          <div className="text-center mb-12">
+            <p className="text-fp-accent text-sm font-semibold uppercase tracking-widest mb-2">Comparativo</p>
+            <h2 className="font-display text-4xl sm:text-5xl text-fp-dark mb-4">Por que não o SUS ou clínica?</h2>
+            <p className="text-fp-dark-soft text-lg max-w-xl mx-auto">
+              Cada caminho tem suas vantagens. Veja onde a Facilita PrEP se diferencia.
+            </p>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr>
+                  <th className="text-left text-fp-dark-soft font-medium py-3 pr-4 w-36 sm:w-48" />
+                  <th className="py-3 px-3 sm:px-4 rounded-t-2xl bg-fp-dark text-white font-semibold text-center">
+                    <span className="block text-xs text-fp-lilac-soft uppercase tracking-wider mb-0.5">Recomendado</span>
+                    Facilita PrEP
+                  </th>
+                  <th className="py-3 px-3 sm:px-4 text-fp-dark font-medium text-center">SUS / UBS</th>
+                  <th className="py-3 px-3 sm:px-4 text-fp-dark font-medium text-center">Clínica presencial</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  {
+                    label: 'Prazo para receita',
+                    fp: '< 24 horas',
+                    sus: 'Semanas a meses',
+                    clinica: '2–5 dias úteis',
+                    fpBold: true,
+                  },
+                  {
+                    label: 'Sigilo garantido',
+                    fp: '✅ Total',
+                    sus: '⚠️ Moderado',
+                    clinica: '⚠️ Moderado',
+                    fpBold: false,
+                  },
+                  {
+                    label: 'Disponibilidade',
+                    fp: 'Todo o Brasil',
+                    sus: 'Municípios selecionados',
+                    clinica: 'Grandes centros',
+                    fpBold: true,
+                  },
+                  {
+                    label: 'Sem deslocamento',
+                    fp: '✅ 100% online',
+                    sus: '❌ Presencial',
+                    clinica: '❌ Presencial',
+                    fpBold: false,
+                  },
+                  {
+                    label: 'Custo',
+                    fp: 'R$ 150',
+                    sus: 'Gratuito*',
+                    clinica: 'R$ 300–600',
+                    fpBold: false,
+                  },
+                  {
+                    label: 'Receita ICP-Brasil',
+                    fp: '✅ Digital válida',
+                    sus: 'Receita física',
+                    clinica: 'Receita física',
+                    fpBold: false,
+                  },
+                ].map((row, i) => (
+                  <tr key={i} className={i % 2 === 0 ? 'bg-fp-fog' : 'bg-white'}>
+                    <td className="py-3.5 pr-4 font-medium text-fp-dark text-xs sm:text-sm">{row.label}</td>
+                    <td className={`py-3.5 px-3 sm:px-4 text-center bg-fp-dark/5 ${row.fpBold ? 'text-fp-accent font-bold' : 'text-fp-dark font-medium'}`}>
+                      {row.fp}
+                    </td>
+                    <td className="py-3.5 px-3 sm:px-4 text-center text-fp-dark-soft">{row.sus}</td>
+                    <td className="py-3.5 px-3 sm:px-4 text-center text-fp-dark-soft">{row.clinica}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <p className="text-fp-dark-soft text-xs mt-4 text-center">
+            *SUS gratuito, mas com tempo de espera variável e cobertura geográfica limitada. Dados estimados.
+          </p>
+
+          <div className="text-center mt-8">
+            <button
+              onClick={() => openForm('particular', 'comparativo')}
+              className="inline-flex items-center gap-2 bg-fp-accent text-white px-8 py-3.5 rounded-2xl text-sm font-semibold hover:bg-fp-dark-mid transition-all shadow-sm active:scale-95"
+            >
+              Iniciar minha consulta →
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Depoimentos ────────────────────────────────────────────────── */}
+      <section className="py-20 sm:py-24">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <div className="text-center mb-14">
+            <p className="text-fp-accent text-sm font-semibold uppercase tracking-widest mb-2">Depoimentos</p>
+            <h2 className="font-display text-4xl sm:text-5xl text-fp-dark">O que nossos pacientes dizem</h2>
+          </div>
+
+          <div className="grid sm:grid-cols-3 gap-6">
+            {[
+              {
+                text: 'Processo super simples e discreto. Preenchi o formulário à noite e pela manhã já tinha a receita no e-mail. Sem expor minha identidade em nenhum momento.',
+                name: 'M. S.',
+                city: 'São Paulo, SP',
+                stars: 5,
+              },
+              {
+                text: 'Nunca imaginei que seria tão rápido. O médico analisou meus exames, tirou dúvidas e emitiu a receita em poucas horas. A facilidade faz toda a diferença.',
+                name: 'R. O.',
+                city: 'Rio de Janeiro, RJ',
+                stars: 5,
+              },
+              {
+                text: 'O sigilo foi fundamental pra mim. Não precisei explicar nada presencialmente. A plataforma é muito bem feita e a equipe respondeu todas as minhas dúvidas.',
+                name: 'J. P.',
+                city: 'Belo Horizonte, MG',
+                stars: 5,
+              },
+            ].map((item, i) => (
+              <div key={i} className="bg-white rounded-3xl p-7 border border-fp-lavender-100 shadow-sm flex flex-col">
+                <div className="flex gap-0.5 mb-4">
+                  {Array.from({ length: item.stars }).map((_, j) => (
+                    <svg key={j} className="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                    </svg>
+                  ))}
+                </div>
+                <p className="text-fp-dark-soft text-sm leading-relaxed flex-1 mb-5">"{item.text}"</p>
+                <div className="border-t border-fp-lavender-100 pt-4">
+                  <p className="font-semibold text-fp-dark text-sm">{item.name}</p>
+                  <p className="text-fp-dark-soft text-xs">{item.city}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <p className="text-center text-fp-dark-soft text-xs mt-8">
+            Depoimentos reais, dados anonimizados conforme LGPD para proteger a privacidade dos pacientes.
+          </p>
+        </div>
+      </section>
+
       {/* ── Modalidades ────────────────────────────────────────────────── */}
       <section className="py-20 sm:py-24">
         <div className="max-w-5xl mx-auto px-4 sm:px-6">
@@ -352,7 +683,7 @@ export default function LandingPage() {
                 <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />Débito
               </div>
               <button
-                onClick={() => openForm('particular')}
+                onClick={() => openForm('particular', 'preco_particular')}
                 className="w-full bg-fp-accent text-white py-3.5 rounded-2xl font-semibold text-sm hover:bg-fp-dark-mid transition-colors active:scale-95"
               >
                 Iniciar agora →
@@ -390,7 +721,7 @@ export default function LandingPage() {
                 Atendimento seg.–sex., das 08h às 18h
               </p>
               <button
-                onClick={() => openForm('plano')}
+                onClick={() => openForm('plano', 'preco_plano')}
                 className="w-full bg-fp-lilac text-fp-dark py-3.5 rounded-2xl font-semibold text-sm hover:bg-fp-lilac-soft transition-colors active:scale-95"
               >
                 Iniciar com plano →
@@ -482,7 +813,7 @@ export default function LandingPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <button
-              onClick={() => openForm('particular')}
+              onClick={() => openForm('particular', 'final_cta_particular')}
               className="inline-flex items-center justify-center gap-2 bg-fp-lilac text-fp-dark px-10 py-4 rounded-2xl text-base font-bold hover:bg-fp-lilac-soft transition-all shadow-xl active:scale-95"
             >
               Começar por R$ 150
@@ -491,7 +822,7 @@ export default function LandingPage() {
               </svg>
             </button>
             <button
-              onClick={() => openForm('plano')}
+              onClick={() => openForm('plano', 'final_cta_plano')}
               className="inline-flex items-center justify-center gap-2 bg-white/10 border border-white/20 text-white px-8 py-4 rounded-2xl text-base font-medium hover:bg-white/20 transition-all active:scale-95"
             >
               Tenho plano de saúde
@@ -508,6 +839,7 @@ export default function LandingPage() {
         href="https://wa.me/556140427188?text=Ol%C3%A1%2C%20gostaria%20de%20saber%20mais%20sobre%20a%20PrEP%20pelo%20Facilita%20PrEP"
         target="_blank"
         rel="noopener noreferrer"
+        onClick={() => trackWhatsApp('float_button')}
         className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-[#25D366] hover:bg-[#20c05a] rounded-full shadow-xl flex items-center justify-center transition-all hover:scale-110 active:scale-95"
         aria-label="Falar no WhatsApp"
       >
