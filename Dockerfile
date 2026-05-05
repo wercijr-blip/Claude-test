@@ -6,7 +6,9 @@ RUN npm i -g corepack@latest && corepack enable
 WORKDIR /app
 
 # Install all deps (dev + prod) to build the Vite frontend
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN mkdir -p web
+COPY web/package.json ./web/
 RUN pnpm install --frozen-lockfile
 
 COPY . .
