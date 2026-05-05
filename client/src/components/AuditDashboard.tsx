@@ -20,7 +20,8 @@ export default function AuditDashboard() {
 
   // Pacientes
   const [busca, setBusca] = useState('')
-  const { data: pacientes } = trpc.admin.listarTodosPacientes.useQuery({ busca: busca || undefined })
+  const { data: pacientesResp } = trpc.admin.listarTodosPacientes.useQuery({ busca: busca || undefined })
+  const pacientes = pacientesResp?.data
 
   // Auditoria
   const { data: eventos } = trpc.admin.listarEventos.useQuery({ limit: 100 })
@@ -164,7 +165,7 @@ export default function AuditDashboard() {
           <div className="bg-white rounded-2xl border border-slate-200 p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-base font-semibold text-slate-800">Todos os Pacientes</h2>
-              <span className="text-xs text-slate-400">{pacientes?.length ?? 0} registro(s)</span>
+              <span className="text-xs text-slate-400">{pacientesResp?.total ?? 0} registro(s)</span>
             </div>
 
             <input
