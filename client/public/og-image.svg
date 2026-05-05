@@ -1,0 +1,129 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="40%" stop-color="#ffffff" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="bgGrad" cx="30%" cy="40%" r="70%">
+      <stop offset="0%" stop-color="#2e2848"/>
+      <stop offset="100%" stop-color="#1e1a2e"/>
+    </radialGradient>
+    <!-- Subtle glow behind logo shapes -->
+    <radialGradient id="purpleGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#7b5ea7" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#7b5ea7" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bgGrad)"/>
+
+  <!-- Subtle glow blob behind shapes -->
+  <ellipse cx="295" cy="315" rx="200" ry="230" fill="url(#purpleGlow)"/>
+
+  <!-- Divider line between left and right panels (very subtle) -->
+  <line x1="590" y1="60" x2="590" y2="570" stroke="#ffffff" stroke-opacity="0.06" stroke-width="1"/>
+
+  <!-- ── LOGO SHAPES ── -->
+
+  <!-- Blue-gray crescent (back layer) -->
+  <path d="
+    M 295 62
+    C 340 72, 400 120, 440 185
+    C 480 250, 495 285, 490 315
+    C 495 345, 480 380, 440 445
+    C 400 510, 340 558, 295 568
+    C 315 555, 355 520, 380 470
+    C 405 420, 415 375, 415 315
+    C 415 255, 405 210, 380 160
+    C 355 110, 315 75, 295 62
+    Z"
+    fill="#5d7fa0"
+    opacity="0.82"
+    stroke="#7299be"
+    stroke-width="1.2"
+    stroke-opacity="0.4"
+  />
+
+  <!-- Purple blob (front layer) -->
+  <path d="
+    M 258 76
+    C 282 68, 308 88, 320 130
+    C 332 172, 328 230, 318 285
+    C 308 338, 290 390, 268 445
+    C 248 498, 220 548, 200 568
+    C 178 560, 162 530, 162 490
+    C 162 445, 178 395, 196 340
+    C 214 285, 228 228, 234 175
+    C 240 122, 242 82, 258 76
+    Z"
+    fill="#8b65b0"
+    opacity="0.88"
+    stroke="#a880cc"
+    stroke-width="1.5"
+    stroke-opacity="0.5"
+  />
+
+  <!-- White glowing dot at intersection -->
+  <circle cx="300" cy="312" r="18" fill="url(#glow)"/>
+  <circle cx="300" cy="312" r="4" fill="#ffffff" opacity="0.95"/>
+
+  <!-- ── TEXT AREA ── -->
+
+  <!-- "facilita" — display serif, large, lavender -->
+  <text
+    x="628"
+    y="285"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="96"
+    font-weight="300"
+    fill="#c8b8dc"
+    letter-spacing="-2"
+  >facilita</text>
+
+  <!-- "P r E P" — small caps, wide tracking -->
+  <text
+    x="632"
+    y="325"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="15"
+    font-weight="400"
+    fill="#9b8db8"
+    letter-spacing="10"
+  >P r E P</text>
+
+  <!-- Small bullet dot -->
+  <circle cx="632" cy="355" r="3.5" fill="#8478a8"/>
+
+  <!-- "Prevenção ao alcance de todos." — bold -->
+  <text
+    x="646"
+    y="390"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="22"
+    font-weight="700"
+    fill="#d8ccee"
+  >Prevenção ao alcance de todos.</text>
+
+  <!-- "Teleconsulta · Prescrição Digital · PrEP" -->
+  <text
+    x="646"
+    y="420"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="14"
+    font-weight="400"
+    fill="#7e7098"
+  >Teleconsulta · Prescrição Digital · PrEP</text>
+
+  <!-- "facilitaprep.com.br" — bottom right -->
+  <text
+    x="1158"
+    y="594"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="13"
+    font-weight="400"
+    fill="#5e5278"
+    text-anchor="end"
+  >facilitaprep.com.br</text>
+</svg>
