@@ -44,6 +44,7 @@ export function applySecurityMiddleware(app: Express): void {
             ...(env.NODE_ENV === 'development' ? ["'unsafe-inline'"] : []),
             // Stripe checkout
             'https://js.stripe.com',
+            'https://checkout.stripe.com',
             // Google Analytics and Tag Manager
             'https://www.googletagmanager.com',
             'https://www.google-analytics.com',
@@ -58,27 +59,30 @@ export function applySecurityMiddleware(app: Express): void {
           fontSrc: [
             "'self'",
             'https://fonts.gstatic.com',
-            'data:', // Allow data: URIs for fonts
+            'data:',
           ],
           imgSrc: [
             "'self'",
             'data:',
             'blob:',
-            'https:', // Allow all HTTPS images (S3, CDNs, etc.)
+            'https:',
           ],
           connectSrc: [
             "'self'",
             // Stripe API
             'https://api.stripe.com',
+            'https://*.stripe.com',
             // Google Analytics
             'https://www.google-analytics.com',
             // ViaCEP (address autocomplete)
             'https://viacep.com.br',
           ],
+          // Stripe 3D Secure usa iframes hospedados em hooks.stripe.com e js.stripe.com
           frameSrc: [
-            // Stripe checkout iframe
+            "'self'",
             'https://js.stripe.com',
             'https://hooks.stripe.com',
+            'https://checkout.stripe.com',
           ],
           objectSrc: ["'none'"],
           baseUri: ["'self'"],
