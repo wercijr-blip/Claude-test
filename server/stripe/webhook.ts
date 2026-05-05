@@ -52,20 +52,21 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
   }
 
   // ------------------------------------------------------------------
-  // 3. Idempotency check — skip already-processed events
+  // 3. Atomic idempotency — claim the event row BEFORE processing.
+  //    The PK constraint on stripe_events guarantees only one concurrent
+  //    delivery can proceed; the second insert raises ER_DUP_ENTRY.
   // ------------------------------------------------------------------
   log('INFO', `Webhook received: ${event.type}`, { eventId: event.id })
 
-  const [alreadyProcessed] = await db
-    .select({ eventId: stripeEvents.eventId })
-    .from(stripeEvents)
-    .where(eq(stripeEvents.eventId, event.id))
-    .limit(1)
-
-  if (alreadyProcessed) {
-    log('INFO', `Event already processed — returning 200 (idempotent): ${event.id}`)
-    res.json({ received: true })
-    return
+  try {
+    await db.insert(stripeEvents).values({ eventId: event.id, type: event.type })
+  } catch (claimErr) {
+    if ((claimErr as NodeJS.ErrnoException).code === 'ER_DUP_ENTRY') {
+      log('INFO', `Event already processed — returning 200 (idempotent): ${event.id}`)
+      res.json({ received: true })
+      return
+    }
+    throw claimErr
   }
 
   // ------------------------------------------------------------------
@@ -79,11 +80,6 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
     } else {
       log('INFO', `Unhandled event type — ignoring: ${event.type}`)
     }
-
-    // Record event as processed only after successful handling
-    await db.insert(stripeEvents).values({ eventId: event.id, type: event.type }).onDuplicateKeyUpdate({
-      set: { type: event.type },
-    })
   } catch (err) {
     const error = err as Error
     log('ERROR', `Unhandled exception processing event ${event.id}: ${error.message}`, {
