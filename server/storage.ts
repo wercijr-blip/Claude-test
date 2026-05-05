@@ -88,30 +88,47 @@ const LIFECYCLE_RULE_ID = 'expire-exames-inicio-30d'
 const EXAMES_RETENTION_DAYS = 30
 
 export async function ensureS3Lifecycle(): Promise<void> {
+  const bucket = env.AWS_S3_BUCKET
+
   // Idempotente: se a regra já existe com mesmo ID, não faz nada.
   try {
-    const current = await s3.send(new GetBucketLifecycleConfigurationCommand({
-      Bucket: env.AWS_S3_BUCKET,
-    }))
+    const current = await s3.send(new GetBucketLifecycleConfigurationCommand({ Bucket: bucket }))
     const exists = current.Rules?.some((r) => r.ID === LIFECYCLE_RULE_ID)
     if (exists) {
-      logger.info('[ensureS3Lifecycle] Regra já configurada', { rule: LIFECYCLE_RULE_ID })
+      logger.info('[ensureS3Lifecycle] Regra já configurada', {
+        bucket,
+        rule: LIFECYCLE_RULE_ID,
+      })
       return
     }
   } catch (err) {
-    // NoSuchLifecycleConfiguration é esperado quando o bucket não tem
-    // nenhuma regra ainda — só seguimos para criar.
-    const name = (err as { name?: string }).name
-    if (name !== 'NoSuchLifecycleConfiguration') {
-      logger.error('[ensureS3Lifecycle] Falha ao consultar lifecycle (tentando criar)', {
-        error: String(err),
+    const code = (err as { name?: string; Code?: string }).name
+      ?? (err as { Code?: string }).Code
+
+    if (code === 'NoSuchLifecycleConfiguration') {
+      // Esperado quando o bucket ainda não tem nenhuma regra — seguimos para criar.
+    } else if (code === 'AccessDenied' || code === 'InvalidAccessKeyId') {
+      // Sem permissão para ler o lifecycle — tentamos criar mesmo assim,
+      // e o erro de criação abaixo dará as instruções completas.
+      logger.warn('[ensureS3Lifecycle] Sem permissão para consultar lifecycle (tentando criar)', {
+        bucket,
+        rule: LIFECYCLE_RULE_ID,
+        errorCode: code,
+        errorMessage: (err as { message?: string }).message ?? String(err),
+      })
+    } else {
+      logger.error('[ensureS3Lifecycle] Erro inesperado ao consultar lifecycle (tentando criar)', {
+        bucket,
+        rule: LIFECYCLE_RULE_ID,
+        errorCode: code ?? 'unknown',
+        errorMessage: (err as { message?: string }).message ?? String(err),
       })
     }
   }
 
   try {
     await s3.send(new PutBucketLifecycleConfigurationCommand({
-      Bucket: env.AWS_S3_BUCKET,
+      Bucket: bucket,
       LifecycleConfiguration: {
         Rules: [{
           ID: LIFECYCLE_RULE_ID,
@@ -122,16 +139,53 @@ export async function ensureS3Lifecycle(): Promise<void> {
       },
     }))
     logger.info('[ensureS3Lifecycle] Regra criada — exames-inicio/ expira em 30 dias', {
+      bucket,
       rule: LIFECYCLE_RULE_ID,
     })
   } catch (err) {
     // Falta de permissão IAM (s3:PutLifecycleConfiguration) é o caso
     // mais comum de falha aqui. Não derrubamos o boot — o admin pode
     // configurar manualmente no console da AWS.
-    logger.error('[ensureS3Lifecycle] Falha ao criar lifecycle (configurar manualmente no AWS)', {
-      bucket: env.AWS_S3_BUCKET,
-      error: String(err),
-    })
+    const code = (err as { name?: string; Code?: string }).name
+      ?? (err as { Code?: string }).Code
+    const message = (err as { message?: string }).message ?? String(err)
+
+    logger.error(
+      [
+        '[ensureS3Lifecycle] ERROR: Falha ao criar lifecycle rule',
+        `Bucket: ${bucket}`,
+        `Rule ID: ${LIFECYCLE_RULE_ID}`,
+        `Error: ${code ?? 'unknown'} — ${message}`,
+        '',
+        'Para configurar manualmente no AWS Console:',
+        `1. Vá para: https://s3.console.aws.amazon.com/s3/buckets/${bucket}`,
+        '2. Clique em "Management" → "Lifecycle rules"',
+        '3. Clique em "Create lifecycle rule"',
+        `4. Nome: ${LIFECYCLE_RULE_ID}`,
+        '5. Escopo: Prefix "exames-inicio/"',
+        '6. Ações: Expiration → 30 dias',
+        '7. Salve',
+        '',
+        'Ou via AWS CLI:',
+        `aws s3api put-bucket-lifecycle-configuration \\`,
+        `  --bucket ${bucket} \\`,
+        '  --lifecycle-configuration file://lifecycle.json',
+        '',
+        'Onde lifecycle.json contém:',
+        JSON.stringify({
+          Rules: [{
+            ID: LIFECYCLE_RULE_ID,
+            Status: 'Enabled',
+            Filter: { Prefix: 'exames-inicio/' },
+            Expiration: { Days: EXAMES_RETENTION_DAYS },
+          }],
+        }, null, 2),
+        '',
+        'Motivo: imagens de exames devem ser excluídas após 30 dias',
+        '(LGPD art. 6º, III — princípio da minimização de dados).',
+      ].join('\n'),
+      { bucket, rule: LIFECYCLE_RULE_ID, errorCode: code ?? 'unknown', errorMessage: message },
+    )
   }
 }
 
