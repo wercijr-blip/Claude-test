@@ -87,3 +87,34 @@ export function trackPageView(url: string): void {
     window.fbq('track', 'PageView')
   }
 }
+
+/** Fire when user clicks any scheduling / CTA button. */
+export function trackAgendarClick(local: string): void {
+  pushDataLayer('cta_click', { cta_local: local, page_path: typeof window !== 'undefined' ? window.location.pathname : '' })
+
+  if (typeof window !== 'undefined' && typeof window.fbq === 'function') {
+    window.fbq('track', 'ViewContent', { content_name: 'CTA Agendar', content_category: 'PrEP' })
+  }
+}
+
+/** Fire when a lead is successfully generated (form submitted). */
+export function trackLeadGerado(origem: string): void {
+  pushDataLayer('lead_gerado', { origem, currency: 'BRL' })
+
+  if (typeof window !== 'undefined' && typeof window.fbq === 'function') {
+    window.fbq('track', 'Lead', { content_name: 'Consulta PrEP', currency: 'BRL' })
+  }
+
+  if (typeof window !== 'undefined' && window.ttq) {
+    window.ttq.track('SubmitForm', { content_name: 'Consulta PrEP' })
+  }
+}
+
+/** Fire when user clicks the WhatsApp button. */
+export function trackWhatsApp(local: string): void {
+  pushDataLayer('whatsapp_click', { local })
+
+  if (typeof window !== 'undefined' && typeof window.fbq === 'function') {
+    window.fbq('track', 'Contact')
+  }
+}

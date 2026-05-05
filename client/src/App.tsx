@@ -14,6 +14,8 @@ import PesquisaSatisfacao from './components/PesquisaSatisfacao.tsx'
 import DuvidasPage from './components/DuvidasPage.tsx'
 import VerificacaoPage from './components/VerificacaoPage.tsx'
 import FooterCfm from './components/FooterCfm.tsx'
+import CookieConsent from './components/CookieConsent.tsx'
+import AuditoriaPage from './components/AuditoriaPage.tsx'
 import { trpc } from './lib/trpc.ts'
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
@@ -86,7 +88,7 @@ export default function App() {
         <div className="flex-1">
           <Switch>
             <Route path="/auth/callback" component={AuthCallback} />
-            <Route path="/cadastro" component={IntakePage} />
+            <Route path="/cadastro"><IntakePage /></Route>
             <Route path="/acesso/:token" component={TokenEntryPage} />
             <Route path="/inicio" component={SegundaParteInicio} />
             <Route path="/formulario/:pacienteId?">
@@ -111,11 +113,15 @@ export default function App() {
             <Route path="/equipe">
               {role === 'admin' ? <AuditDashboard /> : <LoginPage />}
             </Route>
+            <Route path="/auditoria">
+              {role === 'admin' ? <AuditoriaPage /> : <LoginPage />}
+            </Route>
             <Route path="/" component={LandingPage} />
             <Route component={NotFound} />
           </Switch>
         </div>
         <FooterCfm />
+        <CookieConsent />
       </div>
     </ErrorBoundary>
   )

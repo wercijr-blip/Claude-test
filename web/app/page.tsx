@@ -2,23 +2,23 @@ import type { Metadata } from 'next'
 import LandingPage from '@web/components/LandingPage'
 
 export const metadata: Metadata = {
-  title: 'Facilita PrEP — Prevenção do HIV com PrEP',
+  title: 'Consulta PrEP Online | Médico Infectologista | Facilita PrEP',
   description:
-    'Plataforma digital para acesso à PrEP. Receita com assinatura ICP-Brasil, 100% online, sigiloso e rápido.',
+    'Consulta online com infectologista para PrEP. Receita digital ICP-Brasil em até 48h. Sigiloso, sem deslocamento, atendimento em todo o Brasil. CRM-DF 16381.',
   alternates: {
     canonical: '/',
   },
   openGraph: {
-    title: 'Facilita PrEP — Prevenção do HIV com PrEP',
+    title: 'Facilita PrEP — Consulta com Infectologista Online',
     description:
-      'Acesse a PrEP de forma rápida, sigilosa e 100% digital. Receita com assinatura ICP-Brasil, sem sair de casa.',
+      'Sua proteção contra o HIV, sem fila e sem burocracia. Receita digital em até 48h.',
     url: '/',
     images: [
       {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'Facilita PrEP — Prevenção do HIV com PrEP',
+        alt: 'Facilita PrEP — Teleconsulta com Infectologista',
       },
     ],
   },

@@ -8,7 +8,7 @@ export default function FooterCfm() {
         <p className="text-sm font-semibold text-white leading-tight">
           Responsável Técnico: Dr. Werciley Saraiva Vieira Júnior
         </p>
-        <p className="text-sm text-fp-lilac-soft font-medium">CRM/DF 16381</p>
+        <p className="text-sm text-fp-lilac-soft font-medium">CRM/DF 16381 · RQE 14486 — Infectologia</p>
       </div>
 
       <div className="max-w-4xl mx-auto px-4 pt-6 flex justify-center">

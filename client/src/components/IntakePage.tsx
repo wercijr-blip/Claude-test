@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { trpc } from '../lib/trpc.ts'
 import { PLANOS_VALIDOS, HORARIO_ATENDIMENTO } from '@shared/const.ts'
 import { Logo, LogoWordmark } from './Logo.tsx'
+import { trackLead } from './CookieConsent.tsx'
 
 const ABERTURA = HORARIO_ATENDIMENTO.ABERTURA_HORA
 const FECHAMENTO = HORARIO_ATENDIMENTO.FECHAMENTO_HORA
@@ -146,6 +147,7 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
         carteirinhaS3Key: carteirinhaKey ?? undefined,
         documentoS3Key: documentoKey ?? undefined,
       })
+      trackLead()
       setPrecadastroId(result.precadastroId)
       if (tipo === 'particular') {
         await iniciarPagamento.mutateAsync({ precadastroId: result.precadastroId })
