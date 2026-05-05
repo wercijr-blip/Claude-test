@@ -26,6 +26,31 @@ app.use(cookieParser())
 // Assets estáticos DEPOIS dos middlewares de segurança (Helmet, CORS, rate limit)
 if (env.NODE_ENV === 'production') {
   const clientDist = path.resolve(__dirname, '../../dist/client')
+  const webOut = path.resolve(__dirname, '../../web/out')
+
+  // Next.js static assets (_next/static, images, etc.) — serve primeiro
+  app.use('/_next', express.static(path.join(webOut, '_next')))
+
+  // Rotas de marketing: Next.js SSG (HTML com conteúdo para crawlers)
+  const marketingRoutes = ['/', '/lp/google', '/lp/meta', '/lp/retargeting', '/robots.txt', '/sitemap.xml']
+  for (const route of marketingRoutes) {
+    if (route === '/robots.txt' || route === '/sitemap.xml') {
+      app.get(route, (_req, res) => {
+        res.sendFile(path.join(webOut, route))
+      })
+    } else {
+      // Serve index.html for the route (Next.js export structure)
+      const htmlPath = route === '/'
+        ? path.join(webOut, 'index.html')
+        : path.join(webOut, route, 'index.html')
+      app.get(route, (_req, res) => {
+        res.set('Cache-Control', 'no-cache, must-revalidate')
+        res.sendFile(htmlPath)
+      })
+    }
+  }
+
+  // Vite SPA assets (JS, CSS, etc. for patient portal)
   app.use(express.static(clientDist))
 }
 

@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently \"tsx watch --env-file=.env server/_core/index.ts\" \"vite\"",
-    "build": "vite build",
+    "build": "pnpm --filter facilita-prep-web build && vite build",
     "start": "tsx --env-file=.env server/_core/index.ts",
     "start:prod": "tsx server/_core/index.ts",
     "start:workers": "tsx server/workers.ts",
