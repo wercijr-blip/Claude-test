@@ -1,6 +1,7 @@
 import { Component, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Route, Switch, useLocation } from 'wouter'
 import { useAuth, parseJwtPayload } from './_core/hooks/useAuth.ts'
+import LandingPage from './components/LandingPage.tsx'
 import IntakePage from './components/IntakePage.tsx'
 import SegundaParteInicio from './components/SegundaParteInicio.tsx'
 import FormularioPaciente from './components/FormularioPaciente.tsx'
@@ -110,7 +111,7 @@ export default function App() {
             <Route path="/equipe">
               {role === 'admin' ? <AuditDashboard /> : <LoginPage />}
             </Route>
-            <Route path="/" component={IntakePage} />
+            <Route path="/" component={LandingPage} />
             <Route component={NotFound} />
           </Switch>
         </div>
