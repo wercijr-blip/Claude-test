@@ -3,7 +3,7 @@ import { router, adminProcedure } from '../_core/trpc.ts'
 import { TRPCError } from '@trpc/server'
 import { db } from '../db.ts'
 import { users, securityEvents, pacientes, exames } from '../../drizzle/schema.ts'
-import { eq, desc, inArray } from 'drizzle-orm'
+import { eq, desc, inArray, count } from 'drizzle-orm'
 import type { Role } from '../../shared/types.ts'
 import { decrypt } from '../_core/encryption.ts'
 import { filtrarExamePorStatus } from '../examUtils.ts'
@@ -83,9 +83,20 @@ export const adminRouter = router({
 
   // Listar todos os pacientes do sistema
   listarTodosPacientes: adminProcedure
-    .input(z.object({ busca: z.string().optional() }).optional())
+    .input(z.object({
+      busca: z.string().optional(),
+      page: z.number().int().min(1).default(1),
+      limit: z.number().int().min(1).max(200).default(50),
+    }).optional())
     .query(async ({ input }) => {
-      const rows = await db.select().from(pacientes).orderBy(desc(pacientes.createdAt))
+      const page = input?.page ?? 1
+      const limit = input?.limit ?? 50
+      const offset = (page - 1) * limit
+
+      const [rows, [totalRow]] = await Promise.all([
+        db.select().from(pacientes).orderBy(desc(pacientes.createdAt)).limit(limit).offset(offset),
+        db.select({ total: count() }).from(pacientes),
+      ])
 
       const decrypted = rows.map((p) => ({
         id: p.id,
@@ -99,14 +110,17 @@ export const adminRouter = router({
         updatedAt: p.updatedAt,
       }))
 
+      const total = totalRow?.total ?? 0
+
       if (input?.busca) {
         const termo = input.busca.toLowerCase()
-        return decrypted.filter(
+        const filtered = decrypted.filter(
           (p) => p.nome.toLowerCase().includes(termo) || p.cpfHash.includes(termo),
         )
+        return { data: filtered, total: filtered.length, page: 1, pages: 1 }
       }
 
-      return decrypted
+      return { data: decrypted, total, page, pages: Math.ceil(total / limit) }
     }),
 
   // ── Documentos / Exames ───────────────────────────────────────
@@ -213,6 +227,7 @@ export const adminRouter = router({
       .from(pacientes)
       .where(inArray(pacientes.status, ['pendente', 'em_revisao']))
       .orderBy(pacientes.createdAt)
+      .limit(500)
 
     return rows.map((p) => ({
       id: p.id,

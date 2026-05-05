@@ -20,6 +20,7 @@ export const medicoRouter = router({
       .from(pacientes)
       .where(inArray(pacientes.status, ['pendente', 'em_revisao']))
       .orderBy(pacientes.createdAt)
+      .limit(500)
 
     return rows.map((p) => ({
       id: p.id,
