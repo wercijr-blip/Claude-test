@@ -33,30 +33,67 @@ export function isOriginAllowed(origin: string): boolean {
 }
 
 export function applySecurityMiddleware(app: Express): void {
-  // In development Vite HMR requires 'unsafe-inline'; production bundles are external files only
-  const scriptSrc = env.NODE_ENV === 'development'
-    ? ["'self'", "'unsafe-inline'"]
-    : ["'self'"]
-
   app.use(
     helmet({
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
-          scriptSrc,
+          scriptSrc: [
+            "'self'",
+            // Development: Vite HMR requires unsafe-inline
+            ...(env.NODE_ENV === 'development' ? ["'unsafe-inline'"] : []),
+            // Stripe checkout
+            'https://js.stripe.com',
+            // Google Analytics and Tag Manager
+            'https://www.googletagmanager.com',
+            'https://www.google-analytics.com',
+          ],
           // React inline style={{}} attributes require 'unsafe-inline' for style-src
-          styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-          imgSrc: ["'self'", 'data:', 'blob:'],
-          // 'self' = tRPC e /api/upload (same-origin)
-          // viacep.com.br = auto-preenchimento de endereço por CEP
-          //   (StepContato.tsx; API pública gratuita sem autenticação)
-          connectSrc: ["'self'", 'https://viacep.com.br'],
-          fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+          styleSrc: [
+            "'self'",
+            "'unsafe-inline'",
+            // Google Fonts
+            'https://fonts.googleapis.com',
+          ],
+          fontSrc: [
+            "'self'",
+            'https://fonts.gstatic.com',
+            'data:', // Allow data: URIs for fonts
+          ],
+          imgSrc: [
+            "'self'",
+            'data:',
+            'blob:',
+            'https:', // Allow all HTTPS images (S3, CDNs, etc.)
+          ],
+          connectSrc: [
+            "'self'",
+            // Stripe API
+            'https://api.stripe.com',
+            // Google Analytics
+            'https://www.google-analytics.com',
+            // ViaCEP (address autocomplete)
+            'https://viacep.com.br',
+          ],
+          frameSrc: [
+            // Stripe checkout iframe
+            'https://js.stripe.com',
+            'https://hooks.stripe.com',
+          ],
           objectSrc: ["'none'"],
-          frameSrc: ["'none'"],
+          baseUri: ["'self'"],
+          formAction: ["'self'"],
         },
       },
       crossOriginEmbedderPolicy: false,
+      hsts: {
+        maxAge: 15552000, // 180 days
+        includeSubDomains: true,
+        preload: true,
+      },
+      referrerPolicy: {
+        policy: 'strict-origin-when-cross-origin',
+      },
     }),
   )
 
