@@ -14,6 +14,7 @@ import { env } from '../_core/env.ts'
 import { TOKEN_EXPIRY_DAYS } from '../../shared/security-constants.ts'
 import { enqueueEnviarLinkAcesso } from '../pdfQueue.ts'
 import { ERROR_MESSAGES, HORARIO_ATENDIMENTO } from '../../shared/const.ts'
+import { logger } from '../_core/logger.ts'
 
 function isDentroHorarioAtendimento(): boolean {
   const agora = new Date()
@@ -155,8 +156,8 @@ export const intakeRouter = router({
         const emails = staffUsers.map(u => u.email).filter(Boolean) as string[]
         const dashboardUrl = `${env.APP_URL}/secretaria`
 
-        await enviarNotificacaoNovoPlano(emails, input.nome, input.plano!, dashboardUrl).catch(console.error)
-        await enviarConfirmacaoPlano(input.email, input.nome).catch(console.error)
+        await enviarNotificacaoNovoPlano(emails, input.nome, input.plano!, dashboardUrl).catch((e: unknown) => logger.warn('[intake] notificação falhou', { error: String(e) }))
+        await enviarConfirmacaoPlano(input.email, input.nome).catch((e: unknown) => logger.warn('[intake] notificação falhou', { error: String(e) }))
       }
 
       return { precadastroId: inserted.id }

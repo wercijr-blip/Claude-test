@@ -3,6 +3,7 @@ import cookieParser from 'cookie-parser'
 import { createExpressMiddleware } from '@trpc/server/adapters/express'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { randomUUID } from 'crypto'
 import { env } from './env.ts'
 import { logger } from './logger.ts'
 import { redis } from './redis.ts'
@@ -13,6 +14,14 @@ import { authLimiter, tokenValidateLimiter, uploadLimiter } from './rateLimiters
 import { db } from '../db.ts'
 import { ensureSchema } from './ensureSchema.ts'
 
+declare global {
+  namespace Express {
+    interface Request {
+      requestId: string
+    }
+  }
+}
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const app = express()
@@ -22,6 +31,23 @@ app.set('trust proxy', 1)
 
 applySecurityMiddleware(app)
 app.use(cookieParser())
+
+// Request ID — assigns a short UUID per request, logs method/url/status/duration
+app.use((req, res, next) => {
+  req.requestId = (req.headers['x-request-id'] as string | undefined) ?? randomUUID().slice(0, 8)
+  res.setHeader('X-Request-ID', req.requestId)
+  const start = Date.now()
+  res.on('finish', () => {
+    logger.info('http', {
+      requestId: req.requestId,
+      method: req.method,
+      url: req.url,
+      status: res.statusCode,
+      ms: Date.now() - start,
+    })
+  })
+  next()
+})
 
 // Assets estáticos DEPOIS dos middlewares de segurança (Helmet, CORS, rate limit)
 if (env.NODE_ENV === 'production') {
@@ -124,8 +150,6 @@ app.use(
 
 // Healthcheck com verificação do banco e Redis
 app.get('/api/health', async (_req, res) => {
-  const ts = new Date().toISOString()
-
   const [dbOk, redisOk] = await Promise.all([
     db.execute('SELECT 1').then(() => true).catch(() => false),
     redis.ping().then((r) => r === 'PONG').catch(() => false),
@@ -134,8 +158,11 @@ app.get('/api/health', async (_req, res) => {
   const allOk = dbOk && redisOk
   res.status(allOk ? 200 : 503).json({
     status: allOk ? 'ok' : 'degraded',
-    checks: { db: dbOk ? 'ok' : 'error', redis: redisOk ? 'ok' : 'error' },
-    ts,
+    uptime: Math.floor(process.uptime()),
+    version: '1.0.0',
+    db: dbOk ? 'ok' : 'error',
+    redis: redisOk ? 'ok' : 'error',
+    timestamp: new Date().toISOString(),
   })
 })
 

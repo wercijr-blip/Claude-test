@@ -1,4 +1,5 @@
 import { env } from './_core/env.ts'
+import { logger } from './_core/logger.ts'
 import { getPresignedUrl } from './storage.ts'
 
 export interface ExtracacaoExame {
@@ -229,7 +230,7 @@ FORMATO DA RESPOSTA — APENAS JSON, SEM TEXTO EXTRA
 
   if (!response.ok) {
     const body = await response.text().catch(() => '')
-    console.error('[examValidation] API IA respondeu erro', { status: response.status, body: body.slice(0, 500), isPdf })
+    logger.error('[examValidation] API IA respondeu erro', { status: response.status, body: body.slice(0, 500), isPdf })
     throw new Error(`Erro na análise por IA (HTTP ${response.status}): ${body.slice(0, 200)}`)
   }
 
@@ -268,10 +269,7 @@ FORMATO DA RESPOSTA — APENAS JSON, SEM TEXTO EXTRA
       processadoEm: new Date().toISOString(),
     }
   } catch (parseErr) {
-    console.error('[examValidation] Falha ao parsear resposta da IA', {
-      error: (parseErr as Error).message,
-      textPreview: text.slice(0, 300),
-    })
+    logger.error('[examValidation] Falha ao parsear resposta da IA', { error: (parseErr as Error).message, textPreview: text.slice(0, 300) })
     return {
       tipoExameDetectado: 'nao_identificado',
       nomeExame: null,

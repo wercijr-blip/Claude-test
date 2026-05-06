@@ -20,6 +20,7 @@ import {
   enviarSolicitacaoReenvio,
 } from '../email.ts'
 import { env } from '../_core/env.ts'
+import { logger } from '../_core/logger.ts'
 import { DIAS_VALIDADE_LINK_UPLOAD } from '../../shared/const.ts'
 
 function assertPatient(session: unknown): asserts session is { type: 'patient'; tokenId: number; pacienteId: number | null } {
@@ -240,7 +241,7 @@ export const consultaRouter = router({
       try {
         extracao = await extrairDadosExame(input.s3Key)
       } catch (err) {
-        console.error('[consulta] Falha na extração IA:', (err as Error).message)
+        logger.error('[consulta] Falha na extração IA', { error: (err as Error).message })
         // Fallback: send to medical review
         await db.update(consultasInicio)
           .set({ status: 'pendente_revisao_medica', motivoRejeicao: 'Erro na análise automática', updatedAt: new Date() })
@@ -273,7 +274,7 @@ export const consultaRouter = router({
 
         if (info.telefone) {
           const msg = `Olá ${info.nome}, o documento enviado não parece ser um exame de HIV. Confira o arquivo e envie novamente: ${env.APP_URL}/inicio`
-          await enviarWhatsApp(info.telefone, msg).catch(console.error)
+          await enviarWhatsApp(info.telefone, msg).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
         }
 
         return { status: 'rejeitado_tipo_invalido' as const, tentativasReenvio: novasTentativas }
@@ -282,7 +283,7 @@ export const consultaRouter = router({
       // ── REGRA A — Data inválida ──────────────────────────────────
       const dataExame = extracao.dataExame ? parseDateBR(extracao.dataExame) : null
       if (!isDataValida(dataExame)) {
-        console.log('[consulta] Rejeitando por data inválida', {
+        logger.info('[consulta] Rejeitando por data inválida', {
           dataExtraidaPelaIa: extracao.dataExame,
           dataParsed: dataExame?.toISOString() ?? null,
           hoje: new Date().toISOString(),
@@ -317,11 +318,11 @@ export const consultaRouter = router({
           .where(eq(consultasInicio.id, consulta.id))
 
         if (info.email) {
-          await enviarExameRejeitadoData(info.email, info.nome, novasTentativas, env.APP_URL).catch(console.error)
+          await enviarExameRejeitadoData(info.email, info.nome, novasTentativas, env.APP_URL).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
         }
         if (info.telefone) {
           const msg = `Olá ${info.nome}, seu exame foi rejeitado: precisa ter sido realizado há até 7 dias (inclusive). Envie um novo: ${env.APP_URL}/inicio (Tentativa ${novasTentativas}/2)`
-          await enviarWhatsApp(info.telefone, msg).catch(console.error)
+          await enviarWhatsApp(info.telefone, msg).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
         }
 
         return { status: 'rejeitado_data_invalida' as const, tentativasReenvio: novasTentativas }
@@ -378,7 +379,7 @@ export const consultaRouter = router({
 
           if (info.telefone) {
             const msg = `Olá ${info.nome}, o nome no exame ("${extracao.nomeExame}") não confere com o cadastro ("${nomeCadastro}"). Verifique e envie novamente: ${env.APP_URL}/inicio (Tentativa ${novasTentativas}/2)`
-            await enviarWhatsApp(info.telefone, msg).catch(console.error)
+            await enviarWhatsApp(info.telefone, msg).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
           }
 
           return { status: 'rejeitado_nome_invalido' as const, tentativasReenvio: novasTentativas }
@@ -412,11 +413,11 @@ export const consultaRouter = router({
         .where(eq(consultasInicio.id, consulta.id))
 
       if (info.email) {
-        await enviarExameAprovadoIa(info.email, info.nome, env.APP_URL).catch(console.error)
+        await enviarExameAprovadoIa(info.email, info.nome, env.APP_URL).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
       }
       if (info.telefone) {
         const msg = `Olá ${info.nome}, seu exame foi aprovado! Continue seu cadastro: ${env.APP_URL}/formulario`
-        await enviarWhatsApp(info.telefone, msg).catch(console.error)
+        await enviarWhatsApp(info.telefone, msg).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
       }
 
       return { status: 'aprovado_ia' as const }
@@ -620,14 +621,14 @@ export const consultaRouter = router({
         const info = await getInfoPaciente(consulta.tokenId)
 
         if (input.acao === 'aprovar') {
-          if (info.email) await enviarExameAprovadoIa(info.email, info.nome, env.APP_URL).catch(console.error)
-          if (info.telefone) await enviarWhatsApp(info.telefone, `Olá ${info.nome}, seu exame foi aprovado pelo médico! Continue seu cadastro: ${env.APP_URL}/formulario`).catch(console.error)
+          if (info.email) await enviarExameAprovadoIa(info.email, info.nome, env.APP_URL).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
+          if (info.telefone) await enviarWhatsApp(info.telefone, `Olá ${info.nome}, seu exame foi aprovado pelo médico! Continue seu cadastro: ${env.APP_URL}/formulario`).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
         } else if (isReenvio) {
-          if (info.email) await enviarSolicitacaoReenvio(info.email, info.nome, input.observacoes, env.APP_URL).catch(console.error)
-          if (info.telefone) await enviarWhatsApp(info.telefone, `Olá ${info.nome}, nosso médico solicita um novo exame. Motivo: ${input.observacoes}. Acesse: ${env.APP_URL}/inicio`).catch(console.error)
+          if (info.email) await enviarSolicitacaoReenvio(info.email, info.nome, input.observacoes, env.APP_URL).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
+          if (info.telefone) await enviarWhatsApp(info.telefone, `Olá ${info.nome}, nosso médico solicita um novo exame. Motivo: ${input.observacoes}. Acesse: ${env.APP_URL}/inicio`).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
         } else {
-          if (info.email) await enviarExameRejeitadoMedico(info.email, info.nome, input.observacoes).catch(console.error)
-          if (info.telefone) await enviarWhatsApp(info.telefone, `Olá ${info.nome}, sobre seu exame: ${input.observacoes}. Para mais informações: (61) 4042-7188`).catch(console.error)
+          if (info.email) await enviarExameRejeitadoMedico(info.email, info.nome, input.observacoes).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
+          if (info.telefone) await enviarWhatsApp(info.telefone, `Olá ${info.nome}, sobre seu exame: ${input.observacoes}. Para mais informações: (61) 4042-7188`).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
         }
 
         return { ok: true }
@@ -646,15 +647,15 @@ async function _notificarMedicosEPaciente(
   const dashboardUrl = `${env.APP_URL}/medico`
 
   await Promise.all([
-    enviarNotificacaoMedicoPendente(medicosEmails, urgente, info.nome, motivo, dashboardUrl).catch(console.error),
+    enviarNotificacaoMedicoPendente(medicosEmails, urgente, info.nome, motivo, dashboardUrl).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) })),
     info.email
-      ? enviarAnaliseHumanaExame(info.email, info.nome).catch(console.error)
+      ? enviarAnaliseHumanaExame(info.email, info.nome).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
       : Promise.resolve(),
     info.telefone
       ? enviarWhatsApp(
           info.telefone,
           `Olá ${info.nome}, seu exame está em análise por um profissional. Prazo: até 2h em horário comercial (08-18h) ou 12h fora desse horário. Avisaremos quando estiver pronto.`,
-        ).catch(console.error)
+        ).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
       : Promise.resolve(),
   ])
 }

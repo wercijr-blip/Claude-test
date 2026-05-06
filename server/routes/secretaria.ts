@@ -5,6 +5,7 @@ import { exames, pacientes } from '../../drizzle/schema.ts'
 import { eq } from 'drizzle-orm'
 import { decrypt } from '../_core/encryption.ts'
 import { filtrarExamePorStatus } from '../examUtils.ts'
+import { logger } from '../_core/logger.ts'
 
 // Defensive wrapper — registros de teste antigos podem ter dado corrompido.
 // Não queremos derrubar a listagem inteira por causa de uma linha ruim.
@@ -13,7 +14,7 @@ function tryDecrypt(value: string | null): string | null {
   try {
     return decrypt(value)
   } catch (err) {
-    console.error('[secretaria] decrypt failed:', (err as Error).message)
+    logger.warn('[secretaria] decrypt failed', { error: (err as Error).message })
     return null
   }
 }

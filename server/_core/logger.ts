@@ -1,26 +1,46 @@
+import pino from 'pino'
 import { env } from './env.ts'
 
-type Level = 'debug' | 'info' | 'warn' | 'error'
+const REDACT_PATHS = [
+  'password', 'token', 'cpf', 'access_code', 'authorization', 'cookie',
+  '*.password', '*.token', '*.cpf', '*.access_code', '*.authorization',
+  'req.headers.authorization', 'req.headers.cookie',
+]
 
-function emit(level: Level, message: string, context?: unknown) {
-  const ts = new Date().toISOString()
-  if (env.NODE_ENV === 'production') {
-    const entry: Record<string, unknown> = { ts, level, msg: message }
-    if (context !== undefined) entry['ctx'] = context
-    console.log(JSON.stringify(entry))
-  } else {
-    const prefix = `[${ts}] ${level.toUpperCase().padEnd(5)}`
-    if (context !== undefined) {
-      console.log(`${prefix} ${message}`, context)
-    } else {
-      console.log(`${prefix} ${message}`)
-    }
-  }
+const pinoOpts: pino.LoggerOptions = {
+  level: env.NODE_ENV === 'production' ? 'info' : 'debug',
+  redact: { paths: REDACT_PATHS, censor: '[redacted]' },
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const _p: any = env.NODE_ENV !== 'production'
+  ? pino(pinoOpts, pino.transport({
+      target: 'pino-pretty',
+      options: { colorize: true, translateTime: 'HH:MM:ss', ignore: 'pid,hostname' },
+    }))
+  : pino(pinoOpts)
+
+// Preserve the existing (msg, ctx?) call convention used throughout the codebase
+// while internally routing to pino's (ctx, msg) signature for structured output.
+function mkFn(level: 'debug' | 'info' | 'warn' | 'error') {
+  return (msg: string, ctx?: unknown) =>
+    ctx !== undefined ? _p[level](ctx, msg) : _p[level](msg)
 }
 
 export const logger = {
-  debug: (msg: string, ctx?: unknown) => emit('debug', msg, ctx),
-  info:  (msg: string, ctx?: unknown) => emit('info',  msg, ctx),
-  warn:  (msg: string, ctx?: unknown) => emit('warn',  msg, ctx),
-  error: (msg: string, ctx?: unknown) => emit('error', msg, ctx),
+  debug: mkFn('debug'),
+  info:  mkFn('info'),
+  warn:  mkFn('warn'),
+  error: mkFn('error'),
+}
+
+export function requestLogger(req: { requestId?: string }) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const child: any = _p.child({ requestId: req.requestId ?? 'unknown' })
+  return {
+    debug: (msg: string, ctx?: unknown) => ctx !== undefined ? child.debug(ctx, msg) : child.debug(msg),
+    info:  (msg: string, ctx?: unknown) => ctx !== undefined ? child.info(ctx, msg) : child.info(msg),
+    warn:  (msg: string, ctx?: unknown) => ctx !== undefined ? child.warn(ctx, msg) : child.warn(msg),
+    error: (msg: string, ctx?: unknown) => ctx !== undefined ? child.error(ctx, msg) : child.error(msg),
+  }
 }

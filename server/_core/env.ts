@@ -52,6 +52,11 @@ const envSchema = z.object({
   // Set to false when running a dedicated worker service (server/workers.ts).
   // Defaults to true so single-service deploys work without extra config.
   WORKERS_ENABLED: z.coerce.boolean().default(true),
+
+  // Sentry — optional, wired up in a separate PR once DSNs are available
+  SENTRY_DSN_SERVER: z.string().url().optional(),
+  SENTRY_DSN_WEB: z.string().url().optional(),
+  SENTRY_ENVIRONMENT: z.string().default('production'),
 })
 
 const parsed = envSchema.safeParse(process.env)
