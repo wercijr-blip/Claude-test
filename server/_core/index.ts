@@ -68,7 +68,7 @@ if (env.NODE_ENV === 'production') {
   app.use('/_next', express.static(path.join(webOut, '_next')))
 
   // Rotas de marketing: Next.js SSG quando disponível, Vite SPA como fallback
-  const marketingRoutes = ['/', '/lp/google', '/lp/meta', '/lp/retargeting', '/robots.txt', '/sitemap.xml']
+  const marketingRoutes = ['/', '/lp/google', '/lp/meta', '/lp/retargeting', '/privacidade', '/termos', '/robots.txt', '/sitemap.xml']
   for (const route of marketingRoutes) {
     if (route === '/robots.txt' || route === '/sitemap.xml') {
       app.get(route, (_req, res) => {
