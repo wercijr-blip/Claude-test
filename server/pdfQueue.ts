@@ -288,7 +288,7 @@ export function startPdfWorker() {
         .then(([r]) => r?.patientEmail ?? null))
 
       if (emailAddr) {
-        await enviarPrescricaoPronta(emailAddr, nome, gerados).catch(console.error)
+        await enviarPrescricaoPronta(emailAddr, nome, gerados).catch((e: unknown) => logger.warn('[pdfQueue] notificação falhou', { error: String(e) }))
       }
 
       // WA-4: WhatsApp quando receita está pronta
@@ -302,7 +302,7 @@ export function startPdfWorker() {
           `📧 Enviamos todos os documentos para o seu e-mail com validade até ${dataValidade}.\n\n` +
           `Apresente a receita em qualquer farmácia ou retire gratuitamente numa UDM do SUS.\n\n` +
           `_Facilita PrEP_`
-        await enviarWhatsApp(telefone, msg).catch(console.error)
+        await enviarWhatsApp(telefone, msg).catch((e: unknown) => logger.warn('[pdfQueue] notificação falhou', { error: String(e) }))
       }
 
       // Agendar pesquisa de satisfação para 24h depois
@@ -350,7 +350,7 @@ export function startPesquisaWorker() {
       const link = `${env.APP_URL}/pesquisa/${pacienteId}/${token}`
 
       if (email) {
-        await enviarPesquisaSatisfacao(email, nome, link).catch(console.error)
+        await enviarPesquisaSatisfacao(email, nome, link).catch((e: unknown) => logger.warn('[pdfQueue] notificação falhou', { error: String(e) }))
       }
 
       if (telefone) {
@@ -358,7 +358,7 @@ export function startPesquisaWorker() {
         const msg =
           `Olá ${primeiroNome}! Como foi sua experiência com o atendimento PrEP?\n\n` +
           `Leva menos de 1 minuto responder nossa pesquisa:\n${link}\n\n_Facilita PrEP_`
-        await enviarWhatsApp(telefone, msg).catch(console.error)
+        await enviarWhatsApp(telefone, msg).catch((e: unknown) => logger.warn('[pdfQueue] notificação falhou', { error: String(e) }))
       }
     },
     { connection, ...PESQUISA_WORKER_OPTS, prefix: QUEUE_PREFIX },
@@ -402,7 +402,7 @@ export function startLembreteWorker() {
         const nome = p.precadNome ? decrypt(p.precadNome).split(' ')[0] : 'Paciente'
         const linkBase = `${env.APP_URL}/inicio`
 
-        await enviarLinkAcessoIntake(p.patientEmail, nome, linkBase, p.linkExpiresAt!).catch(console.error)
+        await enviarLinkAcessoIntake(p.patientEmail, nome, linkBase, p.linkExpiresAt!).catch((e: unknown) => logger.warn('[pdfQueue] notificação falhou', { error: String(e) }))
 
         if (p.precadTelefone) {
           const telefone = decrypt(p.precadTelefone)
@@ -410,7 +410,7 @@ export function startLembreteWorker() {
             `Olá ${nome}! Estamos aguardando o envio do seu exame de HIV para dar continuidade ao atendimento PrEP.\n\n` +
             `Acesse o formulário e envie o exame: ${linkBase}\n\n` +
             `Prazo: ${p.linkExpiresAt?.toLocaleDateString('pt-BR')}\n\n_Facilita PrEP_`
-          await enviarWhatsApp(telefone, msg).catch(console.error)
+          await enviarWhatsApp(telefone, msg).catch((e: unknown) => logger.warn('[pdfQueue] notificação falhou', { error: String(e) }))
         }
 
         await db.update(consultasInicio)
@@ -490,7 +490,7 @@ export function startLinkAcessoWorker() {
           `Olá ${primeiroNome}! Seu acesso ao formulário PrEP está liberado.\n\n` +
           `Acesse o link abaixo para continuar:\n${link}\n\n` +
           `Válido até ${expires.toLocaleDateString('pt-BR')}.\n\n_Facilita PrEP_`
-        await enviarWhatsApp(telefone, msg).catch(console.error)
+        await enviarWhatsApp(telefone, msg).catch((e: unknown) => logger.warn('[pdfQueue] notificação falhou', { error: String(e) }))
       }
     },
     { connection, ...SHARED_WORKER_SETTINGS, drainDelay: 15, prefix: QUEUE_PREFIX },

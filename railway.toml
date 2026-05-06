@@ -4,3 +4,5 @@ RAILPACK_NODE_INSTALL_PATTERNS = "pnpm-workspace.yaml web/package.json"
 [deploy]
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
+healthcheckPath = "/api/health"
+healthcheckTimeout = 30
