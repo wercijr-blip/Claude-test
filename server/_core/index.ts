@@ -1,3 +1,4 @@
+import './instrument.ts'
 import express from 'express'
 import cookieParser from 'cookie-parser'
 import { createExpressMiddleware } from '@trpc/server/adapters/express'
@@ -13,6 +14,7 @@ import { createContext } from './context.ts'
 import { authLimiter, tokenValidateLimiter, uploadLimiter } from './rateLimiters.ts'
 import { db } from '../db.ts'
 import { ensureSchema } from './ensureSchema.ts'
+import { Sentry } from './instrument.ts'
 
 declare global {
   namespace Express {
@@ -193,6 +195,9 @@ if (env.NODE_ENV === 'production') {
     })
   })
 }
+
+// Sentry error handler — must come after all routes, before listen
+Sentry.setupExpressErrorHandler(app)
 
 await ensureSchema().catch((err) => {
   logger.error('[server] ensureSchema falhou (continuando)', { error: String(err) })
