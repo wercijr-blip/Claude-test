@@ -10,10 +10,9 @@ declare global {
   interface Window {
     dataLayer: EventParams[]
     fbq?: (action: string, event: string, params?: EventParams) => void
-    gtag?: (command: string, target: string, params?: EventParams) => void
-    ttq?: {
-      track: (event: string, params?: EventParams) => void
-    }
+    gtag?: (...args: unknown[]) => void
+    ttq?: { track: (event: string, params?: EventParams) => void }
+    __fp_click_listener_attached__?: boolean
   }
 }
 
@@ -23,9 +22,77 @@ function pushDataLayer(event: string, params?: EventParams): void {
   window.dataLayer.push({ event, ...params })
 }
 
+// ─── Initialisation ──────────────────────────────────────────────────────────
+
+/** Explicitly initialise GTM (called by CookieConsent after user accepts). */
+export function initGTM(id: string): void {
+  if (typeof window === 'undefined' || !id) return
+  if (document.getElementById('gtm-script')) return
+  window.dataLayer = window.dataLayer ?? []
+  window.dataLayer.push({ 'gtm.start': Date.now(), event: 'gtm.js' })
+  const s = document.createElement('script')
+  s.id = 'gtm-script'; s.async = true
+  s.src = `https://www.googletagmanager.com/gtm.js?id=${id}`
+  document.head.appendChild(s)
+}
+
+/**
+ * Attach a global click listener for elements with [data-event].
+ * Idempotent — safe to call multiple times.
+ */
+export function initClickListener(): void {
+  if (typeof window === 'undefined') return
+  if (window.__fp_click_listener_attached__) return
+  window.__fp_click_listener_attached__ = true
+  document.addEventListener('click', (e) => {
+    const el = (e.target as Element).closest('[data-event]')
+    if (!el) return
+    const name = el.getAttribute('data-event') ?? ''
+    const label = el.getAttribute('data-event-label') ?? el.textContent?.trim().slice(0, 60)
+    pushDataLayer(name, { event_label: label ?? undefined })
+  })
+}
+
 /** Send a generic event to GTM dataLayer (and, by extension, to any tag listening in GTM). */
 export function trackEvent(eventName: string, params?: EventParams): void {
   pushDataLayer(eventName, params)
+}
+
+// ─── Conversion events ───────────────────────────────────────────────────────
+
+/** User starts the intake/payment flow. */
+export function trackBeginCheckout(type: 'particular' | 'plano', origin: string): void {
+  pushDataLayer('begin_checkout', { intake_type: type, cta_origin: origin, currency: 'BRL', value: type === 'particular' ? 150 : 0 })
+  if (typeof window !== 'undefined' && typeof window.fbq === 'function') {
+    window.fbq('track', 'InitiateCheckout', { content_name: `PrEP_${type}` })
+  }
+}
+
+/** Stripe purchase confirmed — fires from /pagamento/sucesso. */
+export function trackPurchase(sessionId: string, value = 150): void {
+  pushDataLayer('purchase', { transaction_id: sessionId, value, currency: 'BRL', item_name: 'Consulta PrEP' })
+  if (typeof window !== 'undefined' && typeof window.fbq === 'function') {
+    window.fbq('track', 'Purchase', { value, currency: 'BRL' })
+  }
+  if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
+    window.gtag('event', 'purchase', { transaction_id: sessionId, value, currency: 'BRL' })
+  }
+}
+
+/** User submitted the pre-registration (pre-cadastro) form. */
+export function trackFormSubmitPrecadastro(tipo: 'particular' | 'plano'): void {
+  pushDataLayer('form_submit_precadastro', { intake_type: tipo })
+  if (typeof window !== 'undefined' && typeof window.fbq === 'function') {
+    window.fbq('track', 'Lead', { content_name: `PrEP_precadastro_${tipo}` })
+  }
+}
+
+/** Patient submitted the full clinical questionnaire. */
+export function trackFormSubmitClinico(): void {
+  pushDataLayer('form_submit_clinico', { event_category: 'intake' })
+  if (typeof window !== 'undefined' && typeof window.fbq === 'function') {
+    window.fbq('track', 'CompleteRegistration')
+  }
 }
 
 /** Fire a conversion event with optional monetary value. */
