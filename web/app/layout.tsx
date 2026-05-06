@@ -20,7 +20,7 @@ const dmSans = DM_Sans({
   display: 'swap',
 })
 
-const DOMAIN = process.env.NEXT_PUBLIC_DOMAIN ?? 'https://facilitaprep.com.br'
+const DOMAIN = process.env.NEXT_PUBLIC_DOMAIN ?? 'https://www.facilitaprep.com.br'
 
 export const metadata: Metadata = {
   metadataBase: new URL(DOMAIN),
@@ -30,6 +30,8 @@ export const metadata: Metadata = {
   },
   description:
     'Consulta online com infectologista para PrEP. Receita digital ICP-Brasil em até 48h. Sigiloso, sem deslocamento, atendimento em todo o Brasil. CRM-DF 16381.',
+  themeColor: '#6b46c1',
+  appleWebApp: { title: 'Facilita PrEP' },
   keywords: [
     'PrEP online',
     'consulta PrEP',
@@ -59,22 +61,22 @@ export const metadata: Metadata = {
     locale: 'pt_BR',
     type: 'website',
     url: DOMAIN,
-    title: 'Facilita PrEP — Consulta com Infectologista Online',
+    title: 'Facilita PrEP — Consulta médica online para PrEP com receita digital',
     description:
-      'Sua proteção contra o HIV, sem fila e sem burocracia. Receita digital em até 48h.',
+      'Acesso rápido, sigiloso e 100% digital à PrEP. Cadastro, formulário clínico e receita assinada com ICP-Brasil — tudo sem sair de casa.',
     images: [
       {
         url: `${DOMAIN}/og-image.png`,
         width: 1200,
         height: 630,
-        alt: 'Facilita PrEP — Teleconsulta com Infectologista',
+        alt: 'Facilita PrEP — Sua saúde em boas mãos',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Facilita PrEP — Consulta PrEP Online',
-    description: 'Receita digital de PrEP em até 48h com infectologista credenciado.',
+    title: 'Facilita PrEP — Acesso digital à PrEP',
+    description: 'Cadastro, consulta e receita digital à PrEP, sem sair de casa.',
     images: [`${DOMAIN}/og-image.png`],
   },
 }
