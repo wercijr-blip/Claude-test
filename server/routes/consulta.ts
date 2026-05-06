@@ -416,7 +416,7 @@ export const consultaRouter = router({
         await enviarExameAprovadoIa(info.email, info.nome, env.APP_URL).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
       }
       if (info.telefone) {
-        const msg = `Olá ${info.nome}, seu exame foi aprovado! Continue seu cadastro: ${env.APP_URL}/formulario`
+        const msg = `Olá ${info.nome}, seu exame foi aprovado! Continue seu cadastro: ${env.APP_URL}/inicio`
         await enviarWhatsApp(info.telefone, msg).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
       }
 
@@ -622,7 +622,7 @@ export const consultaRouter = router({
 
         if (input.acao === 'aprovar') {
           if (info.email) await enviarExameAprovadoIa(info.email, info.nome, env.APP_URL).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
-          if (info.telefone) await enviarWhatsApp(info.telefone, `Olá ${info.nome}, seu exame foi aprovado pelo médico! Continue seu cadastro: ${env.APP_URL}/formulario`).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
+          if (info.telefone) await enviarWhatsApp(info.telefone, `Olá ${info.nome}, seu exame foi aprovado pelo médico! Continue seu cadastro: ${env.APP_URL}/inicio`).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
         } else if (isReenvio) {
           if (info.email) await enviarSolicitacaoReenvio(info.email, info.nome, input.observacoes, env.APP_URL).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
           if (info.telefone) await enviarWhatsApp(info.telefone, `Olá ${info.nome}, nosso médico solicita um novo exame. Motivo: ${input.observacoes}. Acesse: ${env.APP_URL}/inicio`).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
