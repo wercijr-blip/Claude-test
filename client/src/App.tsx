@@ -239,7 +239,7 @@ function PagamentoSucesso() {
 
   const acesso = trpc.intake.acessoPosPagamento.useMutation({
     onSuccess: (data: { token: string }) => {
-      trackPurchase(sessionId)
+      trackPurchase(sessionId, 150)
       validarToken.mutate({ token: data.token })
     },
     onError: (err: { message: string }) => setErro(err.message),

@@ -1,25 +1,30 @@
 /**
  * Analytics for Facilita PrEP (Vite SPA — client/)
  *
- * Initialisation flow:
- *   1. CookieConsent calls initGTM() / initGA4() after user accepts.
- *   2. App calls initClickListener() once on mount.
- *   3. useTrackPageView() hook fires trackPageView on every wouter navigation.
+ * GTM loads immediately via client/index.html.
+ * This module provides typed helpers for dataLayer events and
+ * wires a global [data-event] click listener.
  */
 
-type EventParams = Record<string, string | number | boolean | undefined>
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+export interface DataLayerEvent {
+  event: string
+  [key: string]: unknown
+}
 
 declare global {
   interface Window {
-    dataLayer: EventParams[]
-    fbq?: (action: string, event: string, params?: EventParams) => void
+    dataLayer: DataLayerEvent[]
+    fbq?: (action: string, event: string, params?: Record<string, unknown>) => void
     gtag?: (...args: unknown[]) => void
+    __fp_click_listener_attached__?: boolean
   }
 }
 
 // ─── Internal helpers ────────────────────────────────────────────────────────
 
-function push(event: string, params?: EventParams): void {
+function push(event: string, params?: Record<string, unknown>): void {
   if (typeof window === 'undefined') return
   window.dataLayer = window.dataLayer ?? []
   window.dataLayer.push({ event, ...params })
@@ -27,51 +32,28 @@ function push(event: string, params?: EventParams): void {
 
 // ─── Initialisation ──────────────────────────────────────────────────────────
 
-/** Inject GTM snippet — safe to call multiple times (idempotent). */
-export function initGTM(id: string): void {
-  if (typeof window === 'undefined' || !id) return
-  if (document.getElementById('gtm-script')) return
-
-  window.dataLayer = window.dataLayer ?? []
-  window.dataLayer.push({ 'gtm.start': Date.now(), event: 'gtm.js' })
-
-  const s = document.createElement('script')
-  s.id = 'gtm-script'
-  s.async = true
-  s.src = `https://www.googletagmanager.com/gtm.js?id=${id}`
-  document.head.appendChild(s)
-
-  const ns = document.createElement('noscript')
-  ns.innerHTML = `<iframe src="https://www.googletagmanager.com/ns.html?id=${id}" height="0" width="0" style="display:none;visibility:hidden"></iframe>`
-  document.body.insertBefore(ns, document.body.firstChild)
-}
-
-/** Inject GA4 gtag.js — safe to call multiple times. */
+/** Inject GA4 gtag.js independently of GTM — idempotent. */
 export function initGA4(id: string): void {
   if (typeof window === 'undefined' || !id) return
   if (document.getElementById('ga4-script')) return
-
   const s = document.createElement('script')
-  s.id = 'ga4-script'
-  s.async = true
+  s.id = 'ga4-script'; s.async = true
   s.src = `https://www.googletagmanager.com/gtag/js?id=${id}`
   document.head.appendChild(s)
-
   window.dataLayer = window.dataLayer ?? []
-  window.gtag = function (...args) { window.dataLayer.push(args as unknown as EventParams) }
+  window.gtag = function (...args) { window.dataLayer.push(args as unknown as DataLayerEvent) }
   window.gtag('js', new Date())
   window.gtag('config', id)
 }
 
 /**
- * Attach a global click listener for elements with [data-event].
- * Fires once — safe to call multiple times.
+ * Attach a single global click listener for elements with [data-event].
+ * Idempotent — safe to call multiple times.
  */
 export function initClickListener(): void {
   if (typeof window === 'undefined') return
   if (window.__fp_click_listener_attached__) return
   window.__fp_click_listener_attached__ = true
-
   document.addEventListener('click', (e) => {
     const el = (e.target as Element).closest('[data-event]')
     if (!el) return
@@ -81,53 +63,59 @@ export function initClickListener(): void {
   })
 }
 
-declare global {
-  interface Window { __fp_click_listener_attached__?: boolean }
-}
-
 // ─── Generic ─────────────────────────────────────────────────────────────────
 
 /** Push any event to GTM dataLayer. */
-export function trackEvent(name: string, params?: EventParams): void {
-  push(name, params)
+export function trackEvent(eventName: string, params?: Record<string, unknown>): void {
+  push(eventName, params)
 }
 
-/** Track SPA route change (call from useTrackPageView). */
-export function trackPageView(path: string): void {
-  push('page_view', { page_path: path })
+/** Track SPA route change — call from useTrackPageView. */
+export function trackPageView(path: string, title?: string): void {
+  push('page_view', { page_path: path, page_title: title ?? document.title })
   if (typeof window.fbq === 'function') window.fbq('track', 'PageView')
 }
 
 // ─── Conversion events ───────────────────────────────────────────────────────
 
-/** User clicked a CTA and started the payment or intake flow. */
-export function trackBeginCheckout(type: 'particular' | 'plano', origin: string): void {
-  push('begin_checkout', { intake_type: type, cta_origin: origin, currency: 'BRL', value: type === 'particular' ? 150 : 0 })
-  if (typeof window.fbq === 'function') window.fbq('track', 'InitiateCheckout', { content_name: `PrEP_${type}` })
+/** User started the payment/intake flow. */
+export function trackBeginCheckout(plan: string, value: number): void {
+  push('begin_checkout', { plan, value, currency: 'BRL' })
+  if (typeof window.fbq === 'function') window.fbq('track', 'InitiateCheckout', { content_name: plan, value, currency: 'BRL' })
+  if (typeof window.gtag === 'function') window.gtag('event', 'begin_checkout', { value, currency: 'BRL', items: [{ item_name: plan, price: value }] })
 }
 
 /** Stripe payment confirmed — call from /pagamento/sucesso. */
-export function trackPurchase(sessionId: string, value = 150): void {
-  push('purchase', { transaction_id: sessionId, value, currency: 'BRL', item_name: 'Consulta PrEP' })
+export function trackPurchase(orderId: string, value: number): void {
+  push('purchase', { transaction_id: orderId, value, currency: 'BRL', item_name: 'Consulta PrEP' })
   if (typeof window.fbq === 'function') window.fbq('track', 'Purchase', { value, currency: 'BRL' })
   if (typeof window.gtag === 'function') {
-    window.gtag('event', 'purchase', { transaction_id: sessionId, value, currency: 'BRL', items: [{ item_name: 'Consulta PrEP', price: value }] })
+    window.gtag('event', 'purchase', {
+      transaction_id: orderId, value, currency: 'BRL',
+      items: [{ item_name: 'Consulta PrEP', price: value }],
+    })
   }
 }
 
-/** User submitted the pre-registration intake form. */
+/** Form submission tracking. */
+export function trackFormSubmit(formName: string): void {
+  push('form_submit', { form_name: formName })
+  if (typeof window.fbq === 'function') {
+    window.fbq('track', formName.includes('clinico') ? 'CompleteRegistration' : 'Lead', { content_name: formName })
+  }
+}
+
+/** Specific: pre-registration form submitted. */
 export function trackFormSubmitPrecadastro(tipo: 'particular' | 'plano'): void {
-  push('form_submit_precadastro', { intake_type: tipo })
-  if (typeof window.fbq === 'function') window.fbq('track', 'Lead', { content_name: `PrEP_precadastro_${tipo}` })
+  trackFormSubmit(`precadastro_${tipo}`)
 }
 
-/** Patient submitted the full clinical form. */
+/** Specific: clinical questionnaire submitted. */
 export function trackFormSubmitClinico(): void {
-  push('form_submit_clinico', { event_category: 'intake' })
-  if (typeof window.fbq === 'function') window.fbq('track', 'CompleteRegistration')
+  trackFormSubmit('clinico')
 }
 
-/** CTA click (hero, modal, sticky bar, etc.). */
+/** CTA click. */
 export function trackCtaClick(local: string): void {
   push('cta_click', { cta_local: local, page_path: typeof window !== 'undefined' ? window.location.pathname : '' })
 }

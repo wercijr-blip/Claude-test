@@ -158,7 +158,7 @@ export default function LandingPage({ variant }: { variant?: Variant }) {
               <div className="flex flex-col sm:flex-row gap-3 mb-10">
                 <button
                   onClick={() => openForm('particular', 'hero_primary')}
-                  data-event="cta_homepage_hero"
+                  data-event="cta_hero"
                   data-event-label="hero_particular"
                   className="bg-fp-lilac text-fp-dark px-8 py-4 rounded-2xl text-base font-bold hover:bg-fp-lilac-soft transition-all shadow-lg active:scale-95"
                 >
@@ -509,7 +509,14 @@ export default function LandingPage({ variant }: { variant?: Variant }) {
           </div>
 
           <p className="text-fp-dark-soft text-xs mt-4 text-center">
-            *SUS gratuito, mas com tempo de espera variável e cobertura geográfica limitada. Dados estimados.
+            *SUS gratuito, mas com tempo de espera variável e cobertura geográfica limitada. Dados estimados.{' '}
+            <a
+              href="/duvidas#sus"
+              data-event="click_sus_link"
+              className="underline hover:text-fp-accent transition-colors"
+            >
+              Saiba mais sobre PrEP pelo SUS →
+            </a>
           </p>
 
           <div className="text-center mt-8">
@@ -573,7 +580,7 @@ export default function LandingPage({ variant }: { variant?: Variant }) {
               </div>
               <button
                 onClick={() => openForm('particular', 'preco_particular')}
-                data-event="cta_modalidade_particular"
+                data-event="select_plan_particular"
                 data-event-label="preco_particular"
                 className="w-full bg-fp-accent text-white py-3.5 rounded-2xl font-semibold text-sm hover:bg-fp-dark-mid transition-colors active:scale-95"
               >
@@ -613,7 +620,7 @@ export default function LandingPage({ variant }: { variant?: Variant }) {
               </p>
               <button
                 onClick={() => openForm('plano', 'preco_plano')}
-                data-event="cta_modalidade_plano"
+                data-event="select_plan_convenio"
                 data-event-label="preco_plano"
                 className="w-full bg-fp-lilac text-fp-dark py-3.5 rounded-2xl font-semibold text-sm hover:bg-fp-lilac-soft transition-colors active:scale-95"
               >
@@ -707,7 +714,7 @@ export default function LandingPage({ variant }: { variant?: Variant }) {
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <button
               onClick={() => openForm('particular', 'final_cta_particular')}
-              data-event="cta_homepage_hero"
+              data-event="cta_hero"
               data-event-label="final_cta_particular"
               className="inline-flex items-center justify-center gap-2 bg-fp-lilac text-fp-dark px-10 py-4 rounded-2xl text-base font-bold hover:bg-fp-lilac-soft transition-all shadow-xl active:scale-95"
             >
