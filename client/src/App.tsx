@@ -16,6 +16,8 @@ import VerificacaoPage from './components/VerificacaoPage.tsx'
 import FooterCfm from './components/FooterCfm.tsx'
 import CookieConsent from './components/CookieConsent.tsx'
 import AuditoriaPage from './components/AuditoriaPage.tsx'
+import PrivacidadePage from './components/PrivacidadePage.tsx'
+import TermosPage from './components/TermosPage.tsx'
 import { trpc } from './lib/trpc.ts'
 import { initClickListener, trackPageView, trackPurchase } from './lib/analytics.ts'
 
@@ -125,6 +127,8 @@ export default function App() {
               {role === 'admin' ? <AuditDashboard /> : <LoginPage />}
             </Route>
             <Route path="/duvidas" component={DuvidasPage} />
+            <Route path="/privacidade" component={PrivacidadePage} />
+            <Route path="/termos" component={TermosPage} />
             <Route path="/v/:slug" component={VerificacaoPage} />
             <Route path="/pesquisa/:pacienteId/:token" component={PesquisaSatisfacao} />
             <Route path="/pagamento/sucesso" component={PagamentoSucesso} />

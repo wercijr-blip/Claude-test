@@ -1,0 +1,132 @@
+import { Link } from 'wouter'
+import FooterCfm from './FooterCfm.tsx'
+
+const LAST_UPDATED = '6 de maio de 2025'
+
+export default function PrivacidadePage() {
+  return (
+    <div className="min-h-screen flex flex-col bg-white">
+      <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-12 text-slate-800">
+        <Link href="/" className="text-sm text-fp-accent hover:underline mb-6 inline-block">
+          ← Voltar ao início
+        </Link>
+
+        <h1 className="text-3xl font-bold text-fp-dark mb-2">Política de Privacidade</h1>
+        <p className="text-sm text-slate-500 mb-8">Última atualização: {LAST_UPDATED}</p>
+
+        <div className="space-y-6 text-sm leading-relaxed">
+          <section>
+            <h2 className="text-lg font-semibold text-fp-dark mb-2">1. Quem somos (Controlador)</h2>
+            <p>
+              A Facilita PrEP é operada por <strong>Saraiva e Dornelas Hospital Dia LTDA</strong>,
+              CNPJ 61.983.778/0001-52, nome fantasia <em>Iaso Saúde Hospital Dia</em>, com sede em
+              SHLS Quadra 716, Conjunto A, Consultórios 607 e 609, 6º Andar, Asa Sul — Brasília/DF.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-fp-dark mb-2">2. Encarregado (DPO)</h2>
+            <p>
+              Dr. Werciley Saraiva Vieira Júnior (CRM/DF 16381 · RQE 14486 — Infectologia).<br />
+              Contato: <a href="mailto:dpo@facilitaprep.com.br" className="text-fp-accent hover:underline">dpo@facilitaprep.com.br</a>
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-fp-dark mb-2">3. Dados coletados</h2>
+            <ul className="list-disc pl-5 space-y-1">
+              <li><strong>Identificação:</strong> nome, CPF, data de nascimento, RG.</li>
+              <li><strong>Contato:</strong> e-mail, telefone, endereço.</li>
+              <li><strong>Saúde:</strong> histórico clínico, exames laboratoriais, prescrições, dados sobre PrEP e ISTs.</li>
+              <li><strong>Pagamento:</strong> processado por terceiros (Stripe) — não armazenamos dados de cartão.</li>
+              <li><strong>Técnicos:</strong> IP, navegador, sistema operacional, cookies.</li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-fp-dark mb-2">4. Finalidades e base legal (LGPD)</h2>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>Prestação do serviço médico em PrEP — Art. 7º, V + Art. 11, II, f (tutela da saúde).</li>
+              <li>Emissão de prescrições digitais ICP-Brasil — Art. 7º, II (obrigação legal CFM 2.299/2021).</li>
+              <li>Manutenção de prontuário eletrônico — Art. 7º, II (Lei 13.787/2018).</li>
+              <li>Comunicação sobre sua consulta — Art. 7º, V.</li>
+              <li>Cumprimento de obrigações fiscais (NFS-e) — Art. 7º, II.</li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-fp-dark mb-2">5. Compartilhamento com terceiros</h2>
+            <ul className="list-disc pl-5 space-y-1">
+              <li><strong>Stripe</strong> — processamento de pagamento (transferência internacional com salvaguardas).</li>
+              <li><strong>FocusNFe</strong> — emissão de nota fiscal eletrônica.</li>
+              <li><strong>AWS S3</strong> — armazenamento criptografado de exames e documentos.</li>
+              <li><strong>Z-API</strong> — envio de mensagens WhatsApp.</li>
+              <li><strong>Resend</strong> — e-mails transacionais.</li>
+              <li><strong>Sentry</strong> — monitoramento de erros (sem PII).</li>
+              <li><strong>Cloudflare</strong> — CDN, segurança e e-mail.</li>
+            </ul>
+            <p className="mt-2 text-slate-500 text-xs">
+              TODO: revisar lista completa de operadores com jurídico antes da versão final.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-fp-dark mb-2">6. Retenção de dados</h2>
+            <ul className="list-disc pl-5 space-y-1">
+              <li><strong>Prontuário eletrônico:</strong> mínimo 20 anos (Lei 13.787/2018).</li>
+              <li><strong>Notas fiscais:</strong> 5 anos (Receita Federal).</li>
+              <li><strong>Logs de auditoria:</strong> 5 anos.</li>
+              <li><strong>Dados cadastrais:</strong> enquanto a conta estiver ativa + 5 anos após exclusão.</li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-fp-dark mb-2">7. Seus direitos (Art. 18 LGPD)</h2>
+            <p className="mb-2">Você pode, a qualquer momento:</p>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>Acessar e corrigir seus dados.</li>
+              <li>Exportar seus dados em formato JSON (disponível no portal do paciente).</li>
+              <li>Solicitar anonimização (respeitando retenção legal de 20 anos do prontuário).</li>
+              <li>Revogar o consentimento.</li>
+              <li>Apresentar reclamação à <a href="https://www.gov.br/anpd" target="_blank" rel="noopener noreferrer" className="text-fp-accent hover:underline">ANPD</a>.</li>
+            </ul>
+            <p className="mt-3">
+              Para exercer seus direitos: <a href="mailto:dpo@facilitaprep.com.br" className="text-fp-accent hover:underline">dpo@facilitaprep.com.br</a>.
+              Resposta em até 15 dias úteis.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-fp-dark mb-2">8. Segurança</h2>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>Criptografia em trânsito (TLS 1.3) e em repouso (AES-256-GCM).</li>
+              <li>Autenticação de dois fatores (2FA) obrigatória para profissionais de saúde.</li>
+              <li>Logs de auditoria imutáveis para todo acesso a dados de paciente.</li>
+              <li>Rate limiting e proteção contra ataques automatizados.</li>
+              <li>Backups diários com retenção de 30 dias (TiDB Cloud + S3).</li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-fp-dark mb-2">9. Cookies</h2>
+            <p>
+              Usamos cookies essenciais (sessão, autenticação) e analíticos (Google Analytics 4 — com consentimento).
+              Gerencie suas preferências pelo banner ao acessar o site pela primeira vez.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-fp-dark mb-2">10. Contato</h2>
+            <p>
+              DPO: <a href="mailto:dpo@facilitaprep.com.br" className="text-fp-accent hover:underline">dpo@facilitaprep.com.br</a><br />
+              Geral: <a href="mailto:contato@facilitaprep.com.br" className="text-fp-accent hover:underline">contato@facilitaprep.com.br</a><br />
+              Suporte: <a href="mailto:suporte@facilitaprep.com.br" className="text-fp-accent hover:underline">suporte@facilitaprep.com.br</a><br />
+              Telefone: (61) 4042-7188
+            </p>
+          </section>
+        </div>
+      </main>
+      <FooterCfm />
+    </div>
+  )
+}
