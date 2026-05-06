@@ -310,6 +310,33 @@ export const stripeEvents = mysqlTable('stripe_events', {
   processadoEm: datetime('processado_em').notNull().default(sql`CURRENT_TIMESTAMP`),
 })
 
+// ── Audit Log LGPD (Art. 37 — imutável, sem UPDATE/DELETE) ───
+// Registra acessos e operações sobre dados pessoais de pacientes.
+// Nunca atualizar ou deletar registros — append-only por design.
+
+export const auditLog = mysqlTable('audit_log', {
+  id: int('id').primaryKey().autoincrement(),
+  // Quem fez a ação (staff userId ou null para ações do próprio paciente)
+  actorId: int('actor_id').references(() => users.id),
+  actorRole: varchar('actor_role', { length: 50 }),
+  // O que foi feito
+  action: varchar('action', { length: 100 }).notNull(),
+  // Sobre qual recurso (ex: 'paciente', 'exame', 'pdf', 'token')
+  resourceType: varchar('resource_type', { length: 50 }).notNull(),
+  resourceId: int('resource_id'),
+  // Contexto adicional (campos acessados, motivo, etc.)
+  detalhes: json('detalhes'),
+  // Rastreabilidade de rede
+  ipAddress: varchar('ip_address', { length: 45 }),
+  userAgent: text('user_agent'),
+  createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (t) => ({
+  actorIdx: index('idx_audit_actor').on(t.actorId),
+  actionIdx: index('idx_audit_action').on(t.action),
+  resourceIdx: index('idx_audit_resource').on(t.resourceType, t.resourceId),
+  createdAtIdx: index('idx_audit_created').on(t.createdAt),
+}))
+
 // ── Tokens de Pesquisa de Satisfação ─────────────────────────
 // Um token aleatório por paciente, gerado no momento do envio do link.
 // Substituição do hash determinístico SHA-256(pacienteId + JWT_SECRET).
