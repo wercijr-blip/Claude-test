@@ -4,6 +4,9 @@ import { useState, useEffect, useRef } from 'react'
 import { LogoWordmark } from './Logo'
 import IntakePage from './IntakePage'
 import { trackAgendarClick, trackWhatsApp } from '../lib/analytics'
+import Counter from './landing/Counter'
+import Benefits from './landing/Benefits'
+import Testimonials from './landing/Testimonials'
 
 type Tipo = 'particular' | 'plano'
 type Variant = 'google' | 'meta' | 'retargeting'
@@ -246,22 +249,7 @@ export default function LandingPage({ variant }: { variant?: Variant }) {
         </div>
       </section>
 
-      {/* ── Stats bar ──────────────────────────────────────────────────── */}
-      <section className="bg-white border-b border-fp-lavender-100">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 grid grid-cols-2 sm:grid-cols-4 gap-6">
-          {[
-            { value: '99%', label: 'Eficácia na prevenção do HIV' },
-            { value: '<24h', label: 'Receita emitida' },
-            { value: '100%', label: 'Digital e sigiloso' },
-            { value: 'ICP-Brasil', label: 'Assinatura com validade legal' },
-          ].map((s) => (
-            <div key={s.value} className="text-center">
-              <p className="font-display text-3xl text-fp-accent font-semibold">{s.value}</p>
-              <p className="text-xs text-fp-dark-soft mt-1 leading-tight">{s.label}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+      <Counter />
 
       {/* ── Como funciona ──────────────────────────────────────────────── */}
       <section className="py-20 sm:py-24">
@@ -328,58 +316,7 @@ export default function LandingPage({ variant }: { variant?: Variant }) {
         </div>
       </section>
 
-      {/* ── Benefícios ─────────────────────────────────────────────────── */}
-      <section className="bg-white py-20 sm:py-24">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-            <div>
-              <p className="text-fp-accent text-sm font-semibold uppercase tracking-widest mb-2">Por que Facilita PrEP</p>
-              <h2 className="font-display text-4xl sm:text-5xl text-fp-dark mb-6 leading-tight">
-                Sem filas.<br />Sem constrangimento.<br />Sem complicação.
-              </h2>
-              <p className="text-fp-dark-soft text-lg leading-relaxed mb-8">
-                Acesso à PrEP ainda é um desafio em muitas regiões. A Facilita PrEP resolve isso com
-                uma plataforma segura, discreta e legalmente reconhecida.
-              </p>
-              <ul className="space-y-4">
-                {[
-                  'Consulta e receita 100% online, sem exposição',
-                  'Sigilo absoluto — LGPD, dados criptografados',
-                  'Médico infectologista especializado',
-                  'Receita com validade legal (ICP-Brasil)',
-                  'Suporte pós-consulta via WhatsApp',
-                ].map((item) => (
-                  <li key={item} className="flex items-start gap-3">
-                    <div className="w-5 h-5 rounded-full bg-fp-success/20 flex items-center justify-center shrink-0 mt-0.5">
-                      <svg className="w-3 h-3 text-fp-success" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                    <span className="text-fp-dark text-sm leading-relaxed">{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              {[
-                { icon: '🏥', title: 'Telemedicina CFM', desc: 'Regulamentada pelas resoluções CFM 2.299/2021 e 2.314/2022' },
-                { icon: '🔒', title: 'Dados seguros', desc: 'CPF e dados sensíveis criptografados conforme LGPD' },
-                { icon: '📋', title: 'Receita válida', desc: 'Assinatura ICP-Brasil, aceita em farmácias de todo o Brasil' },
-                { icon: '⚡', title: 'Resultado rápido', desc: 'Da consulta à receita em menos de 24 horas úteis' },
-                { icon: '💊', title: 'PrEP + acompanhamento', desc: 'Protocolo periódico conforme PCDT/Ministério da Saúde' },
-                { icon: '🤝', title: 'Suporte humano', desc: 'Equipe disponível para esclarecer dúvidas antes e após' },
-              ].map((card) => (
-                <div key={card.title} className="bg-fp-fog rounded-2xl p-5 border border-fp-lavender-100">
-                  <span className="text-2xl mb-3 block">{card.icon}</span>
-                  <h4 className="font-semibold text-fp-dark text-sm mb-1">{card.title}</h4>
-                  <p className="text-fp-dark-soft text-xs leading-relaxed">{card.desc}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
+      <Benefits />
 
       {/* ── Médico ─────────────────────────────────────────────────────── */}
       <section className="py-20 sm:py-24">
@@ -584,57 +521,7 @@ export default function LandingPage({ variant }: { variant?: Variant }) {
         </div>
       </section>
 
-      {/* ── Depoimentos ────────────────────────────────────────────────── */}
-      <section className="py-20 sm:py-24">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-14">
-            <p className="text-fp-accent text-sm font-semibold uppercase tracking-widest mb-2">Depoimentos</p>
-            <h2 className="font-display text-4xl sm:text-5xl text-fp-dark">O que nossos pacientes dizem</h2>
-          </div>
-
-          <div className="grid sm:grid-cols-3 gap-6">
-            {[
-              {
-                text: 'Processo super simples e discreto. Preenchi o formulário à noite e pela manhã já tinha a receita no e-mail. Sem expor minha identidade em nenhum momento.',
-                name: 'M. S.',
-                city: 'São Paulo, SP',
-                stars: 5,
-              },
-              {
-                text: 'Nunca imaginei que seria tão rápido. O médico analisou meus exames, tirou dúvidas e emitiu a receita em poucas horas. A facilidade faz toda a diferença.',
-                name: 'R. O.',
-                city: 'Rio de Janeiro, RJ',
-                stars: 5,
-              },
-              {
-                text: 'O sigilo foi fundamental pra mim. Não precisei explicar nada presencialmente. A plataforma é muito bem feita e a equipe respondeu todas as minhas dúvidas.',
-                name: 'J. P.',
-                city: 'Belo Horizonte, MG',
-                stars: 5,
-              },
-            ].map((item, i) => (
-              <div key={i} className="bg-white rounded-3xl p-7 border border-fp-lavender-100 shadow-sm flex flex-col">
-                <div className="flex gap-0.5 mb-4">
-                  {Array.from({ length: item.stars }).map((_, j) => (
-                    <svg key={j} className="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                  ))}
-                </div>
-                <p className="text-fp-dark-soft text-sm leading-relaxed flex-1 mb-5">"{item.text}"</p>
-                <div className="border-t border-fp-lavender-100 pt-4">
-                  <p className="font-semibold text-fp-dark text-sm">{item.name}</p>
-                  <p className="text-fp-dark-soft text-xs">{item.city}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <p className="text-center text-fp-dark-soft text-xs mt-8">
-            Depoimentos reais, dados anonimizados conforme LGPD para proteger a privacidade dos pacientes.
-          </p>
-        </div>
-      </section>
+      <Testimonials />
 
       {/* ── Modalidades ────────────────────────────────────────────────── */}
       <section className="py-20 sm:py-24">
