@@ -123,6 +123,28 @@ export function applySecurityMiddleware(app: Express): void {
 
   app.use(apiLimiter)
 
+  // Permissions-Policy — desabilita APIs sensíveis não utilizadas
+  app.use((_req: Request, res: Response, next: NextFunction) => {
+    res.setHeader(
+      'Permissions-Policy',
+      [
+        'camera=()',           // sem vídeo por enquanto
+        'microphone=()',
+        'geolocation=()',
+        'payment=(self)',      // Stripe inline checkout
+        'usb=()',
+        'fullscreen=(self)',
+        'autoplay=()',
+        'accelerometer=()',
+        'gyroscope=()',
+        'magnetometer=()',
+        'midi=()',
+        'sync-xhr=()',
+      ].join(', '),
+    )
+    next()
+  })
+
   // Bloquear payloads gigantes (proteção contra payload bomb)
   app.use((req: Request, res: Response, next: NextFunction) => {
     const contentLength = parseInt(req.headers['content-length'] ?? '0')
