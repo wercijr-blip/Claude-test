@@ -17,6 +17,22 @@ import FooterCfm from './components/FooterCfm.tsx'
 import CookieConsent from './components/CookieConsent.tsx'
 import AuditoriaPage from './components/AuditoriaPage.tsx'
 import { trpc } from './lib/trpc.ts'
+import { initClickListener, trackPageView, trackPurchase } from './lib/analytics.ts'
+
+/** Fire page_view on every wouter navigation. */
+function useTrackPageView() {
+  const [location] = useLocation()
+  useEffect(() => {
+    trackPageView(location)
+  }, [location])
+}
+
+/** Attach global [data-event] click tracker once. */
+function useAnalyticsInit() {
+  useEffect(() => {
+    initClickListener()
+  }, [])
+}
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
   constructor(props: { children: ReactNode }) {
@@ -81,6 +97,9 @@ export default function App() {
   const { token } = useAuth()
   const session = token ? parseJwtPayload(token) : null
   const role = session?.type === 'staff' ? session.role : null
+
+  useTrackPageView()
+  useAnalyticsInit()
 
   return (
     <ErrorBoundary>
@@ -220,6 +239,7 @@ function PagamentoSucesso() {
 
   const acesso = trpc.intake.acessoPosPagamento.useMutation({
     onSuccess: (data: { token: string }) => {
+      trackPurchase(sessionId, 150)
       validarToken.mutate({ token: data.token })
     },
     onError: (err: { message: string }) => setErro(err.message),

@@ -23,11 +23,19 @@ export default function CookieConsent({ gtmId, metaPixelId, googleAdsId, tiktokP
   function accept() {
     localStorage.setItem(CONSENT_KEY, 'true')
     setConsent(true)
+    if (typeof window !== 'undefined') {
+      window.dataLayer = window.dataLayer ?? []
+      window.dataLayer.push({ event: 'cookies_accepted', method: 'all' })
+    }
   }
 
   function decline() {
     localStorage.setItem(CONSENT_KEY, 'false')
     setConsent(false)
+    if (typeof window !== 'undefined') {
+      window.dataLayer = window.dataLayer ?? []
+      window.dataLayer.push({ event: 'cookies_declined' })
+    }
   }
 
   const hasPixels = gtmId || metaPixelId || googleAdsId || tiktokPixelId

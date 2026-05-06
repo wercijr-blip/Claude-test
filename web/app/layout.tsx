@@ -81,7 +81,7 @@ export const metadata: Metadata = {
   },
 }
 
-const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID
+const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID ?? 'GTM-WCF38JBP'
 const META_PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID
 const GOOGLE_ADS_ID = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID
 const TIKTOK_PIXEL_ID = process.env.NEXT_PUBLIC_TIKTOK_PIXEL_ID
@@ -138,22 +138,26 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="pt-BR" className={`${cormorant.variable} ${dmSans.variable}`}>
       <head>
+        {/* GTM — loads immediately, consent handled via CookieConsent dataLayer events */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${GTM_ID}');`,
+          }}
+        />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(SCHEMA_LD) }}
         />
-        {GTM_ID && (
-          <noscript>
-            <iframe
-              src={`https://www.googletagmanager.com/ns.html?id=${GTM_ID}`}
-              height="0"
-              width="0"
-              style={{ display: 'none', visibility: 'hidden' }}
-            />
-          </noscript>
-        )}
       </head>
       <body className="min-h-screen flex flex-col">
+        {/* GTM noscript fallback */}
+        <noscript>
+          <iframe
+            src={`https://www.googletagmanager.com/ns.html?id=${GTM_ID}`}
+            height="0" width="0"
+            style={{ display: 'none', visibility: 'hidden' }}
+          />
+        </noscript>
         <TrpcProvider>
           <div className="flex-1">{children}</div>
           <FooterCfm />
