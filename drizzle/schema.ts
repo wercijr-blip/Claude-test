@@ -20,6 +20,10 @@ export const users = mysqlTable('users', {
   nome: varchar('nome', { length: 255 }),
   role: varchar('role', { length: 50 }).notNull().default('user'),
   ativo: boolean('ativo').notNull().default(true),
+  // TOTP 2FA — obrigatório para admin e medico
+  totpSecretEncrypted: text('totp_secret_encrypted'),
+  totpEnabled: boolean('totp_enabled').notNull().default(false),
+  totpBackupCodes: json('totp_backup_codes'),  // string[] (hashed, each single-use)
   createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`).$onUpdateFn(() => new Date()),
 }, (t) => ({

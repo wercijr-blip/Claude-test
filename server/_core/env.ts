@@ -57,6 +57,10 @@ const envSchema = z.object({
   SENTRY_DSN_SERVER: z.string().url().optional(),
   SENTRY_DSN_WEB: z.string().url().optional(),
   SENTRY_ENVIRONMENT: z.string().default('production'),
+
+  // TOTP 2FA — chave AES separada para encriptar segredos TOTP
+  // Gerar com: openssl rand -hex 32
+  TOTP_ENC_KEY: z.string().length(64).optional(),
 })
 
 const parsed = envSchema.safeParse(process.env)
