@@ -11,7 +11,7 @@ import { redis } from './redis.ts'
 import { applySecurityMiddleware } from './security.ts'
 import { appRouter } from '../routers.ts'
 import { createContext } from './context.ts'
-import { authLimiter, tokenValidateLimiter, uploadLimiter } from './rateLimiters.ts'
+import { authLimiter, tokenValidateLimiter, uploadLimiter, totpLimiter, dataRightsLimiter } from './rateLimiters.ts'
 import { db } from '../db.ts'
 import { ensureSchema } from './ensureSchema.ts'
 import { Sentry } from './instrument.ts'
@@ -68,7 +68,7 @@ if (env.NODE_ENV === 'production') {
   app.use('/_next', express.static(path.join(webOut, '_next')))
 
   // Rotas de marketing: Next.js SSG quando disponível, Vite SPA como fallback
-  const marketingRoutes = ['/', '/lp/google', '/lp/meta', '/lp/retargeting', '/robots.txt', '/sitemap.xml']
+  const marketingRoutes = ['/', '/lp/google', '/lp/meta', '/lp/retargeting', '/privacidade', '/termos', '/robots.txt', '/sitemap.xml']
   for (const route of marketingRoutes) {
     if (route === '/robots.txt' || route === '/sitemap.xml') {
       app.get(route, (_req, res) => {
@@ -119,6 +119,18 @@ app.use(
 app.use(
   '/trpc/token.validar',
   tokenValidateLimiter,
+)
+app.use(
+  '/trpc/twoFactor.verify',
+  totpLimiter,
+)
+app.use(
+  '/trpc/me.exportData',
+  dataRightsLimiter,
+)
+app.use(
+  '/trpc/me.requestAnonymization',
+  dataRightsLimiter,
 )
 app.use(
   '/trpc',

@@ -55,3 +55,21 @@ export const pdfLimiter = rateLimit({
   legacyHeaders: false,
   store: makeStore('pdf'),
 })
+
+export const dataRightsLimiter = rateLimit({
+  windowMs: RATE_LIMITS.DATA_RIGHTS.windowMs,
+  max: RATE_LIMITS.DATA_RIGHTS.max,
+  message: { error: 'Limite de solicitações LGPD atingido. Tente novamente em 1 hora.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: makeStore('data-rights'),
+})
+
+export const totpLimiter = rateLimit({
+  windowMs: RATE_LIMITS.TOTP.windowMs,
+  max: RATE_LIMITS.TOTP.max,
+  message: { error: 'Muitas tentativas de verificação 2FA. Aguarde 15 minutos.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: makeStore('totp'),
+})

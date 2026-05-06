@@ -68,9 +68,20 @@ export default function FooterCfm() {
 
       <div className="border-t border-slate-700 px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
         <span>© {new Date().getFullYear()} Iaso Saúde Hospital Dia — Todos os direitos reservados</span>
-        <a href="/duvidas" className="text-slate-400 hover:text-white transition-colors">
-          Dúvidas sobre PrEP →
-        </a>
+        <div className="flex items-center gap-4 flex-wrap justify-center">
+          <a href="/privacidade" className="text-slate-400 hover:text-white transition-colors">
+            Política de Privacidade
+          </a>
+          <a href="/termos" className="text-slate-400 hover:text-white transition-colors">
+            Termos de Uso
+          </a>
+          <a href="mailto:dpo@facilitaprep.com.br" className="text-slate-400 hover:text-white transition-colors">
+            DPO / LGPD
+          </a>
+          <a href="/duvidas" className="text-slate-400 hover:text-white transition-colors">
+            Dúvidas sobre PrEP →
+          </a>
+        </div>
       </div>
     </footer>
   )

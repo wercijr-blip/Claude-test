@@ -4,6 +4,10 @@ export const RATE_LIMITS = {
   UPLOAD: { windowMs: 60 * 1000, max: 5 },
   API_GERAL: { windowMs: 60 * 1000, max: 100 },
   PDF_GENERATE: { windowMs: 60 * 1000, max: 10 },
+  // LGPD Art. 18 — solicitações de direitos do titular (3 por hora por IP)
+  DATA_RIGHTS: { windowMs: 60 * 60 * 1000, max: 3 },
+  // TOTP verification — 2FA endpoints
+  TOTP: { windowMs: 15 * 60 * 1000, max: 10 },
 } as const
 
 export const TOKEN_EXPIRY_DAYS = 7

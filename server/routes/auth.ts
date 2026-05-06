@@ -85,7 +85,23 @@ export const authRouter = router({
         userId = (result as ResultSetHeader).insertId
       }
 
+      // Fetch full user record to check 2FA status
+      const [freshUser] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
+      const requires2fa = freshUser?.totpEnabled && ['admin', 'medico'].includes(role)
+
       const secret = new TextEncoder().encode(env.JWT_SECRET)
+
+      if (requires2fa) {
+        // Issue a short-lived pending token — frontend must complete TOTP verification
+        const pendingToken = await new SignJWT({ type: 'pending_2fa', userId, role })
+          .setProtectedHeader({ alg: 'HS256' })
+          .setSubject(data.openId)
+          .setIssuedAt()
+          .setExpirationTime('5m')
+          .sign(secret)
+        return { token: pendingToken, role, requiresTwoFactor: true }
+      }
+
       const token = await new SignJWT({ type: 'staff', userId, role })
         .setProtectedHeader({ alg: 'HS256' })
         .setSubject(data.openId)
@@ -93,7 +109,7 @@ export const authRouter = router({
         .setExpirationTime(JWT_EXPIRY_STAFF)
         .sign(secret)
 
-      return { token, role }
+      return { token, role, requiresTwoFactor: false }
     }),
 
   // Login mock para desenvolvimento local. Responde NOT_FOUND em produção

@@ -10,6 +10,8 @@ import { consultaRouter } from './routes/consulta.ts'
 import { pesquisaRouter } from './routes/pesquisa.ts'
 import { configRouter } from './routes/config.ts'
 import { verificacaoRouter } from './routes/verificacao.ts'
+import { twoFactorRouter } from './routes/twoFactor.ts'
+import { meRouter } from './routes/me.ts'
 
 export const appRouter = router({
   auth: authRouter,
@@ -23,6 +25,8 @@ export const appRouter = router({
   pesquisa: pesquisaRouter,
   config: configRouter,
   verificacao: verificacaoRouter,
+  twoFactor: twoFactorRouter,
+  me: meRouter,
 })
 
 export type AppRouter = typeof appRouter
