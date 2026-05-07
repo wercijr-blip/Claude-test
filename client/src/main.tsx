@@ -12,13 +12,6 @@ const _sentryRelease = (import.meta.env.VITE_RELEASE as string | undefined)
   ?? (import.meta.env.VITE_GIT_SHA as string | undefined)
   ?? 'unknown'
 
-console.info('[Sentry] init check', {
-  hasDsn: !!_sentryDsn,
-  dsnPrefix: _sentryDsn ? _sentryDsn.slice(0, 30) : null,
-  environment: import.meta.env.MODE,
-  release: _sentryRelease,
-})
-
 if (_sentryDsn) {
   Sentry.init({
     dsn: _sentryDsn,
@@ -27,20 +20,16 @@ if (_sentryDsn) {
     integrations: [
       Sentry.browserTracingIntegration(),
       Sentry.replayIntegration({
-        // LGPD — mask all patient text and block media in session replays
         maskAllText: true,
         blockAllMedia: true,
       }),
     ],
     tracesSampleRate: import.meta.env.PROD ? 0.1 : 1.0,
-    replaysSessionSampleRate: 0,
-    replaysOnErrorSampleRate: 1.0,
+    replaysSessionSampleRate: 0,       // never record normal sessions
+    replaysOnErrorSampleRate: 1.0,     // always capture replay on errors
     sendDefaultPii: false,
     debug: !import.meta.env.PROD,
   })
-  console.info('[Sentry] initialized successfully')
-} else {
-  console.warn('[Sentry] VITE_SENTRY_DSN não definida — error reporting desabilitado')
 }
 
 function Root() {
