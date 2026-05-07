@@ -198,7 +198,10 @@ export async function enviarPrescricaoPronta(
           Têm validade jurídica e são aceitos em todo o território nacional.
         </p>
       </div>
-      <p style="color:#64748b;font-size:12px;">Guarde estes arquivos para seu controle. Em caso de dúvidas, entre em contato: <strong>(61) 4042-7188</strong></p>`,
+      <p style="color:#64748b;font-size:12px;">Guarde estes arquivos para seu controle. Em caso de dúvidas, entre em contato:<br>
+      📱 WhatsApp: <a href="https://wa.me/5561994018161" style="color:#1d4ed8;">(61) 99401-8161</a> &nbsp;|&nbsp;
+      📞 Fixo: (61) 4042-7188 &nbsp;|&nbsp;
+      ✉️ <a href="mailto:contato@facilitaprep.com.br" style="color:#1d4ed8;">contato@facilitaprep.com.br</a></p>`,
     ),
     attachments: anexos.map(a => ({ filename: a.filename, content: a.buffer })),
   })
@@ -365,7 +368,11 @@ export async function enviarExameRejeitadoMedico(
         <p style="color:#dc2626;margin:0;font-size:13px;"><strong>Orientação do médico:</strong> ${observacoes}</p>
       </div>
       <p style="color:#64748b;font-size:13px;">Para mais informações, entre em contato com a clínica:</p>
-      <p style="color:#64748b;font-size:13px;font-weight:600;">(61) 4042-7188</p>`,
+      <p style="color:#64748b;font-size:13px;">
+        📱 WhatsApp: <a href="https://wa.me/5561994018161" style="color:#1d4ed8;font-weight:600;">(61) 99401-8161</a><br>
+        📞 Fixo: <span style="font-weight:600;">(61) 4042-7188</span><br>
+        ✉️ <a href="mailto:contato@facilitaprep.com.br" style="color:#1d4ed8;">contato@facilitaprep.com.br</a>
+      </p>`,
     ),
   })
 }

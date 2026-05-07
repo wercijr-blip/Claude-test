@@ -738,7 +738,7 @@ export default function LandingPage({ variant }: { variant?: Variant }) {
 
       {/* ── WhatsApp flutuante ─────────────────────────────────────────── */}
       <a
-        href="https://wa.me/556140427188?text=Ol%C3%A1%2C%20gostaria%20de%20saber%20mais%20sobre%20a%20PrEP%20pelo%20Facilita%20PrEP"
+        href="https://wa.me/5561994018161?text=Ol%C3%A1%2C%20gostaria%20de%20saber%20mais%20sobre%20a%20PrEP%20pelo%20Facilita%20PrEP"
         target="_blank"
         rel="noopener noreferrer"
         onClick={() => trackWhatsApp('float_button')}

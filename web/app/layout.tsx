@@ -98,7 +98,7 @@ const SCHEMA_LD = {
       logo: `${DOMAIN}/favicon.svg`,
       image: `${DOMAIN}/og-image.png`,
       description: 'Plataforma de teleconsulta médica especializada em PrEP (Profilaxia Pré-Exposição ao HIV), com receita digital ICP-Brasil e acompanhamento médico online.',
-      telephone: '+55-61-4042-7188',
+      telephone: ['+55-61-99401-8161', '+55-61-4042-7188'],
       email: 'contato@facilitaprep.com.br',
       priceRange: '$$',
       address: {
