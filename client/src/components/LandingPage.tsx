@@ -403,8 +403,9 @@ export default function LandingPage() {
                   { label: 'Sigilo garantido', fp: '✅ Total', sus: '⚠️ Moderado', clinica: '⚠️ Moderado', fpBold: false },
                   { label: 'Disponibilidade', fp: 'Todo o Brasil', sus: 'Municípios selecionados', clinica: 'Grandes centros', fpBold: true },
                   { label: 'Sem deslocamento', fp: '✅ 100% online', sus: '❌ Presencial', clinica: '❌ Presencial', fpBold: false },
-                  { label: 'Custo', fp: 'R$ 150', sus: 'Gratuito*', clinica: 'R$ 300–600', fpBold: false },
+                  { label: 'Custo da consulta', fp: 'R$ 150', sus: 'Gratuito*', clinica: 'R$ 300–600', fpBold: false },
                   { label: 'Receita ICP-Brasil', fp: '✅ Digital válida', sus: 'Receita física', clinica: 'Receita física', fpBold: false },
+                  { label: 'Retirada do medicamento', fp: '✅ Farmácia SUS† ou particular', sus: 'UBS credenciada', clinica: 'Farmácia SUS† ou particular', fpBold: false },
                 ].map((row, i) => (
                   <tr key={i} className={i % 2 === 0 ? 'bg-fp-fog' : 'bg-white'}>
                     <td className="py-3.5 pr-4 font-medium text-fp-dark text-xs sm:text-sm">{row.label}</td>
@@ -418,9 +419,10 @@ export default function LandingPage() {
               </tbody>
             </table>
           </div>
-          <p className="text-fp-dark-soft text-xs mt-4 text-center">
-            *SUS gratuito, mas com tempo de espera variável e cobertura geográfica limitada. Dados estimados.
-          </p>
+          <div className="text-fp-dark-soft text-xs mt-4 text-center space-y-1">
+            <p>*SUS gratuito, mas com tempo de espera variável e cobertura geográfica limitada. Dados estimados.</p>
+            <p>†PrEP disponível gratuitamente nas farmácias do Componente Especializado (CEAF/SUS) mediante receita válida.</p>
+          </div>
         </div>
       </section>
 
