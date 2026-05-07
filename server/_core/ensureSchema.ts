@@ -12,6 +12,9 @@ const DDL_STATEMENTS = [
     nome VARCHAR(255),
     role VARCHAR(50) NOT NULL DEFAULT 'user',
     ativo TINYINT(1) NOT NULL DEFAULT 1,
+    totp_secret_encrypted TEXT,
+    totp_enabled TINYINT(1) NOT NULL DEFAULT 0,
+    totp_backup_codes JSON,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE INDEX idx_users_open_id (open_id),
@@ -326,6 +329,10 @@ const COLUMN_PATCHES: Record<string, Array<{ name: string; ddl: string }>> = {
     { name: 'nome', ddl: 'VARCHAR(255)' },
     { name: 'role', ddl: "VARCHAR(50) NOT NULL DEFAULT 'user'" },
     { name: 'ativo', ddl: 'TINYINT(1) NOT NULL DEFAULT 1' },
+    // TOTP 2FA — adicionado na Etapa 6.3, faltava em produção (causava 500 em auth.callback)
+    { name: 'totp_secret_encrypted', ddl: 'TEXT' },
+    { name: 'totp_enabled', ddl: 'TINYINT(1) NOT NULL DEFAULT 0' },
+    { name: 'totp_backup_codes', ddl: 'JSON' },
   ],
   security_events: [
     { name: 'user_id', ddl: 'INT' },
