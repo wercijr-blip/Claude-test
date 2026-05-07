@@ -261,7 +261,7 @@ export function desenharCabecalhoInstitucional(args: CabecalhoInstitucionalArgs)
   linhaDir(`CNPJ ${CLINICA_INFO.cnpj}`, 7)
   linhaDir(CLINICA_INFO.endereco, 7)
   linhaDir(`${CLINICA_INFO.bairroCidadeUf} · CEP ${CLINICA_INFO.cep}`, 7)
-  linhaDir(`${CLINICA_INFO.telefone} · ${CLINICA_INFO.email}`, 7)
+  linhaDir(`WhatsApp: ${CLINICA_INFO.whatsapp} · Fixo: ${CLINICA_INFO.telefone} · ${CLINICA_INFO.email}`, 7)
   linhaDir(`Resp. técnico: ${CLINICA_INFO.responsavelTecnico} · ${CLINICA_INFO.crmRt}`, 7, rgb(0.45, 0.36, 0.62), true)
 
   // ── Linha divisória ──

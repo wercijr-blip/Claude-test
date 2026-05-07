@@ -141,7 +141,7 @@ export async function gerarOrientacaoInicialPdf(dados: DadosOrientacaoInicial): 
 
   // ── Contato ──
   y = secao(page, fontBold, y, 'DÚVIDAS? FALE COM A GENTE')
-  page.drawText(`${CLINICA_INFO.nomeFantasia} · ${CLINICA_INFO.telefone} · ${CLINICA_INFO.email}`, {
+  page.drawText(`${CLINICA_INFO.nomeFantasia} · WhatsApp: ${CLINICA_INFO.whatsapp} · Fixo: ${CLINICA_INFO.telefone} · ${CLINICA_INFO.email}`, {
     x: MARGIN, y, font, size: 9, color: COR_TEXTO,
   })
   y -= 12
