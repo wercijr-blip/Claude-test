@@ -1,12 +1,11 @@
 import { useState } from 'react'
 import { trpc } from '../lib/trpc.ts'
-import { useAuth } from '../_core/hooks/useAuth.ts'
+import { LogoutButton } from './StaffHeader.tsx'
 import { Download } from 'lucide-react'
 
 type Tab = 'equipe' | 'pacientes' | 'auditoria' | 'certificado'
 
 export default function AuditDashboard() {
-  const { logout } = useAuth()
   const [tab, setTab] = useState<Tab>('equipe')
 
   // Equipe
@@ -60,17 +59,7 @@ export default function AuditDashboard() {
               ))}
             </div>
             <div className="w-px h-6 bg-slate-200" />
-            <button
-              data-event="logout"
-              onClick={() => { if (confirm('Deseja realmente sair?')) { logout(); window.location.href = '/' } }}
-              className="text-sm text-slate-600 hover:text-red-600 font-medium px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-1.5"
-              aria-label="Sair"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-              <span className="hidden sm:inline">Sair</span>
-            </button>
+            <LogoutButton />
           </div>
         </div>
       </header>
