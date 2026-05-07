@@ -69,6 +69,9 @@ export function applySecurityMiddleware(app: Express): void {
           ],
           connectSrc: [
             "'self'",
+            // Sentry error reporting (frontend SDK sends via fetch)
+            'https://*.ingest.sentry.io',
+            'https://*.sentry.io',
             // Stripe API
             'https://api.stripe.com',
             'https://*.stripe.com',
@@ -76,6 +79,11 @@ export function applySecurityMiddleware(app: Express): void {
             'https://www.google-analytics.com',
             // ViaCEP (address autocomplete)
             'https://viacep.com.br',
+          ],
+          // Sentry Replay uses Web Workers via blob: URLs
+          workerSrc: [
+            "'self'",
+            'blob:',
           ],
           // Stripe 3D Secure usa iframes hospedados em hooks.stripe.com e js.stripe.com
           frameSrc: [
