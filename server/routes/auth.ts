@@ -51,9 +51,14 @@ export const authRouter = router({
       })
 
       if (!tokenResp.ok) {
-        const errBody = await tokenResp.text().catch(() => '(unreadable)')
-        logger.error('[auth.callback] falha token exchange', { status: tokenResp.status, body: errBody })
-        throw new Error(`Falha ao obter token OAuth do Google (${tokenResp.status}): ${errBody}`)
+        const errBody = await tokenResp.json().catch(() => ({ error: 'unknown', error_description: '' })) as { error?: string; error_description?: string }
+        const googleError = errBody.error ?? 'unknown_error'
+        const description = errBody.error_description ?? ''
+        logger.error('[auth.callback] falha token exchange', { status: tokenResp.status, googleError, description })
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+          message: `Google OAuth: ${googleError}${description ? ` — ${description}` : ''}`,
+        })
       }
 
       const tokenData = (await tokenResp.json()) as { access_token: string }
@@ -66,7 +71,7 @@ export const authRouter = router({
 
       if (!userResp.ok) {
         logger.error('[auth.callback] falha userinfo', { status: userResp.status })
-        throw new Error(`Falha ao obter dados do usuário Google (${userResp.status})`)
+        throw new TRPCError({ code: 'UNAUTHORIZED', message: `Google userinfo falhou (${userResp.status})` })
       }
 
       const googleUser = (await userResp.json()) as {

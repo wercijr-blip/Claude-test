@@ -215,7 +215,7 @@ function AuthCallback() {
           <p className="text-slate-500 mb-4">
             {timedOut && !callbackMutation.isError
               ? 'O servidor demorou muito para responder. Tente novamente.'
-              : 'Não foi possível completar o login. Tente novamente.'}
+              : (callbackMutation.error?.message ?? 'Não foi possível completar o login. Tente novamente.')}
           </p>
           <button
             className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-medium hover:bg-blue-700 transition-colors"
