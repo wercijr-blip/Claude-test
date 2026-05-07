@@ -48,6 +48,19 @@ export function applySecurityMiddleware(app: Express): void {
             // Google Analytics and Tag Manager
             'https://www.googletagmanager.com',
             'https://www.google-analytics.com',
+            // Cloudflare Web Analytics (injected automatically by Cloudflare proxy)
+            'https://static.cloudflareinsights.com',
+          ],
+          // scriptSrcElem overrides scriptSrc for <script> elements in browsers that
+          // support it — list must mirror scriptSrc to avoid regression
+          scriptSrcElem: [
+            "'self'",
+            ...(env.NODE_ENV === 'development' ? ["'unsafe-inline'"] : []),
+            'https://js.stripe.com',
+            'https://checkout.stripe.com',
+            'https://www.googletagmanager.com',
+            'https://www.google-analytics.com',
+            'https://static.cloudflareinsights.com',
           ],
           // React inline style={{}} attributes require 'unsafe-inline' for style-src
           styleSrc: [
@@ -79,6 +92,8 @@ export function applySecurityMiddleware(app: Express): void {
             'https://www.google-analytics.com',
             // ViaCEP (address autocomplete)
             'https://viacep.com.br',
+            // Cloudflare Web Analytics beacon data endpoint
+            'https://cloudflareinsights.com',
           ],
           // Sentry Replay uses Web Workers via blob: URLs
           workerSrc: [
