@@ -7,8 +7,6 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 }
 
-const LAST_UPDATED = '2025-05-01'
-
 export default function PoliticaPrivacidadePage() {
   return (
     <main className="max-w-3xl mx-auto px-4 py-12 font-body text-slate-800">
@@ -20,7 +18,7 @@ export default function PoliticaPrivacidadePage() {
         Política de Privacidade
       </h1>
       <p className="text-sm text-slate-500 mb-8">
-        Última atualização: {new Date(LAST_UPDATED).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+        Última atualização: {new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}
       </p>
 
       <section className="prose prose-slate max-w-none space-y-6 text-sm leading-relaxed">
@@ -104,7 +102,7 @@ export default function PoliticaPrivacidadePage() {
           <p>Seus dados <strong>não são vendidos ou compartilhados</strong> com terceiros para fins comerciais. Compartilhamos apenas com:</p>
           <ul className="list-disc pl-5 space-y-1 mt-2">
             <li><strong>AWS S3</strong> — armazenamento seguro de exames e documentos</li>
-            <li><strong>TiDB Cloud</strong> — banco de dados gerenciado (região sa-east-1)</li>
+            <li><strong>TiDB Cloud (PingCAP)</strong> — banco de dados gerenciado, hospedado em Frankfurt (Alemanha, UE)</li>
             <li><strong>FocusNFe</strong> — emissão de nota fiscal de serviço (NFS-e)</li>
             <li><strong>Stripe</strong> — processamento de pagamentos</li>
             <li>Autoridades competentes quando exigido por lei</li>
@@ -157,7 +155,31 @@ export default function PoliticaPrivacidadePage() {
         </div>
 
         <div>
-          <h2 className="text-lg font-semibold text-fp-dark mb-2">11. Contato e reclamações</h2>
+          <h2 className="text-lg font-semibold text-fp-dark mb-2">11. Transferência internacional de dados</h2>
+          <p>
+            Alguns dados pessoais e dados de saúde são processados em servidores localizados fora do Brasil.
+            Especificamente:
+          </p>
+          <ul className="list-disc pl-5 space-y-1 mt-2">
+            <li>
+              <strong>União Europeia — Frankfurt, Alemanha:</strong> banco de dados principal no provedor
+              TiDB Cloud (PingCAP), operado na região <code>eu-central-1</code> da AWS. Sujeito ao GDPR e
+              com certificação ISO 27001.
+            </li>
+            <li>
+              <strong>Estados Unidos:</strong> Stripe (processamento de pagamentos), Sentry (monitoramento
+              de erros e rastreamento de desempenho), AWS S3 (armazenamento de exames e documentos).
+            </li>
+          </ul>
+          <p className="mt-3">
+            As transferências ocorrem com base no Art. 33, II (&quot;execução de contrato&quot;) e
+            Art. 33, IV (&quot;salvaguardas adequadas&quot;) da LGPD. Os provedores adotam cláusulas
+            contratuais padrão e certificações reconhecidas internacionalmente para proteção de dados.
+          </p>
+        </div>
+
+        <div>
+          <h2 className="text-lg font-semibold text-fp-dark mb-2">12. Contato e reclamações</h2>
           <p>
             Em caso de dúvidas ou reclamações, você pode contatar nosso DPO ou registrar uma queixa na
             Autoridade Nacional de Proteção de Dados (ANPD) em{' '}

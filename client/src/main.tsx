@@ -7,23 +7,41 @@ import { useAuth } from './_core/hooks/useAuth.ts'
 import App from './App.tsx'
 import './index.css'
 
-Sentry.init({
-  dsn: import.meta.env.VITE_SENTRY_DSN
-    ?? 'https://f4f68f71e452d5211be7c6861c0a0a00@o4511343385444352.ingest.us.sentry.io/4511343524118528',
+const _sentryDsn = import.meta.env.VITE_SENTRY_DSN as string | undefined
+const _sentryRelease = (import.meta.env.VITE_RELEASE as string | undefined)
+  ?? (import.meta.env.VITE_GIT_SHA as string | undefined)
+  ?? 'unknown'
+
+console.info('[Sentry] init check', {
+  hasDsn: !!_sentryDsn,
+  dsnPrefix: _sentryDsn ? _sentryDsn.slice(0, 30) : null,
   environment: import.meta.env.MODE,
-  integrations: [
-    Sentry.browserTracingIntegration(),
-    Sentry.replayIntegration({
-      // LGPD — mask all patient text and block media in session replays
-      maskAllText: true,
-      blockAllMedia: true,
-    }),
-  ],
-  tracesSampleRate: import.meta.env.DEV ? 0 : 0.05,
-  replaysSessionSampleRate: 0.01,
-  replaysOnErrorSampleRate: 0.5,
-  sendDefaultPii: false,
+  release: _sentryRelease,
 })
+
+if (_sentryDsn) {
+  Sentry.init({
+    dsn: _sentryDsn,
+    environment: import.meta.env.MODE,
+    release: _sentryRelease,
+    integrations: [
+      Sentry.browserTracingIntegration(),
+      Sentry.replayIntegration({
+        // LGPD — mask all patient text and block media in session replays
+        maskAllText: true,
+        blockAllMedia: true,
+      }),
+    ],
+    tracesSampleRate: import.meta.env.PROD ? 0.1 : 1.0,
+    replaysSessionSampleRate: 0,
+    replaysOnErrorSampleRate: 1.0,
+    sendDefaultPii: false,
+    debug: !import.meta.env.PROD,
+  })
+  console.info('[Sentry] initialized successfully')
+} else {
+  console.warn('[Sentry] VITE_SENTRY_DSN não definida — error reporting desabilitado')
+}
 
 function Root() {
   const { getToken } = useAuth()
