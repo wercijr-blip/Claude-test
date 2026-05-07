@@ -180,6 +180,28 @@ app.get('/api/health', async (_req, res) => {
   })
 })
 
+// Version info — confirma que o deploy realmente subiu mudanças novas
+app.get('/api/health/version', (_req, res) => {
+  res.json({
+    commit: (process.env.RAILWAY_GIT_COMMIT_SHA ?? 'dev').slice(0, 7),
+    branch: process.env.RAILWAY_GIT_BRANCH ?? 'local',
+    builtAt: process.env.BUILD_TIMESTAMP ?? 'unknown',
+    nodeVersion: process.version,
+    env: process.env.NODE_ENV,
+  })
+})
+
+// Observability — confirma que Sentry está configurado no servidor
+app.get('/api/health/observability', (_req, res) => {
+  res.json({
+    sentry_server_configured: !!process.env.SENTRY_DSN_SERVER,
+    sentry_server_dsn_prefix: process.env.SENTRY_DSN_SERVER?.slice(0, 25) ?? null,
+    node_env: process.env.NODE_ENV,
+    release: process.env.RAILWAY_GIT_COMMIT_SHA ?? 'unknown',
+    timestamp: new Date().toISOString(),
+  })
+})
+
 // Upload de exames (lazy import para evitar carregar S3 client no boot)
 app.post('/api/upload', uploadLimiter, async (req, res) => {
   const { uploadExame } = await import('../storage.ts')

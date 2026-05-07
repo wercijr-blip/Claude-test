@@ -1,7 +1,7 @@
 import { Link } from 'wouter'
 import FooterCfm from './FooterCfm.tsx'
 
-const LAST_UPDATED = '6 de maio de 2025'
+const LAST_UPDATED = '7 de maio de 2026'
 
 export default function TermosPage() {
   return (
