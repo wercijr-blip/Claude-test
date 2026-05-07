@@ -1,7 +1,7 @@
 import { Link } from 'wouter'
 import FooterCfm from './FooterCfm.tsx'
 
-const LAST_UPDATED = '7 de maio de 2026'
+const LAST_UPDATED = new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })
 
 export default function PrivacidadePage() {
   return (
@@ -57,17 +57,15 @@ export default function PrivacidadePage() {
           <section>
             <h2 className="text-lg font-semibold text-fp-dark mb-2">5. Compartilhamento com terceiros</h2>
             <ul className="list-disc pl-5 space-y-1">
-              <li><strong>Stripe</strong> — processamento de pagamento (transferência internacional com salvaguardas).</li>
+              <li><strong>TiDB Cloud (PingCAP)</strong> — banco de dados gerenciado, hospedado em Frankfurt (Alemanha, UE).</li>
+              <li><strong>Stripe</strong> — processamento de pagamento (EUA).</li>
               <li><strong>FocusNFe</strong> — emissão de nota fiscal eletrônica.</li>
-              <li><strong>AWS S3</strong> — armazenamento criptografado de exames e documentos.</li>
+              <li><strong>AWS S3</strong> — armazenamento criptografado de exames e documentos (EUA).</li>
               <li><strong>Z-API</strong> — envio de mensagens WhatsApp.</li>
               <li><strong>Resend</strong> — e-mails transacionais.</li>
-              <li><strong>Sentry</strong> — monitoramento de erros (sem PII).</li>
+              <li><strong>Sentry</strong> — monitoramento de erros, sem PII (EUA).</li>
               <li><strong>Cloudflare</strong> — CDN, segurança e e-mail.</li>
             </ul>
-            <p className="mt-2 text-slate-500 text-xs">
-              TODO: revisar lista completa de operadores com jurídico antes da versão final.
-            </p>
           </section>
 
           <section>
@@ -116,7 +114,38 @@ export default function PrivacidadePage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-fp-dark mb-2">10. Contato</h2>
+            <h2 className="text-lg font-semibold text-fp-dark mb-2">10. Alterações desta política</h2>
+            <p>
+              Esta política pode ser atualizada periodicamente. Notificaremos mudanças significativas
+              por e-mail ou aviso no portal. A data de última atualização está indicada no topo desta página.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-fp-dark mb-2">11. Transferência internacional de dados</h2>
+            <p className="mb-2">
+              Alguns dados pessoais e de saúde são processados em servidores fora do Brasil:
+            </p>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>
+                <strong>União Europeia — Frankfurt, Alemanha:</strong> banco de dados principal no
+                provedor TiDB Cloud (PingCAP), região <code className="text-xs bg-slate-100 px-1 rounded">eu-central-1</code> da AWS.
+                Sujeito ao GDPR e com certificação ISO 27001.
+              </li>
+              <li>
+                <strong>Estados Unidos:</strong> Stripe (pagamentos), Sentry (monitoramento de erros),
+                AWS S3 (armazenamento de exames e documentos).
+              </li>
+            </ul>
+            <p className="mt-3 text-slate-600">
+              As transferências ocorrem com base no Art. 33, II ("execução de contrato") e
+              Art. 33, IV ("salvaguardas adequadas") da LGPD. Os provedores adotam cláusulas
+              contratuais padrão e certificações reconhecidas internacionalmente.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-fp-dark mb-2">12. Contato</h2>
             <p>
               DPO: <a href="mailto:dpo@facilitaprep.com.br" className="text-fp-accent hover:underline">dpo@facilitaprep.com.br</a><br />
               Geral: <a href="mailto:contato@facilitaprep.com.br" className="text-fp-accent hover:underline">contato@facilitaprep.com.br</a><br />
