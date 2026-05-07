@@ -72,9 +72,12 @@ if (env.NODE_ENV === 'production') {
   for (const route of marketingRoutes) {
     if (route === '/robots.txt' || route === '/sitemap.xml') {
       app.get(route, (_req, res) => {
-        const filePath = path.join(webOut, route)
-        if (fs.existsSync(filePath)) {
-          res.sendFile(filePath)
+        const webFilePath = path.join(webOut, route)
+        const clientFilePath = path.join(clientDist, route.slice(1))
+        if (fs.existsSync(webFilePath)) {
+          res.sendFile(webFilePath)
+        } else if (fs.existsSync(clientFilePath)) {
+          res.sendFile(clientFilePath)
         } else {
           res.status(404).end()
         }
