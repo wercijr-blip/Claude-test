@@ -25,5 +25,13 @@ export default defineConfig({
   build: {
     outDir: '../dist/client',
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom'],
+          'sentry-vendor': ['@sentry/react'],
+        },
+      },
+    },
   },
 })
