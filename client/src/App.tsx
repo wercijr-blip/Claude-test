@@ -155,8 +155,15 @@ function AuthCallback() {
   const [, navigate] = useLocation()
   const [timedOut, setTimedOut] = useState(false)
 
-  const params = new URLSearchParams(window.location.search)
-  const code = params.get('code') ?? ''
+  // Read code once from URL, then immediately clear it from the address bar so
+  // a page-refresh cannot replay the same code (Google rejects reused codes with
+  // invalid_grant). useState lazy initializer runs only on first mount.
+  const [code] = useState(() => {
+    const p = new URLSearchParams(window.location.search)
+    const c = p.get('code') ?? ''
+    if (c) window.history.replaceState({}, '', '/auth/callback')
+    return c
+  })
 
   const hasAttempted = useRef(false)
 
@@ -178,12 +185,16 @@ function AuthCallback() {
   })
 
   useEffect(() => {
-    if (code && !hasAttempted.current) {
-      hasAttempted.current = true
-      callbackMutation.mutate({ code, redirectUri: `${window.location.origin}/auth/callback` })
-    }
+    if (!code) return
+    // Guard against React StrictMode double-invoke and page refreshes after the
+    // code has already been consumed.
+    const storageKey = `oauth_code_used:${code}`
+    if (hasAttempted.current || sessionStorage.getItem(storageKey)) return
+    hasAttempted.current = true
+    sessionStorage.setItem(storageKey, '1')
+    callbackMutation.mutate({ code, redirectUri: `${window.location.origin}/auth/callback` })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code])
+  }, [])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -201,18 +212,14 @@ function AuthCallback() {
           <p className="text-slate-500 mb-4">
             {timedOut && !callbackMutation.isError
               ? 'O servidor demorou muito para responder. Tente novamente.'
-              : 'Não foi possível completar o login. Tente novamente.'}
+              : (callbackMutation.error?.message ?? 'Não foi possível completar o login. Tente novamente.')}
           </p>
-          <button
-            className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-medium hover:bg-blue-700 transition-colors"
-            onClick={() => {
-              setTimedOut(false)
-              hasAttempted.current = false
-              callbackMutation.mutate({ code, redirectUri: `${window.location.origin}/auth/callback` })
-            }}
+          <a
+            href="/login"
+            className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-medium hover:bg-blue-700 transition-colors inline-block"
           >
             Tentar novamente
-          </button>
+          </a>
         </div>
       </div>
     )
