@@ -150,7 +150,8 @@ export default function PrivacidadePage() {
               DPO: <a href="mailto:dpo@facilitaprep.com.br" className="text-fp-accent hover:underline">dpo@facilitaprep.com.br</a><br />
               Geral: <a href="mailto:contato@facilitaprep.com.br" className="text-fp-accent hover:underline">contato@facilitaprep.com.br</a><br />
               Suporte: <a href="mailto:suporte@facilitaprep.com.br" className="text-fp-accent hover:underline">suporte@facilitaprep.com.br</a><br />
-              Telefone: (61) 4042-7188
+              WhatsApp: <a href="https://wa.me/5561994018161" className="text-fp-accent hover:underline">(61) 99401-8161</a><br />
+              Telefone fixo: (61) 4042-7188
             </p>
           </section>
         </div>

@@ -677,7 +677,7 @@ export default function LandingPage() {
 
       {/* ── WhatsApp flutuante ─────────────────────────────────────────── */}
       <a
-        href="https://wa.me/556140427188?text=Ol%C3%A1%2C%20gostaria%20de%20saber%20mais%20sobre%20a%20PrEP%20pelo%20Facilita%20PrEP"
+        href="https://wa.me/5561994018161?text=Ol%C3%A1%2C%20gostaria%20de%20saber%20mais%20sobre%20a%20PrEP%20pelo%20Facilita%20PrEP"
         target="_blank"
         rel="noopener noreferrer"
         className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-[#25D366] hover:bg-[#20c05a] rounded-full shadow-xl flex items-center justify-center transition-all hover:scale-110 active:scale-95"
