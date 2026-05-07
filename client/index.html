@@ -78,12 +78,18 @@
     }
     </script>
 
-    <!-- Preconnect to external domains for faster resource loading -->
-    <link rel="preconnect" href="https://www.googletagmanager.com" />
-    <link rel="preconnect" href="https://www.google-analytics.com" />
+    <!-- Preconnect: critical third-party origins needed during LCP -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="preconnect" href="https://js.stripe.com" />
-    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+    <!-- DNS-prefetch: non-critical origins (GTM deferred, Sentry, analytics) -->
+    <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+    <link rel="dns-prefetch" href="https://www.google-analytics.com" />
     <link rel="dns-prefetch" href="https://connect.facebook.net" />
+    <link rel="dns-prefetch" href="https://o4511343385444352.ingest.us.sentry.io" />
+    <link rel="dns-prefetch" href="https://static.cloudflareinsights.com" />
+    <!-- Google Fonts with display=swap to prevent FOIT -->
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
 
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   </head>
