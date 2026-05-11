@@ -35,7 +35,7 @@ if (_sentryDsn) {
 function Root() {
   const { getToken } = useAuth()
   const [queryClient] = useState(() => new QueryClient({
-    defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
+    defaultOptions: { queries: { retry: (failureCount, error: any) => error?.data?.httpStatus !== 401 && failureCount < 1, staleTime: 30_000 } },
   }))
   const [trpcClient] = useState(() => createTrpcClient(getToken))
 
