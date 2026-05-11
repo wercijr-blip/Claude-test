@@ -417,14 +417,16 @@ export const consultaRouter = router({
         })
         .where(eq(consultasInicio.id, consulta.id))
 
-      const linkAprovacao = await _gerarLinkAprovacao(info.precadastroId, 'uploadExame')
+      const { link: linkAprovacao, codigo: codigoAprovacao } = await _gerarLinkAprovacao(info.precadastroId, 'uploadExame')
 
-      if (info.email) {
-        await enviarExameAprovadoIa(info.email, info.nome, linkAprovacao).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
+      if (info.email && codigoAprovacao) {
+        await enviarExameAprovadoIa(info.email, info.nome, linkAprovacao, codigoAprovacao).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
       }
       if (info.telefone) {
-        const msg = `Olá ${info.nome}, seu exame foi aprovado! Acesse o link para continuar: ${linkAprovacao}`
-        await enviarWhatsApp(info.telefone, msg).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
+        const waMsg = codigoAprovacao
+          ? `Olá ${info.nome}, seu exame foi aprovado! Acesse o link para continuar: ${linkAprovacao}\n\nOu cole o código no site: ${codigoAprovacao}`
+          : `Olá ${info.nome}, seu exame foi aprovado! Acesse: ${linkAprovacao}`
+        await enviarWhatsApp(info.telefone, waMsg).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
       }
 
       return { status: 'aprovado_ia' as const }
@@ -628,9 +630,14 @@ export const consultaRouter = router({
         const info = await getInfoPaciente(consulta.tokenId)
 
         if (input.acao === 'aprovar') {
-          const linkAprovacao = await _gerarLinkAprovacao(info.precadastroId, 'medico.revisar')
-          if (info.email) await enviarExameAprovadoIa(info.email, info.nome, linkAprovacao).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
-          if (info.telefone) await enviarWhatsApp(info.telefone, `Olá ${info.nome}, seu exame foi aprovado pelo médico! Acesse o link para continuar: ${linkAprovacao}`).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
+          const { link: linkAprovacao, codigo: codigoAprovacao } = await _gerarLinkAprovacao(info.precadastroId, 'medico.revisar')
+          if (info.email && codigoAprovacao) await enviarExameAprovadoIa(info.email, info.nome, linkAprovacao, codigoAprovacao).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
+          if (info.telefone) {
+            const waMsg = codigoAprovacao
+              ? `Olá ${info.nome}, seu exame foi aprovado pelo médico! Acesse o link para continuar: ${linkAprovacao}\n\nOu cole o código no site: ${codigoAprovacao}`
+              : `Olá ${info.nome}, seu exame foi aprovado pelo médico! Acesse: ${linkAprovacao}`
+            await enviarWhatsApp(info.telefone, waMsg).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
+          }
         } else if (isReenvio) {
           if (info.email) await enviarSolicitacaoReenvio(info.email, info.nome, input.observacoes, env.APP_URL).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
           if (info.telefone) await enviarWhatsApp(info.telefone, `Olá ${info.nome}, nosso médico solicita um novo exame. Motivo: ${input.observacoes}. Acesse: ${env.APP_URL}/inicio`).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
@@ -645,20 +652,20 @@ export const consultaRouter = router({
 })
 
 // ── Helper: gera link autenticado para continuação após aprovação ─────────────
-// Falls back to /inicio if precadastroId is null (secretaria-created tokens without precadastro).
-async function _gerarLinkAprovacao(precadastroId: number | null, route: string): Promise<string> {
-  if (!precadastroId) return `${env.APP_URL}/inicio`
+// Falls back to /inicio (no codigo) if precadastroId is null (secretaria-created tokens without precadastro).
+async function _gerarLinkAprovacao(precadastroId: number | null, route: string): Promise<{ link: string; codigo: string | null }> {
+  if (!precadastroId) return { link: `${env.APP_URL}/inicio`, codigo: null }
   try {
-    const { link } = await gerarLinkDeAcesso(precadastroId)
-    if (!link) throw new Error('link vazio retornado por gerarLinkDeAcesso')
-    return link
+    const { link, raw } = await gerarLinkDeAcesso(precadastroId)
+    if (!link || !raw) throw new Error('link ou codigo vazio retornado por gerarLinkDeAcesso')
+    return { link, codigo: raw }
   } catch (err) {
     Sentry.captureException(err, {
       tags: { route, stage: 'gerar-link-aprovacao' },
       extra: { precadastroId },
     })
     logger.error('[consulta] falha ao gerar link de aprovação', { precadastroId, error: String(err) })
-    return `${env.APP_URL}/inicio`
+    return { link: `${env.APP_URL}/inicio`, codigo: null }
   }
 }
 
