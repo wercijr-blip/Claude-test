@@ -17,6 +17,7 @@ export const ERROR_MESSAGES = {
   UNAUTHORIZED: 'Não autorizado. Faça login para continuar.',
   FORBIDDEN: 'Acesso negado. Você não tem permissão para esta ação.',
   TOKEN_INVALID: 'Link inválido ou expirado.',
+  TOKEN_EXPIRED: 'LINK_EXPIRED',
   TOKEN_USED: 'Este link já foi utilizado.',
   TOKEN_REVOKED: 'Este link foi revogado.',
   CPF_INVALID: 'CPF inválido.',

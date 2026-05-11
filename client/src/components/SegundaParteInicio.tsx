@@ -109,27 +109,32 @@ export default function SegundaParteInicio() {
   const { setToken } = useAuth()
   const [isValidating, setIsValidating] = useState(!!codigoFromUrl)
   const [validationError, setValidationError] = useState<string | null>(null)
-  const validarCodigo = trpc.token.validar.useMutation({
+  const validarCodigo = trpc.token.validarEDecidirFase.useMutation({
     onSuccess: (data) => {
       setToken(data.sessionToken)
       setIsValidating(false)
+      if (data.proximaFase !== '/inicio') {
+        navigate(data.proximaFase)
+      }
     },
     onError: (err) => {
       setToken(null)
-      const raw = (err.message ?? '').toLowerCase()
-      const mensagem = raw.includes('expir')
-        ? 'Este link de acesso expirou. Solicite um novo acesso.'
-        : raw.includes('not found') || raw.includes('não encontrado')
+      if (err.message === 'LINK_EXPIRED') {
+        setValidationError('LINK_EXPIRED')
+      } else {
+        const raw = (err.message ?? '').toLowerCase()
+        const mensagem = raw.includes('not found') || raw.includes('não encontrado')
           ? 'Não encontramos esse link. Verifique se está completo ou solicite um novo acesso.'
           : raw.includes('already used') || raw.includes('já utilizado')
             ? 'Este link já foi utilizado. Solicite um novo acesso.'
-            : 'O link de acesso parece inválido ou expirou. Por favor, solicite um novo acesso.'
-      setValidationError(mensagem)
+            : 'O link de acesso parece inválido. Por favor, verifique o código recebido por e-mail.'
+        setValidationError(mensagem)
+        Sentry.captureException(err, {
+          tags: { route: 'inicio', stage: 'token-validar' },
+          extra: { friendlyMessage: mensagem },
+        })
+      }
       setIsValidating(false)
-      Sentry.captureException(err, {
-        tags: { route: 'inicio', stage: 'token-validar' },
-        extra: { friendlyMessage: mensagem },
-      })
     },
   })
   const hasValidated = useRef(false)
@@ -237,6 +242,40 @@ export default function SegundaParteInicio() {
 
   // ── Código inválido ou expirado ────────────────────────────────
   if (validationError) {
+    if (validationError === 'LINK_EXPIRED') {
+      return (
+        <PageShell>
+          <div className="bg-white rounded-3xl shadow-xl border border-slate-100 p-10 text-center">
+            <div className="w-14 h-14 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h2 className="text-xl font-bold text-slate-800 mb-2">Link Expirado</h2>
+            <p className="text-slate-600 text-sm mb-2">
+              Este link tem validade de <strong>7 dias</strong> devido à validade dos exames.
+            </p>
+            <p className="text-slate-600 text-sm mb-6">
+              Para reiniciar seu atendimento, será necessário realizar um novo pagamento.
+            </p>
+            <a
+              href="/cadastro"
+              className="inline-block w-full bg-brand text-white py-3 rounded-2xl font-semibold hover:bg-brand-dark transition-all text-sm"
+            >
+              Iniciar novo atendimento
+            </a>
+            <p className="text-slate-400 text-xs mt-4">
+              Dúvidas?{' '}
+              <a href="mailto:contato@facilitaprep.com.br" className="text-brand hover:underline">
+                contato@facilitaprep.com.br
+              </a>{' '}
+              ou WhatsApp (61) 99401-8161
+            </p>
+          </div>
+        </PageShell>
+      )
+    }
+
     return (
       <PageShell>
         <div className="bg-white rounded-3xl shadow-xl border border-slate-100 p-10 text-center">
