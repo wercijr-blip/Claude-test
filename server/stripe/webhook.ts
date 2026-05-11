@@ -9,6 +9,7 @@ import { gerarEEnviarLinkAcesso } from '../routes/intake.ts'
 import { emitirNfse } from '../focusnfe.ts'
 import { VALOR_CONSULTA_CENTAVOS } from '../../shared/const.ts'
 import { logger } from '../_core/logger.ts'
+import { Sentry } from '../_core/instrument.ts'
 
 function log(level: 'INFO' | 'WARN' | 'ERROR', message: string, context?: unknown): void {
   const msg = `[webhook] ${message}`
@@ -85,6 +86,10 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
     log('ERROR', `Unhandled exception processing event ${event.id}: ${error.message}`, {
       eventType: event.type,
       stack: error.stack,
+    })
+    Sentry.captureException(err, {
+      tags: { route: 'stripe-webhook', stage: 'processing' },
+      extra: { eventType: event.type, eventId: event.id },
     })
     res.status(500).json({ error: 'Erro interno ao processar webhook' })
     return
