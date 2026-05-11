@@ -8,6 +8,8 @@ import type { Role } from '../../shared/types.ts'
 import { decrypt } from '../_core/encryption.ts'
 import { filtrarExamePorStatus } from '../examUtils.ts'
 import { inspecionarCertificado } from '../pdfSigner.ts'
+import { stripe } from '../stripe/products.ts'
+import { gerarEEnviarLinkAcesso } from './intake.ts'
 
 type ResultadoIaJson = {
   status?: string
@@ -258,6 +260,32 @@ export const adminRouter = router({
   saudeCertificado: adminProcedure.query(async () => {
     return inspecionarCertificado()
   }),
+
+  // ── Recuperação de pagamentos órfãos ─────────────────────────
+  // Re-processa um checkout.session.completed perdido por falha no webhook.
+  // Cola o session_id do Stripe Dashboard e reenvia o link de acesso.
+  recuperarPagamento: adminProcedure
+    .input(z.object({ sessionId: z.string().min(10) }))
+    .mutation(async ({ input }) => {
+      let session: Awaited<ReturnType<typeof stripe.checkout.sessions.retrieve>>
+      try {
+        session = await stripe.checkout.sessions.retrieve(input.sessionId)
+      } catch {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Sessão não encontrada no Stripe.' })
+      }
+      if (session.payment_status !== 'paid') {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Pagamento não confirmado (status: ${session.payment_status}).`,
+        })
+      }
+      const rawId = (session.metadata as Record<string, string> | null)?.precadastroId
+      if (!rawId) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Sessão sem precadastroId na metadata do Stripe.' })
+      }
+      await gerarEEnviarLinkAcesso(parseInt(rawId, 10))
+      return { ok: true, precadastroId: parseInt(rawId, 10) }
+    }),
 
   // Exportar auditoria como CSV (retorna string CSV)
   exportarAuditoria: adminProcedure.query(async () => {
