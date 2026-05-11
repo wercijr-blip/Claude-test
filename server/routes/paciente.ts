@@ -12,6 +12,9 @@ import { env } from '../_core/env.ts'
 import { JWT_EXPIRY_PATIENT } from '../../shared/security-constants.ts'
 import { getPresignedUrl } from '../storage.ts'
 import { enqueueGerarPdf } from '../pdfQueue.ts'
+import { enviarCadastroRecebidoExames } from '../email.ts'
+import { gerarLinkDeAcesso } from './intake.ts'
+import * as Sentry from '@sentry/node'
 import type { ResultSetHeader } from 'mysql2'
 
 async function emitirJwtPaciente(tokenId: number, pacienteId: number): Promise<string> {
@@ -169,6 +172,24 @@ export const pacienteRouter = router({
           .where(eq(pacientes.id, newPacienteId))
       }
       const newSessionToken = await emitirJwtPaciente(tokenId, newPacienteId)
+
+      // Email 2 — "Cadastro recebido + pedido de exames" — fired once on first creation.
+      // Fire-and-forget: failure doesn't block the patient from continuing.
+      ;(async () => {
+        try {
+          const [precad] = await db
+            .select({ id: precadastros.id, emailEncrypted: precadastros.emailEncrypted })
+            .from(precadastros)
+            .where(eq(precadastros.accessTokenId, tokenId))
+            .limit(1)
+          if (!precad) return
+          const { link, expiresAt, raw } = await gerarLinkDeAcesso(precad.id)
+          await enviarCadastroRecebidoExames(decrypt(precad.emailEncrypted), input.nome, link, expiresAt, raw)
+        } catch (err) {
+          Sentry.captureException(err, { tags: { route: 'salvarStep1', stage: 'email2' } })
+        }
+      })()
+
       return { pacienteId: newPacienteId, newSessionToken }
     }),
 

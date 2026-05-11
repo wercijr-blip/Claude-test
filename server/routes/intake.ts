@@ -13,6 +13,7 @@ import { getPresignedUrl } from '../storage.ts'
 import { env } from '../_core/env.ts'
 import { TOKEN_EXPIRY_DAYS } from '../../shared/security-constants.ts'
 import { enqueueEnviarLinkAcesso } from '../pdfQueue.ts'
+import type { PagamentoMeta } from '../email.ts'
 import { ERROR_MESSAGES, HORARIO_ATENDIMENTO } from '../../shared/const.ts'
 import { logger } from '../_core/logger.ts'
 
@@ -29,6 +30,7 @@ function isDentroHorarioAtendimento(): boolean {
 export async function gerarEEnviarLinkAcesso(
   precadastroId: number,
   validadoPorId?: number,
+  pagamento?: PagamentoMeta,
 ): Promise<{ raw: string }> {
   const [precad] = await db.select().from(precadastros).where(eq(precadastros.id, precadastroId)).limit(1)
   if (!precad) throw new Error(`Pré-cadastro ${precadastroId} não encontrado`)
@@ -94,7 +96,7 @@ export async function gerarEEnviarLinkAcesso(
 
   logger.info('[intake] enfileirando link de acesso', { precadastroId, linkSuffix: raw.slice(-6) })
 
-  await enqueueEnviarLinkAcesso(emailDecrypted, nomeDecrypted, telefoneDecrypted, link, expiresAt, raw)
+  await enqueueEnviarLinkAcesso(emailDecrypted, nomeDecrypted, telefoneDecrypted, link, expiresAt, raw, pagamento)
 
   return { raw }
 }
@@ -102,7 +104,7 @@ export async function gerarEEnviarLinkAcesso(
 // Regenerates the access token hash for an existing precadastro and returns the new
 // authenticated link. Does NOT send any notifications — callers handle that.
 // Used after exam approval to embed a fresh authenticated link in the approval email/WA.
-export async function gerarLinkDeAcesso(precadastroId: number): Promise<{ raw: string; link: string }> {
+export async function gerarLinkDeAcesso(precadastroId: number): Promise<{ raw: string; link: string; expiresAt: Date }> {
   const [precad] = await db
     .select({ accessTokenId: precadastros.accessTokenId })
     .from(precadastros)
@@ -111,6 +113,12 @@ export async function gerarLinkDeAcesso(precadastroId: number): Promise<{ raw: s
 
   if (!precad) throw new Error(`Pré-cadastro ${precadastroId} não encontrado`)
   if (!precad.accessTokenId) throw new Error(`Pré-cadastro ${precadastroId} sem token de acesso vinculado`)
+
+  const [token] = await db
+    .select({ expiresAt: accessTokens.expiresAt })
+    .from(accessTokens)
+    .where(eq(accessTokens.id, precad.accessTokenId))
+    .limit(1)
 
   const raw = generateToken()
   if (!raw) throw new Error(`gerarLinkDeAcesso: generateToken retornou vazio para precadastro ${precadastroId}`)
@@ -121,7 +129,7 @@ export async function gerarLinkDeAcesso(precadastroId: number): Promise<{ raw: s
 
   const link = `${env.APP_URL}/acesso/${raw}`
   logger.info('[intake] link de aprovação gerado', { precadastroId, linkSuffix: raw.slice(-6) })
-  return { raw, link }
+  return { raw, link, expiresAt: token?.expiresAt ?? new Date() }
 }
 
 export const intakeRouter = router({
