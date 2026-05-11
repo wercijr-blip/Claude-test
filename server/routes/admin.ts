@@ -8,6 +8,10 @@ import type { Role } from '../../shared/types.ts'
 import { decrypt } from '../_core/encryption.ts'
 import { filtrarExamePorStatus } from '../examUtils.ts'
 import { inspecionarCertificado } from '../pdfSigner.ts'
+import { stripe } from '../stripe/products.ts'
+import { gerarEEnviarLinkAcesso } from './intake.ts'
+import { env } from '../_core/env.ts'
+import { linkAcessoQueue } from '../pdfQueue.ts'
 
 type ResultadoIaJson = {
   status?: string
@@ -259,6 +263,32 @@ export const adminRouter = router({
     return inspecionarCertificado()
   }),
 
+  // ── Recuperação de pagamentos órfãos ─────────────────────────
+  // Re-processa um checkout.session.completed perdido por falha no webhook.
+  // Cola o session_id do Stripe Dashboard e reenvia o link de acesso.
+  recuperarPagamento: adminProcedure
+    .input(z.object({ sessionId: z.string().min(10) }))
+    .mutation(async ({ input }) => {
+      let session: Awaited<ReturnType<typeof stripe.checkout.sessions.retrieve>>
+      try {
+        session = await stripe.checkout.sessions.retrieve(input.sessionId)
+      } catch {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Sessão não encontrada no Stripe.' })
+      }
+      if (session.payment_status !== 'paid') {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Pagamento não confirmado (status: ${session.payment_status}).`,
+        })
+      }
+      const rawId = (session.metadata as Record<string, string> | null)?.precadastroId
+      if (!rawId) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Sessão sem precadastroId na metadata do Stripe.' })
+      }
+      await gerarEEnviarLinkAcesso(parseInt(rawId, 10))
+      return { ok: true, precadastroId: parseInt(rawId, 10) }
+    }),
+
   // Exportar auditoria como CSV (retorna string CSV)
   exportarAuditoria: adminProcedure.query(async () => {
     const eventos = await db
@@ -281,5 +311,32 @@ export const adminRouter = router({
     })
 
     return { csv: [header, ...linhas].join('\n') }
+  }),
+
+  // ── Saúde do fluxo de intake ──────────────────────────────────
+  // Verifica env vars críticas e conectividade com Redis/BullMQ.
+  // Bater nesse endpoint antes de testar fluxos de pagamento confirma
+  // que todos os recursos estão disponíveis.
+  saudeIntake: adminProcedure.query(async () => {
+    let redisOk = false
+    let linkAcessoQueueSize: number | null = null
+    try {
+      linkAcessoQueueSize = await linkAcessoQueue.count()
+      redisOk = true
+    } catch {
+      // Redis inacessível
+    }
+
+    return {
+      appUrl: env.APP_URL,
+      appUrlOk: !!env.APP_URL,
+      resendKey: !!env.RESEND_API_KEY,
+      zapiInstanceId: !!env.ZAPI_INSTANCE_ID,
+      zapiToken: !!env.ZAPI_TOKEN,
+      stripeKey: !!env.STRIPE_SECRET_KEY,
+      stripeWebhook: !!env.STRIPE_WEBHOOK_SECRET,
+      redisOk,
+      linkAcessoQueueSize,
+    }
   }),
 })

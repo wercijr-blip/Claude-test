@@ -3,6 +3,8 @@ import { SignJWT } from 'jose'
 import { TRPCError } from '@trpc/server'
 import { router, publicProcedure, protectedProcedure } from '../_core/trpc.ts'
 import { env } from '../_core/env.ts'
+import { Sentry } from '../_core/instrument.ts'
+import { logger } from '../_core/logger.ts'
 import { db } from '../db.ts'
 import { users } from '../../drizzle/schema.ts'
 import { eq } from 'drizzle-orm'
@@ -16,11 +18,25 @@ export const authRouter = router({
   callback: publicProcedure
     .input(z.object({ code: z.string(), state: z.string().optional(), redirectUri: z.string().url().optional() }))
     .mutation(async ({ input }) => {
+      logger.info('[auth.callback] iniciado', {
+        hasCode: !!input.code,
+        codeLength: input.code?.length,
+        hasRedirectUri: !!input.redirectUri,
+        redirectUri: input.redirectUri,
+        appUrl: env.APP_URL,
+        googleClientIdSet: !!env.GOOGLE_CLIENT_ID,
+        googleClientSecretSet: !!env.GOOGLE_CLIENT_SECRET,
+      })
+
+      try {
       // Usa o redirectUri enviado pelo cliente (mesmo que Google usou no início do fluxo).
       // Valida contra origens permitidas para evitar open redirect.
       const redirectUri = (input.redirectUri && isAllowedRedirectUri(input.redirectUri))
         ? input.redirectUri
         : `${env.APP_URL}/auth/callback`
+
+      logger.info('[auth.callback] redirectUri resolvido', { redirectUri, validated: input.redirectUri === redirectUri })
+
       const tokenResp = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -34,7 +50,11 @@ export const authRouter = router({
         signal: AbortSignal.timeout(10000),
       })
 
-      if (!tokenResp.ok) throw new Error('Falha ao obter token OAuth do Google')
+      if (!tokenResp.ok) {
+        const errBody = await tokenResp.text().catch(() => '(unreadable)')
+        logger.error('[auth.callback] falha token exchange', { status: tokenResp.status, body: errBody })
+        throw new Error(`Falha ao obter token OAuth do Google (${tokenResp.status}): ${errBody}`)
+      }
 
       const tokenData = (await tokenResp.json()) as { access_token: string }
 
@@ -44,7 +64,10 @@ export const authRouter = router({
         signal: AbortSignal.timeout(10000),
       })
 
-      if (!userResp.ok) throw new Error('Falha ao obter dados do usuário Google')
+      if (!userResp.ok) {
+        logger.error('[auth.callback] falha userinfo', { status: userResp.status })
+        throw new Error(`Falha ao obter dados do usuário Google (${userResp.status})`)
+      }
 
       const googleUser = (await userResp.json()) as {
         sub: string
@@ -109,7 +132,22 @@ export const authRouter = router({
         .setExpirationTime(JWT_EXPIRY_STAFF)
         .sign(secret)
 
+      logger.info('[auth.callback] sucesso', { userId, role, openId: data.openId, requires2fa })
       return { token, role, requiresTwoFactor: false }
+
+      } catch (err) {
+        logger.error('[auth.callback] erro', {
+          message: err instanceof Error ? err.message : String(err),
+          stack: err instanceof Error ? err.stack : undefined,
+          codeLength: input.code?.length,
+          redirectUri: input.redirectUri,
+        })
+        Sentry.captureException(err, {
+          tags: { route: 'auth.callback' },
+          extra: { codeLength: input.code?.length, redirectUri: input.redirectUri },
+        })
+        throw err
+      }
     }),
 
   // Login mock para desenvolvimento local. Responde NOT_FOUND em produção

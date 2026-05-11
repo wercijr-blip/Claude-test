@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import StaffHeader from './StaffHeader.tsx'
 
 const sections = [
   { id: 'diagnostico', label: 'Diagnóstico',   icon: '🔍', color: '#e74c3c' },
@@ -227,6 +228,8 @@ export default function AuditoriaPage() {
   }
 
   return (
+    <>
+    <StaffHeader />
     <div style={{ fontFamily: "'Georgia', serif", background: '#0f1117', minHeight: '100vh', color: '#e8e8e8' }}>
 
       {/* Header */}
@@ -523,5 +526,6 @@ export default function AuditoriaPage() {
       </div>
 
     </div>
+    </>
   )
 }

@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { trpc } from '../lib/trpc.ts'
+import { useAuth } from '../_core/hooks/useAuth.ts'
 import { Download } from 'lucide-react'
 
 type Tab = 'equipe' | 'pacientes' | 'auditoria' | 'certificado'
 
 export default function AuditDashboard() {
+  const { logout } = useAuth()
   const [tab, setTab] = useState<Tab>('equipe')
 
   // Equipe
@@ -21,6 +23,8 @@ export default function AuditDashboard() {
   // Pacientes
   const [busca, setBusca] = useState('')
   const { data: pacientesResp } = trpc.admin.listarTodosPacientes.useQuery({ busca: busca || undefined })
+  const [sessionIdRecuperar, setSessionIdRecuperar] = useState('')
+  const recuperarPagamento = trpc.admin.recuperarPagamento.useMutation()
   const pacientes = pacientesResp?.data
 
   // Auditoria
@@ -45,16 +49,30 @@ export default function AuditDashboard() {
       <header className="bg-white border-b border-slate-200 px-6 py-4">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-blue-700">Painel Admin — Facilita PrEP</h1>
-          <div className="flex gap-2">
-            {(['equipe', 'pacientes', 'auditoria', 'certificado'] as Tab[]).map((t) => (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium capitalize transition-colors ${tab === t ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-              >
-                {t === 'equipe' ? 'Equipe' : t === 'pacientes' ? 'Pacientes' : t === 'auditoria' ? 'Auditoria' : 'Certificado ICP'}
-              </button>
-            ))}
+          <div className="flex items-center gap-3">
+            <div className="flex gap-2">
+              {(['equipe', 'pacientes', 'auditoria', 'certificado'] as Tab[]).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTab(t)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium capitalize transition-colors ${tab === t ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                >
+                  {t === 'equipe' ? 'Equipe' : t === 'pacientes' ? 'Pacientes' : t === 'auditoria' ? 'Auditoria' : 'Certificado ICP'}
+                </button>
+              ))}
+            </div>
+            <div className="w-px h-6 bg-slate-200" />
+            <button
+              data-event="logout"
+              onClick={() => { if (confirm('Deseja realmente sair?')) { logout(); window.location.href = '/' } }}
+              className="text-sm text-slate-600 hover:text-red-600 font-medium px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-1.5"
+              aria-label="Sair"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              <span className="hidden sm:inline">Sair</span>
+            </button>
           </div>
         </div>
       </header>
@@ -210,6 +228,38 @@ export default function AuditDashboard() {
                 </tbody>
               </table>
             </div>
+          </div>
+
+          {/* Recuperação de pagamento órfão */}
+          <div className="bg-amber-50 rounded-2xl border border-amber-200 p-6">
+            <h2 className="text-base font-semibold text-amber-800 mb-1">Recuperar Pagamento Órfão</h2>
+            <p className="text-xs text-amber-700 mb-4">
+              Pagamento confirmado no Stripe mas link de acesso não chegou ao paciente?
+              Cole o <code className="bg-amber-100 px-1 rounded">session_id</code> do Stripe Dashboard para reenviar.
+            </p>
+            <div className="flex gap-2">
+              <input
+                value={sessionIdRecuperar}
+                onChange={(e) => setSessionIdRecuperar(e.target.value)}
+                placeholder="cs_live_..."
+                className="flex-1 border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+              />
+              <button
+                onClick={() => recuperarPagamento.mutate({ sessionId: sessionIdRecuperar })}
+                disabled={!sessionIdRecuperar || recuperarPagamento.isPending}
+                className="bg-amber-600 hover:bg-amber-700 text-white font-medium px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50"
+              >
+                {recuperarPagamento.isPending ? 'Processando…' : 'Recuperar'}
+              </button>
+            </div>
+            {recuperarPagamento.isSuccess && (
+              <p className="mt-2 text-xs text-green-700">
+                Link reenviado com sucesso! precadastroId={recuperarPagamento.data.precadastroId}
+              </p>
+            )}
+            {recuperarPagamento.isError && (
+              <p className="mt-2 text-xs text-red-600">{recuperarPagamento.error.message}</p>
+            )}
           </div>
         </div>
       )}

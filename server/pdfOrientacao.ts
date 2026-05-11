@@ -278,7 +278,7 @@ export async function gerarOrientacaoPdf(dados: DadosOrientacao): Promise<Buffer
   y -= 11
   page.drawText(`${CLINICA_INFO.bairroCidadeUf} · CEP ${CLINICA_INFO.cep}`, { x: MARGIN, y, font, size: 9, color: COR_TEXTO })
   y -= 13
-  page.drawText(`Telefone: ${CLINICA_INFO.telefone}`, { x: MARGIN, y, font, size: 9, color: COR_TEXTO })
+  page.drawText(`WhatsApp: ${CLINICA_INFO.whatsapp} · Fixo: ${CLINICA_INFO.telefone}`, { x: MARGIN, y, font, size: 9, color: COR_TEXTO })
   y -= 11
   page.drawText(`E-mail: ${CLINICA_INFO.email}`, { x: MARGIN, y, font, size: 9, color: COR_TEXTO })
   y -= 13

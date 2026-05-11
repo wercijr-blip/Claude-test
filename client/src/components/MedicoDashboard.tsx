@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { trpc } from '../lib/trpc.ts'
+import { useAuth } from '../_core/hooks/useAuth.ts'
 import { PACIENTE_STATUS } from '@shared/const.ts'
 
 type Tab = 'pacientes' | 'exames_inicio' | 'exames_rejeitados'
@@ -14,6 +15,7 @@ interface ResultadoIa {
 }
 
 export default function MedicoDashboard() {
+  const { logout } = useAuth()
   const [tab, setTab] = useState<Tab>('pacientes')
   const [selectedId, setSelectedId] = useState<number | null>(null)
 
@@ -41,38 +43,52 @@ export default function MedicoDashboard() {
       <header className="bg-white border-b border-slate-200 px-6 py-4">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-blue-700">Dashboard Médico — Facilita PrEP</h1>
-          <div className="flex gap-2">
-            <TabButton active={tab === 'pacientes'} onClick={() => setTab('pacientes')}>
-              Pacientes pendentes
-              {(pendentes?.length ?? 0) > 0 && (
-                <span className="ml-1.5 bg-yellow-100 text-yellow-700 text-xs px-1.5 py-0.5 rounded-full font-medium">
-                  {pendentes?.length}
-                </span>
-              )}
-            </TabButton>
+          <div className="flex items-center gap-3">
+            <div className="flex gap-2">
+              <TabButton active={tab === 'pacientes'} onClick={() => setTab('pacientes')}>
+                Pacientes pendentes
+                {(pendentes?.length ?? 0) > 0 && (
+                  <span className="ml-1.5 bg-yellow-100 text-yellow-700 text-xs px-1.5 py-0.5 rounded-full font-medium">
+                    {pendentes?.length}
+                  </span>
+                )}
+              </TabButton>
 
-            <TabButton active={tab === 'exames_inicio'} onClick={() => setTab('exames_inicio')}>
-              Exames início (PrEP)
-              {urgentesCount > 0 && (
-                <span className="ml-1.5 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full font-medium">
-                  {urgentesCount}
-                </span>
-              )}
-              {totalRevisoesCount > urgentesCount && (
-                <span className="ml-1 bg-yellow-100 text-yellow-700 text-xs px-1.5 py-0.5 rounded-full font-medium">
-                  {totalRevisoesCount - urgentesCount}
-                </span>
-              )}
-            </TabButton>
+              <TabButton active={tab === 'exames_inicio'} onClick={() => setTab('exames_inicio')}>
+                Exames início (PrEP)
+                {urgentesCount > 0 && (
+                  <span className="ml-1.5 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full font-medium">
+                    {urgentesCount}
+                  </span>
+                )}
+                {totalRevisoesCount > urgentesCount && (
+                  <span className="ml-1 bg-yellow-100 text-yellow-700 text-xs px-1.5 py-0.5 rounded-full font-medium">
+                    {totalRevisoesCount - urgentesCount}
+                  </span>
+                )}
+              </TabButton>
 
-            <TabButton active={tab === 'exames_rejeitados'} onClick={() => setTab('exames_rejeitados')}>
-              Exames rejeitados pela IA
-              {(examesRejeitados?.length ?? 0) > 0 && (
-                <span className="ml-1.5 bg-red-100 text-red-700 text-xs px-1.5 py-0.5 rounded-full font-medium">
-                  {examesRejeitados?.length}
-                </span>
-              )}
-            </TabButton>
+              <TabButton active={tab === 'exames_rejeitados'} onClick={() => setTab('exames_rejeitados')}>
+                Exames rejeitados pela IA
+                {(examesRejeitados?.length ?? 0) > 0 && (
+                  <span className="ml-1.5 bg-red-100 text-red-700 text-xs px-1.5 py-0.5 rounded-full font-medium">
+                    {examesRejeitados?.length}
+                  </span>
+                )}
+              </TabButton>
+            </div>
+            <div className="w-px h-6 bg-slate-200" />
+            <button
+              data-event="logout"
+              onClick={() => { if (confirm('Deseja realmente sair?')) { logout(); window.location.href = '/' } }}
+              className="text-sm text-slate-600 hover:text-red-600 font-medium px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-1.5"
+              aria-label="Sair"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              <span className="hidden sm:inline">Sair</span>
+            </button>
           </div>
         </div>
       </header>

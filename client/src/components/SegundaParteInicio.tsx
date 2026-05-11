@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
+import * as Sentry from '@sentry/react'
 import { trpc } from '../lib/trpc.ts'
 import { useLocation } from 'wouter'
 import { LogoWordmark } from './Logo.tsx'
+import { useAuth } from '../_core/hooks/useAuth.ts'
 
 type Etapa = 'tipo_consulta' | 'tem_exame' | 'upload_exame' | 'gerar_pedido' | 'aguardando_ia' | 'em_revisao_medica' | 'aprovado' | 'rejeitado' | 'rejeitado_data_invalida' | 'rejeitado_nome_invalido' | 'rejeitado_tipo_invalido' | 'expirado'
 type TipoConsulta = 'primeiro_atendimento' | 'ja_faco_prep'
@@ -95,6 +97,49 @@ const TERMINAL_ETAPAS: Etapa[] = ['aprovado', 'rejeitado', 'expirado']
 
 export default function SegundaParteInicio() {
   const [, navigate] = useLocation()
+
+  // If ?codigo= is present, validate it immediately and overwrite any existing
+  // JWT — prevents shared-device from showing the wrong patient's data (LGPD).
+  const [codigoFromUrl] = useState(() => {
+    const p = new URLSearchParams(window.location.search)
+    const code = p.get('codigo') ?? ''
+    if (code) window.history.replaceState({}, '', '/inicio')
+    return code
+  })
+  const { setToken } = useAuth()
+  const [isValidating, setIsValidating] = useState(!!codigoFromUrl)
+  const [validationError, setValidationError] = useState<string | null>(null)
+  const validarCodigo = trpc.token.validar.useMutation({
+    onSuccess: (data) => {
+      setToken(data.sessionToken)
+      setIsValidating(false)
+    },
+    onError: (err) => {
+      setToken(null)
+      const raw = (err.message ?? '').toLowerCase()
+      const mensagem = raw.includes('expir')
+        ? 'Este link de acesso expirou. Solicite um novo acesso.'
+        : raw.includes('not found') || raw.includes('não encontrado')
+          ? 'Não encontramos esse link. Verifique se está completo ou solicite um novo acesso.'
+          : raw.includes('already used') || raw.includes('já utilizado')
+            ? 'Este link já foi utilizado. Solicite um novo acesso.'
+            : 'O link de acesso parece inválido ou expirou. Por favor, solicite um novo acesso.'
+      setValidationError(mensagem)
+      setIsValidating(false)
+      Sentry.captureException(err, {
+        tags: { route: 'inicio', stage: 'token-validar' },
+        extra: { friendlyMessage: mensagem },
+      })
+    },
+  })
+  const hasValidated = useRef(false)
+  useEffect(() => {
+    if (!codigoFromUrl || hasValidated.current) return
+    hasValidated.current = true
+    validarCodigo.mutate({ token: codigoFromUrl })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const [etapa, setEtapa] = useState<Etapa>('tipo_consulta')
   const [tipoConsulta, setTipoConsulta] = useState<TipoConsulta | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -105,6 +150,7 @@ export default function SegundaParteInicio() {
 
   const isTerminal = TERMINAL_ETAPAS.includes(etapa)
   const statusQuery = trpc.consulta.status.useQuery(undefined, {
+    enabled: !isValidating,
     refetchInterval: isTerminal ? false : 5000,
   })
   const iniciarMut = trpc.consulta.iniciar.useMutation()
@@ -175,6 +221,38 @@ export default function SegundaParteInicio() {
     } finally {
       setUploading(false)
     }
+  }
+
+  // ── Validando código da URL ────────────────────────────────────
+  if (isValidating) {
+    return (
+      <PageShell>
+        <div className="bg-white rounded-3xl shadow-xl border border-slate-100 p-10 text-center">
+          <div className="w-8 h-8 border-4 border-brand-light border-t-brand rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-500 text-sm">Validando seu acesso…</p>
+        </div>
+      </PageShell>
+    )
+  }
+
+  // ── Código inválido ou expirado ────────────────────────────────
+  if (validationError) {
+    return (
+      <PageShell>
+        <div className="bg-white rounded-3xl shadow-xl border border-slate-100 p-10 text-center">
+          <div className="w-14 h-14 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-7 h-7 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M12 3a9 9 0 100 18A9 9 0 0012 3z" />
+            </svg>
+          </div>
+          <p className="text-slate-700 font-medium mb-2">Código de acesso inválido</p>
+          <p className="text-slate-500 text-sm mb-4">{validationError}</p>
+          <a href="/cadastro" className="text-brand text-sm font-medium hover:underline">
+            Solicitar novo acesso
+          </a>
+        </div>
+      </PageShell>
+    )
   }
 
   // ── Loading inicial ────────────────────────────────────────────

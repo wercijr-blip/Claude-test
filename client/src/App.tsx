@@ -1,23 +1,37 @@
-import { Component, useEffect, useRef, useState, type ReactNode } from 'react'
+import { lazy, Suspense, Component, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Route, Switch, useLocation } from 'wouter'
 import { useAuth, parseJwtPayload } from './_core/hooks/useAuth.ts'
+// Eager: needed immediately for the landing page and core auth flow
 import LandingPage from './components/LandingPage.tsx'
-import IntakePage from './components/IntakePage.tsx'
-import SegundaParteInicio from './components/SegundaParteInicio.tsx'
-import FormularioPaciente from './components/FormularioPaciente.tsx'
-import MedicoDashboard from './components/MedicoDashboard.tsx'
-import SecretariaDashboard from './components/SecretariaDashboard.tsx'
-import AuditDashboard from './components/AuditDashboard.tsx'
 import LoginPage from './components/LoginPage.tsx'
 import TokenEntryPage from './components/TokenEntryPage.tsx'
-import PesquisaSatisfacao from './components/PesquisaSatisfacao.tsx'
-import DuvidasPage from './components/DuvidasPage.tsx'
-import VerificacaoPage from './components/VerificacaoPage.tsx'
 import FooterCfm from './components/FooterCfm.tsx'
 import CookieConsent from './components/CookieConsent.tsx'
-import AuditoriaPage from './components/AuditoriaPage.tsx'
+// IntakePage: already bundled with LandingPage (static import there), keep eager here too
+import IntakePage from './components/IntakePage.tsx'
 import { trpc } from './lib/trpc.ts'
 import { initClickListener, trackPageView, trackPurchase } from './lib/analytics.ts'
+
+// Lazy: secondary routes not needed on initial render — each becomes its own JS chunk
+const SegundaParteInicio = lazy(() => import('./components/SegundaParteInicio.tsx'))
+const FormularioPaciente = lazy(() => import('./components/FormularioPaciente.tsx'))
+const MedicoDashboard = lazy(() => import('./components/MedicoDashboard.tsx'))
+const SecretariaDashboard = lazy(() => import('./components/SecretariaDashboard.tsx'))
+const AuditDashboard = lazy(() => import('./components/AuditDashboard.tsx'))
+const AuditoriaPage = lazy(() => import('./components/AuditoriaPage.tsx'))
+const DuvidasPage = lazy(() => import('./components/DuvidasPage.tsx'))
+const VerificacaoPage = lazy(() => import('./components/VerificacaoPage.tsx'))
+const PrivacidadePage = lazy(() => import('./components/PrivacidadePage.tsx'))
+const TermosPage = lazy(() => import('./components/TermosPage.tsx'))
+const PesquisaSatisfacao = lazy(() => import('./components/PesquisaSatisfacao.tsx'))
+
+function PageLoader() {
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="w-8 h-8 border-4 border-slate-200 border-t-fp-accent rounded-full animate-spin" />
+    </div>
+  )
+}
 
 /** Fire page_view on every wouter navigation. */
 function useTrackPageView() {
@@ -105,6 +119,7 @@ export default function App() {
     <ErrorBoundary>
       <div className="min-h-screen flex flex-col">
         <div className="flex-1">
+          <Suspense fallback={<PageLoader />}>
           <Switch>
             <Route path="/auth/callback" component={AuthCallback} />
             <Route path="/cadastro"><IntakePage /></Route>
@@ -125,6 +140,8 @@ export default function App() {
               {role === 'admin' ? <AuditDashboard /> : <LoginPage />}
             </Route>
             <Route path="/duvidas" component={DuvidasPage} />
+            <Route path="/privacidade" component={PrivacidadePage} />
+            <Route path="/termos" component={TermosPage} />
             <Route path="/v/:slug" component={VerificacaoPage} />
             <Route path="/pesquisa/:pacienteId/:token" component={PesquisaSatisfacao} />
             <Route path="/pagamento/sucesso" component={PagamentoSucesso} />
@@ -138,6 +155,7 @@ export default function App() {
             <Route path="/" component={LandingPage} />
             <Route component={NotFound} />
           </Switch>
+          </Suspense>
         </div>
         <FooterCfm />
         <CookieConsent />
@@ -151,8 +169,15 @@ function AuthCallback() {
   const [, navigate] = useLocation()
   const [timedOut, setTimedOut] = useState(false)
 
-  const params = new URLSearchParams(window.location.search)
-  const code = params.get('code') ?? ''
+  // Read code once from URL, then immediately clear it from the address bar so
+  // a page-refresh cannot replay the same code (Google rejects reused codes with
+  // invalid_grant). useState lazy initializer runs only on first mount.
+  const [code] = useState(() => {
+    const p = new URLSearchParams(window.location.search)
+    const c = p.get('code') ?? ''
+    if (c) window.history.replaceState({}, '', '/auth/callback')
+    return c
+  })
 
   const hasAttempted = useRef(false)
 
@@ -174,12 +199,16 @@ function AuthCallback() {
   })
 
   useEffect(() => {
-    if (code && !hasAttempted.current) {
-      hasAttempted.current = true
-      callbackMutation.mutate({ code, redirectUri: `${window.location.origin}/auth/callback` })
-    }
+    if (!code) return
+    // Guard against React StrictMode double-invoke and page refreshes after the
+    // code has already been consumed.
+    const storageKey = `oauth_code_used:${code}`
+    if (hasAttempted.current || sessionStorage.getItem(storageKey)) return
+    hasAttempted.current = true
+    sessionStorage.setItem(storageKey, '1')
+    callbackMutation.mutate({ code, redirectUri: `${window.location.origin}/auth/callback` })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code])
+  }, [])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -197,18 +226,14 @@ function AuthCallback() {
           <p className="text-slate-500 mb-4">
             {timedOut && !callbackMutation.isError
               ? 'O servidor demorou muito para responder. Tente novamente.'
-              : 'Não foi possível completar o login. Tente novamente.'}
+              : (callbackMutation.error?.message ?? 'Não foi possível completar o login. Tente novamente.')}
           </p>
-          <button
-            className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-medium hover:bg-blue-700 transition-colors"
-            onClick={() => {
-              setTimedOut(false)
-              hasAttempted.current = false
-              callbackMutation.mutate({ code, redirectUri: `${window.location.origin}/auth/callback` })
-            }}
+          <a
+            href="/login"
+            className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-medium hover:bg-blue-700 transition-colors inline-block"
           >
             Tentar novamente
-          </button>
+          </a>
         </div>
       </div>
     )

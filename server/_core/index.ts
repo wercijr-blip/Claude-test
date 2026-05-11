@@ -3,6 +3,7 @@ import express from 'express'
 import cookieParser from 'cookie-parser'
 import { createExpressMiddleware } from '@trpc/server/adapters/express'
 import path from 'path'
+import fs from 'fs'
 import { fileURLToPath } from 'url'
 import { randomUUID } from 'crypto'
 import { env } from './env.ts'
@@ -57,8 +58,33 @@ if (env.NODE_ENV === 'production') {
   const webOut = path.resolve(__dirname, '../../web/out')
   const clientIndex = path.join(clientDist, 'index.html')
 
+  // Bundle smoke check — exit early with clear diagnostic if the Vite build is missing
+  if (!fs.existsSync(clientIndex)) {
+    logger.error('[FATAL] dist/client/index.html não existe', {
+      cwd: process.cwd(),
+      expected: clientIndex,
+      cwdContents: fs.readdirSync(process.cwd()).join(', '),
+      distContents: fs.existsSync(path.dirname(clientDist))
+        ? fs.readdirSync(path.dirname(clientDist)).join(', ')
+        : '(dist/ não encontrada)',
+    })
+    process.exit(1)
+  }
+
+  {
+    const indexContent = fs.readFileSync(clientIndex, 'utf8')
+    const bundleMatch = indexContent.match(/\/assets\/(index-[A-Za-z0-9_-]+\.js)/)
+    const assetsDir = path.join(clientDist, 'assets')
+    const chunkCount = fs.existsSync(assetsDir)
+      ? fs.readdirSync(assetsDir).filter((f: string) => f.endsWith('.js')).length
+      : 0
+    logger.info('[startup] dist/client OK', {
+      bundle: bundleMatch?.[1] ?? 'NÃO ENCONTRADO no index.html',
+      chunks: chunkCount,
+    })
+  }
+
   // Verifica se o build do Next.js está disponível
-  const fs = await import('fs')
   const webOutExists = fs.existsSync(path.join(webOut, 'index.html'))
   if (!webOutExists) {
     logger.warn('[server] web/out/index.html não encontrado — marketing routes vão usar o Vite SPA como fallback')
@@ -72,9 +98,12 @@ if (env.NODE_ENV === 'production') {
   for (const route of marketingRoutes) {
     if (route === '/robots.txt' || route === '/sitemap.xml') {
       app.get(route, (_req, res) => {
-        const filePath = path.join(webOut, route)
-        if (fs.existsSync(filePath)) {
-          res.sendFile(filePath)
+        const webFilePath = path.join(webOut, route)
+        const clientFilePath = path.join(clientDist, route.slice(1))
+        if (fs.existsSync(webFilePath)) {
+          res.sendFile(webFilePath)
+        } else if (fs.existsSync(clientFilePath)) {
+          res.sendFile(clientFilePath)
         } else {
           res.status(404).end()
         }
@@ -176,6 +205,44 @@ app.get('/api/health', async (_req, res) => {
     version: '1.0.0',
     db: dbOk ? 'ok' : 'error',
     redis: redisOk ? 'ok' : 'error',
+    timestamp: new Date().toISOString(),
+  })
+})
+
+// Version info — confirms deploy reached production and which bundle is being served
+app.get('/api/health/version', (_req, res) => {
+  let bundle = 'unknown'
+  let chunks = 0
+  try {
+    const distClient = path.resolve(__dirname, '../../dist/client')
+    const indexHtml = fs.readFileSync(path.join(distClient, 'index.html'), 'utf8')
+    const m = indexHtml.match(/\/assets\/(index-[A-Za-z0-9_-]+\.js)/)
+    bundle = m?.[1] ?? 'no-match'
+    const assetsDir = path.join(distClient, 'assets')
+    chunks = fs.existsSync(assetsDir)
+      ? fs.readdirSync(assetsDir).filter((f: string) => f.endsWith('.js')).length
+      : 0
+  } catch (e) {
+    bundle = `error: ${(e as Error).message}`
+  }
+  res.json({
+    commit: (process.env.RAILWAY_GIT_COMMIT_SHA ?? 'dev').slice(0, 7),
+    branch: process.env.RAILWAY_GIT_BRANCH ?? 'local',
+    bundle,
+    chunks,
+    builtAt: process.env.BUILD_TIMESTAMP ?? 'unknown',
+    nodeVersion: process.version,
+    env: process.env.NODE_ENV,
+  })
+})
+
+// Observability — confirma que Sentry está configurado no servidor
+app.get('/api/health/observability', (_req, res) => {
+  res.json({
+    sentry_server_configured: !!process.env.SENTRY_DSN_SERVER,
+    sentry_server_dsn_prefix: process.env.SENTRY_DSN_SERVER?.slice(0, 25) ?? null,
+    node_env: process.env.NODE_ENV,
+    release: process.env.RAILWAY_GIT_COMMIT_SHA ?? 'unknown',
     timestamp: new Date().toISOString(),
   })
 })

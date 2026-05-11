@@ -48,6 +48,19 @@ export function applySecurityMiddleware(app: Express): void {
             // Google Analytics and Tag Manager
             'https://www.googletagmanager.com',
             'https://www.google-analytics.com',
+            // Cloudflare Web Analytics (injected automatically by Cloudflare proxy)
+            'https://static.cloudflareinsights.com',
+          ],
+          // scriptSrcElem overrides scriptSrc for <script> elements in browsers that
+          // support it — list must mirror scriptSrc to avoid regression
+          scriptSrcElem: [
+            "'self'",
+            ...(env.NODE_ENV === 'development' ? ["'unsafe-inline'"] : []),
+            'https://js.stripe.com',
+            'https://checkout.stripe.com',
+            'https://www.googletagmanager.com',
+            'https://www.google-analytics.com',
+            'https://static.cloudflareinsights.com',
           ],
           // React inline style={{}} attributes require 'unsafe-inline' for style-src
           styleSrc: [
@@ -69,6 +82,9 @@ export function applySecurityMiddleware(app: Express): void {
           ],
           connectSrc: [
             "'self'",
+            // Sentry error reporting (frontend SDK sends via fetch)
+            'https://*.ingest.sentry.io',
+            'https://*.sentry.io',
             // Stripe API
             'https://api.stripe.com',
             'https://*.stripe.com',
@@ -76,6 +92,13 @@ export function applySecurityMiddleware(app: Express): void {
             'https://www.google-analytics.com',
             // ViaCEP (address autocomplete)
             'https://viacep.com.br',
+            // Cloudflare Web Analytics beacon data endpoint
+            'https://cloudflareinsights.com',
+          ],
+          // Sentry Replay uses Web Workers via blob: URLs
+          workerSrc: [
+            "'self'",
+            'blob:',
           ],
           // Stripe 3D Secure usa iframes hospedados em hooks.stripe.com e js.stripe.com
           frameSrc: [
@@ -122,6 +145,28 @@ export function applySecurityMiddleware(app: Express): void {
   )
 
   app.use(apiLimiter)
+
+  // Permissions-Policy — desabilita APIs sensíveis não utilizadas
+  app.use((_req: Request, res: Response, next: NextFunction) => {
+    res.setHeader(
+      'Permissions-Policy',
+      [
+        'camera=()',           // sem vídeo por enquanto
+        'microphone=()',
+        'geolocation=()',
+        'payment=(self)',      // Stripe inline checkout
+        'usb=()',
+        'fullscreen=(self)',
+        'autoplay=()',
+        'accelerometer=()',
+        'gyroscope=()',
+        'magnetometer=()',
+        'midi=()',
+        'sync-xhr=()',
+      ].join(', '),
+    )
+    next()
+  })
 
   // Bloquear payloads gigantes (proteção contra payload bomb)
   app.use((req: Request, res: Response, next: NextFunction) => {

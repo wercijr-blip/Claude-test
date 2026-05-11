@@ -7,8 +7,6 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 }
 
-const LAST_UPDATED = '2025-05-01'
-
 export default function TermosPage() {
   return (
     <main className="max-w-3xl mx-auto px-4 py-12 font-body text-slate-800">
@@ -20,7 +18,7 @@ export default function TermosPage() {
         Termos de Uso
       </h1>
       <p className="text-sm text-slate-500 mb-8">
-        Última atualização: {new Date(LAST_UPDATED).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+        Última atualização: {new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}
       </p>
 
       <section className="prose prose-slate max-w-none space-y-6 text-sm leading-relaxed">
@@ -85,8 +83,8 @@ export default function TermosPage() {
             O valor da consulta é informado no momento do cadastro. Pagamentos são processados via Stripe
             (cartão de crédito/débito). Em caso de cancelamento antes do atendimento médico, entre em contato
             com nossa equipe em{' '}
-            <a href="mailto:contato@atossaudeintegrada.com.br" className="text-fp-accent hover:underline">
-              contato@atossaudeintegrada.com.br
+            <a href="mailto:contato@facilitaprep.com.br" className="text-fp-accent hover:underline">
+              contato@facilitaprep.com.br
             </a>{' '}
             para verificar elegibilidade a reembolso.
           </p>
@@ -132,8 +130,8 @@ export default function TermosPage() {
           <h2 className="text-lg font-semibold text-fp-dark mb-2">11. Contato</h2>
           <p>
             Dúvidas sobre os termos:{' '}
-            <a href="mailto:contato@atossaudeintegrada.com.br" className="text-fp-accent hover:underline">
-              contato@atossaudeintegrada.com.br
+            <a href="mailto:contato@facilitaprep.com.br" className="text-fp-accent hover:underline">
+              contato@facilitaprep.com.br
             </a>
             <br />
             DPO / LGPD:{' '}

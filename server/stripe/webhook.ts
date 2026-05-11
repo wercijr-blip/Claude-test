@@ -9,6 +9,7 @@ import { gerarEEnviarLinkAcesso } from '../routes/intake.ts'
 import { emitirNfse } from '../focusnfe.ts'
 import { VALOR_CONSULTA_CENTAVOS } from '../../shared/const.ts'
 import { logger } from '../_core/logger.ts'
+import { Sentry } from '../_core/instrument.ts'
 
 function log(level: 'INFO' | 'WARN' | 'ERROR', message: string, context?: unknown): void {
   const msg = `[webhook] ${message}`
@@ -86,6 +87,14 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
       eventType: event.type,
       stack: error.stack,
     })
+    Sentry.captureException(err, {
+      tags: { route: 'stripe-webhook', stage: 'processing' },
+      extra: { eventType: event.type, eventId: event.id },
+    })
+    // Remove the pre-claimed event row so Stripe's retry can re-enter this handler.
+    // Without this, ER_DUP_ENTRY on the next retry silently discards the event
+    // and the patient never receives their access link.
+    await db.delete(stripeEvents).where(eq(stripeEvents.eventId, event.id)).catch(() => {})
     res.status(500).json({ error: 'Erro interno ao processar webhook' })
     return
   }

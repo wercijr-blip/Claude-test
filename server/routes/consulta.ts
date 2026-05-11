@@ -10,6 +10,7 @@ import { gerarPedidosExames } from '../pdfExameRequest.ts'
 import { gerarOrientacaoInicialPdf } from '../pdfOrientacaoInicial.ts'
 import { assinarPdf } from '../pdfSigner.ts'
 import { uploadBuffer, getPresignedUrl } from '../storage.ts'
+import * as Sentry from '@sentry/node'
 import { enviarWhatsApp } from '../whatsapp.ts'
 import {
   enviarExameAprovadoIa,
@@ -19,6 +20,7 @@ import {
   enviarExameRejeitadoMedico,
   enviarSolicitacaoReenvio,
 } from '../email.ts'
+import { gerarLinkDeAcesso } from './intake.ts'
 import { env } from '../_core/env.ts'
 import { logger } from '../_core/logger.ts'
 import { DIAS_VALIDADE_LINK_UPLOAD } from '../../shared/const.ts'
@@ -34,11 +36,13 @@ interface InfoPaciente {
   cpf: string | null
   email: string | null
   telefone: string | null
+  precadastroId: number | null
 }
 
 async function getInfoPaciente(tokenId: number): Promise<InfoPaciente> {
   const [precad] = await db
     .select({
+      id: precadastros.id,
       nomeEncrypted: precadastros.nomeEncrypted,
       cpfEncrypted: precadastros.cpfEncrypted,
       emailEncrypted: precadastros.emailEncrypted,
@@ -54,17 +58,18 @@ async function getInfoPaciente(tokenId: number): Promise<InfoPaciente> {
       cpf: decrypt(precad.cpfEncrypted),
       email: decrypt(precad.emailEncrypted),
       telefone: decrypt(precad.telefoneEncrypted),
+      precadastroId: precad.id,
     }
   }
 
-  // Fallback: accessTokens.patientEmail
+  // Fallback: accessTokens.patientEmail (secretaria-created token without precadastro)
   const [token] = await db
     .select({ patientEmail: accessTokens.patientEmail })
     .from(accessTokens)
     .where(eq(accessTokens.id, tokenId))
     .limit(1)
 
-  return { nome: 'Paciente', cpf: null, email: token?.patientEmail ?? null, telefone: null }
+  return { nome: 'Paciente', cpf: null, email: token?.patientEmail ?? null, telefone: null, precadastroId: null }
 }
 
 async function getMedicosEmails(): Promise<string[]> {
@@ -412,11 +417,13 @@ export const consultaRouter = router({
         })
         .where(eq(consultasInicio.id, consulta.id))
 
+      const linkAprovacao = await _gerarLinkAprovacao(info.precadastroId, 'uploadExame')
+
       if (info.email) {
-        await enviarExameAprovadoIa(info.email, info.nome, env.APP_URL).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
+        await enviarExameAprovadoIa(info.email, info.nome, linkAprovacao).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
       }
       if (info.telefone) {
-        const msg = `Olá ${info.nome}, seu exame foi aprovado! Continue seu cadastro: ${env.APP_URL}/formulario`
+        const msg = `Olá ${info.nome}, seu exame foi aprovado! Acesse o link para continuar: ${linkAprovacao}`
         await enviarWhatsApp(info.telefone, msg).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
       }
 
@@ -621,20 +628,39 @@ export const consultaRouter = router({
         const info = await getInfoPaciente(consulta.tokenId)
 
         if (input.acao === 'aprovar') {
-          if (info.email) await enviarExameAprovadoIa(info.email, info.nome, env.APP_URL).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
-          if (info.telefone) await enviarWhatsApp(info.telefone, `Olá ${info.nome}, seu exame foi aprovado pelo médico! Continue seu cadastro: ${env.APP_URL}/formulario`).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
+          const linkAprovacao = await _gerarLinkAprovacao(info.precadastroId, 'medico.revisar')
+          if (info.email) await enviarExameAprovadoIa(info.email, info.nome, linkAprovacao).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
+          if (info.telefone) await enviarWhatsApp(info.telefone, `Olá ${info.nome}, seu exame foi aprovado pelo médico! Acesse o link para continuar: ${linkAprovacao}`).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
         } else if (isReenvio) {
           if (info.email) await enviarSolicitacaoReenvio(info.email, info.nome, input.observacoes, env.APP_URL).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
           if (info.telefone) await enviarWhatsApp(info.telefone, `Olá ${info.nome}, nosso médico solicita um novo exame. Motivo: ${input.observacoes}. Acesse: ${env.APP_URL}/inicio`).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
         } else {
           if (info.email) await enviarExameRejeitadoMedico(info.email, info.nome, input.observacoes).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
-          if (info.telefone) await enviarWhatsApp(info.telefone, `Olá ${info.nome}, sobre seu exame: ${input.observacoes}. Para mais informações: (61) 4042-7188`).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
+          if (info.telefone) await enviarWhatsApp(info.telefone, `Olá ${info.nome}, sobre seu exame: ${input.observacoes}. Para mais informações: (61) 99401-8161`).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
         }
 
         return { ok: true }
       }),
   }),
 })
+
+// ── Helper: gera link autenticado para continuação após aprovação ─────────────
+// Falls back to /inicio if precadastroId is null (secretaria-created tokens without precadastro).
+async function _gerarLinkAprovacao(precadastroId: number | null, route: string): Promise<string> {
+  if (!precadastroId) return `${env.APP_URL}/inicio`
+  try {
+    const { link } = await gerarLinkDeAcesso(precadastroId)
+    if (!link) throw new Error('link vazio retornado por gerarLinkDeAcesso')
+    return link
+  } catch (err) {
+    Sentry.captureException(err, {
+      tags: { route, stage: 'gerar-link-aprovacao' },
+      extra: { precadastroId },
+    })
+    logger.error('[consulta] falha ao gerar link de aprovação', { precadastroId, error: String(err) })
+    return `${env.APP_URL}/inicio`
+  }
+}
 
 // ── Helper: notifica médicos e paciente sobre revisão manual ──────────────────
 
