@@ -128,7 +128,13 @@ export async function enviarResultadoAprovado(para: string, nomePaciente: string
   })
 }
 
-export async function enviarLinkAcessoIntake(para: string, nome: string, link: string, expiresAt: Date): Promise<void> {
+export async function enviarLinkAcessoIntake(
+  para: string,
+  nome: string,
+  link: string,
+  expiresAt: Date,
+  codigo: string,
+): Promise<void> {
   const dataExpiracao = expiresAt.toLocaleDateString('pt-BR')
   await send({
     to: para,
@@ -140,6 +146,10 @@ export async function enviarLinkAcessoIntake(para: string, nome: string, link: s
       <a href="${link}" style="display:inline-block;background:#1d4ed8;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:600;margin:20px 0;font-size:16px;">
         Acessar formulário
       </a>
+      <div style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;padding:16px 20px;margin:16px 0;">
+        <p style="margin:0 0 6px;color:#475569;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Código de acesso (para colar manualmente)</p>
+        <p style="margin:0;font-family:monospace;font-size:14px;color:#0f172a;word-break:break-all;">${codigo}</p>
+      </div>
       <p style="color:#64748b;font-size:13px;">Link válido até <strong>${dataExpiracao}</strong>. Use apenas uma vez.</p>
       <p style="color:#64748b;font-size:13px;">Se você não solicitou este acesso, ignore este e-mail.</p>`,
     ),
@@ -287,7 +297,7 @@ export async function enviarResultadoRejeitado(para: string, nomePaciente: strin
 // ── Sprint 3: Templates de exame ────────────────────────────────────────────
 
 // TEMPLATE-1 — Aprovação automática por IA
-export async function enviarExameAprovadoIa(para: string, nome: string, link: string): Promise<void> {
+export async function enviarExameAprovadoIa(para: string, nome: string, link: string, codigo: string): Promise<void> {
   await send({
     to: para,
     subject: 'Exame aprovado — Facilita PrEP',
@@ -298,6 +308,10 @@ export async function enviarExameAprovadoIa(para: string, nome: string, link: st
       <a href="${link}" style="display:inline-block;background:#16a34a;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:600;margin:20px 0;font-size:16px;">
         Continuar para o formulário clínico
       </a>
+      <div style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;padding:16px 20px;margin:16px 0;">
+        <p style="margin:0 0 6px;color:#475569;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Código de acesso (para colar manualmente)</p>
+        <p style="margin:0;font-family:monospace;font-size:14px;color:#0f172a;word-break:break-all;">${codigo}</p>
+      </div>
       <p style="color:#64748b;font-size:13px;">Link de uso único — válido por 7 dias.</p>`,
     ),
   })

@@ -13,6 +13,7 @@ import { preencherFichaAtendimento } from './sus/preencherFichaAtendimento.ts'
 import { gerarOrientacaoPdf } from './pdfOrientacao.ts'
 import { uploadBuffer } from './storage.ts'
 import { enviarLinkAcessoIntake, enviarPrescricaoPronta, enviarPesquisaSatisfacao } from './email.ts'
+import { generateToken, hashToken } from './_core/tokenUtils.ts'
 import { enviarWhatsApp } from './whatsapp.ts'
 import { logger } from './_core/logger.ts'
 
@@ -397,18 +398,33 @@ export function startLembreteWorker() {
         )
 
       for (const p of pendentes) {
-        if (!p.patientEmail) continue
+        if (!p.patientEmail || !p.tokenId) continue
 
         const nome = p.precadNome ? decrypt(p.precadNome).split(' ')[0] : 'Paciente'
-        const linkBase = `${env.APP_URL}/inicio`
 
-        await enviarLinkAcessoIntake(p.patientEmail, nome, linkBase, p.linkExpiresAt!).catch((e: unknown) => logger.warn('[pdfQueue] notificação falhou', { error: String(e) }))
+        // Regenerate a fresh token so the reminder link is always valid
+        let linkLembrete: string
+        let codigoLembrete: string
+        try {
+          const raw = generateToken()
+          await db.update(accessTokens)
+            .set({ tokenHash: hashToken(raw) })
+            .where(eq(accessTokens.id, p.tokenId))
+          linkLembrete = `${env.APP_URL}/acesso/${raw}`
+          codigoLembrete = raw
+        } catch (e) {
+          logger.warn('[pdfQueue] falha ao regenerar token para lembrete', { tokenId: p.tokenId, error: String(e) })
+          continue
+        }
+
+        await enviarLinkAcessoIntake(p.patientEmail, nome, linkLembrete, p.linkExpiresAt!, codigoLembrete).catch((e: unknown) => logger.warn('[pdfQueue] notificação falhou', { error: String(e) }))
 
         if (p.precadTelefone) {
           const telefone = decrypt(p.precadTelefone)
           const msg =
             `Olá ${nome}! Estamos aguardando o envio do seu exame de HIV para dar continuidade ao atendimento PrEP.\n\n` +
-            `Acesse o formulário e envie o exame: ${linkBase}\n\n` +
+            `Acesse o formulário e envie o exame:\n${linkLembrete}\n\n` +
+            `Ou cole o código no site facilitaprep.com.br:\n*${codigoLembrete}*\n\n` +
             `Prazo: ${p.linkExpiresAt?.toLocaleDateString('pt-BR')}\n\n_Facilita PrEP_`
           await enviarWhatsApp(telefone, msg).catch((e: unknown) => logger.warn('[pdfQueue] notificação falhou', { error: String(e) }))
         }
@@ -460,10 +476,14 @@ export async function enqueueEnviarLinkAcesso(
   telefone: string | null,
   link: string,
   expiresAt: Date,
+  codigo: string,
 ) {
+  if (!codigo) throw new Error('enqueueEnviarLinkAcesso: codigo vazio — abortando para não enviar link inacessível')
+  if (!link.includes('/acesso/')) throw new Error(`enqueueEnviarLinkAcesso: link sem token de acesso — link="${link}"`)
+
   return linkAcessoQueue.add(
     'enviar-link',
-    { email, nome, telefone, link, expiresAt: expiresAt.toISOString() },
+    { email, nome, telefone, link, expiresAt: expiresAt.toISOString(), codigo },
     { attempts: 5, backoff: { type: 'exponential', delay: 10_000 } },
   )
 }
@@ -472,23 +492,28 @@ export function startLinkAcessoWorker() {
   const worker = new Worker(
     LINK_ACESSO_QUEUE_NAME,
     async (job) => {
-      const { email, nome, telefone, link, expiresAt } = job.data as {
+      const { email, nome, telefone, link, expiresAt, codigo } = job.data as {
         email: string
         nome: string
         telefone: string | null
         link: string
         expiresAt: string
+        codigo: string
       }
+
+      if (!codigo) throw new Error(`[linkAcessoWorker] job ${job.id}: codigo vazio — não enviar`)
+      if (!link.includes('/acesso/')) throw new Error(`[linkAcessoWorker] job ${job.id}: link sem token — link="${link}"`)
 
       const primeiroNome = nome.split(' ')[0]
       const expires = new Date(expiresAt)
 
-      await enviarLinkAcessoIntake(email, nome, link, expires)
+      await enviarLinkAcessoIntake(email, nome, link, expires, codigo)
 
       if (telefone) {
         const msg =
           `Olá ${primeiroNome}! Seu acesso ao formulário PrEP está liberado.\n\n` +
           `Acesse o link abaixo para continuar:\n${link}\n\n` +
+          `Ou cole o código abaixo no site facilitaprep.com.br:\n*${codigo}*\n\n` +
           `Válido até ${expires.toLocaleDateString('pt-BR')}.\n\n_Facilita PrEP_`
         await enviarWhatsApp(telefone, msg).catch((e: unknown) => logger.warn('[pdfQueue] notificação falhou', { error: String(e) }))
       }

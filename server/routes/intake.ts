@@ -88,11 +88,13 @@ export async function gerarEEnviarLinkAcesso(
     })
   }
 
+  if (!raw) throw new Error(`gerarEEnviarLinkAcesso: raw vazio para precadastro ${precadastroId}`)
+
   const link = `${env.APP_URL}/acesso/${raw}`
 
-  // Enqueue instead of direct send — BullMQ provides retry with backoff
-  // so a transient email/WA failure doesn't silently lose the patient's link.
-  await enqueueEnviarLinkAcesso(emailDecrypted, nomeDecrypted, telefoneDecrypted, link, expiresAt)
+  logger.info('[intake] enfileirando link de acesso', { precadastroId, linkSuffix: raw.slice(-6) })
+
+  await enqueueEnviarLinkAcesso(emailDecrypted, nomeDecrypted, telefoneDecrypted, link, expiresAt, raw)
 
   return { raw }
 }
@@ -111,11 +113,14 @@ export async function gerarLinkDeAcesso(precadastroId: number): Promise<{ raw: s
   if (!precad.accessTokenId) throw new Error(`Pré-cadastro ${precadastroId} sem token de acesso vinculado`)
 
   const raw = generateToken()
+  if (!raw) throw new Error(`gerarLinkDeAcesso: generateToken retornou vazio para precadastro ${precadastroId}`)
+
   await db.update(accessTokens)
     .set({ tokenHash: hashToken(raw) })
     .where(eq(accessTokens.id, precad.accessTokenId))
 
   const link = `${env.APP_URL}/acesso/${raw}`
+  logger.info('[intake] link de aprovação gerado', { precadastroId, linkSuffix: raw.slice(-6) })
   return { raw, link }
 }
 
