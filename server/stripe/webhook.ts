@@ -153,10 +153,25 @@ async function handleSessionCompleted(
       return
     }
 
-    // Generate access token and send email + WhatsApp
+    // Generate access token and send email + WhatsApp (with payment details for Email 1)
+    const paymentMethodTypes = (session as { payment_method_types?: string[] }).payment_method_types ?? []
+    const formaPagamento = paymentMethodTypes[0] === 'pix'
+      ? 'PIX'
+      : paymentMethodTypes[0] === 'boleto'
+        ? 'Boleto'
+        : 'Cartão de crédito'
+    const pagamentoMeta = amountTotal
+      ? {
+          valorCentavos: amountTotal,
+          formaPagamento,
+          dataHora: new Date((session as { created: number }).created * 1000),
+          idTransacao: sessionId,
+        }
+      : undefined
+
     log('INFO', `Generating access token and sending email: precadastroId=${precadastroId}`)
     try {
-      await gerarEEnviarLinkAcesso(precadastroId)
+      await gerarEEnviarLinkAcesso(precadastroId, undefined, pagamentoMeta)
       log('INFO', `Email and WhatsApp sent successfully: precadastroId=${precadastroId}`)
     } catch (err) {
       const error = err as Error
