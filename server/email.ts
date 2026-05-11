@@ -287,19 +287,18 @@ export async function enviarResultadoRejeitado(para: string, nomePaciente: strin
 // ── Sprint 3: Templates de exame ────────────────────────────────────────────
 
 // TEMPLATE-1 — Aprovação automática por IA
-export async function enviarExameAprovadoIa(para: string, nome: string, appUrl: string): Promise<void> {
+export async function enviarExameAprovadoIa(para: string, nome: string, link: string): Promise<void> {
   await send({
     to: para,
     subject: 'Exame aprovado — Facilita PrEP',
     html: baseTemplate(
       'Exame aprovado',
       `<p style="color:#334155;font-size:15px;">Olá, <strong>${nome}</strong>!</p>
-      <p style="color:#334155;font-size:15px;">Seu exame foi <strong style="color:#16a34a;">aprovado automaticamente</strong>!</p>
-      <p style="color:#334155;font-size:15px;">Acesse o link abaixo para prosseguir com seus documentos para PrEP:</p>
-      <a href="${appUrl}/inicio" style="display:inline-block;background:#16a34a;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:600;margin:20px 0;font-size:16px;">
-        Continuar o processo
+      <p style="color:#334155;font-size:15px;">Seu exame foi <strong style="color:#16a34a;">aprovado</strong>! Clique no botão abaixo para continuar com o formulário clínico:</p>
+      <a href="${link}" style="display:inline-block;background:#16a34a;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:600;margin:20px 0;font-size:16px;">
+        Continuar para o formulário clínico
       </a>
-      <p style="color:#64748b;font-size:13px;">Se já estiver logado, basta acessar a plataforma normalmente.</p>`,
+      <p style="color:#64748b;font-size:13px;">Link de uso único — válido por 7 dias.</p>`,
     ),
   })
 }

@@ -97,6 +97,28 @@ export async function gerarEEnviarLinkAcesso(
   return { raw }
 }
 
+// Regenerates the access token hash for an existing precadastro and returns the new
+// authenticated link. Does NOT send any notifications — callers handle that.
+// Used after exam approval to embed a fresh authenticated link in the approval email/WA.
+export async function gerarLinkDeAcesso(precadastroId: number): Promise<{ raw: string; link: string }> {
+  const [precad] = await db
+    .select({ accessTokenId: precadastros.accessTokenId })
+    .from(precadastros)
+    .where(eq(precadastros.id, precadastroId))
+    .limit(1)
+
+  if (!precad) throw new Error(`Pré-cadastro ${precadastroId} não encontrado`)
+  if (!precad.accessTokenId) throw new Error(`Pré-cadastro ${precadastroId} sem token de acesso vinculado`)
+
+  const raw = generateToken()
+  await db.update(accessTokens)
+    .set({ tokenHash: hashToken(raw) })
+    .where(eq(accessTokens.id, precad.accessTokenId))
+
+  const link = `${env.APP_URL}/acesso/${raw}`
+  return { raw, link }
+}
+
 export const intakeRouter = router({
   // Paciente cria pré-cadastro (público, sem autenticação)
   criar: publicProcedure
