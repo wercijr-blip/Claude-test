@@ -91,6 +91,10 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
       tags: { route: 'stripe-webhook', stage: 'processing' },
       extra: { eventType: event.type, eventId: event.id },
     })
+    // Remove the pre-claimed event row so Stripe's retry can re-enter this handler.
+    // Without this, ER_DUP_ENTRY on the next retry silently discards the event
+    // and the patient never receives their access link.
+    await db.delete(stripeEvents).where(eq(stripeEvents.eventId, event.id)).catch(() => {})
     res.status(500).json({ error: 'Erro interno ao processar webhook' })
     return
   }
