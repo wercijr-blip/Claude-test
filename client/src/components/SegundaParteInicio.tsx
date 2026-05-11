@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import * as Sentry from '@sentry/react'
 import { trpc } from '../lib/trpc.ts'
 import { useLocation } from 'wouter'
 import { LogoWordmark } from './Logo.tsx'
@@ -114,10 +115,21 @@ export default function SegundaParteInicio() {
       setIsValidating(false)
     },
     onError: (err) => {
-      // Clear any stale session — don't fall back to a different patient's data.
       setToken(null)
-      setValidationError(err.message)
+      const raw = (err.message ?? '').toLowerCase()
+      const mensagem = raw.includes('expir')
+        ? 'Este link de acesso expirou. Solicite um novo acesso.'
+        : raw.includes('not found') || raw.includes('não encontrado')
+          ? 'Não encontramos esse link. Verifique se está completo ou solicite um novo acesso.'
+          : raw.includes('already used') || raw.includes('já utilizado')
+            ? 'Este link já foi utilizado. Solicite um novo acesso.'
+            : 'O link de acesso parece inválido ou expirou. Por favor, solicite um novo acesso.'
+      setValidationError(mensagem)
       setIsValidating(false)
+      Sentry.captureException(err, {
+        tags: { route: 'inicio', stage: 'token-validar' },
+        extra: { friendlyMessage: mensagem },
+      })
     },
   })
   const hasValidated = useRef(false)
