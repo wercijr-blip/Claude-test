@@ -10,6 +10,8 @@ import { filtrarExamePorStatus } from '../examUtils.ts'
 import { inspecionarCertificado } from '../pdfSigner.ts'
 import { stripe } from '../stripe/products.ts'
 import { gerarEEnviarLinkAcesso } from './intake.ts'
+import { env } from '../_core/env.ts'
+import { linkAcessoQueue } from '../pdfQueue.ts'
 
 type ResultadoIaJson = {
   status?: string
@@ -309,5 +311,32 @@ export const adminRouter = router({
     })
 
     return { csv: [header, ...linhas].join('\n') }
+  }),
+
+  // ── Saúde do fluxo de intake ──────────────────────────────────
+  // Verifica env vars críticas e conectividade com Redis/BullMQ.
+  // Bater nesse endpoint antes de testar fluxos de pagamento confirma
+  // que todos os recursos estão disponíveis.
+  saudeIntake: adminProcedure.query(async () => {
+    let redisOk = false
+    let linkAcessoQueueSize: number | null = null
+    try {
+      linkAcessoQueueSize = await linkAcessoQueue.count()
+      redisOk = true
+    } catch {
+      // Redis inacessível
+    }
+
+    return {
+      appUrl: env.APP_URL,
+      appUrlOk: !!env.APP_URL,
+      resendKey: !!env.RESEND_API_KEY,
+      zapiInstanceId: !!env.ZAPI_INSTANCE_ID,
+      zapiToken: !!env.ZAPI_TOKEN,
+      stripeKey: !!env.STRIPE_SECRET_KEY,
+      stripeWebhook: !!env.STRIPE_WEBHOOK_SECRET,
+      redisOk,
+      linkAcessoQueueSize,
+    }
   }),
 })
