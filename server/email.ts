@@ -60,6 +60,20 @@ async function sendMultiple(opts: {
 }
 
 
+function formatarValidade(expiresAt: Date): string {
+  return expiresAt.toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: 'long',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'America/Sao_Paulo',
+  })
+}
+
+function formatarMoeda(centavos: number): string {
+  return (centavos / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
 function baseTemplate(titulo: string, corpo: string): string {
   const dominio = env.APP_URL.replace('https://', '').replace('http://', '')
   return `
@@ -128,30 +142,99 @@ export async function enviarResultadoAprovado(para: string, nomePaciente: string
   })
 }
 
+export type PagamentoMeta = {
+  valorCentavos: number
+  formaPagamento: string
+  dataHora: Date
+  idTransacao: string
+}
+
+// Email 1 — Pagamento confirmado + link de acesso
 export async function enviarLinkAcessoIntake(
   para: string,
   nome: string,
   link: string,
   expiresAt: Date,
   codigo: string,
+  pagamento?: PagamentoMeta,
 ): Promise<void> {
-  const dataExpiracao = expiresAt.toLocaleDateString('pt-BR')
+  const validadeFormatada = formatarValidade(expiresAt)
+
+  const blocoTransacao = pagamento ? `
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px 20px;margin:20px 0;">
+      <p style="margin:0 0 10px;color:#475569;font-size:13px;font-weight:600;">Detalhes do pagamento</p>
+      <table style="border-collapse:collapse;width:100%;">
+        <tr><td style="padding:3px 0;color:#64748b;font-size:12px;width:130px;">Valor:</td><td style="padding:3px 0;color:#0f172a;font-size:12px;font-weight:600;">${formatarMoeda(pagamento.valorCentavos)}</td></tr>
+        <tr><td style="padding:3px 0;color:#64748b;font-size:12px;">Forma:</td><td style="padding:3px 0;color:#0f172a;font-size:12px;">${pagamento.formaPagamento}</td></tr>
+        <tr><td style="padding:3px 0;color:#64748b;font-size:12px;">Data/hora:</td><td style="padding:3px 0;color:#0f172a;font-size:12px;">${formatarValidade(pagamento.dataHora)}</td></tr>
+        <tr><td style="padding:3px 0;color:#64748b;font-size:12px;">ID transação:</td><td style="padding:3px 0;color:#0f172a;font-size:12px;font-family:monospace;">...${pagamento.idTransacao.slice(-8)}</td></tr>
+      </table>
+    </div>` : ''
+
+  const titulo = 'Pagamento confirmado — Seu acesso ao Facilita PrEP'
+
   await send({
     to: para,
-    subject: 'Seu acesso ao formulário PrEP está pronto — Facilita PrEP',
+    subject: titulo,
     html: baseTemplate(
-      'Acesso liberado',
-      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nome}</strong>!</p>
-      <p style="color:#334155;font-size:15px;">Seu cadastro foi confirmado. Clique no botão abaixo para preencher o formulário clínico PrEP:</p>
+      'Pagamento confirmado',
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nome.split(' ')[0]}</strong>!</p>
+      <p style="color:#334155;font-size:15px;">Recebemos seu pagamento. Você já tem acesso à plataforma.</p>
       <a href="${link}" style="display:inline-block;background:#1d4ed8;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:600;margin:20px 0;font-size:16px;">
-        Acessar formulário
+        Acessar formulário PrEP
       </a>
-      <div style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;padding:16px 20px;margin:16px 0;">
-        <p style="margin:0 0 6px;color:#475569;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Código de acesso (para colar manualmente)</p>
+      <div style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;padding:16px 20px;margin:0 0 16px;">
+        <p style="margin:0 0 6px;color:#475569;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Código de acesso (cole manualmente se o botão não funcionar)</p>
         <p style="margin:0;font-family:monospace;font-size:14px;color:#0f172a;word-break:break-all;">${codigo}</p>
       </div>
-      <p style="color:#64748b;font-size:13px;">Link válido até <strong>${dataExpiracao}</strong>. Use apenas uma vez.</p>
-      <p style="color:#64748b;font-size:13px;">Se você não solicitou este acesso, ignore este e-mail.</p>`,
+      ${blocoTransacao}
+      <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:14px 16px;border-radius:4px;margin:16px 0;">
+        <p style="margin:0 0 4px;color:#92400e;font-size:13px;font-weight:600;">⏰ Seu acesso é válido por 7 dias.</p>
+        <p style="margin:0;color:#92400e;font-size:13px;">Expira em: <strong>${validadeFormatada}</strong></p>
+        <p style="margin:6px 0 0;color:#92400e;font-size:12px;">Após essa data, será necessário fazer novo pagamento devido à validade dos exames laboratoriais.</p>
+      </div>
+      <p style="color:#64748b;font-size:12px;">Guarde este e-mail como comprovante. Se você não solicitou este acesso, ignore este e-mail.</p>`,
+    ),
+  })
+}
+
+// Email 2 — Cadastro recebido + pedido de exames
+export async function enviarCadastroRecebidoExames(
+  para: string,
+  nome: string,
+  link: string,
+  expiresAt: Date,
+  codigo: string,
+): Promise<void> {
+  const validadeFormatada = formatarValidade(expiresAt)
+  await send({
+    to: para,
+    subject: 'Recebemos seu cadastro — Próximo passo: exames — Facilita PrEP',
+    html: baseTemplate(
+      'Cadastro recebido',
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nome.split(' ')[0]}</strong>! Recebemos seu cadastro.</p>
+      <p style="color:#334155;font-size:15px;">Próximo passo: realize os exames laboratoriais abaixo e envie pelo nosso portal.</p>
+      <div style="background:#f0fdf4;border-left:4px solid #16a34a;padding:14px 16px;border-radius:4px;margin:20px 0;">
+        <p style="margin:0 0 8px;color:#15803d;font-size:13px;font-weight:600;">Exames necessários</p>
+        <ul style="margin:0;padding-left:18px;color:#166534;font-size:13px;line-height:1.9;">
+          <li>HIV (4ª geração ou teste rápido) — <strong>válido ≤ 7 dias</strong></li>
+          <li>Creatinina (com TFG)</li>
+          <li>HBsAg</li>
+          <li>Anti-HCV</li>
+          <li>Sífilis (VDRL ou treponêmico)</li>
+        </ul>
+      </div>
+      <a href="${link}" style="display:inline-block;background:#1d4ed8;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:600;margin:20px 0;font-size:16px;">
+        Enviar exames
+      </a>
+      <div style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;padding:16px 20px;margin:0 0 16px;">
+        <p style="margin:0 0 6px;color:#475569;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Código de acesso (cole manualmente se o botão não funcionar)</p>
+        <p style="margin:0;font-family:monospace;font-size:14px;color:#0f172a;word-break:break-all;">${codigo}</p>
+      </div>
+      <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:12px 16px;border-radius:4px;margin:16px 0;">
+        <p style="margin:0;color:#92400e;font-size:13px;">⏰ Seus exames precisam ser enviados antes de <strong>${validadeFormatada}</strong>.</p>
+      </div>
+      <p style="color:#64748b;font-size:12px;">Dúvidas? Entre em contato: (61) 99401-8161 ou contato@facilitaprep.com.br</p>`,
     ),
   })
 }
@@ -175,7 +258,7 @@ export async function enviarDocumentosAssinados(
   })
 }
 
-// TEMPLATE-4 — Receita PrEP pronta com assinatura ICP-Brasil
+// Email 4 — Receita + formulário clínico prontos (entrega final)
 export async function enviarPrescricaoPronta(
   para: string,
   nomePaciente: string,
@@ -185,30 +268,43 @@ export async function enviarPrescricaoPronta(
   validadeDate.setMonth(validadeDate.getMonth() + 4)
   const dataValidade = validadeDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
 
+  const reavaliacaoDate = new Date()
+  reavaliacaoDate.setDate(reavaliacaoDate.getDate() + 90)
+  const dataReavaliacao = reavaliacaoDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+
   await send({
     to: para,
-    subject: 'Sua receita PrEP está pronta — Facilita PrEP',
+    subject: 'Sua receita e documentos estão prontos — Facilita PrEP',
     html: baseTemplate(
-      'Receita PrEP pronta',
-      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nomePaciente}</strong>!</p>
-      <p style="color:#334155;font-size:15px;">Sua receita de PrEP foi emitida e assinada digitalmente pelo médico responsável. Todos os documentos estão em anexo neste e-mail.</p>
+      'Receita e documentos prontos',
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nomePaciente.split(' ')[0]}</strong>! Sua consulta foi concluída.</p>
       <div style="background:#f0fdf4;border-left:4px solid #16a34a;padding:16px;border-radius:4px;margin:20px 0;">
         <p style="color:#15803d;margin:0 0 8px;font-size:14px;font-weight:600;">Receita emitida com sucesso</p>
-        <p style="color:#166534;margin:0;font-size:13px;">Validade: até <strong>${dataValidade}</strong> (4 meses)</p>
+        <table style="border-collapse:collapse;width:100%;">
+          <tr><td style="padding:2px 0;color:#166534;font-size:13px;width:150px;">Medicamento:</td><td style="color:#15803d;font-size:13px;font-weight:600;">Tenofovir/Emtricitabina (TDF/FTC)</td></tr>
+          <tr><td style="padding:2px 0;color:#166534;font-size:13px;">Posologia:</td><td style="color:#15803d;font-size:13px;">1 comprimido ao dia</td></tr>
+          <tr><td style="padding:2px 0;color:#166534;font-size:13px;">Validade:</td><td style="color:#15803d;font-size:13px;">até <strong>${dataValidade}</strong> (4 meses)</td></tr>
+        </table>
       </div>
-      <p style="color:#334155;font-size:14px;font-weight:600;">Próximos passos:</p>
+      <p style="color:#334155;font-size:14px;font-weight:600;">Em anexo você encontra:</p>
+      <ul style="color:#334155;font-size:13px;line-height:1.9;padding-left:20px;margin:8px 0 20px;">
+        <li>📄 Receita médica (PDF assinado digitalmente com ICP-Brasil)</li>
+      </ul>
+      <p style="color:#334155;font-size:14px;font-weight:600;">Como retirar a PrEP:</p>
       <ol style="color:#334155;font-size:13px;line-height:1.8;padding-left:20px;margin:8px 0 16px;">
-        <li>Apresente a receita em uma farmácia ou drogaria de sua preferência</li>
-        <li>Ou retire gratuitamente em uma UDM (Unidade Dispensadora de Medicamentos) do SUS</li>
-        <li>Tome 1 comprimido de Tenofovir/Emtricitabina por dia, no mesmo horário</li>
+        <li>Apresente a receita em qualquer farmácia ou drogaria no Brasil</li>
+        <li>Ou retire <strong>gratuitamente</strong> em uma UDM (Unidade Dispensadora de Medicamentos) do SUS</li>
       </ol>
       <div style="background:#eff6ff;border-left:4px solid #3b82f6;padding:12px 16px;border-radius:4px;margin:16px 0;">
-        <p style="color:#1e40af;margin:0;font-size:12px;">
-          Documentos assinados digitalmente com certificado ICP-Brasil conforme CFM 2.299/2021.
-          Têm validade jurídica e são aceitos em todo o território nacional.
+        <p style="color:#1e40af;margin:0 0 4px;font-size:13px;font-weight:600;">Próximos passos</p>
+        <p style="color:#1e40af;margin:0;font-size:13px;">Reavaliação recomendada em 90–180 dias (até <strong>${dataReavaliacao}</strong>).</p>
+      </div>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;padding:12px 16px;border-radius:4px;margin:16px 0;">
+        <p style="color:#475569;margin:0;font-size:12px;">
+          ⚖️ Estes documentos têm <strong>validade jurídica permanente</strong>, assinados com certificado ICP-Brasil (CFM 2.299/2021). Guarde-os com segurança.
         </p>
       </div>
-      <p style="color:#64748b;font-size:12px;">Guarde estes arquivos para seu controle. Em caso de dúvidas, entre em contato:<br>
+      <p style="color:#64748b;font-size:12px;">Em caso de dúvidas:<br>
       📱 WhatsApp: <a href="https://wa.me/5561994018161" style="color:#1d4ed8;">(61) 99401-8161</a> &nbsp;|&nbsp;
       📞 Fixo: (61) 4042-7188 &nbsp;|&nbsp;
       ✉️ <a href="mailto:contato@facilitaprep.com.br" style="color:#1d4ed8;">contato@facilitaprep.com.br</a></p>`,
@@ -296,23 +392,31 @@ export async function enviarResultadoRejeitado(para: string, nomePaciente: strin
 
 // ── Sprint 3: Templates de exame ────────────────────────────────────────────
 
-// TEMPLATE-1 — Aprovação automática por IA
+// Email 3 — Exame recebido + prosseguimento pro formulário clínico
 export async function enviarExameAprovadoIa(para: string, nome: string, link: string, codigo: string): Promise<void> {
+  const agora = new Date().toLocaleString('pt-BR', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo',
+  })
   await send({
     to: para,
-    subject: 'Exame aprovado — Facilita PrEP',
+    subject: 'Exame recebido — Vamos dar prosseguimento — Facilita PrEP',
     html: baseTemplate(
-      'Exame aprovado',
-      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nome}</strong>!</p>
-      <p style="color:#334155;font-size:15px;">Seu exame foi <strong style="color:#16a34a;">aprovado</strong>! Clique no botão abaixo para continuar com o formulário clínico:</p>
+      'Exame recebido',
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nome.split(' ')[0]}</strong>! Recebemos seu(s) exame(s).</p>
+      <div style="background:#f0fdf4;border-left:4px solid #16a34a;padding:14px 16px;border-radius:4px;margin:16px 0;">
+        <p style="margin:0 0 6px;color:#15803d;font-size:13px;font-weight:600;">✓ Exame de HIV validado</p>
+        <p style="margin:0;color:#166534;font-size:12px;">Recebido em: ${agora}</p>
+      </div>
+      <p style="color:#334155;font-size:15px;">Vamos dar prosseguimento ao preenchimento do formulário clínico para que nosso médico possa emitir sua receita.</p>
       <a href="${link}" style="display:inline-block;background:#16a34a;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:600;margin:20px 0;font-size:16px;">
         Continuar para o formulário clínico
       </a>
-      <div style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;padding:16px 20px;margin:16px 0;">
-        <p style="margin:0 0 6px;color:#475569;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Código de acesso (para colar manualmente)</p>
+      <div style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;padding:16px 20px;margin:0 0 16px;">
+        <p style="margin:0 0 6px;color:#475569;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Código de acesso (cole manualmente se o botão não funcionar)</p>
         <p style="margin:0;font-family:monospace;font-size:14px;color:#0f172a;word-break:break-all;">${codigo}</p>
       </div>
-      <p style="color:#64748b;font-size:13px;">Link de uso único — válido por 7 dias.</p>`,
+      <p style="color:#64748b;font-size:13px;">Link válido por 7 dias. Se você não solicitou este acesso, ignore este e-mail.</p>`,
     ),
   })
 }
