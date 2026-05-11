@@ -3,7 +3,13 @@
 ## Banco de Dados (TiDB Cloud Serverless)
 
 O banco de dados é gerenciado pelo **TiDB Cloud Serverless** (camada de dados gerenciada),
-que oferece backup automático nativo — não é necessário script manual de `pg_dump` ou similar.
+que oferece backup automático nativo — não é necessário script manual de `mysqldump` ou similar.
+
+> **Nota:** O banco em produção é **TiDB Cloud Serverless (MySQL 8.0-compatible)** em
+> `gateway01.eu-central-1.prod.aws.tidbcloud.com:4000`. Não usar `pg_dump` — o banco não é PostgreSQL.
+> Backups automáticos diários nativos ficam disponíveis por 7 dias no dashboard PingCAP em
+> **Backup → Automated Backup**. Para snapshots manuais antes de migrations, use `mysqldump`
+> (ou `dumpling`, da PingCAP, que paraleliza o dump por chunks).
 
 ### Backup Automático
 
@@ -21,7 +27,32 @@ que oferece backup automático nativo — não é necessário script manual de `
 Para exportações pontuais (ex.: antes de uma migration):
 
 ```bash
-# Via TiDB Cloud CLI (ticloud)
+# Opção 1 — mysqldump (MySQL-compatible, flags obrigatórias para TiDB Cloud)
+mysqldump \
+  --host=gateway01.eu-central-1.prod.aws.tidbcloud.com \
+  --port=4000 \
+  --user="$DB_USER" \
+  --password="$DB_PASS" \
+  --ssl-mode=VERIFY_IDENTITY \
+  --single-transaction \
+  --set-gtid-purged=OFF \
+  --quick \
+  --routines \
+  --triggers \
+  facilita_prep \
+  | gzip > backup-$(date -u +%Y%m%d-%H%M%S).sql.gz
+
+# Opção 2 — dumpling (ferramenta nativa PingCAP, paraleliza por chunks)
+dumpling \
+  -u "$DB_USER" -P 4000 \
+  -h gateway01.eu-central-1.prod.aws.tidbcloud.com \
+  -p "$DB_PASS" \
+  --filetype sql \
+  --threads 4 \
+  --output ./backup-$(date -u +%Y%m%d-%H%M%S) \
+  --database facilita_prep
+
+# Opção 3 — Via TiDB Cloud CLI (sem precisar de cliente local)
 ticloud serverless export create \
   --cluster-id <SEU_CLUSTER_ID> \
   --database facilita_prep \
@@ -30,6 +61,19 @@ ticloud serverless export create \
 ```
 
 Ou via console: TiDB Cloud → Cluster → **Import/Export** → Export.
+
+### Restore Manual
+
+```bash
+# Restaurar a partir de dump mysqldump (descomprime e importa via cliente mysql)
+gunzip -c backup-YYYYMMDD-HHMMSS.sql.gz | mysql \
+  --host=gateway01.eu-central-1.prod.aws.tidbcloud.com \
+  --port=4000 \
+  --user="$DB_USER" \
+  --password="$DB_PASS" \
+  --ssl-mode=VERIFY_IDENTITY \
+  facilita_prep
+```
 
 ### Configuração Recomendada em Produção
 
