@@ -7,6 +7,7 @@ import { PLANOS_VALIDOS, HORARIO_ATENDIMENTO } from '@shared/const.ts'
 import { Logo, LogoWordmark } from './Logo.tsx'
 import { trackFormSubmitPrecadastro } from '../lib/analytics.ts'
 import CheckoutAsaas from './CheckoutAsaas.tsx'
+import SeletorMetodoPagamento from './SeletorMetodoPagamento.tsx'
 
 const ABERTURA = HORARIO_ATENDIMENTO.ABERTURA_HORA
 const FECHAMENTO = HORARIO_ATENDIMENTO.FECHAMENTO_HORA
@@ -28,7 +29,7 @@ const schema = z.object({
 })
 
 type FormData = z.infer<typeof schema>
-type Etapa = 'escolha' | 'formulario' | 'aguardando' | 'checkout' | 'sucesso'
+type Etapa = 'escolha' | 'formulario' | 'seletor' | 'aguardando' | 'checkout' | 'sucesso'
 
 interface PixData {
   paymentId: string
@@ -119,6 +120,10 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
   const criar = trpc.intake.criar.useMutation()
   const iniciarPagamento = trpc.intake.iniciarPagamento.useMutation({
     onSuccess: (data) => {
+      if (data.tipo === 'cartao') {
+        window.location.href = data.invoiceUrl
+        return
+      }
       setPixData({ paymentId: data.paymentId, pixQrCode: data.pixQrCode, pixCopiaECola: data.pixCopiaECola })
       setEtapa('checkout')
     },
@@ -159,7 +164,7 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
       trackFormSubmitPrecadastro(tipo)
       setPrecadastroId(result.precadastroId)
       if (tipo === 'particular') {
-        await iniciarPagamento.mutateAsync({ precadastroId: result.precadastroId })
+        setEtapa('seletor')
       } else {
         setEtapa('aguardando')
       }
@@ -360,6 +365,17 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
           </div>
         </section>
       </div>
+    )
+  }
+
+  // ── Seletor de método de pagamento ───────────────────────────
+  if (etapa === 'seletor' && precadastroId) {
+    return (
+      <SeletorMetodoPagamento
+        precadastroId={precadastroId}
+        loading={iniciarPagamento.isPending}
+        onSelect={(metodo) => iniciarPagamento.mutate({ precadastroId, metodo })}
+      />
     )
   }
 

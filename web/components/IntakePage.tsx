@@ -9,6 +9,7 @@ import { PLANOS_VALIDOS, HORARIO_ATENDIMENTO } from '@shared/const'
 import { Logo, LogoWordmark } from './Logo'
 import { trackFormStart, trackFormSubmit, trackConversion } from '../lib/analytics'
 import CheckoutAsaas from './CheckoutAsaas'
+import SeletorMetodoPagamento from './SeletorMetodoPagamento'
 
 const ABERTURA = HORARIO_ATENDIMENTO.ABERTURA_HORA
 const FECHAMENTO = HORARIO_ATENDIMENTO.FECHAMENTO_HORA
@@ -30,7 +31,7 @@ const schema = z.object({
 })
 
 type FormData = z.infer<typeof schema>
-type Etapa = 'escolha' | 'formulario' | 'aguardando' | 'checkout' | 'sucesso'
+type Etapa = 'escolha' | 'formulario' | 'seletor' | 'aguardando' | 'checkout' | 'sucesso'
 type Tipo = 'particular' | 'plano'
 
 interface PixData {
@@ -62,6 +63,7 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
   const [tipo, setTipo] = useState<Tipo>(initialTipo ?? 'particular')
   const [dentroHorario, setDentroHorario] = useState(isDentroHorarioAtendimento())
   const [pixData, setPixData] = useState<PixData | null>(null)
+  const [precadastroId, setPrecadastroId] = useState<number | null>(null)
   const [carteirinhaKey, setCarteirinhaKey] = useState<string | null>(null)
   const [documentoKey, setDocumentoKey] = useState<string | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
@@ -84,6 +86,10 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
   const criar = trpc.intake.criar.useMutation()
   const iniciarPagamento = trpc.intake.iniciarPagamento.useMutation({
     onSuccess: (data) => {
+      if (data.tipo === 'cartao') {
+        window.location.href = data.invoiceUrl
+        return
+      }
       trackConversion(undefined, 'BRL')
       setPixData({ paymentId: data.paymentId, pixQrCode: data.pixQrCode, pixCopiaECola: data.pixCopiaECola })
       setEtapa('checkout')
@@ -127,7 +133,8 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
       })
       if (tipo === 'particular') {
         trackFormSubmit('particular')
-        await iniciarPagamento.mutateAsync({ precadastroId: result.precadastroId })
+        setPrecadastroId(result.precadastroId)
+        setEtapa('seletor')
       } else {
         trackFormSubmit('plano')
         trackConversion(undefined, 'BRL')
@@ -304,6 +311,17 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
           </div>
         </section>
       </div>
+    )
+  }
+
+  // ── Seletor de método de pagamento ───────────────────────────
+  if (etapa === 'seletor' && precadastroId) {
+    return (
+      <SeletorMetodoPagamento
+        precadastroId={precadastroId}
+        loading={iniciarPagamento.isPending}
+        onSelect={(metodo) => iniciarPagamento.mutate({ precadastroId, metodo })}
+      />
     )
   }
 
