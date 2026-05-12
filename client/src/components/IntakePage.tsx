@@ -117,6 +117,9 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
     resolver: zodResolver(schema),
   })
 
+  const { data: valorData } = trpc.intake.consultarValor.useQuery()
+  const valorFormatado = valorData?.valorFormatado
+
   const criar = trpc.intake.criar.useMutation()
   const iniciarPagamento = trpc.intake.iniciarPagamento.useMutation({
     onSuccess: (data) => {
@@ -228,12 +231,20 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                       </svg>
                     </div>
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <h3 className="font-bold text-slate-800 text-base">Particular</h3>
                         <span className="text-xs bg-brand-light text-brand px-2 py-0.5 rounded-full font-medium">Acesso imediato</span>
                       </div>
-                      <p className="text-slate-500 text-sm mt-1">Pagamento via PIX, cartão de crédito ou débito. Acesso liberado de forma simples e rápida.</p>
+                      {valorFormatado ? (
+                        <div className="mt-2 bg-brand-pale rounded-xl px-3 py-2 inline-block">
+                          <span className="text-xs text-slate-500 font-medium">Valor da consulta </span>
+                          <span className="text-base font-bold text-brand">{valorFormatado}</span>
+                        </div>
+                      ) : (
+                        <div className="mt-2 h-8 w-32 bg-brand-pale rounded-xl animate-pulse" />
+                      )}
+                      <p className="text-slate-500 text-sm mt-2">PIX, cartão de crédito ou débito. Acesso liberado de forma simples e rápida.</p>
                     </div>
                   </div>
                 </button>
