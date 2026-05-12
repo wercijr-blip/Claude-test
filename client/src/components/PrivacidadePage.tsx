@@ -58,8 +58,7 @@ export default function PrivacidadePage() {
             <h2 className="text-lg font-semibold text-fp-dark mb-2">5. Compartilhamento com terceiros</h2>
             <ul className="list-disc pl-5 space-y-1">
               <li><strong>TiDB Cloud (PingCAP)</strong> — banco de dados gerenciado, hospedado em Frankfurt (Alemanha, UE).</li>
-              <li><strong>Stripe</strong> — processamento de pagamento (EUA).</li>
-              <li><strong>FocusNFe</strong> — emissão de nota fiscal eletrônica.</li>
+              <li><strong>Asaas</strong> — processamento de pagamento e emissão de nota fiscal eletrônica (Brasil).</li>
               <li><strong>AWS S3</strong> — armazenamento criptografado de exames e documentos (EUA).</li>
               <li><strong>Z-API</strong> — envio de mensagens WhatsApp.</li>
               <li><strong>Resend</strong> — e-mails transacionais.</li>
@@ -133,7 +132,7 @@ export default function PrivacidadePage() {
                 Sujeito ao GDPR e com certificação ISO 27001.
               </li>
               <li>
-                <strong>Estados Unidos:</strong> Stripe (pagamentos), Sentry (monitoramento de erros),
+                <strong>Estados Unidos:</strong> Sentry (monitoramento de erros),
                 AWS S3 (armazenamento de exames e documentos).
               </li>
             </ul>

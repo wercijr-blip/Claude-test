@@ -23,7 +23,7 @@ export default function AuditDashboard() {
   // Pacientes
   const [busca, setBusca] = useState('')
   const { data: pacientesResp } = trpc.admin.listarTodosPacientes.useQuery({ busca: busca || undefined })
-  const [sessionIdRecuperar, setSessionIdRecuperar] = useState('')
+  const [precadIdRecuperar, setPrecadIdRecuperar] = useState('')
   const recuperarPagamento = trpc.admin.recuperarPagamento.useMutation()
   const pacientes = pacientesResp?.data
 
@@ -230,26 +230,26 @@ export default function AuditDashboard() {
             </div>
           </div>
 
-          {/* Recuperação de pagamento órfão */}
+          {/* Reenviar link de acesso */}
           <div className="bg-amber-50 rounded-2xl border border-amber-200 p-6">
-            <h2 className="text-base font-semibold text-amber-800 mb-1">Recuperar Pagamento Órfão</h2>
+            <h2 className="text-base font-semibold text-amber-800 mb-1">Reenviar Link de Acesso</h2>
             <p className="text-xs text-amber-700 mb-4">
-              Pagamento confirmado no Stripe mas link de acesso não chegou ao paciente?
-              Cole o <code className="bg-amber-100 px-1 rounded">session_id</code> do Stripe Dashboard para reenviar.
+              Pagamento confirmado mas link não chegou ao paciente? Informe o ID do pré-cadastro para reenviar.
             </p>
             <div className="flex gap-2">
               <input
-                value={sessionIdRecuperar}
-                onChange={(e) => setSessionIdRecuperar(e.target.value)}
-                placeholder="cs_live_..."
+                value={precadIdRecuperar}
+                onChange={(e) => setPrecadIdRecuperar(e.target.value)}
+                placeholder="ID do pré-cadastro (ex: 42)"
+                type="number"
                 className="flex-1 border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
               />
               <button
-                onClick={() => recuperarPagamento.mutate({ sessionId: sessionIdRecuperar })}
-                disabled={!sessionIdRecuperar || recuperarPagamento.isPending}
+                onClick={() => recuperarPagamento.mutate({ precadastroId: parseInt(precadIdRecuperar, 10) })}
+                disabled={!precadIdRecuperar || isNaN(parseInt(precadIdRecuperar, 10)) || recuperarPagamento.isPending}
                 className="bg-amber-600 hover:bg-amber-700 text-white font-medium px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50"
               >
-                {recuperarPagamento.isPending ? 'Processando…' : 'Recuperar'}
+                {recuperarPagamento.isPending ? 'Processando…' : 'Reenviar'}
               </button>
             </div>
             {recuperarPagamento.isSuccess && (
