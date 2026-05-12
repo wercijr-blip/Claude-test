@@ -1,4 +1,5 @@
 import { env } from '../_core/env.ts'
+import { logger } from '../_core/logger.ts'
 
 const BASE_URL = env.ASAAS_ENV === 'production'
   ? 'https://api.asaas.com/api/v3'
@@ -62,14 +63,30 @@ interface AsaasCustomerList {
 
 async function encontrarOuCriarCliente(nome: string, cpf: string, email: string): Promise<string> {
   const cpfDigits = cpf.replace(/\D/g, '')
-  const existing = await request<AsaasCustomerList>('GET', `/customers?cpfCnpj=${cpfDigits}`)
-  if (existing.data.length > 0) return existing.data[0]!.id
+
+  // Asaas may return 404 (instead of 200 + empty list) when no customer exists for the CPF.
+  // Treat 404 as "not found → create new" rather than a fatal error.
+  let existingId: string | null = null
+  try {
+    const existing = await request<AsaasCustomerList>('GET', `/customers?cpfCnpj=${cpfDigits}&limit=1`)
+    if (existing.data.length > 0) existingId = existing.data[0]!.id
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    if (!msg.includes('→ 404')) throw err  // real error (5xx, 401, network) — propagate
+    logger.info('[asaas] customer não encontrado (404), criando novo', { cpfPrefix: cpfDigits.slice(0, 3) })
+  }
+
+  if (existingId) {
+    logger.info('[asaas] customer existente reutilizado', { customerId: existingId })
+    return existingId
+  }
 
   const created = await request<AsaasCustomer>('POST', '/customers', {
     name: nome,
     cpfCnpj: cpfDigits,
     email,
   })
+  logger.info('[asaas] customer criado', { customerId: created.id })
   return created.id
 }
 

@@ -16,6 +16,7 @@ import { enqueueEnviarLinkAcesso } from '../pdfQueue.ts'
 import type { PagamentoMeta } from '../email.ts'
 import { ERROR_MESSAGES, HORARIO_ATENDIMENTO } from '../../shared/const.ts'
 import { logger } from '../_core/logger.ts'
+import * as Sentry from '@sentry/node'
 
 function isDentroHorarioAtendimento(): boolean {
   const agora = new Date()
@@ -257,13 +258,27 @@ export const intakeRouter = router({
       const cpfDecrypted = decrypt(precad.cpfEncrypted)
       const emailDecrypted = decrypt(precad.emailEncrypted)
 
-      return criarCobrancaIntake(
-        precad.id,
-        nomeDecrypted,
-        cpfDecrypted,
-        emailDecrypted,
-        input.metodo,
-      )
+      try {
+        return await criarCobrancaIntake(
+          precad.id,
+          nomeDecrypted,
+          cpfDecrypted,
+          emailDecrypted,
+          input.metodo,
+        )
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err)
+        logger.error('[intake] falha ao criar cobrança Asaas', { error: msg, precadastroId: precad.id })
+        Sentry.captureException(err, { tags: { route: 'intake.iniciarPagamento' }, extra: { precadastroId: precad.id } })
+
+        if (msg.includes('cpfCnpj') || msg.toLowerCase().includes('cpf')) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'CPF inválido. Verifique e tente novamente.' })
+        }
+        if (msg.includes('→ 401') || msg.toLowerCase().includes('unauthorized') || msg.includes('access_token')) {
+          throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Erro de configuração do gateway. Suporte foi avisado.' })
+        }
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Erro ao gerar pagamento. Tente novamente em alguns instantes.' })
+      }
     }),
 
   // Consultar status do pagamento PIX (usado para polling no frontend)
