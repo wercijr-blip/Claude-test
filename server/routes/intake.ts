@@ -133,6 +133,16 @@ export async function gerarLinkDeAcesso(precadastroId: number): Promise<{ raw: s
 }
 
 export const intakeRouter = router({
+  // Valor da consulta lido de env var CONSULTA_VALOR (default R$ 150,00)
+  consultarValor: publicProcedure.query(() => {
+    const valor = env.CONSULTA_VALOR
+    return {
+      valor,
+      valorCentavos: Math.round(valor * 100),
+      valorFormatado: valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+    }
+  }),
+
   // Paciente cria pré-cadastro (público, sem autenticação)
   criar: publicProcedure
     .input(z.object({
@@ -228,9 +238,12 @@ export const intakeRouter = router({
       return { token: raw }
     }),
 
-  // Iniciar pagamento PIX via Asaas (particular)
+  // Iniciar pagamento via Asaas (particular) — PIX, cartão crédito ou débito
   iniciarPagamento: publicProcedure
-    .input(z.object({ precadastroId: z.number() }))
+    .input(z.object({
+      precadastroId: z.number(),
+      metodo: z.enum(['PIX', 'CREDIT_CARD', 'DEBIT_CARD']).default('PIX'),
+    }))
     .mutation(async ({ input }) => {
       const [precad] = await db.select().from(precadastros).where(eq(precadastros.id, input.precadastroId)).limit(1)
       if (!precad || precad.tipo !== 'particular') {
@@ -244,14 +257,13 @@ export const intakeRouter = router({
       const cpfDecrypted = decrypt(precad.cpfEncrypted)
       const emailDecrypted = decrypt(precad.emailEncrypted)
 
-      const { paymentId, pixQrCode, pixCopiaECola } = await criarCobrancaIntake(
+      return criarCobrancaIntake(
         precad.id,
         nomeDecrypted,
         cpfDecrypted,
         emailDecrypted,
+        input.metodo,
       )
-
-      return { paymentId, pixQrCode, pixCopiaECola }
     }),
 
   // Consultar status do pagamento PIX (usado para polling no frontend)

@@ -1,5 +1,4 @@
 import { env } from '../_core/env.ts'
-import { VALOR_CONSULTA_CENTAVOS } from '../../shared/const.ts'
 
 const BASE_URL = env.ASAAS_ENV === 'production'
   ? 'https://api.asaas.com/api/v3'
@@ -79,8 +78,12 @@ export async function criarCobrancaIntake(
   nome: string,
   cpf: string,
   email: string,
-  valorCentavos: number = VALOR_CONSULTA_CENTAVOS,
-): Promise<{ paymentId: string; pixQrCode: string; pixCopiaECola: string }> {
+  metodo: 'PIX' | 'CREDIT_CARD' | 'DEBIT_CARD' = 'PIX',
+  valorCentavos: number = Math.round(env.CONSULTA_VALOR * 100),
+): Promise<
+  | { tipo: 'pix'; paymentId: string; pixQrCode: string; pixCopiaECola: string }
+  | { tipo: 'cartao'; paymentId: string; invoiceUrl: string }
+> {
   const customerId = await encontrarOuCriarCliente(nome, cpf, email)
 
   const hoje = new Date()
@@ -88,20 +91,23 @@ export async function criarCobrancaIntake(
 
   const payment = await request<AsaasPayment>('POST', '/payments', {
     customer: customerId,
-    billingType: 'PIX',
+    billingType: metodo,
     value: valorCentavos / 100,
     dueDate,
-    description: 'Consulta PrEP — Facilita PrEP',
+    description: `Consulta PrEP — Facilita PrEP (R$ ${(valorCentavos / 100).toFixed(2).replace('.', ',')})`,
     externalReference: `precad-${precadastroId}`,
+    ...(metodo !== 'PIX' && {
+      callbackSuccessUrl: `${env.APP_URL}/pagamento/sucesso?asaas_payment_id={id}`,
+    }),
   })
 
-  const qr = await request<AsaasPixQrCode>('GET', `/payments/${payment.id}/pixQrCode`)
-
-  return {
-    paymentId: payment.id,
-    pixQrCode: qr.encodedImage,
-    pixCopiaECola: qr.payload,
+  if (metodo !== 'PIX') {
+    if (!payment.invoiceUrl) throw new Error(`Asaas não retornou invoiceUrl para billingType=${metodo}`)
+    return { tipo: 'cartao', paymentId: payment.id, invoiceUrl: payment.invoiceUrl }
   }
+
+  const qr = await request<AsaasPixQrCode>('GET', `/payments/${payment.id}/pixQrCode`)
+  return { tipo: 'pix', paymentId: payment.id, pixQrCode: qr.encodedImage, pixCopiaECola: qr.payload }
 }
 
 export async function obterPagamento(paymentId: string): Promise<AsaasPayment> {

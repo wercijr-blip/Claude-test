@@ -22,6 +22,9 @@ const envSchema = z.object({
   ASAAS_ENV: z.enum(['sandbox', 'production']).default('sandbox'),
   ASAAS_WEBHOOK_TOKEN: z.string().optional(),
 
+  // Valor da consulta em reais (ex: 150). Alterável via Railway sem deploy de código.
+  CONSULTA_VALOR: z.coerce.number().positive().default(150),
+
   BUILT_IN_FORGE_API_URL: z.string().url().default('https://api.anthropic.com'),
   BUILT_IN_FORGE_API_KEY: z.string().optional(),
 
