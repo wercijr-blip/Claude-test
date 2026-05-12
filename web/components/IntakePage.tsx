@@ -8,6 +8,7 @@ import { trpc } from '../lib/trpc'
 import { PLANOS_VALIDOS, HORARIO_ATENDIMENTO } from '@shared/const'
 import { Logo, LogoWordmark } from './Logo'
 import { trackFormStart, trackFormSubmit, trackConversion } from '../lib/analytics'
+import CheckoutAsaas from './CheckoutAsaas'
 
 const ABERTURA = HORARIO_ATENDIMENTO.ABERTURA_HORA
 const FECHAMENTO = HORARIO_ATENDIMENTO.FECHAMENTO_HORA
@@ -29,8 +30,14 @@ const schema = z.object({
 })
 
 type FormData = z.infer<typeof schema>
-type Etapa = 'escolha' | 'formulario' | 'aguardando' | 'sucesso'
+type Etapa = 'escolha' | 'formulario' | 'aguardando' | 'checkout' | 'sucesso'
 type Tipo = 'particular' | 'plano'
+
+interface PixData {
+  paymentId: string
+  pixQrCode: string
+  pixCopiaECola: string
+}
 
 const inputCls = 'w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent bg-white transition-all placeholder:text-slate-400'
 const labelCls = 'block text-sm font-medium text-slate-700 mb-1.5'
@@ -54,6 +61,7 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
   const [etapa, setEtapa] = useState<Etapa>(autoStart ? 'formulario' : 'escolha')
   const [tipo, setTipo] = useState<Tipo>(initialTipo ?? 'particular')
   const [dentroHorario, setDentroHorario] = useState(isDentroHorarioAtendimento())
+  const [pixData, setPixData] = useState<PixData | null>(null)
   const [carteirinhaKey, setCarteirinhaKey] = useState<string | null>(null)
   const [documentoKey, setDocumentoKey] = useState<string | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
@@ -77,7 +85,8 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
   const iniciarPagamento = trpc.intake.iniciarPagamento.useMutation({
     onSuccess: (data) => {
       trackConversion(undefined, 'BRL')
-      if (data.url) window.location.href = data.url
+      setPixData({ paymentId: data.paymentId, pixQrCode: data.pixQrCode, pixCopiaECola: data.pixCopiaECola })
+      setEtapa('checkout')
     },
   })
 
@@ -295,6 +304,17 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
           </div>
         </section>
       </div>
+    )
+  }
+
+  // ── Checkout PIX Asaas ────────────────────────────────────────
+  if (etapa === 'checkout' && pixData) {
+    return (
+      <CheckoutAsaas
+        paymentId={pixData.paymentId}
+        pixQrCode={pixData.pixQrCode}
+        pixCopiaECola={pixData.pixCopiaECola}
+      />
     )
   }
 
