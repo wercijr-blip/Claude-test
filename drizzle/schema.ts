@@ -290,11 +290,14 @@ export const satisfacaoPesquisas = mysqlTable('satisfacao_pesquisas', {
   pacienteIdx: uniqueIndex('idx_satisfacao_paciente').on(t.pacienteId),
 }))
 
-// ── Pagamentos Stripe ─────────────────────────────────────────
+// ── Pagamentos ────────────────────────────────────────────────
 
 export const pagamentos = mysqlTable('pagamentos', {
   id: int('id').primaryKey().autoincrement(),
   pacienteId: int('paciente_id').notNull().references(() => pacientes.id),
+  provider: varchar('provider', { length: 20 }).notNull().default('asaas'),
+  asaasPaymentId: varchar('asaas_payment_id', { length: 100 }),
+  // Deprecated — kept for historical rows that went through Stripe
   stripePaymentId: varchar('stripe_payment_id', { length: 100 }),
   stripeSessionId: varchar('stripe_session_id', { length: 100 }),
   status: varchar('status', { length: 50 }).notNull().default('pendente'),
@@ -302,6 +305,7 @@ export const pagamentos = mysqlTable('pagamentos', {
   createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (t) => ({
   pacienteIdx: index('idx_pagamentos_paciente').on(t.pacienteId),
+  asaasIdx: index('idx_pagamentos_asaas').on(t.asaasPaymentId),
   sessionIdx: index('idx_pagamentos_session').on(t.stripeSessionId),
 }))
 

@@ -18,12 +18,9 @@ const envSchema = z.object({
   RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().default('Facilita PrEP <noreply@facilitaprep.com.br>'),
 
-  FOCUSNFE_TOKEN_HOMOLOGACAO: z.string().optional(),
-  FOCUSNFE_TOKEN_PRODUCAO: z.string().optional(),
-  FOCUSNFE_ENVIRONMENT: z.enum(['homologacao', 'producao']).default('homologacao'),
-
-  STRIPE_SECRET_KEY: z.string().optional(),
-  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  ASAAS_API_KEY: z.string().optional(),
+  ASAAS_ENV: z.enum(['sandbox', 'production']).default('sandbox'),
+  ASAAS_WEBHOOK_TOKEN: z.string().optional(),
 
   BUILT_IN_FORGE_API_URL: z.string().url().default('https://api.anthropic.com'),
   BUILT_IN_FORGE_API_KEY: z.string().optional(),

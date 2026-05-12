@@ -221,12 +221,15 @@ const DDL_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS pagamentos (
     id INT PRIMARY KEY AUTO_INCREMENT,
     paciente_id INT NOT NULL,
+    provider VARCHAR(20) NOT NULL DEFAULT 'asaas',
+    asaas_payment_id VARCHAR(100),
     stripe_payment_id VARCHAR(100),
     stripe_session_id VARCHAR(100),
     status VARCHAR(50) NOT NULL DEFAULT 'pendente',
     valor_centavos INT NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_pagamentos_paciente (paciente_id),
+    INDEX idx_pagamentos_asaas (asaas_payment_id),
     INDEX idx_pagamentos_session (stripe_session_id)
   )`,
 
@@ -347,6 +350,8 @@ const COLUMN_PATCHES: Record<string, Array<{ name: string; ddl: string }>> = {
     { name: 'comentario', ddl: 'TEXT' },
   ],
   pagamentos: [
+    { name: 'provider', ddl: "VARCHAR(20) NOT NULL DEFAULT 'asaas'" },
+    { name: 'asaas_payment_id', ddl: 'VARCHAR(100)' },
     { name: 'stripe_payment_id', ddl: 'VARCHAR(100)' },
     { name: 'stripe_session_id', ddl: 'VARCHAR(100)' },
     { name: 'status', ddl: "VARCHAR(50) NOT NULL DEFAULT 'pendente'" },
