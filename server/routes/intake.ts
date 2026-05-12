@@ -7,7 +7,7 @@ import { precadastros, accessTokens, users } from '../../drizzle/schema.ts'
 import { eq, desc, inArray } from 'drizzle-orm'
 import { encrypt, decrypt, hashCpf } from '../_core/encryption.ts'
 import { validarCpf, normalizarCpf } from '../_core/cpfValidator.ts'
-import { criarCheckoutIntake, stripe } from '../stripe/products.ts'
+import { criarCobrancaIntake, obterPagamento } from '../asaas/client.ts'
 import { enviarNotificacaoNovoPlano, enviarConfirmacaoPlano } from '../email.ts'
 import { getPresignedUrl } from '../storage.ts'
 import { env } from '../_core/env.ts'
@@ -198,39 +198,37 @@ export const intakeRouter = router({
       return { precadastroId: inserted.id }
     }),
 
-  // Após o Stripe redirecionar para /pagamento/sucesso?session_id=...
-  // o cliente troca o session_id pelo raw access token, sem depender do
-  // e-mail/WhatsApp. O webhook checkout.session.completed também roda em
-  // paralelo e enviará as notificações como backup — a checagem
-  // `precad.status === 'link_enviado'` no webhook garante idempotência.
+  // Após o pagamento ser confirmado pelo Asaas, o cliente troca o paymentId
+  // pelo raw access token. O webhook PAYMENT_RECEIVED/CONFIRMED também processa
+  // em paralelo — idempotência via precad.status === 'link_enviado'.
   acessoPosPagamento: publicProcedure
-    .input(z.object({ sessionId: z.string().min(1) }))
+    .input(z.object({ paymentId: z.string().min(1) }))
     .mutation(async ({ input }) => {
-      let session
+      let payment
       try {
-        session = await stripe.checkout.sessions.retrieve(input.sessionId)
+        payment = await obterPagamento(input.paymentId)
       } catch {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Sessão de pagamento não encontrada.' })
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Pagamento não encontrado no Asaas.' })
       }
 
-      if (session.payment_status !== 'paid') {
+      if (payment.status !== 'RECEIVED' && payment.status !== 'CONFIRMED') {
         throw new TRPCError({
           code: 'BAD_REQUEST',
-          message: 'Pagamento ainda não foi confirmado pelo Stripe. Tente novamente em instantes.',
+          message: 'Pagamento ainda não confirmado. Tente novamente em instantes.',
         })
       }
 
-      const rawPrecadastroId = (session.metadata as { precadastroId?: string } | null)?.precadastroId
-      if (!rawPrecadastroId) {
-        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Sessão sem precadastroId.' })
+      const precadMatch = (payment.externalReference ?? '').match(/^precad-(\d+)$/)
+      if (!precadMatch) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Referência de pagamento inválida.' })
       }
-      const precadastroId = parseInt(rawPrecadastroId, 10)
+      const precadastroId = parseInt(precadMatch[1]!, 10)
 
       const { raw } = await gerarEEnviarLinkAcesso(precadastroId)
       return { token: raw }
     }),
 
-  // Iniciar pagamento Stripe (particular)
+  // Iniciar pagamento PIX via Asaas (particular)
   iniciarPagamento: publicProcedure
     .input(z.object({ precadastroId: z.number() }))
     .mutation(async ({ input }) => {
@@ -242,14 +240,26 @@ export const intakeRouter = router({
         throw new TRPCError({ code: 'BAD_REQUEST', message: 'Link já enviado para este cadastro.' })
       }
 
+      const nomeDecrypted = decrypt(precad.nomeEncrypted)
+      const cpfDecrypted = decrypt(precad.cpfEncrypted)
       const emailDecrypted = decrypt(precad.emailEncrypted)
-      const { url, sessionId } = await criarCheckoutIntake(precad.id, emailDecrypted)
 
-      await db.update(precadastros)
-        .set({ stripeSessionId: sessionId })
-        .where(eq(precadastros.id, precad.id))
+      const { paymentId, pixQrCode, pixCopiaECola } = await criarCobrancaIntake(
+        precad.id,
+        nomeDecrypted,
+        cpfDecrypted,
+        emailDecrypted,
+      )
 
-      return { url }
+      return { paymentId, pixQrCode, pixCopiaECola }
+    }),
+
+  // Consultar status do pagamento PIX (usado para polling no frontend)
+  consultarStatusPagamento: publicProcedure
+    .input(z.object({ paymentId: z.string().min(1) }))
+    .query(async ({ input }) => {
+      const payment = await obterPagamento(input.paymentId)
+      return { status: payment.status }
     }),
 
   // Secretaria: listar planos aguardando validação
