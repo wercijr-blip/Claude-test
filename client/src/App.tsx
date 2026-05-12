@@ -248,7 +248,7 @@ function AuthCallback() {
 
 function PagamentoSucesso() {
   const params = new URLSearchParams(window.location.search)
-  const sessionId = params.get('session_id') ?? ''
+  const paymentId = params.get('asaas_payment_id') ?? ''
   const [, navigate] = useLocation()
   const { setToken } = useAuth()
   const hasAttempted = useRef(false)
@@ -264,19 +264,19 @@ function PagamentoSucesso() {
 
   const acesso = trpc.intake.acessoPosPagamento.useMutation({
     onSuccess: (data: { token: string }) => {
-      trackPurchase(sessionId, 150)
+      trackPurchase(paymentId, 250)
       validarToken.mutate({ token: data.token })
     },
     onError: (err: { message: string }) => setErro(err.message),
   })
 
   useEffect(() => {
-    if (sessionId && !hasAttempted.current) {
+    if (paymentId && !hasAttempted.current) {
       hasAttempted.current = true
-      acesso.mutate({ sessionId })
+      acesso.mutate({ paymentId })
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId])
+  }, [paymentId])
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">

@@ -6,6 +6,7 @@ import { trpc } from '../lib/trpc.ts'
 import { PLANOS_VALIDOS, HORARIO_ATENDIMENTO } from '@shared/const.ts'
 import { Logo, LogoWordmark } from './Logo.tsx'
 import { trackFormSubmitPrecadastro } from '../lib/analytics.ts'
+import CheckoutAsaas from './CheckoutAsaas.tsx'
 
 const ABERTURA = HORARIO_ATENDIMENTO.ABERTURA_HORA
 const FECHAMENTO = HORARIO_ATENDIMENTO.FECHAMENTO_HORA
@@ -27,7 +28,13 @@ const schema = z.object({
 })
 
 type FormData = z.infer<typeof schema>
-type Etapa = 'escolha' | 'formulario' | 'aguardando' | 'sucesso'
+type Etapa = 'escolha' | 'formulario' | 'aguardando' | 'checkout' | 'sucesso'
+
+interface PixData {
+  paymentId: string
+  pixQrCode: string
+  pixCopiaECola: string
+}
 type Tipo = 'particular' | 'plano'
 
 const inputCls = 'w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent bg-white transition-all placeholder:text-slate-400'
@@ -90,6 +97,7 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
   const [tipo, setTipo] = useState<Tipo>(initialTipo ?? 'particular')
   const [dentroHorario, setDentroHorario] = useState(isDentroHorarioAtendimento())
   const [precadastroId, setPrecadastroId] = useState<number | null>(null)
+  const [pixData, setPixData] = useState<PixData | null>(null)
   const [carteirinhaKey, setCarteirinhaKey] = useState<string | null>(null)
   const [carteirinhaNome, setCarteirinhaNome] = useState<string | null>(null)
   const [carteirinhaUploading, setCarteirinhaUploading] = useState(false)
@@ -111,7 +119,8 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
   const criar = trpc.intake.criar.useMutation()
   const iniciarPagamento = trpc.intake.iniciarPagamento.useMutation({
     onSuccess: (data) => {
-      if (data.url) window.location.href = data.url
+      setPixData({ paymentId: data.paymentId, pixQrCode: data.pixQrCode, pixCopiaECola: data.pixCopiaECola })
+      setEtapa('checkout')
     },
   })
 
@@ -351,6 +360,18 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
           </div>
         </section>
       </div>
+    )
+  }
+
+  // ── Checkout PIX Asaas ────────────────────────────────────────
+  if (etapa === 'checkout' && pixData && precadastroId) {
+    return (
+      <CheckoutAsaas
+        precadastroId={precadastroId}
+        paymentId={pixData.paymentId}
+        pixQrCode={pixData.pixQrCode}
+        pixCopiaECola={pixData.pixCopiaECola}
+      />
     )
   }
 
