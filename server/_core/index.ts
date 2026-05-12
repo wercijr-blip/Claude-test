@@ -125,20 +125,15 @@ if (env.NODE_ENV === 'production') {
   app.use(express.static(clientDist))
 }
 
-// ⚠️ Stripe webhook DEVE vir ANTES de express.json() para receber raw body
-// (Stripe valida assinatura usando os bytes brutos do payload)
-app.post(
-  '/api/stripe/webhook',
-  express.raw({ type: 'application/json' }),
-  async (req, res) => {
-    const { handleWebhook } = await import('../stripe/webhook.ts')
-    await handleWebhook(req, res)
-  },
-)
-
-// Body parsers globais (depois do webhook)
+// Body parsers globais
 app.use(express.json({ limit: '2mb' }))
 app.use(express.urlencoded({ extended: true }))
+
+// Asaas webhook (JSON body — no raw body needed; Asaas uses token auth, not HMAC)
+app.post('/api/asaas/webhook', async (req, res) => {
+  const { handleAsaasWebhook } = await import('../asaas/webhook.ts')
+  await handleAsaasWebhook(req, res)
+})
 
 // tRPC — com rate limiters por rota
 app.use(
