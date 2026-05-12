@@ -2,7 +2,7 @@ import { env } from '../_core/env.ts'
 import { logger } from '../_core/logger.ts'
 
 const BASE_URL = env.ASAAS_ENV === 'production'
-  ? 'https://api.asaas.com/api/v3'
+  ? 'https://api.asaas.com/v3'
   : 'https://sandbox.asaas.com/api/v3'
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
