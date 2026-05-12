@@ -379,7 +379,17 @@ export const pacienteRouter = router({
   dadosIntake: protectedProcedure
     .query(async ({ ctx }) => {
       assertPatient(ctx.session)
-      const { tokenId } = ctx.session
+
+      let tokenId = ctx.session.tokenId
+      if (ctx.session.pacienteId !== null) {
+        const [pac] = await db
+          .select({ tokenId: pacientes.tokenId })
+          .from(pacientes)
+          .where(eq(pacientes.id, ctx.session.pacienteId))
+          .limit(1)
+        if (!pac) return null
+        tokenId = pac.tokenId
+      }
 
       const [precad] = await db
         .select()
