@@ -249,7 +249,7 @@ function AuthCallback() {
 
 function PagamentoSucesso() {
   const params = new URLSearchParams(window.location.search)
-  const paymentId = params.get('asaas_payment_id') ?? ''
+  const paymentId = params.get('paymentId') || params.get('asaas_payment_id') || ''
   const [, navigate] = useLocation()
   const { setToken } = useAuth()
   const hasAttempted = useRef(false)
