@@ -622,7 +622,7 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
             {isPlano ? (
               <button
                 type="submit"
-                disabled={foraHorario || criar.isPending || carteirinhaUploading || documentoUploading || !carteirinhaKey || !documentoKey}
+                disabled={criar.isPending || carteirinhaUploading || documentoUploading || !carteirinhaKey || !documentoKey}
                 className="w-full bg-sage text-white py-3.5 rounded-2xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-sage-dark transition-all shadow-md hover:shadow-lg text-sm"
               >
                 {criar.isPending

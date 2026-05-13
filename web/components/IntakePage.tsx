@@ -511,7 +511,7 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
             {isPlano ? (
               <button
                 type="submit"
-                disabled={foraHorario || criar.isPending}
+                disabled={criar.isPending || !carteirinhaKey || !documentoKey}
                 className="w-full bg-sage text-white py-3.5 rounded-2xl font-semibold disabled:opacity-50 hover:bg-sage-dark transition-all shadow-md hover:shadow-lg text-sm"
               >
                 {criar.isPending ? 'Enviando…' : 'Enviar para validação →'}
