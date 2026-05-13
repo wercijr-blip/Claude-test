@@ -3,7 +3,7 @@ import { router, adminProcedure } from '../_core/trpc.ts'
 import { TRPCError } from '@trpc/server'
 import { db } from '../db.ts'
 import { users, securityEvents, pacientes, exames } from '../../drizzle/schema.ts'
-import { eq, desc, inArray, count } from 'drizzle-orm'
+import { eq, desc, inArray, count, isNull, and } from 'drizzle-orm'
 import type { Role } from '../../shared/types.ts'
 import { decrypt } from '../_core/encryption.ts'
 import { filtrarExamePorStatus } from '../examUtils.ts'
@@ -11,6 +11,7 @@ import { inspecionarCertificado } from '../pdfSigner.ts'
 import { gerarEEnviarLinkAcesso } from './intake.ts'
 import { env } from '../_core/env.ts'
 import { linkAcessoQueue } from '../pdfQueue.ts'
+import { logAudit } from '../_core/audit.ts'
 
 type ResultadoIaJson = {
   status?: string
@@ -20,9 +21,9 @@ type ResultadoIaJson = {
 export const adminRouter = router({
   // ── Gestão de equipe ──────────────────────────────────────────
 
-  // Listar equipe
+  // Listar equipe (excluindo soft-deleted)
   listarUsuarios: adminProcedure.query(async () => {
-    return db.select().from(users).orderBy(users.createdAt)
+    return db.select().from(users).where(isNull(users.deletedAt)).orderBy(users.createdAt)
   }),
 
   // Cadastrar novo usuário da equipe
@@ -79,6 +80,71 @@ export const adminRouter = router({
         .update(users)
         .set({ ativo: input.ativo, updatedAt: new Date() })
         .where(eq(users.id, input.userId))
+      return { ok: true }
+    }),
+
+  // Soft-delete: marca deletedAt/deletedBy, desativa acesso. Nunca hard-delete.
+  deletarStaff: adminProcedure
+    .input(z.object({ userId: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      if (input.userId === ctx.session.id) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Você não pode deletar sua própria conta.' })
+      }
+
+      const [target] = await db.select().from(users).where(eq(users.id, input.userId)).limit(1)
+      if (!target) throw new TRPCError({ code: 'NOT_FOUND' })
+      if (target.deletedAt) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Usuário já foi deletado.' })
+
+      // Prevent deleting the last active admin
+      if (target.role === 'admin') {
+        const [{ activeTotal }] = await db
+          .select({ activeTotal: count() })
+          .from(users)
+          .where(and(eq(users.role, 'admin'), isNull(users.deletedAt)))
+        if (activeTotal <= 1) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'Não é possível deletar o último administrador ativo.' })
+        }
+      }
+
+      await db
+        .update(users)
+        .set({ deletedAt: new Date(), deletedBy: ctx.session.id, ativo: false, updatedAt: new Date() })
+        .where(eq(users.id, input.userId))
+
+      await logAudit({
+        actorId: ctx.session.id,
+        actorRole: ctx.session.role,
+        action: 'admin.user_delete',
+        resourceType: 'user',
+        resourceId: input.userId,
+        detalhes: { targetEmail: target.email, targetRole: target.role },
+      })
+
+      return { ok: true }
+    }),
+
+  // Reativar usuário soft-deleted
+  reativarStaff: adminProcedure
+    .input(z.object({ userId: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      const [target] = await db.select().from(users).where(eq(users.id, input.userId)).limit(1)
+      if (!target) throw new TRPCError({ code: 'NOT_FOUND' })
+      if (!target.deletedAt) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Usuário não está deletado.' })
+
+      await db
+        .update(users)
+        .set({ deletedAt: null, deletedBy: null, ativo: true, updatedAt: new Date() })
+        .where(eq(users.id, input.userId))
+
+      await logAudit({
+        actorId: ctx.session.id,
+        actorRole: ctx.session.role,
+        action: 'admin.user_restore',
+        resourceType: 'user',
+        resourceId: input.userId,
+        detalhes: { targetEmail: target.email, targetRole: target.role },
+      })
+
       return { ok: true }
     }),
 

@@ -24,6 +24,9 @@ export const users = mysqlTable('users', {
   totpSecretEncrypted: text('totp_secret_encrypted'),
   totpEnabled: boolean('totp_enabled').notNull().default(false),
   totpBackupCodes: json('totp_backup_codes'),  // string[] (hashed, each single-use)
+  // Soft delete — LGPD audit trail; never hard-delete staff records
+  deletedAt: datetime('deleted_at'),
+  deletedBy: int('deleted_by'),
   createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`).$onUpdateFn(() => new Date()),
 }, (t) => ({

@@ -7,7 +7,7 @@ import { Sentry } from '../_core/instrument.ts'
 import { logger } from '../_core/logger.ts'
 import { db } from '../db.ts'
 import { users } from '../../drizzle/schema.ts'
-import { eq } from 'drizzle-orm'
+import { eq, isNull, and } from 'drizzle-orm'
 import { JWT_EXPIRY_STAFF } from '../../shared/security-constants.ts'
 import { isAllowedRedirectUri } from '../_core/originValidator.ts'
 import type { Role } from '../../shared/types.ts'
@@ -83,7 +83,11 @@ export const authRouter = router({
       }
 
       // Upsert do usuário
-      const [existing] = await db.select().from(users).where(eq(users.openId, data.openId)).limit(1)
+      const [existing] = await db
+        .select()
+        .from(users)
+        .where(and(eq(users.openId, data.openId), isNull(users.deletedAt)))
+        .limit(1)
 
       // When openId is not found, fall back to email lookup for pre-registered staff
       // whose openId was set to 'pending:email' by admin before their first SSO login.
@@ -94,7 +98,7 @@ export const authRouter = router({
         const [candidate] = await db
           .select()
           .from(users)
-          .where(eq(users.email, data.email))
+          .where(and(eq(users.email, data.email), isNull(users.deletedAt)))
           .limit(1)
         if (candidate?.openId.startsWith('pending:')) preRegistered = candidate
       }
