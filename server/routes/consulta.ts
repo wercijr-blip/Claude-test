@@ -3,7 +3,7 @@ import { router, protectedProcedure, medicoProcedure } from '../_core/trpc.ts'
 import { TRPCError } from '@trpc/server'
 import { db } from '../db.ts'
 import { consultasInicio, accessTokens, precadastros, users, pacientes } from '../../drizzle/schema.ts'
-import { eq, desc, inArray } from 'drizzle-orm'
+import { eq, desc, inArray, isNull, and } from 'drizzle-orm'
 import { decrypt } from '../_core/encryption.ts'
 import { extrairDadosExame, calcularSimilaridadeNome, parseDateBR, isDataValida } from '../examValidation.ts'
 import { gerarPedidosExames } from '../pdfExameRequest.ts'
@@ -76,7 +76,7 @@ async function getMedicosEmails(): Promise<string[]> {
   const rows = await db
     .select({ email: users.email })
     .from(users)
-    .where(inArray(users.role, ['medico', 'admin']))
+    .where(and(inArray(users.role, ['medico', 'admin']), isNull(users.deletedAt)))
   return rows.map(r => r.email).filter(Boolean) as string[]
 }
 

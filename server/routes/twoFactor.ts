@@ -8,7 +8,7 @@ import { router, staffProcedure, publicProcedure } from '../_core/trpc.ts'
 import { env } from '../_core/env.ts'
 import { db } from '../db.ts'
 import { users } from '../../drizzle/schema.ts'
-import { eq } from 'drizzle-orm'
+import { eq, isNull, and } from 'drizzle-orm'
 import { encrypt, decrypt } from '../_core/encryption.ts'
 import { logAudit } from '../_core/audit.ts'
 import { JWT_EXPIRY_STAFF } from '../../shared/security-constants.ts'
@@ -117,7 +117,8 @@ export const twoFactorRouter = router({
         throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Token não é de 2FA pendente' })
       }
 
-      const [user] = await db.select().from(users).where(eq(users.id, pendingPayload.userId)).limit(1)
+      const [user] = await db.select().from(users)
+        .where(and(eq(users.id, pendingPayload.userId), isNull(users.deletedAt))).limit(1)
       if (!user || !user.ativo || !user.totpEnabled || !user.totpSecretEncrypted) {
         throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Usuário inválido' })
       }

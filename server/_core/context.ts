@@ -3,7 +3,7 @@ import { jwtVerify } from 'jose'
 import { env } from './env.ts'
 import { db } from '../db.ts'
 import { users } from '../../drizzle/schema.ts'
-import { eq } from 'drizzle-orm'
+import { eq, isNull, and } from 'drizzle-orm'
 import type { AuthUser, PatientSession } from '../../shared/types.ts'
 
 export type SessionUser = AuthUser | PatientSession
@@ -36,7 +36,7 @@ export async function createContext({ req }: { req: Request }): Promise<Context>
       const user = await db
         .select()
         .from(users)
-        .where(eq(users.openId, payload.sub))
+        .where(and(eq(users.openId, payload.sub), isNull(users.deletedAt)))
         .limit(1)
         .then((rows) => rows[0] ?? null)
 

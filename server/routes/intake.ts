@@ -4,7 +4,7 @@ import { hashToken, generateToken } from '../_core/tokenUtils.ts'
 import { TRPCError } from '@trpc/server'
 import { db } from '../db.ts'
 import { precadastros, accessTokens, users } from '../../drizzle/schema.ts'
-import { eq, desc, inArray } from 'drizzle-orm'
+import { eq, desc, inArray, isNull, and } from 'drizzle-orm'
 import { encrypt, decrypt, hashCpf } from '../_core/encryption.ts'
 import { validarCpf, normalizarCpf } from '../_core/cpfValidator.ts'
 import { criarCobrancaIntake, obterPagamento } from '../asaas/client.ts'
@@ -197,7 +197,7 @@ export const intakeRouter = router({
         const staffUsers = await db
           .select({ email: users.email })
           .from(users)
-          .where(inArray(users.role, ['secretaria', 'admin']))
+          .where(and(inArray(users.role, ['secretaria', 'admin']), isNull(users.deletedAt)))
 
         const emails = staffUsers.map(u => u.email).filter(Boolean) as string[]
         const dashboardUrl = `${env.APP_URL}/secretaria`
