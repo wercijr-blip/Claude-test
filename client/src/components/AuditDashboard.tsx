@@ -3,6 +3,8 @@ import { trpc } from '../lib/trpc.ts'
 import { useAuth } from '../_core/hooks/useAuth.ts'
 import { Download } from 'lucide-react'
 
+type ConfirmDeleteTarget = { id: number; nome: string | null; email: string | null }
+
 type Tab = 'equipe' | 'pacientes' | 'auditoria' | 'certificado'
 
 export default function AuditDashboard() {
@@ -14,6 +16,11 @@ export default function AuditDashboard() {
   const alterarRole = trpc.admin.alterarRole.useMutation({ onSuccess: () => refetchUsuarios() })
   const toggleAtivo = trpc.admin.toggleAtivo.useMutation({ onSuccess: () => refetchUsuarios() })
   const cadastrarUsuario = trpc.admin.cadastrarUsuario.useMutation({ onSuccess: () => { refetchUsuarios(); setNovoEmail(''); setNovoNome(''); setNovoRole('secretaria') } })
+  const deletarStaff = trpc.admin.deletarStaff.useMutation({ onSuccess: () => { refetchUsuarios(); setDeleteTarget(null); setDeleteConfirmText('') } })
+
+  // Confirmação dupla para delete
+  const [deleteTarget, setDeleteTarget] = useState<ConfirmDeleteTarget | null>(null)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
 
   // Novo usuário
   const [novoEmail, setNovoEmail] = useState('')
@@ -131,6 +138,50 @@ export default function AuditDashboard() {
             </button>
           </div>
 
+          {/* Modal de confirmação dupla para deletar usuário */}
+          {deleteTarget && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+              <div className="bg-white rounded-2xl border border-red-200 shadow-xl p-6 w-full max-w-md mx-4">
+                <h3 className="text-base font-semibold text-red-700 mb-2">Deletar usuário</h3>
+                <p className="text-sm text-slate-600 mb-1">
+                  Você está prestes a deletar <strong>{deleteTarget.nome ?? deleteTarget.email}</strong>.
+                </p>
+                <p className="text-sm text-slate-600 mb-4">
+                  O acesso será revogado imediatamente. Este usuário não aparecerá mais na lista da equipe.
+                  A operação é auditada e pode ser revertida pelo admin.
+                </p>
+                <p className="text-xs text-slate-500 mb-2">
+                  Para confirmar, digite <strong>DELETAR</strong> abaixo:
+                </p>
+                <input
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="DELETAR"
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mb-4 font-mono"
+                  autoFocus
+                />
+                {deletarStaff.error && (
+                  <p className="text-xs text-red-600 mb-3">{deletarStaff.error.message}</p>
+                )}
+                <div className="flex gap-3 justify-end">
+                  <button
+                    onClick={() => { setDeleteTarget(null); setDeleteConfirmText('') }}
+                    className="text-sm px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={() => deletarStaff.mutate({ userId: deleteTarget.id })}
+                    disabled={deleteConfirmText !== 'DELETAR' || deletarStaff.isPending}
+                    className="text-sm px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-medium transition-colors"
+                  >
+                    {deletarStaff.isPending ? 'Deletando…' : 'Confirmar exclusão'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Gerenciar equipe existente */}
           <div className="bg-white rounded-2xl border border-slate-200 p-6">
             <h2 className="text-base font-semibold text-slate-800 mb-4">Gerenciar Equipe</h2>
@@ -141,7 +192,8 @@ export default function AuditDashboard() {
                     <th className="pb-2 pr-4">Nome</th>
                     <th className="pb-2 pr-4">E-mail</th>
                     <th className="pb-2 pr-4">Perfil</th>
-                    <th className="pb-2">Ativo</th>
+                    <th className="pb-2 pr-4">Ativo</th>
+                    <th className="pb-2"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -160,12 +212,21 @@ export default function AuditDashboard() {
                           <option value="admin">Admin</option>
                         </select>
                       </td>
-                      <td className="py-3">
+                      <td className="py-3 pr-4">
                         <button
                           onClick={() => toggleAtivo.mutate({ userId: u.id, ativo: !u.ativo })}
                           className={`text-xs px-2 py-1 rounded-full font-medium ${u.ativo ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}
                         >
                           {u.ativo ? 'Ativo' : 'Inativo'}
+                        </button>
+                      </td>
+                      <td className="py-3">
+                        <button
+                          onClick={() => setDeleteTarget({ id: u.id, nome: u.nome ?? null, email: u.email ?? null })}
+                          className="text-xs px-2 py-1 rounded font-medium text-red-600 hover:bg-red-50 transition-colors"
+                          title="Deletar usuário"
+                        >
+                          Deletar
                         </button>
                       </td>
                     </tr>
