@@ -19,17 +19,39 @@ export default function MedicoDashboard() {
   const [tab, setTab] = useState<Tab>('pacientes')
   const [selectedId, setSelectedId] = useState<number | null>(null)
 
-  const { data: pendentes, refetch } = trpc.medico.listarPendentes.useQuery()
+  const utils = trpc.useUtils()
+
+  const { data: pendentes } = trpc.medico.listarPendentes.useQuery(undefined, {
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
+  })
   const { data: paciente } = trpc.medico.verPaciente.useQuery(
     { pacienteId: selectedId! },
     { enabled: !!selectedId },
   )
-  const { data: examesRejeitados, refetch: refetchExames } = trpc.medico.listarExamesRejeitadosIa.useQuery()
-  const { data: revisoes } = trpc.consulta.medico.listarRevisoes.useQuery()
+  const { data: examesRejeitados } = trpc.medico.listarExamesRejeitadosIa.useQuery(undefined, {
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
+  })
+  const { data: revisoes } = trpc.consulta.medico.listarRevisoes.useQuery(undefined, {
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
+  })
 
-  const aprovar = trpc.medico.aprovar.useMutation({ onSuccess: () => { setSelectedId(null); refetch() } })
-  const rejeitar = trpc.medico.rejeitar.useMutation({ onSuccess: () => { setSelectedId(null); refetch() } })
-  const liberarExame = trpc.medico.liberarExameSemValidacao.useMutation({ onSuccess: () => refetchExames() })
+  const invalidarListas = () => {
+    void utils.medico.invalidate()
+    void utils.consulta.medico.invalidate()
+  }
+
+  const aprovar = trpc.medico.aprovar.useMutation({
+    onSuccess: () => { setSelectedId(null); invalidarListas() },
+  })
+  const rejeitar = trpc.medico.rejeitar.useMutation({
+    onSuccess: () => { setSelectedId(null); invalidarListas() },
+  })
+  const liberarExame = trpc.medico.liberarExameSemValidacao.useMutation({
+    onSuccess: () => invalidarListas(),
+  })
 
   const [obs, setObs] = useState('')
   const [motivoRejeicao, setMotivoRejeicao] = useState('')
@@ -287,7 +309,13 @@ function ExamesInicioTab({ revisoes }: { revisoes: Array<any> | undefined }) {
   const [resultadoHivManual, setResultadoHivManual] = useState<'reagente' | 'nao_reagente' | ''>('')
   const [dataExameManual, setDataExameManual] = useState('')
 
-  const validarMut = trpc.consulta.medico.validar.useMutation()
+  const utils = trpc.useUtils()
+  const validarMut = trpc.consulta.medico.validar.useMutation({
+    onSuccess: () => {
+      void utils.medico.invalidate()
+      void utils.consulta.medico.invalidate()
+    },
+  })
 
   const selecionada = revisoes?.find(r => r.id === selectedId)
   const ia = selecionada?.resultadoIa as ResultadoIa | null
