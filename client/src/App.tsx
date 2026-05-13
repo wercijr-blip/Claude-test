@@ -145,6 +145,7 @@ export default function App() {
             <Route path="/v/:slug" component={VerificacaoPage} />
             <Route path="/pesquisa/:pacienteId/:token" component={PesquisaSatisfacao} />
             <Route path="/pagamento/sucesso" component={PagamentoSucesso} />
+            <Route path="/sucesso" component={PagamentoSucesso} />
             <Route path="/pagamento/cancelado" component={PagamentoCancelado} />
             <Route path="/equipe">
               {role === 'admin' ? <AuditDashboard /> : <LoginPage />}
@@ -287,26 +288,38 @@ function PagamentoSucesso() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusData?.status])
 
+  const confirmed = statusData?.status === 'RECEIVED' || statusData?.status === 'CONFIRMED'
+
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 max-w-md w-full text-center">
-        <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <svg className="w-8 h-8 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
+        <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${confirmed ? 'bg-emerald-100' : 'bg-blue-50'}`}>
+          {confirmed ? (
+            <svg className="w-8 h-8 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          ) : (
+            <div className="w-8 h-8 border-4 border-blue-100 border-t-blue-500 rounded-full animate-spin" />
+          )}
         </div>
-        <h2 className="text-xl font-bold text-slate-800 mb-2">Pagamento confirmado!</h2>
         {erro ? (
           <>
+            <h2 className="text-xl font-bold text-slate-800 mb-2">Pagamento recebido!</h2>
             <p className="text-slate-500 text-sm mb-2">
               Em instantes você receberá o link de acesso ao formulário por <strong>e-mail</strong> e <strong>WhatsApp</strong>.
             </p>
             <p className="text-slate-400 text-xs mt-4">Verifique também sua caixa de spam.</p>
           </>
-        ) : (
+        ) : confirmed ? (
           <>
+            <h2 className="text-xl font-bold text-slate-800 mb-2">Pagamento confirmado!</h2>
             <p className="text-slate-500 text-sm">Te levando para o próximo passo…</p>
             <div className="w-6 h-6 border-2 border-slate-200 border-t-emerald-600 rounded-full animate-spin mx-auto mt-4" />
+          </>
+        ) : (
+          <>
+            <h2 className="text-xl font-bold text-slate-800 mb-2">Confirmando pagamento…</h2>
+            <p className="text-slate-500 text-sm">Aguarde um instante. Não feche esta página.</p>
           </>
         )}
       </div>

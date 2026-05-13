@@ -114,7 +114,7 @@ export async function criarCobrancaIntake(
     description: `Consulta PrEP — Facilita PrEP (R$ ${(valorCentavos / 100).toFixed(2).replace('.', ',')})`,
     externalReference: `precad-${precadastroId}`,
     ...(metodo !== 'PIX' && {
-      callbackSuccessUrl: `${env.APP_URL}/pagamento/sucesso?asaas_payment_id={id}`,
+      callbackSuccessUrl: `${env.APP_URL}/sucesso?asaas_payment_id={id}`,
     }),
   })
 
