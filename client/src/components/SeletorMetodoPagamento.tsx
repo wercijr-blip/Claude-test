@@ -53,6 +53,7 @@ import { type ReactNode } from 'react'
 export default function SeletorMetodoPagamento({ loading, onSelect }: Props) {
   const { data: valorData } = trpc.intake.consultarValor.useQuery()
   const valorFormatado = valorData?.valorFormatado ?? 'R$ 150,00'
+  const metodosVisiveis = METODOS.filter(m => m.id !== 'DEBIT_CARD' || (valorData?.debitCardEnabled ?? false))
 
   return (
     <div className="min-h-screen bg-warm-bg flex items-center justify-center p-4">
@@ -67,7 +68,7 @@ export default function SeletorMetodoPagamento({ loading, onSelect }: Props) {
         </div>
 
         <div className="space-y-3">
-          {METODOS.map((m) => (
+          {metodosVisiveis.map((m) => (
             <button
               key={m.id}
               type="button"

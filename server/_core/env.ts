@@ -61,6 +61,10 @@ const envSchema = z.object({
   // TOTP 2FA — chave AES separada para encriptar segredos TOTP
   // Gerar com: openssl rand -hex 32
   TOTP_ENC_KEY: z.string().length(64).optional(),
+
+  // Payment methods — toggle via Railway without code deploy.
+  // Set ENABLE_DEBIT_CARD=true once Asaas account enables DEBIT_CARD billing.
+  ENABLE_DEBIT_CARD: z.coerce.boolean().default(false),
 })
 
 const parsed = envSchema.safeParse(process.env)

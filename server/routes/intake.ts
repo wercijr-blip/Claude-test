@@ -141,6 +141,7 @@ export const intakeRouter = router({
       valor,
       valorCentavos: Math.round(valor * 100),
       valorFormatado: valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+      debitCardEnabled: env.ENABLE_DEBIT_CARD,
     }
   }),
 
@@ -252,6 +253,13 @@ export const intakeRouter = router({
       }
       if (precad.status === 'link_enviado') {
         throw new TRPCError({ code: 'BAD_REQUEST', message: 'Link já enviado para este cadastro.' })
+      }
+
+      if (input.metodo === 'DEBIT_CARD' && !env.ENABLE_DEBIT_CARD) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Cartão de Débito temporariamente indisponível. Use PIX ou Cartão de Crédito.',
+        })
       }
 
       const nomeDecrypted = decrypt(precad.nomeEncrypted)
