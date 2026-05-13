@@ -85,17 +85,33 @@ export const authRouter = router({
       // Upsert do usuário
       const [existing] = await db.select().from(users).where(eq(users.openId, data.openId)).limit(1)
 
+      // When openId is not found, fall back to email lookup for pre-registered staff
+      // whose openId was set to 'pending:email' by admin before their first SSO login.
+      // This is the only case where first login would otherwise create a duplicate
+      // user record with the default 'secretaria' role, ignoring the assigned role.
+      let preRegistered: typeof existing | undefined
+      if (!existing) {
+        const [candidate] = await db
+          .select()
+          .from(users)
+          .where(eq(users.email, data.email))
+          .limit(1)
+        if (candidate?.openId.startsWith('pending:')) preRegistered = candidate
+      }
+
+      const resolvedUser = existing ?? preRegistered
+
       let userId: number
       let role: Role
 
-      if (existing) {
-        userId = existing.id
+      if (resolvedUser) {
+        userId = resolvedUser.id
         const isOwner = data.openId === env.OWNER_OPEN_ID
-        role = isOwner ? 'admin' : existing.role as Role
+        role = isOwner ? 'admin' : resolvedUser.role as Role
         await db
           .update(users)
-          .set({ email: data.email, nome: data.name, role, updatedAt: new Date() })
-          .where(eq(users.id, existing.id))
+          .set({ email: data.email, nome: data.name, openId: data.openId, role, updatedAt: new Date() })
+          .where(eq(users.id, resolvedUser.id))
       } else {
         const isOwner = data.openId === env.OWNER_OPEN_ID
         role = isOwner ? 'admin' : 'secretaria'
