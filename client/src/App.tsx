@@ -270,13 +270,22 @@ function PagamentoSucesso() {
     onError: (err: { message: string }) => setErro(err.message),
   })
 
+  // Poll until Asaas confirms payment, then issue access token.
+  // Asaas redirects back to this page before the payment is CONFIRMED,
+  // so firing acessoPosPagamento immediately fails with BAD_REQUEST.
+  const { data: statusData } = trpc.intake.consultarStatusPagamento.useQuery(
+    { paymentId },
+    { refetchInterval: 3000, enabled: !!paymentId && !hasAttempted.current },
+  )
+
   useEffect(() => {
-    if (paymentId && !hasAttempted.current) {
+    const status = statusData?.status
+    if ((status === 'RECEIVED' || status === 'CONFIRMED') && !hasAttempted.current) {
       hasAttempted.current = true
       acesso.mutate({ paymentId })
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paymentId])
+  }, [statusData?.status])
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
