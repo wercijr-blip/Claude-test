@@ -124,7 +124,8 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
   const iniciarPagamento = trpc.intake.iniciarPagamento.useMutation({
     onSuccess: (data) => {
       if (data.tipo === 'cartao') {
-        window.location.href = data.invoiceUrl
+        window.open(data.invoiceUrl, '_blank', 'noopener')
+        window.location.assign(`/sucesso?paymentId=${encodeURIComponent(data.paymentId)}&metodo=cartao`)
         return
       }
       setPixData({ paymentId: data.paymentId, pixQrCode: data.pixQrCode, pixCopiaECola: data.pixCopiaECola })

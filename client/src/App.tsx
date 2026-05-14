@@ -250,6 +250,7 @@ function AuthCallback() {
 function PagamentoSucesso() {
   const params = new URLSearchParams(window.location.search)
   const paymentId = params.get('paymentId') || params.get('asaas_payment_id') || ''
+  const isCartao = params.get('metodo') === 'cartao'
   const [, navigate] = useLocation()
   const { setToken } = useAuth()
   const hasAttempted = useRef(false)
@@ -315,6 +316,15 @@ function PagamentoSucesso() {
             <h2 className="text-xl font-bold text-slate-800 mb-2">Pagamento confirmado!</h2>
             <p className="text-slate-500 text-sm">Te levando para o próximo passo…</p>
             <div className="w-6 h-6 border-2 border-slate-200 border-t-emerald-600 rounded-full animate-spin mx-auto mt-4" />
+          </>
+        ) : isCartao ? (
+          <>
+            <h2 className="text-xl font-bold text-slate-800 mb-2">Conclua o pagamento</h2>
+            <p className="text-slate-500 text-sm mb-3">
+              Uma nova aba foi aberta com a página de pagamento Asaas.<br />
+              Preencha os dados do cartão lá e volte aqui — esta página confirma automaticamente.
+            </p>
+            <p className="text-slate-400 text-xs">Não feche esta página enquanto paga.</p>
           </>
         ) : (
           <>

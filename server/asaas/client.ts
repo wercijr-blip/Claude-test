@@ -113,12 +113,9 @@ export async function criarCobrancaIntake(
     dueDate,
     description: `Consulta PrEP — Facilita PrEP (R$ ${(valorCentavos / 100).toFixed(2).replace('.', ',')})`,
     externalReference: `precad-${precadastroId}`,
-    ...(metodo !== 'PIX' && {
-      callback: {
-        successUrl: `${env.APP_URL}/sucesso`,
-        autoRedirect: true,
-      },
-    }),
+    // No callbackSuccessUrl: Asaas requires an account-level domain registration
+  // before accepting callback URLs. Card payment confirmation is handled via
+  // the Asaas webhook + frontend polling on /sucesso.
   })
 
   if (metodo !== 'PIX') {
