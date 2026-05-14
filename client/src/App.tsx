@@ -259,6 +259,7 @@ function PagamentoSucesso() {
   const validarToken = trpc.token.validar.useMutation({
     onSuccess: (data: { sessionToken: string }) => {
       setToken(data.sessionToken)
+      try { (window as Window & { _asaasTab?: Window })._asaasTab?.close() } catch { /* ignore */ }
       navigate('/inicio')
     },
     onError: (err: { message: string }) => setErro(err.message),
