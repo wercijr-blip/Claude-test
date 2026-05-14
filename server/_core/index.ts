@@ -90,7 +90,11 @@ if (env.NODE_ENV === 'production') {
     logger.warn('[server] web/out/index.html não encontrado — marketing routes vão usar o Vite SPA como fallback')
   }
 
-  // Next.js static assets (_next/static, images, etc.) — serve primeiro
+  // Next.js static assets — _next/static has hashed names, safe to cache immutably
+  app.use('/_next/static', express.static(path.join(webOut, '_next', 'static'), {
+    maxAge: '1y',
+    immutable: true,
+  }))
   app.use('/_next', express.static(path.join(webOut, '_next')))
 
   // Rotas de marketing: Next.js SSG quando disponível, Vite SPA como fallback
@@ -121,8 +125,19 @@ if (env.NODE_ENV === 'production') {
     }
   }
 
-  // Vite SPA assets (JS, CSS, etc. for patient portal)
-  app.use(express.static(clientDist))
+  // Vite /assets → hashed bundles (JS, CSS) — content-addressable, safe to cache immutably
+  app.use('/assets', express.static(path.join(clientDist, 'assets'), {
+    maxAge: '1y',
+    immutable: true,
+  }))
+  // Other Vite statics (favicon, og-image, manifest) — moderate cache for images/fonts
+  app.use(express.static(clientDist, {
+    setHeaders: (res, filePath) => {
+      if (/\.(png|jpg|jpeg|svg|webp|avif|ico|woff2?|ttf)$/.test(filePath)) {
+        res.setHeader('Cache-Control', 'public, max-age=86400')
+      }
+    },
+  }))
 }
 
 // Body parsers globais
