@@ -382,11 +382,18 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
   // ── Seletor de método de pagamento ───────────────────────────
   if (etapa === 'seletor' && precadastroId) {
     return (
-      <SeletorMetodoPagamento
-        precadastroId={precadastroId}
-        loading={iniciarPagamento.isPending}
-        onSelect={(metodo) => iniciarPagamento.mutate({ precadastroId, metodo })}
-      />
+      <div>
+        <SeletorMetodoPagamento
+          precadastroId={precadastroId}
+          loading={iniciarPagamento.isPending}
+          onSelect={(metodo) => iniciarPagamento.mutate({ precadastroId, metodo })}
+        />
+        {iniciarPagamento.isError && (
+          <p className="text-center text-sm text-red-600 mt-3 px-4">
+            {iniciarPagamento.error?.message ?? 'Erro ao iniciar pagamento. Tente novamente.'}
+          </p>
+        )}
+      </div>
     )
   }
 

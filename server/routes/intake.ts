@@ -279,11 +279,25 @@ export const intakeRouter = router({
         logger.error('[intake] falha ao criar cobrança Asaas', { error: msg, precadastroId: precad.id })
         Sentry.captureException(err, { tags: { route: 'intake.iniciarPagamento' }, extra: { precadastroId: precad.id } })
 
+        // Extract Asaas error descriptions for a useful client-facing message
+        const asaasDescriptions = (() => {
+          const match = msg.match(/→ \d+: (.+)$/)
+          if (!match) return null
+          try {
+            const body = JSON.parse(match[1]!) as { errors?: Array<{ description?: string }> }
+            const descs = (body.errors ?? []).map(e => e.description).filter(Boolean)
+            return descs.length ? descs.join('; ') : null
+          } catch { return null }
+        })()
+
         if (msg.includes('cpfCnpj') || msg.toLowerCase().includes('cpf')) {
           throw new TRPCError({ code: 'BAD_REQUEST', message: 'CPF inválido. Verifique e tente novamente.' })
         }
         if (msg.includes('→ 401') || msg.toLowerCase().includes('unauthorized') || msg.includes('access_token')) {
           throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Erro de configuração do gateway. Suporte foi avisado.' })
+        }
+        if (asaasDescriptions) {
+          throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: `Erro Asaas: ${asaasDescriptions}` })
         }
         throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Erro ao gerar pagamento. Tente novamente em alguns instantes.' })
       }
