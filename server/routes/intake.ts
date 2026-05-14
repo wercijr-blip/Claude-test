@@ -3,7 +3,7 @@ import { router, publicProcedure, staffProcedure } from '../_core/trpc.ts'
 import { hashToken, generateToken } from '../_core/tokenUtils.ts'
 import { TRPCError } from '@trpc/server'
 import { db } from '../db.ts'
-import { precadastros, accessTokens, users } from '../../drizzle/schema.ts'
+import { precadastros, accessTokens, users, pacientes } from '../../drizzle/schema.ts'
 import { eq, desc, inArray, isNull, and } from 'drizzle-orm'
 import { encrypt, decrypt, hashCpf } from '../_core/encryption.ts'
 import { validarCpf, normalizarCpf } from '../_core/cpfValidator.ts'
@@ -11,7 +11,8 @@ import { criarCobrancaIntake, obterPagamento } from '../asaas/client.ts'
 import { enviarNotificacaoNovoPlano, enviarConfirmacaoPlano } from '../email.ts'
 import { getPresignedUrl } from '../storage.ts'
 import { env } from '../_core/env.ts'
-import { TOKEN_EXPIRY_DAYS } from '../../shared/security-constants.ts'
+import { SignJWT } from 'jose'
+import { TOKEN_EXPIRY_DAYS, JWT_EXPIRY_PATIENT } from '../../shared/security-constants.ts'
 import { enqueueEnviarLinkAcesso } from '../pdfQueue.ts'
 import type { PagamentoMeta } from '../email.ts'
 import { ERROR_MESSAGES, HORARIO_ATENDIMENTO } from '../../shared/const.ts'
@@ -237,7 +238,33 @@ export const intakeRouter = router({
       const precadastroId = parseInt(precadMatch[1]!, 10)
 
       const { raw } = await gerarEEnviarLinkAcesso(precadastroId)
-      return { token: raw }
+
+      // Issue the JWT here — avoids a second round-trip where the Asaas webhook
+      // could race and rotate the token hash before the client calls token.validar.
+      const tokenHash = hashToken(raw)
+      const [candidate] = await db
+        .select({ id: accessTokens.id })
+        .from(accessTokens)
+        .where(eq(accessTokens.tokenHash, tokenHash))
+        .limit(1)
+
+      const tokenId = candidate?.id ?? null
+      const [existingPaciente] = tokenId
+        ? await db.select({ id: pacientes.id }).from(pacientes).where(eq(pacientes.tokenId, tokenId)).limit(1)
+        : []
+
+      const secret = new TextEncoder().encode(env.JWT_SECRET)
+      const sessionToken = await new SignJWT({
+        type: 'patient',
+        tokenId,
+        pacienteId: existingPaciente?.id ?? null,
+      })
+        .setProtectedHeader({ alg: 'HS256' })
+        .setIssuedAt()
+        .setExpirationTime(JWT_EXPIRY_PATIENT)
+        .sign(secret)
+
+      return { sessionToken }
     }),
 
   // Iniciar pagamento via Asaas (particular) — PIX, cartão crédito ou débito

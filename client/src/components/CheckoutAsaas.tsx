@@ -17,17 +17,11 @@ export default function CheckoutAsaas({ precadastroId, paymentId, pixQrCode, pix
   const { setToken } = useAuth()
   const confirmed = useRef(false)
 
-  const validarToken = trpc.token.validar.useMutation({
+  const acessoPosPageamento = trpc.intake.acessoPosPagamento.useMutation({
     onSuccess: (data: { sessionToken: string }) => {
+      trackPurchase(paymentId, 250)
       setToken(data.sessionToken)
       navigate('/inicio')
-    },
-  })
-
-  const acessoPosPageamento = trpc.intake.acessoPosPagamento.useMutation({
-    onSuccess: (data: { token: string }) => {
-      trackPurchase(paymentId, 250)
-      validarToken.mutate({ token: data.token })
     },
   })
 
@@ -52,7 +46,7 @@ export default function CheckoutAsaas({ precadastroId, paymentId, pixQrCode, pix
     })
   }
 
-  const isProcessing = acessoPosPageamento.isPending || validarToken.isPending
+  const isProcessing = acessoPosPageamento.isPending
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">

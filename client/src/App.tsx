@@ -256,19 +256,12 @@ function PagamentoSucesso() {
   const hasAttempted = useRef(false)
   const [erro, setErro] = useState<string | null>(null)
 
-  const validarToken = trpc.token.validar.useMutation({
+  const acesso = trpc.intake.acessoPosPagamento.useMutation({
     onSuccess: (data: { sessionToken: string }) => {
+      trackPurchase(paymentId, 250)
       setToken(data.sessionToken)
       try { (window as Window & { _asaasTab?: Window })._asaasTab?.close() } catch { /* ignore */ }
       navigate('/inicio')
-    },
-    onError: (err: { message: string }) => setErro(err.message),
-  })
-
-  const acesso = trpc.intake.acessoPosPagamento.useMutation({
-    onSuccess: (data: { token: string }) => {
-      trackPurchase(paymentId, 250)
-      validarToken.mutate({ token: data.token })
     },
     onError: (err: { message: string }) => setErro(err.message),
   })
