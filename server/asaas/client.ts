@@ -113,9 +113,14 @@ export async function criarCobrancaIntake(
     dueDate,
     description: `Consulta PrEP — Facilita PrEP (R$ ${(valorCentavos / 100).toFixed(2).replace('.', ',')})`,
     externalReference: `precad-${precadastroId}`,
-    // No callbackSuccessUrl: Asaas requires an account-level domain registration
-  // before accepting callback URLs. Card payment confirmation is handled via
-  // the Asaas webhook + frontend polling on /sucesso.
+    // Card payments use Asaas hosted checkout — autoRedirect brings the user back after payment.
+    // PIX uses QR code inline, no hosted page, so no callback needed.
+    ...(metodo !== 'PIX' ? {
+      callback: {
+        successUrl: `${env.APP_URL}/sucesso`,
+        autoRedirect: true,
+      },
+    } : {}),
   })
 
   if (metodo !== 'PIX') {
