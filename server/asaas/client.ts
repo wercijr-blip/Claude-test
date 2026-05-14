@@ -53,6 +53,10 @@ export interface AsaasPixQrCode {
   expirationDate: string
 }
 
+interface AsaasPaymentList {
+  data: AsaasPayment[]
+}
+
 interface AsaasCustomer {
   id: string
 }
@@ -114,10 +118,11 @@ export async function criarCobrancaIntake(
     description: `Consulta PrEP — Facilita PrEP (R$ ${(valorCentavos / 100).toFixed(2).replace('.', ',')})`,
     externalReference: `precad-${precadastroId}`,
     // Card payments use Asaas hosted checkout — autoRedirect brings the user back after payment.
+    // precadastroId in successUrl lets /sucesso poll the right payment without a paymentId param.
     // PIX uses QR code inline, no hosted page, so no callback needed.
     ...(metodo !== 'PIX' ? {
       callback: {
-        successUrl: `${env.APP_URL}/sucesso`,
+        successUrl: `${env.APP_URL}/sucesso?precadastroId=${precadastroId}`,
         autoRedirect: true,
       },
     } : {}),
@@ -134,6 +139,11 @@ export async function criarCobrancaIntake(
 
 export async function obterPagamento(paymentId: string): Promise<AsaasPayment> {
   return request<AsaasPayment>('GET', `/payments/${paymentId}`)
+}
+
+export async function listarPagamentosPorReferencia(externalReference: string): Promise<AsaasPayment[]> {
+  const result = await request<AsaasPaymentList>('GET', `/payments?externalReference=${encodeURIComponent(externalReference)}&limit=5`)
+  return result.data
 }
 
 export async function emitirNfseAsaas(paymentId: string): Promise<void> {

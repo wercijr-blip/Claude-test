@@ -249,8 +249,12 @@ function AuthCallback() {
 
 function PagamentoSucesso() {
   const params = new URLSearchParams(window.location.search)
+  // Flow A: legacy — paymentId present (PIX fallback, old card flow)
   const paymentId = params.get('paymentId') || params.get('asaas_payment_id') || ''
-  const isCartao = params.get('metodo') === 'cartao'
+  // Flow B: card checkout — Asaas autoRedirect carries precadastroId
+  const precadastroIdParam = params.get('precadastroId')
+  const precadastroId = precadastroIdParam ? Number(precadastroIdParam) : null
+
   const [, navigate] = useLocation()
   const { setToken } = useAuth()
   const hasAttempted = useRef(false)
@@ -258,20 +262,22 @@ function PagamentoSucesso() {
 
   const acesso = trpc.intake.acessoPosPagamento.useMutation({
     onSuccess: (data: { sessionToken: string }) => {
-      trackPurchase(paymentId, 250)
       setToken(data.sessionToken)
-      try { (window as Window & { _asaasTab?: Window })._asaasTab?.close() } catch { /* ignore */ }
       navigate('/inicio')
     },
     onError: (err: { message: string }) => setErro(err.message),
   })
 
-  // Poll until Asaas confirms payment, then issue access token.
-  // Asaas redirects back to this page before the payment is CONFIRMED,
-  // so firing acessoPosPagamento immediately fails with BAD_REQUEST.
+  // Flow A: poll by paymentId (legacy / PIX webhook path)
   const { data: statusData } = trpc.intake.consultarStatusPagamento.useQuery(
     { paymentId },
     { refetchInterval: 3000, enabled: !!paymentId && !hasAttempted.current },
+  )
+
+  // Flow B: poll by precadastroId (card checkout — Asaas autoRedirect)
+  const { data: statusPrecad } = trpc.intake.consultarStatusPorPrecadastro.useQuery(
+    { precadastroId: precadastroId ?? 0 },
+    { refetchInterval: 3000, enabled: !!precadastroId && !hasAttempted.current },
   )
 
   useEffect(() => {
@@ -283,7 +289,44 @@ function PagamentoSucesso() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusData?.status])
 
-  const confirmed = statusData?.status === 'RECEIVED' || statusData?.status === 'CONFIRMED'
+  useEffect(() => {
+    const { confirmado, paymentId: pid } = statusPrecad ?? {}
+    if (confirmado && pid && !hasAttempted.current) {
+      hasAttempted.current = true
+      trackPurchase(pid, 250)
+      acesso.mutate({ paymentId: pid })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusPrecad?.confirmado])
+
+  const confirmed =
+    statusData?.status === 'RECEIVED' || statusData?.status === 'CONFIRMED' ||
+    statusPrecad?.confirmado
+
+  // No identifier → friendly message instead of infinite spinner
+  if (!paymentId && !precadastroId) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 max-w-md w-full text-center">
+          <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-bold text-slate-800 mb-2">Pagamento não identificado</h2>
+          <p className="text-slate-500 text-sm mb-2">
+            Se você acabou de pagar, verifique seu e-mail e WhatsApp — o link de acesso é enviado em instantes.
+          </p>
+          <p className="text-slate-400 text-xs">
+            Dúvidas?{' '}
+            <a href="mailto:contato@facilitaprep.com.br" className="text-blue-600 hover:underline">
+              contato@facilitaprep.com.br
+            </a>
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
@@ -310,15 +353,6 @@ function PagamentoSucesso() {
             <h2 className="text-xl font-bold text-slate-800 mb-2">Pagamento confirmado!</h2>
             <p className="text-slate-500 text-sm">Te levando para o próximo passo…</p>
             <div className="w-6 h-6 border-2 border-slate-200 border-t-emerald-600 rounded-full animate-spin mx-auto mt-4" />
-          </>
-        ) : isCartao ? (
-          <>
-            <h2 className="text-xl font-bold text-slate-800 mb-2">Conclua o pagamento</h2>
-            <p className="text-slate-500 text-sm mb-3">
-              Uma nova aba foi aberta com a página de pagamento Asaas.<br />
-              Preencha os dados do cartão lá e volte aqui — esta página confirma automaticamente.
-            </p>
-            <p className="text-slate-400 text-xs">Não feche esta página enquanto paga.</p>
           </>
         ) : (
           <>

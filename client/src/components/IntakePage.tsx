@@ -124,9 +124,9 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
   const iniciarPagamento = trpc.intake.iniciarPagamento.useMutation({
     onSuccess: (data) => {
       if (data.tipo === 'cartao') {
-        const tab = window.open(data.invoiceUrl, '_blank')
-        if (tab) (window as Window & { _asaasTab?: Window })._asaasTab = tab
-        window.location.assign(`/sucesso?paymentId=${encodeURIComponent(data.paymentId)}&metodo=cartao`)
+        // Navigate same-tab to Asaas checkout. autoRedirect will bring the user
+        // back to /sucesso?precadastroId=X after payment — no second tab needed.
+        window.location.href = data.invoiceUrl
         return
       }
       setPixData({ paymentId: data.paymentId, pixQrCode: data.pixQrCode, pixCopiaECola: data.pixCopiaECola })

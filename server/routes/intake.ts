@@ -7,7 +7,7 @@ import { precadastros, accessTokens, users, pacientes } from '../../drizzle/sche
 import { eq, desc, inArray, isNull, and } from 'drizzle-orm'
 import { encrypt, decrypt, hashCpf } from '../_core/encryption.ts'
 import { validarCpf, normalizarCpf } from '../_core/cpfValidator.ts'
-import { criarCobrancaIntake, obterPagamento } from '../asaas/client.ts'
+import { criarCobrancaIntake, obterPagamento, listarPagamentosPorReferencia } from '../asaas/client.ts'
 import { enviarNotificacaoNovoPlano, enviarConfirmacaoPlano } from '../email.ts'
 import { getPresignedUrl } from '../storage.ts'
 import { env } from '../_core/env.ts'
@@ -336,6 +336,21 @@ export const intakeRouter = router({
     .query(async ({ input }) => {
       const payment = await obterPagamento(input.paymentId)
       return { status: payment.status }
+    }),
+
+  // Polls Asaas live for the payment status given a precadastroId.
+  // Used by /sucesso when the card checkout autoRedirect carries precadastroId instead of paymentId.
+  consultarStatusPorPrecadastro: publicProcedure
+    .input(z.object({ precadastroId: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      const payments = await listarPagamentosPorReferencia(`precad-${input.precadastroId}`)
+      const confirmed = payments.find(p => p.status === 'RECEIVED' || p.status === 'CONFIRMED')
+      const latest = confirmed ?? payments[0] ?? null
+      return {
+        confirmado: !!confirmed,
+        status: latest?.status ?? 'NOT_FOUND',
+        paymentId: latest?.id ?? null,
+      }
     }),
 
   // Secretaria: listar planos aguardando validação
