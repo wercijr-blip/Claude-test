@@ -18,7 +18,7 @@ export default function AdminBulletin() {
   const updateBulletin = trpc.user.updateBulletinPreference.useMutation({
     onSuccess: () => utils.admin.bulletin.getDoctors.invalidate(),
   })
-  const updateEmail = trpc.user.updateBulletinEmail.useMutation({
+  const updateEmail = trpc.user.setBulletinEmail.useMutation({
     onSuccess: () => utils.admin.bulletin.getDoctors.invalidate(),
   })
   const resend = trpc.admin.bulletin.resend.useMutation({
@@ -89,7 +89,7 @@ export default function AdminBulletin() {
                         <button
                           onClick={() => {
                             const email = inlineEmails[d.id]
-                            if (email) updateEmail.mutate({ bulletinEmail: email })
+                            if (email) updateEmail.mutate({ id: d.id, bulletinEmail: email })
                           }}
                           className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700"
                         >
@@ -175,7 +175,7 @@ export default function AdminBulletin() {
                     <button
                       onClick={() => {
                         const email = inlineEmails[d.id]
-                        if (email) updateEmail.mutate({ bulletinEmail: email })
+                        if (email) updateEmail.mutate({ id: d.id, bulletinEmail: email })
                       }}
                       className="bg-blue-600 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-700"
                     >

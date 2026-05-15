@@ -96,6 +96,14 @@ export const userRouter = router({
       return { success: true }
     }),
 
+  setBulletinEmail: adminProcedure
+    .input(z.object({ id: z.number(), bulletinEmail: z.string().email().or(z.literal('')) }))
+    .mutation(async ({ ctx, input }) => {
+      await assertSameClinic(input.id, ctx.user.clinicId)
+      await updateUser(input.id, { bulletinEmail: input.bulletinEmail || null })
+      return { success: true }
+    }),
+
   updateBulletinPreference: adminProcedure
     .input(z.object({ id: z.number(), receive: z.boolean() }))
     .mutation(async ({ ctx, input }) => {
