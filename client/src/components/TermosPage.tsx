@@ -71,7 +71,7 @@ export default function TermosPage() {
             <h2 className="text-lg font-semibold text-fp-dark mb-2">6. Pagamentos e reembolso</h2>
             <p>
               O valor da consulta é informado no momento do cadastro. Pagamentos são processados via
-              Stripe (cartão de crédito/débito). Para cancelamentos antes do atendimento médico, entre
+              Asaas (cartão de crédito/débito e PIX). Para cancelamentos antes do atendimento médico, entre
               em contato com{' '}
               <a href="mailto:contato@facilitaprep.com.br" className="text-fp-accent hover:underline">
                 contato@facilitaprep.com.br

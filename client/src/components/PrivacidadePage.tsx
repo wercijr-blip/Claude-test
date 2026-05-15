@@ -38,7 +38,7 @@ export default function PrivacidadePage() {
               <li><strong>Identificação:</strong> nome, CPF, data de nascimento, RG.</li>
               <li><strong>Contato:</strong> e-mail, telefone, endereço.</li>
               <li><strong>Saúde:</strong> histórico clínico, exames laboratoriais, prescrições, dados sobre PrEP e ISTs.</li>
-              <li><strong>Pagamento:</strong> processado por terceiros (Stripe) — não armazenamos dados de cartão.</li>
+              <li><strong>Pagamento:</strong> processado por terceiro (Asaas) — não armazenamos dados de cartão.</li>
               <li><strong>Técnicos:</strong> IP, navegador, sistema operacional, cookies.</li>
             </ul>
           </section>
