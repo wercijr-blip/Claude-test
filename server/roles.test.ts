@@ -29,14 +29,13 @@ function buildUserCtx(role: 'admin' | 'doctor') {
       bulletinEmail:          null,
       receiveMonthlyBulletin: 1,
     },
-    session: null,
     req:     {} as never,
     res:     {} as never,
   }
 }
 
 function buildNoAuthCtx() {
-  return { user: null, session: null, req: {} as never, res: {} as never }
+  return { user: null, req: {} as never, res: {} as never }
 }
 
 async function testMiddleware(

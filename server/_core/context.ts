@@ -22,12 +22,11 @@ export interface Context {
   req:  Request
   res:  Response
   user: MedscritaUser | null
-  session: MedscritaUser | null
 }
 
 export async function createContext({ req, res }: { req: Request; res: Response }): Promise<Context> {
   const token = extractToken(req)
-  if (!token) return { req, res, user: null, session: null }
+  if (!token) return { req, res, user: null }
 
   try {
     const payload = await verifyToken(token)
@@ -39,7 +38,7 @@ export async function createContext({ req, res }: { req: Request; res: Response 
       .limit(1)
       .then((rows) => rows[0] ?? null)
 
-    if (!row || !row.active) return { req, res, user: null, session: null }
+    if (!row || !row.active) return { req, res, user: null }
 
     const user: MedscritaUser = {
       id:                     row.id,
@@ -55,12 +54,12 @@ export async function createContext({ req, res }: { req: Request; res: Response 
       receiveMonthlyBulletin: row.receiveMonthlyBulletin,
     }
 
-    return { req, res, user, session: user }
+    return { req, res, user }
   } catch (err) {
     if (process.env.NODE_ENV !== 'production') console.warn('[auth] token inválido:', err)
   }
 
-  return { req, res, user: null, session: null }
+  return { req, res, user: null }
 }
 
 function extractToken(req: Request): string | null {

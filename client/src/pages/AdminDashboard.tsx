@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useLocation } from 'wouter'
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -19,18 +19,21 @@ export default function AdminDashboard() {
 
   const meQuery = trpc.auth.me.useQuery()
   const me      = meQuery.data
+  const isAdmin = me?.role === 'admin'
 
-  if (me && me.role !== 'admin') {
-    setLocation('/dashboard')
-    return null
-  }
+  const overview = trpc.admin.stats.overview.useQuery(undefined, { enabled: isAdmin })
+  const timeline = trpc.admin.stats.timeline.useQuery({ days: period }, { enabled: isAdmin })
+  const byDoctor = trpc.admin.stats.byDoctor.useQuery(undefined, { enabled: isAdmin })
+  const byPath   = trpc.admin.stats.byPathology.useQuery({ limit: 10 }, { enabled: isAdmin })
+  const platform = trpc.admin.stats.platform.useQuery(undefined, { enabled: isAdmin })
+  const clinical = trpc.admin.stats.clinicalIndicators.useQuery(undefined, { enabled: isAdmin })
 
-  const overview   = trpc.admin.stats.overview.useQuery()
-  const timeline   = trpc.admin.stats.timeline.useQuery({ days: period })
-  const byDoctor   = trpc.admin.stats.byDoctor.useQuery()
-  const byPath     = trpc.admin.stats.byPathology.useQuery({ limit: 10 })
-  const platform   = trpc.admin.stats.platform.useQuery()
-  const clinical   = trpc.admin.stats.clinicalIndicators.useQuery()
+  useEffect(() => {
+    if (me && !isAdmin) setLocation('/dashboard')
+  }, [me, isAdmin, setLocation])
+
+  if (meQuery.isLoading) return <div className="min-h-screen flex items-center justify-center"><p className="text-slate-400">Carregando…</p></div>
+  if (!me || !isAdmin) return null
 
   const ov = overview.data
 

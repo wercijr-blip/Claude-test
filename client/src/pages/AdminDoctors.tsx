@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useLocation } from 'wouter'
 import { trpc } from '../lib/trpc.ts'
 import DashboardLayout from '../components/DashboardLayout.tsx'
@@ -18,21 +18,24 @@ export default function AdminDoctors() {
   const [, setLocation] = useLocation()
   const meQuery = trpc.auth.me.useQuery()
   const me      = meQuery.data
+  const isAdmin = me?.role === 'admin'
 
-  if (me && me.role !== 'admin') {
-    setLocation('/dashboard')
-    return null
-  }
-
-  const listQuery  = trpc.user.list.useQuery()
-  const doctors    = (listQuery.data ?? []) as Doctor[]
-  const utils      = trpc.useUtils()
+  const listQuery = trpc.user.list.useQuery(undefined, { enabled: isAdmin })
+  const doctors   = (listQuery.data ?? []) as Doctor[]
+  const utils     = trpc.useUtils()
 
   const [showNew, setShowNew]       = useState(false)
   const [editDoctor, setEditDoctor] = useState<Doctor | null>(null)
 
   const deactivate = trpc.user.deactivate.useMutation({ onSuccess: () => utils.user.list.invalidate() })
   const reactivate = trpc.user.reactivate.useMutation({ onSuccess: () => utils.user.list.invalidate() })
+
+  useEffect(() => {
+    if (me && !isAdmin) setLocation('/dashboard')
+  }, [me, isAdmin, setLocation])
+
+  if (meQuery.isLoading) return <div className="min-h-screen flex items-center justify-center"><p className="text-slate-400">Carregando…</p></div>
+  if (!me || !isAdmin) return null
 
   return (
     <DashboardLayout>

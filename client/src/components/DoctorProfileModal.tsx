@@ -44,7 +44,7 @@ export default function DoctorProfileModal({ userId, open, onClose }: Props) {
       })
       const data = await resp.json() as { content: { text: string }[] }
       setInsight(data.content?.[0]?.text ?? '')
-    } catch (err) {
+    } catch {
       setInsight('Erro ao gerar insight. Verifique a configuração da API Anthropic.')
     } finally {
       setLoadingInsight(false)

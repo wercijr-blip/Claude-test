@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useLocation } from 'wouter'
 import { trpc } from '../lib/trpc.ts'
 import DashboardLayout from '../components/DashboardLayout.tsx'
@@ -7,14 +7,10 @@ export default function AdminBulletin() {
   const [, setLocation] = useLocation()
   const meQuery = trpc.auth.me.useQuery()
   const me      = meQuery.data
+  const isAdmin = me?.role === 'admin'
 
-  if (me && me.role !== 'admin') {
-    setLocation('/dashboard')
-    return null
-  }
-
-  const doctorsQuery = trpc.admin.bulletin.getDoctors.useQuery()
-  const historyQuery = trpc.admin.bulletin.getHistory.useQuery()
+  const doctorsQuery = trpc.admin.bulletin.getDoctors.useQuery(undefined, { enabled: isAdmin })
+  const historyQuery = trpc.admin.bulletin.getHistory.useQuery(undefined, { enabled: isAdmin })
   const doctors      = doctorsQuery.data ?? []
   const history      = historyQuery.data ?? []
   const utils        = trpc.useUtils()
@@ -30,6 +26,13 @@ export default function AdminBulletin() {
   })
 
   const [inlineEmails, setInlineEmails] = useState<Record<number, string>>({})
+
+  useEffect(() => {
+    if (me && !isAdmin) setLocation('/dashboard')
+  }, [me, isAdmin, setLocation])
+
+  if (meQuery.isLoading) return <div className="min-h-screen flex items-center justify-center"><p className="text-slate-400">Carregando…</p></div>
+  if (!me || !isAdmin) return null
 
   return (
     <DashboardLayout>

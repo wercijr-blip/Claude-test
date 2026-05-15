@@ -14,18 +14,3 @@ export function createTrpcClient() {
     ],
   })
 }
-
-// Legacy — mantido para compatibilidade com código existente
-export function createTrpcClientWithToken(getToken: () => string | null) {
-  return trpc.createClient({
-    links: [
-      httpBatchLink({
-        url: '/trpc',
-        headers: () => {
-          const token = getToken()
-          return token ? { Authorization: `Bearer ${token}` } : {}
-        },
-      }),
-    ],
-  })
-}

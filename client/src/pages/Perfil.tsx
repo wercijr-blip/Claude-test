@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { trpc } from '../lib/trpc.ts'
 
 export default function Perfil() {
@@ -19,6 +19,10 @@ export default function Perfil() {
     },
   })
 
+  useEffect(() => {
+    if (me?.bulletinEmail != null) setBulletinEmail(me.bulletinEmail)
+  }, [me?.bulletinEmail])
+
   if (meQuery.isLoading) {
     return <div className="min-h-screen flex items-center justify-center"><p className="text-slate-400">Carregando…</p></div>
   }
@@ -26,8 +30,6 @@ export default function Perfil() {
   if (!me) {
     return <div className="min-h-screen flex items-center justify-center"><p className="text-slate-500">Não autenticado</p></div>
   }
-
-  const emailBoletim = bulletinEmail !== '' ? bulletinEmail : (me.bulletinEmail ?? '')
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
@@ -61,7 +63,7 @@ export default function Perfil() {
             <div className="flex gap-2">
               <input
                 type="email"
-                value={emailBoletim}
+                value={bulletinEmail}
                 onChange={(e) => { setBulletinEmail(e.target.value); setSaved(false) }}
                 placeholder="outro@email.com"
                 className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -69,7 +71,7 @@ export default function Perfil() {
               <button
                 onClick={() => {
                   setError('')
-                  updateMutation.mutate({ bulletinEmail: emailBoletim })
+                  updateMutation.mutate({ bulletinEmail })
                 }}
                 disabled={updateMutation.isPending}
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"

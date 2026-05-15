@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useLocation } from 'wouter'
 import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx'
 import { trpc } from '../lib/trpc.ts'
@@ -23,17 +23,13 @@ export default function Knowledge() {
   const [, setLocation] = useLocation()
   const meQuery = trpc.auth.me.useQuery()
   const me      = meQuery.data
-
-  if (me && me.role !== 'admin') {
-    setLocation('/dashboard')
-    return null
-  }
+  const isAdmin = me?.role === 'admin'
 
   const [specialty, setSpecialty] = useState('')
   const [addModal, setAddModal]   = useState(false)
   const utils                     = trpc.useUtils()
 
-  const topicsQuery = trpc.knowledgeTopic.list.useQuery({ medicalSpecialty: specialty || undefined })
+  const topicsQuery = trpc.knowledgeTopic.list.useQuery({ medicalSpecialty: specialty || undefined }, { enabled: isAdmin })
   const topics      = (topicsQuery.data ?? []) as Topic[]
 
   const updateStatus = trpc.knowledgeTopic.updateStatus.useMutation({
@@ -42,6 +38,13 @@ export default function Knowledge() {
   const deleteTopic  = trpc.knowledgeTopic.delete.useMutation({
     onSuccess: () => utils.knowledgeTopic.list.invalidate(),
   })
+
+  useEffect(() => {
+    if (me && !isAdmin) setLocation('/dashboard')
+  }, [me, isAdmin, setLocation])
+
+  if (meQuery.isLoading) return <div className="min-h-screen flex items-center justify-center"><p className="text-slate-400">Carregando…</p></div>
+  if (!me || !isAdmin) return null
 
   const handleExport = async () => {
     const grouped: Record<string, Record<string, Topic[]>> = {}
@@ -235,7 +238,7 @@ function EvidenceChat({ clinicId, specialty }: { clinicId?: string | null; speci
           system:     'Você é um especialista em medicina baseada em evidências. Responda citando PMIDs quando disponível.',
           messages: [
             ...messages.map((m) => ({ role: m.role, content: m.content })),
-            { role: 'user', content: `Tópicos da clínica: ${topicContext}\n\nPergunta: ${question}` },
+            { role: 'user', content: `Tópicos da clínica: ${topicContext}\n\nPergunta: ${userMsg.content}` },
           ],
         }),
       })
