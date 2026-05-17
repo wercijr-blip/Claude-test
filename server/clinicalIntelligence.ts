@@ -664,7 +664,7 @@ export interface ResultadoDivergenciaConducta {
     conduta_atual: string
     evidencia_recomenda: string
     justificativa: string
-    grade: string
+    grade: '1A' | '1B' | '2A' | '2B' | '2C' | '3' | '4' | '5'
     forca_recomendacao: 'forte' | 'condicional'
     fonte: string
   }>
