@@ -360,3 +360,83 @@ export const pesquisaTokens = mysqlTable('pesquisa_tokens', {
 }, (t) => ({
   tokenIdx: uniqueIndex('idx_pesquisa_token').on(t.token),
 }))
+
+// ── Clinical Intelligence System ──────────────────────────────
+// Tabelas para MedScribe, alertas de conduta e digests clínicos.
+
+export const clinicalSessions = mysqlTable('clinical_sessions', {
+  id: int('id').primaryKey().autoincrement(),
+  medicoId: int('medico_id').notNull().references(() => users.id),
+  // Aberta manualmente ou ao iniciar o primeiro SOAP do dia.
+  abertaEm: datetime('aberta_em').notNull().default(sql`CURRENT_TIMESTAMP`),
+  // Preenchida pelo evento "encerrar sessão" (dispara o digest diário).
+  encerradaEm: datetime('encerrada_em'),
+  totalConsultas: int('total_consultas').notNull().default(0),
+  createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (t) => ({
+  medicoIdx: index('idx_csessions_medico').on(t.medicoId),
+  abertaIdx: index('idx_csessions_aberta').on(t.abertaEm),
+}))
+
+export const soapNotes = mysqlTable('soap_notes', {
+  id: int('id').primaryKey().autoincrement(),
+  sessionId: int('session_id').notNull().references(() => clinicalSessions.id),
+  medicoId: int('medico_id').notNull().references(() => users.id),
+  // PII — nome do paciente encriptado (LGPD)
+  pacienteNomeEncrypted: text('paciente_nome_encrypted').notNull(),
+  // Template usado no MedScribe (Prompt 02)
+  template: varchar('template', { length: 50 }).notNull().default('infectologia_geral'),
+  // Texto completo do SOAP gerado
+  soapTexto: text('soap_texto').notNull(),
+  // JSON completo do knowledge_metadata (KnowledgeMetadata do Prompt 02)
+  knowledgeMetadata: json('knowledge_metadata'),
+  // Campos denormalizados do knowledge_metadata para indexação/busca
+  diagnosticoPrincipal: varchar('diagnostico_principal', { length: 255 }),
+  cid10: varchar('cid10', { length: 10 }),
+  certeza: varchar('certeza', { length: 20 }), // confirmado | provavel | suspeito
+  pubmedQuery: text('pubmed_query'),
+  createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (t) => ({
+  sessionIdx: index('idx_soap_session').on(t.sessionId),
+  medicoIdx: index('idx_soap_medico').on(t.medicoId),
+  cid10Idx: index('idx_soap_cid10').on(t.cid10),
+  createdAtIdx: index('idx_soap_created').on(t.createdAt),
+}))
+
+export const conductAlerts = mysqlTable('conduct_alerts', {
+  id: int('id').primaryKey().autoincrement(),
+  soapNoteId: int('soap_note_id').notNull().references(() => soapNotes.id),
+  medicoId: int('medico_id').notNull().references(() => users.id),
+  diagnostico: varchar('diagnostico', { length: 255 }),
+  cid10: varchar('cid10', { length: 10 }),
+  nivelUrgencia: varchar('nivel_urgencia', { length: 10 }).notNull(), // baixo | medio | alto
+  // JSON completo retornado pelo Prompt 06 (ResultadoDivergenciaConducta)
+  alertaJson: json('alerta_json').notNull(),
+  mensagemMedico: text('mensagem_medico'),
+  // Controle de leitura — preenchido quando médico marca como visto
+  vistoPorId: int('visto_por_id').references(() => users.id),
+  vistoEm: datetime('visto_em'),
+  createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (t) => ({
+  soapIdx: index('idx_calerts_soap').on(t.soapNoteId),
+  medicoIdx: index('idx_calerts_medico').on(t.medicoId),
+  urgenciaIdx: index('idx_calerts_urgencia').on(t.nivelUrgencia),
+  vistoIdx: index('idx_calerts_visto').on(t.vistoEm),
+}))
+
+export const clinicalDigests = mysqlTable('clinical_digests', {
+  id: int('id').primaryKey().autoincrement(),
+  medicoId: int('medico_id').notNull().references(() => users.id),
+  // diario | semanal | mensal
+  tipo: varchar('tipo', { length: 10 }).notNull(),
+  // Referência do período: "2026-05-17" (diário), "2026-W20" (semanal), "2026-05" (mensal)
+  periodoRef: varchar('periodo_ref', { length: 20 }).notNull(),
+  texto: text('texto').notNull(),
+  totalConsultas: int('total_consultas').notNull().default(0),
+  totalAlertas: int('total_alertas').notNull().default(0),
+  geradoEm: datetime('gerado_em').notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (t) => ({
+  medicoIdx: index('idx_cdigests_medico').on(t.medicoId),
+  tipoIdx: index('idx_cdigests_tipo').on(t.tipo),
+  periodoIdx: uniqueIndex('idx_cdigests_periodo').on(t.medicoId, t.tipo, t.periodoRef),
+}))
