@@ -91,6 +91,12 @@ const envSchema = z.object({
   // N8N_WEBHOOK_URL: URL base do n8n, ex: "http://localhost:5678" ou "http://IP:5678"
   N8N_WEBHOOK_URL: z.string().url().optional(),
   N8N_WEBHOOK_SECRET: z.string().optional(),
+
+  // REST API do CIS — autenticação por API key para integrações externas (n8n, scripts)
+  // CIS_API_KEY: secret string de pelo menos 32 chars
+  // CIS_MEDICO_USER_ID: ID numérico do médico no banco (usuário dono do CIS)
+  CIS_API_KEY: z.string().min(32).optional(),
+  CIS_MEDICO_USER_ID: z.coerce.number().int().positive().optional(),
 })
 
 const parsed = envSchema.safeParse(process.env)

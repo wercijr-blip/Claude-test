@@ -257,6 +257,10 @@ app.get('/api/health/observability', (_req, res) => {
   })
 })
 
+// CIS REST API — integrações externas com autenticação por API key
+const { cisRestRouter } = await import('../routes/cisRest.ts')
+app.use('/api/cis', cisRestRouter)
+
 // Upload de exames (lazy import para evitar carregar S3 client no boot)
 app.post('/api/upload', uploadLimiter, async (req, res) => {
   const { uploadExame } = await import('../storage.ts')
