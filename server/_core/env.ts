@@ -71,6 +71,11 @@ const envSchema = z.object({
   // PubMed E-utilities — opcional; sem chave: 3 req/s, com chave: 10 req/s
   // Obter em: https://www.ncbi.nlm.nih.gov/account/
   NCBI_API_KEY: z.string().optional(),
+
+  // Zotero — biblioteca pessoal de referências do médico
+  // Obter em: zotero.org/settings/keys
+  ZOTERO_API_KEY: z.string().optional(),
+  ZOTERO_USER_ID: z.string().optional(),
 })
 
 const parsed = envSchema.safeParse(process.env)
