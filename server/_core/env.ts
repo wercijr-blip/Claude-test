@@ -80,6 +80,12 @@ const envSchema = z.object({
   // Unpaywall — texto completo open access de artigos por DOI
   // Gratuito; e-mail usado apenas para identificação na API (sem cadastro)
   UNPAYWALL_EMAIL: z.string().email().optional(),
+
+  // Obsidian — publicação de notas no vault via repositório GitHub privado
+  // OBSIDIAN_GITHUB_REPO: formato "usuario/nome-do-repo" (ex: "werciley/obsidian-vault-cis")
+  // OBSIDIAN_GITHUB_TOKEN: Personal Access Token com escopo "repo"
+  OBSIDIAN_GITHUB_TOKEN: z.string().optional(),
+  OBSIDIAN_GITHUB_REPO: z.string().optional(),
 })
 
 const parsed = envSchema.safeParse(process.env)
