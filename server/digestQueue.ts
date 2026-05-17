@@ -16,6 +16,7 @@ import {
   soapNotes,
   conductAlerts,
   clinicalDigests,
+  publicationDrafts,
   users,
 } from '../drizzle/schema.ts'
 import { eq, and, gte, lte, lt, isNotNull, inArray, sql, count } from 'drizzle-orm'
@@ -261,10 +262,25 @@ async function runSemanal(periodoRef: string) {
   const semanaLabel = periodoRef || `${agora.getUTCFullYear()}-W${String(Math.ceil(agora.getUTCDate() / 7)).padStart(2, '0')}`
 
   for (const medicoId of medicoIds) {
-    const [consultas, alertas, artigosSemanaJson] = await Promise.all([
+    const [consultas, alertas, artigosSemanaJson, seriesAtivas] = await Promise.all([
       getSoapResumo(medicoId, de, ate),
       getAlertasResumo(medicoId, de, ate),
       getSintesesPeriodo(medicoId, de, ate),
+      db.select({
+        tipo: publicationDrafts.tipo,
+        diagnostico: publicationDrafts.diagnostico,
+        tema: publicationDrafts.tema,
+        status: publicationDrafts.status,
+        nCasos: publicationDrafts.nCasos,
+        jornal: publicationDrafts.jornal,
+        atualizadoEm: publicationDrafts.atualizadoEm,
+      })
+      .from(publicationDrafts)
+      .where(and(
+        eq(publicationDrafts.medicoId, medicoId),
+        sql`${publicationDrafts.status} IN ('rascunho', 'em_revisao', 'submetido', 'aceito')`,
+      ))
+      .limit(10),
     ])
 
     if (!consultas.length && !alertas.length) continue
@@ -275,8 +291,8 @@ async function runSemanal(periodoRef: string) {
       diagnosticosJson: JSON.stringify(consultas),
       artigosSemanaJson,
       alertasSemanaJson: JSON.stringify(alertas),
-      seriesStatusJson: '[]',
-      relatoriosSemana: '0',
+      seriesStatusJson: JSON.stringify(seriesAtivas),
+      relatoriosSemana: String(seriesAtivas.length),
     })
 
     await salvarDigest({
@@ -305,11 +321,57 @@ async function runMensal(periodoRef: string) {
   const mesLabel = periodoRef || `${agora.getUTCFullYear()}-${String(agora.getUTCMonth() + 1).padStart(2, '0')}`
 
   for (const medicoId of medicoIds) {
-    const [consultas, alertas, artigosMesJson] = await Promise.all([
+    const [consultas, alertas, artigosMesJson, seriesGeradas, seriesPublicadas] = await Promise.all([
       getSoapResumo(medicoId, de, ate),
       getAlertasResumo(medicoId, de, ate),
       getSintesesPeriodo(medicoId, de, ate),
+      // Séries criadas neste mês (qualquer status)
+      db.select({
+        tipo: publicationDrafts.tipo,
+        diagnostico: publicationDrafts.diagnostico,
+        tema: publicationDrafts.tema,
+        status: publicationDrafts.status,
+        nCasos: publicationDrafts.nCasos,
+        jornal: publicationDrafts.jornal,
+      })
+      .from(publicationDrafts)
+      .where(and(
+        eq(publicationDrafts.medicoId, medicoId),
+        gte(publicationDrafts.createdAt, de),
+        lte(publicationDrafts.createdAt, ate),
+      )),
+      // Séries publicadas no total (acumulado)
+      db.select({
+        tipo: publicationDrafts.tipo,
+        diagnostico: publicationDrafts.diagnostico,
+        tema: publicationDrafts.tema,
+        doi: publicationDrafts.doi,
+        jornal: publicationDrafts.jornal,
+        dataPublicacao: publicationDrafts.dataPublicacao,
+      })
+      .from(publicationDrafts)
+      .where(and(
+        eq(publicationDrafts.medicoId, medicoId),
+        eq(publicationDrafts.status, 'publicado'),
+      )),
     ])
+
+    // Cronograma: rascunhos e submetidos com jornal informado
+    const cronograma = await db.select({
+      tipo: publicationDrafts.tipo,
+      diagnostico: publicationDrafts.diagnostico,
+      tema: publicationDrafts.tema,
+      status: publicationDrafts.status,
+      jornal: publicationDrafts.jornal,
+      dataSubmissao: publicationDrafts.dataSubmissao,
+    })
+    .from(publicationDrafts)
+    .where(and(
+      eq(publicationDrafts.medicoId, medicoId),
+      sql`${publicationDrafts.status} IN ('rascunho', 'em_revisao', 'submetido', 'aceito')`,
+      sql`${publicationDrafts.jornal} IS NOT NULL`,
+    ))
+    .limit(5)
 
     const { texto } = await gerarDigestMensal({
       mesAno: mesLabel,
@@ -317,10 +379,15 @@ async function runMensal(periodoRef: string) {
       diagnosticosMesJson: JSON.stringify(consultas),
       artigosMesJson,
       alertasMesJson: JSON.stringify(alertas),
-      seriesGeradasJson: '[]',
-      seriesPublicadasJson: '[]',
-      totalAcumuladoJson: JSON.stringify({ consultas: consultas.length, alertas: alertas.length }),
-      cronogramaPublicacaoJson: '[]',
+      seriesGeradasJson: JSON.stringify(seriesGeradas),
+      seriesPublicadasJson: JSON.stringify(seriesPublicadas),
+      totalAcumuladoJson: JSON.stringify({
+        consultas: consultas.length,
+        alertas: alertas.length,
+        seriesGeradas: seriesGeradas.length,
+        seriesPublicadas: seriesPublicadas.length,
+      }),
+      cronogramaPublicacaoJson: JSON.stringify(cronograma),
     })
 
     await salvarDigest({

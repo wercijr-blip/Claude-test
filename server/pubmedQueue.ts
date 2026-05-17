@@ -121,6 +121,13 @@ export function startPubmedWorker() {
 
       logger.info('[pubmedQueue] Síntese salva', { soapNoteId, artigos: artigos.length })
 
+      // 3c. Verificar acumulação de casos — enfileira série se N ≥ 3 (best-effort)
+      if (cid10 && diagnosticoPrincipal) {
+        import('./caseSeriesQueue.ts')
+          .then(({ checkCaseAccumulation }) => checkCaseAccumulation({ medicoId, cid10, diagnostico: diagnosticoPrincipal }))
+          .catch(() => null)
+      }
+
       // 3b. Publicar síntese no Obsidian (best-effort)
       publicarNotaSintese({
         soapNoteId,

@@ -3,6 +3,7 @@ import {
   int,
   varchar,
   text,
+  longtext,
   datetime,
   boolean,
   json,
@@ -434,6 +435,44 @@ export const conductAlerts = mysqlTable('conduct_alerts', {
   vistoIdx: index('idx_calerts_visto').on(t.vistoEm),
   hashIdx: index('idx_calerts_hash').on(t.hashAlerta),
   feedbackIdx: index('idx_calerts_feedback').on(t.feedbackMedico),
+}))
+
+/**
+ * Rascunhos e publicações gerados pelo CIS (Prompts 10 e 11).
+ * Rastreia o ciclo completo: rascunho → revisão → submetido → publicado.
+ * Alimenta as seções "séries" e "publicações" dos digests semanais e mensais.
+ */
+export const publicationDrafts = mysqlTable('publication_drafts', {
+  id: int('id').primaryKey().autoincrement(),
+  medicoId: int('medico_id').notNull().references(() => users.id),
+  // 'serie_casos' | 'revisao_literatura'
+  tipo: varchar('tipo', { length: 20 }).notNull(),
+  // 'rascunho' | 'em_revisao' | 'submetido' | 'aceito' | 'publicado'
+  status: varchar('status', { length: 20 }).notNull().default('rascunho'),
+  titulo: text('titulo'),
+  // Série de casos
+  diagnostico: varchar('diagnostico', { length: 255 }),
+  cid10: varchar('cid10', { length: 10 }),
+  nCasos: int('n_casos').default(0),
+  soapNoteIds: json('soap_note_ids'),   // number[] — IDs das notas incluídas
+  // Revisão de literatura
+  tema: varchar('tema', { length: 255 }),
+  nArtigos: int('n_artigos').default(0),
+  // Submissão / publicação
+  jornal: varchar('jornal', { length: 255 }),
+  doi: varchar('doi', { length: 255 }),
+  dataSubmissao: datetime('data_submissao'),
+  dataPublicacao: datetime('data_publicacao'),
+  // Texto gerado pelo Prompt 10 ou 11 (rascunho completo)
+  textoGerado: longtext('texto_gerado'),
+  createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  atualizadoEm: datetime('atualizado_em').notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (t) => ({
+  medicoIdx:    index('idx_pdrafts_medico').on(t.medicoId),
+  statusIdx:    index('idx_pdrafts_status').on(t.status),
+  cid10Idx:     index('idx_pdrafts_cid10').on(t.cid10),
+  // Impede criação de duplicate rascunho para mesmo diagnóstico enquanto já existe um ativo
+  unicoCid10:   uniqueIndex('idx_pdrafts_uniq_cid10').on(t.medicoId, t.tipo, t.cid10, t.status),
 }))
 
 export const clinicalDigests = mysqlTable('clinical_digests', {

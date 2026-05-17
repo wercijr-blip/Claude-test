@@ -310,11 +310,17 @@ const server = app.listen(env.PORT, async () => {
   if (env.WORKERS_ENABLED !== false) {
     const { startPdfWorker, startLembreteWorker, startPesquisaWorker, startLinkAcessoWorker, agendarLembreteDiario } = await import('../pdfQueue.ts')
     const { startExamWorker } = await import('../examQueue.ts')
+    const { startPubmedWorker } = await import('../pubmedQueue.ts')
+    const { startDigestWorker } = await import('../digestQueue.ts')
+    const { startCaseSeriesWorker } = await import('../caseSeriesQueue.ts')
     startPdfWorker()
     startLembreteWorker()
     startPesquisaWorker()
     startLinkAcessoWorker()
     startExamWorker()
+    startPubmedWorker()
+    startDigestWorker()
+    startCaseSeriesWorker()
     await agendarLembreteDiario()
     logger.info('[server] Workers BullMQ iniciados em-processo.')
   } else {

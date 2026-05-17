@@ -7,8 +7,9 @@ import {
   soapNotes,
   conductAlerts,
   clinicalDigests,
+  publicationDrafts,
 } from '../../drizzle/schema.ts'
-import { eq, and, isNull, desc, isNotNull } from 'drizzle-orm'
+import { eq, and, isNull, desc, isNotNull, sql } from 'drizzle-orm'
 import { randomUUID } from 'crypto'
 import { encrypt } from '../_core/encryption.ts'
 import { getPresignedUploadUrl } from '../storage.ts'
@@ -345,5 +346,183 @@ export const scribaRouter = router({
         .where(and(...conditions))
         .orderBy(desc(clinicalDigests.geradoEm))
         .limit(input?.limit ?? 10)
+    }),
+
+  // ── Publicações (CIS-10 e CIS-11) ─────────────────────────────────────────
+
+  /** Lista rascunhos e publicações do médico. */
+  listarPublicacoes: medicoProcedure
+    .input(z.object({
+      tipo: z.enum(['serie_casos', 'revisao_literatura']).optional(),
+      status: z.enum(['rascunho', 'em_revisao', 'submetido', 'aceito', 'publicado']).optional(),
+      limit: z.number().int().min(1).max(50).default(20),
+    }).optional())
+    .query(async ({ input, ctx }) => {
+      const medicoId = ctx.session.id
+      const conditions = [eq(publicationDrafts.medicoId, medicoId)]
+      if (input?.tipo)   conditions.push(eq(publicationDrafts.tipo, input.tipo))
+      if (input?.status) conditions.push(eq(publicationDrafts.status, input.status))
+
+      return db
+        .select({
+          id:            publicationDrafts.id,
+          tipo:          publicationDrafts.tipo,
+          status:        publicationDrafts.status,
+          titulo:        publicationDrafts.titulo,
+          diagnostico:   publicationDrafts.diagnostico,
+          cid10:         publicationDrafts.cid10,
+          tema:          publicationDrafts.tema,
+          nCasos:        publicationDrafts.nCasos,
+          nArtigos:      publicationDrafts.nArtigos,
+          jornal:        publicationDrafts.jornal,
+          doi:           publicationDrafts.doi,
+          dataSubmissao: publicationDrafts.dataSubmissao,
+          createdAt:     publicationDrafts.createdAt,
+          atualizadoEm:  publicationDrafts.atualizadoEm,
+        })
+        .from(publicationDrafts)
+        .where(and(...conditions))
+        .orderBy(desc(publicationDrafts.createdAt))
+        .limit(input?.limit ?? 20)
+    }),
+
+  /**
+   * Disparo manual de geração de série de casos (CIS-10).
+   * Alternativa ao disparo automático por acumulação.
+   * Requer ao menos 3 soapNoteIds do mesmo CID-10.
+   */
+  gerarSerie: medicoProcedure
+    .input(z.object({
+      cid10: z.string().min(2).max(10),
+      diagnostico: z.string().min(2).max(255),
+      soapNoteIds: z.array(z.number().int().positive()).min(3).max(20),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const medicoId = ctx.session.id
+
+      // Valida que todas as notas pertencem ao médico autenticado
+      const notas = await db
+        .select({ id: soapNotes.id })
+        .from(soapNotes)
+        .where(and(
+          eq(soapNotes.medicoId, medicoId),
+          sql`${soapNotes.id} IN ${input.soapNoteIds}`,
+        ))
+
+      if (notas.length < 3) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Mínimo 3 notas válidas necessárias.' })
+      }
+
+      const { enqueueCaseSeries } = await import('../caseSeriesQueue.ts')
+      const enfileirado = await enqueueCaseSeries({
+        medicoId,
+        cid10: input.cid10,
+        diagnostico: input.diagnostico,
+        soapNoteIds: notas.map(n => n.id),
+        disparadoPor: 'manual',
+      })
+
+      if (!enfileirado) {
+        throw new TRPCError({
+          code: 'CONFLICT',
+          message: 'Já existe um rascunho ativo para este CID-10. Consulte listarPublicacoes.',
+        })
+      }
+
+      return { ok: true, nCasos: notas.length }
+    }),
+
+  /**
+   * Solicita revisão narrativa de literatura (CIS-11).
+   * O tema e os artigos definem o escopo da revisão.
+   */
+  solicitarRevisaoLiteratura: medicoProcedure
+    .input(z.object({
+      tema: z.string().min(5).max(255),
+      contextoClinicos: z.string().max(2000).optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const medicoId = ctx.session.id
+
+      // Revisão de literatura é disparada diretamente (sem acumulação)
+      const { gerarRevisaoLiteratura } = await import('../clinicalIntelligence.ts')
+      const { buscarArtigosDual } = await import('../pubmed.ts')
+      const { publicarRevisaoLiteratura } = await import('../obsidian.ts')
+
+      // Busca artigos para o tema
+      const artigos = await buscarArtigosDual(input.tema, [], 15)
+      if (artigos.length === 0) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Nenhum artigo encontrado para este tema no PubMed.' })
+      }
+
+      // Gera revisão (Prompt 11 — Opus)
+      const texto = await gerarRevisaoLiteratura({
+        tema: input.tema,
+        nArtigos: artigos.length,
+        artigosJson: JSON.stringify(artigos),
+        contextoClinicos: input.contextoClinicos,
+      })
+
+      // Persiste
+      await db.insert(publicationDrafts).values({
+        medicoId,
+        tipo: 'revisao_literatura',
+        status: 'rascunho',
+        tema: input.tema,
+        nArtigos: artigos.length,
+        textoGerado: texto,
+      })
+
+      const [draft] = await db
+        .select({ id: publicationDrafts.id })
+        .from(publicationDrafts)
+        .where(and(
+          eq(publicationDrafts.medicoId, medicoId),
+          eq(publicationDrafts.tipo, 'revisao_literatura'),
+        ))
+        .orderBy(desc(publicationDrafts.createdAt))
+        .limit(1)
+
+      // Publica no Obsidian (best-effort)
+      publicarRevisaoLiteratura({ tema: input.tema, nArtigos: artigos.length, texto }).catch(() => null)
+
+      return { ok: true, draftId: draft?.id, nArtigos: artigos.length }
+    }),
+
+  /** Atualiza status de publicação (rascunho → submetido → publicado). */
+  atualizarStatusPublicacao: medicoProcedure
+    .input(z.object({
+      draftId:       z.number().int().positive(),
+      status:        z.enum(['rascunho', 'em_revisao', 'submetido', 'aceito', 'publicado']),
+      jornal:        z.string().max(255).optional(),
+      doi:           z.string().max(255).optional(),
+      dataSubmissao: z.string().datetime().optional(),
+      dataPublicacao: z.string().datetime().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const medicoId = ctx.session.id
+
+      const [draft] = await db
+        .select({ id: publicationDrafts.id, medicoId: publicationDrafts.medicoId })
+        .from(publicationDrafts)
+        .where(eq(publicationDrafts.id, input.draftId))
+        .limit(1)
+
+      if (!draft) throw new TRPCError({ code: 'NOT_FOUND' })
+      if (draft.medicoId !== medicoId) throw new TRPCError({ code: 'FORBIDDEN' })
+
+      await db
+        .update(publicationDrafts)
+        .set({
+          status:         input.status,
+          jornal:         input.jornal,
+          doi:            input.doi,
+          dataSubmissao:  input.dataSubmissao ? new Date(input.dataSubmissao) : undefined,
+          dataPublicacao: input.dataPublicacao ? new Date(input.dataPublicacao) : undefined,
+          atualizadoEm:   new Date(),
+        })
+        .where(eq(publicationDrafts.id, input.draftId))
+
+      return { ok: true }
     }),
 })
