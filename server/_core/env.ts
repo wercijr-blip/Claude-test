@@ -97,6 +97,13 @@ const envSchema = z.object({
   // CIS_MEDICO_USER_ID: ID numérico do médico no banco (usuário dono do CIS)
   CIS_API_KEY: z.string().min(32).optional(),
   CIS_MEDICO_USER_ID: z.coerce.number().int().positive().optional(),
+
+  // Limite diário de tokens Claude Opus (CIS-10 e CIS-11).
+  // Opus é ~15x mais caro que Sonnet; sem limite, uma série de casos longa pode
+  // consumir dezenas de reais. Quando atingido, as chamadas fazem downgrade para Sonnet.
+  // Padrão sugerido para uso diário moderado: 100_000 tokens (~10 chamadas completas).
+  // Defina 0 ou omita para desabilitar o limite.
+  OPUS_DAILY_TOKEN_BUDGET: z.coerce.number().int().min(0).default(100_000),
 })
 
 const parsed = envSchema.safeParse(process.env)

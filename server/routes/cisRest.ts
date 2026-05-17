@@ -16,6 +16,7 @@ import { soapNotes, conductAlerts } from '../../drizzle/schema.ts'
 import { eq, and, desc, gte, lte, sql } from 'drizzle-orm'
 import { env } from '../_core/env.ts'
 import { logger } from '../_core/logger.ts'
+import { getOpusBudgetStatus } from '../clinicalIntelligence.ts'
 
 export const cisRestRouter = Router()
 
@@ -36,6 +37,16 @@ function autenticar(req: Request, res: Response): number | null {
 
   return env.CIS_MEDICO_USER_ID
 }
+
+// ─── GET /api/cis/budget ─────────────────────────────────────────────────────
+
+cisRestRouter.get('/budget', async (req, res) => {
+  const medicoId = autenticar(req, res)
+  if (!medicoId) return
+
+  const status = await getOpusBudgetStatus()
+  res.json(status)
+})
 
 // ─── GET /api/cis/notas ───────────────────────────────────────────────────────
 

@@ -5,12 +5,58 @@
 
 import { env } from './_core/env.ts'
 import { logger } from './_core/logger.ts'
+import { redis } from './_core/redis.ts'
 
 // ─── Shared API helper ────────────────────────────────────────────────────────
 
 const MODEL_HAIKU  = 'claude-haiku-4-5-20251001'  // CIS-01, CIS-02b, CIS-04
 const MODEL_SONNET = 'claude-sonnet-4-6'           // CIS-02a, CIS-03, CIS-05–09
 const MODEL_OPUS   = 'claude-opus-4-7'             // CIS-10, CIS-11
+
+// ─── Opus daily budget (Redis counter) ───────────────────────────────────────
+
+function opusDateKey(): string {
+  return `cis:opus:tokens:${new Date().toISOString().slice(0, 10)}`
+}
+
+async function getOpusTokensToday(): Promise<number> {
+  try {
+    const val = await redis.get(opusDateKey())
+    return val ? parseInt(val, 10) : 0
+  } catch {
+    return 0  // Redis indisponível → fail open (não bloqueia chamada)
+  }
+}
+
+async function incrOpusTokens(tokens: number): Promise<void> {
+  try {
+    const key = opusDateKey()
+    const newVal = await redis.incrby(key, tokens)
+    if (newVal <= tokens) {
+      // Primeira incrementação do dia — define TTL de 48h (mantém dado de ontem para auditoria)
+      await redis.expire(key, 48 * 3600)
+    }
+  } catch {
+    // Falha no rastreamento não é crítica — apenas registra silenciosamente
+  }
+}
+
+/** Retorna status atual do orçamento diário de Opus para monitoramento. */
+export async function getOpusBudgetStatus(): Promise<{
+  usado: number
+  limite: number
+  percentual: number
+  dataKey: string
+}> {
+  const usado = await getOpusTokensToday()
+  const limite = env.OPUS_DAILY_TOKEN_BUDGET
+  return {
+    usado,
+    limite,
+    percentual: limite > 0 ? Math.min(100, Math.round((usado / limite) * 100)) : 0,
+    dataKey: opusDateKey(),
+  }
+}
 
 async function callClaude(
   systemPrompt: string,
@@ -19,6 +65,19 @@ async function callClaude(
   model = MODEL_SONNET,
   temperature = 0.2,
 ): Promise<string> {
+  // Verifica orçamento diário antes de chamar Opus
+  let effectiveModel = model
+  if (model === MODEL_OPUS && env.OPUS_DAILY_TOKEN_BUDGET > 0) {
+    const tokensHoje = await getOpusTokensToday()
+    if (tokensHoje >= env.OPUS_DAILY_TOKEN_BUDGET) {
+      logger.warn('[cis] Orçamento diário de Opus atingido — downgrade para Sonnet', {
+        tokensHoje,
+        limite: env.OPUS_DAILY_TOKEN_BUDGET,
+      })
+      effectiveModel = MODEL_SONNET
+    }
+  }
+
   let response: Response
   try {
     response = await fetch(`${env.BUILT_IN_FORGE_API_URL}/v1/messages`, {
@@ -30,7 +89,7 @@ async function callClaude(
       },
       signal: AbortSignal.timeout(60000),
       body: JSON.stringify({
-        model,
+        model: effectiveModel,
         max_tokens: maxTokens,
         temperature,
         system: systemPrompt,
@@ -46,7 +105,18 @@ async function callClaude(
     throw new Error(`Erro na API de IA (HTTP ${response.status}): ${body.slice(0, 200)}`)
   }
 
-  const data = (await response.json()) as { content: Array<{ text: string }> }
+  const data = (await response.json()) as {
+    content: Array<{ text: string }>
+    usage?: { input_tokens: number; output_tokens: number }
+  }
+
+  // Registra tokens consumidos se chamada Opus foi efetivamente executada
+  if (effectiveModel === MODEL_OPUS && data.usage) {
+    const total = (data.usage.input_tokens ?? 0) + (data.usage.output_tokens ?? 0)
+    await incrOpusTokens(total)
+    logger.info('[cis] Tokens Opus registrados', { total, key: opusDateKey() })
+  }
+
   return data.content[0]?.text ?? ''
 }
 
