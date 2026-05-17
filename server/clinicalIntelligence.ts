@@ -292,9 +292,9 @@ export interface KnowledgeMetadata {
     prioridade: 'alta' | 'media' | 'baixa'
   }
   palavras_gatilho_relatorio: string[]
-  potencial_publicacao: {
-    caso_incomum: boolean
-    justificativa: string | null
+  caso_atipico: {
+    atipico: boolean
+    criterios_objetivos: string[]
     tipo_sugerido: 'relato_de_caso' | 'serie_de_casos' | 'nenhum'
   }
   tags: string[]
@@ -404,9 +404,9 @@ TEMPLATE: ${params.template}
     "prioridade": "alta | media | baixa"
   },
   "palavras_gatilho_relatorio": [],
-  "potencial_publicacao": {
-    "caso_incomum": false,
-    "justificativa": null,
+  "caso_atipico": {
+    "atipico": false,
+    "criterios_objetivos": [],
     "tipo_sugerido": "relato_de_caso | serie_de_casos | nenhum"
   },
   "tags": []
@@ -415,7 +415,15 @@ TEMPLATE: ${params.template}
 REGRAS:
 - Use vocabulário MeSH padrão nos termos de busca PubMed
 - A query_sugerida deve ser executável diretamente no PubMed
-- Extraia apenas o que está explicitamente no SOAP note — não invente dados`
+- Extraia apenas o que está explicitamente no SOAP note — não invente dados
+- caso_atipico.atipico = true SOMENTE se ≥1 critério abaixo for verificável no SOAP:
+  • Patógeno ou CID-10 com frequência estimada < 1:100.000 no Brasil
+  • Apresentação clínica contrária ao quadro típico descrito em guideline de referência (IDSA/SBPT/MS/ANVISA)
+  • Falha documentada a ≥1 esquema de primeira linha conforme guideline vigente
+  • Coinfecção simultânea de 2 ou mais agentes incomuns
+  • Perfil de resistência emergente (ex: KPC, NDM, VRE em infecção comunitária)
+  • Manifestação em faixa etária ou imunocompetência discordante do padrão descrito em guidelines
+  criterios_objetivos: liste apenas os critérios efetivamente verificáveis no SOAP ([] se atipico = false)`
 
   const text = await callClaude(systemPrompt, params.soapTexto, 1024, MODEL_HAIKU, 0.1)
   return parseJsonResponse<KnowledgeMetadata>(text, 'knowledge-metadata')
