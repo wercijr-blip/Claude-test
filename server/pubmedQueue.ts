@@ -50,9 +50,10 @@ export interface PubmedJobData {
   diagnosticoPrincipal: string
   cid10: string
   soapTexto: string          // para compor soapResumido no Prompt 03
-  conductaAtual: string      // extraído do soapTexto (seção Plan/Conduta)
+  condutaAtual: string       // extraído do soapTexto (seção Plan/Conduta)
   populacao: string          // extraído do knowledge_metadata
   perfilPacienteJson: string // JSON do perfil_paciente para Prompt 06
+  template: string           // template clínico — tag automática no Zotero
 }
 
 // ─── Enqueue público ──────────────────────────────────────────────────────────
@@ -77,7 +78,7 @@ export function startPubmedWorker() {
   const worker = new Worker<PubmedJobData>(
     PUBMED_QUEUE_NAME,
     async (job) => {
-      const { soapNoteId, medicoId, pubmedQuery, diagnosticoPrincipal, cid10, soapTexto, conductaAtual, populacao, perfilPacienteJson } = job.data
+      const { soapNoteId, medicoId, pubmedQuery, diagnosticoPrincipal, cid10, soapTexto, condutaAtual, populacao, perfilPacienteJson, template } = job.data
       const perfilPaciente = perfilPacienteJson ? JSON.parse(perfilPacienteJson) : undefined
 
       // 1. Buscar artigos no PubMed + enriquecer com Unpaywall (texto completo OA)
@@ -92,7 +93,7 @@ export function startPubmedWorker() {
         const zoteroItems = await buscarReferenciasPorQuery(`${diagnosticoPrincipal} ${cid10}`, 8)
         zoteroReferencias = formatarZoteroParaPrompt(zoteroItems)
         // Salva artigos PubMed no Zotero em fire-and-forget — não bloqueia síntese
-        for (const artigo of artigos) salvarArtigoPubMed(artigo).catch(() => null)
+        for (const artigo of artigos) salvarArtigoPubMed(artigo, { cid10, template }).catch(() => null)
       } catch {
         logger.warn('[pubmedQueue] Zotero indisponível — síntese prossegue sem biblioteca pessoal', { soapNoteId })
       }
@@ -105,7 +106,7 @@ export function startPubmedWorker() {
         diagnostico: diagnosticoPrincipal,
         cid10,
         populacao,
-        condutaAtual: conductaAtual,
+        condutaAtual: condutaAtual,
         artigosJson: artigosFormatados,
         n: artigos.length,
         zoteroReferencias,
@@ -134,7 +135,7 @@ export function startPubmedWorker() {
         const alerta = await detectarDivergenciaConducta({
           diagnostico: diagnosticoPrincipal,
           cid10,
-          condutaAtual: conductaAtual,
+          condutaAtual: condutaAtual,
           sinteseEvidencias: sintese.texto,
           perfilPaciente,
         })

@@ -149,9 +149,13 @@ export async function buscarReferenciasPorTag(
 /**
  * Salva um artigo encontrado pelo PubMed na biblioteca Zotero do médico.
  * Aplica tag 'cis-auto' para distinguir de referências adicionadas manualmente.
+ * Se fornecidos, adiciona tags de CID-10 (ex: "B20") e template clínico (ex: "hiv_cronico").
  * Operação best-effort — falhas não bloqueiam o fluxo principal.
  */
-export async function salvarArtigoPubMed(artigo: ArtigoPubMed): Promise<boolean> {
+export async function salvarArtigoPubMed(
+  artigo: ArtigoPubMed,
+  opcoes?: { cid10?: string; template?: string },
+): Promise<boolean> {
   if (!zoteroDisponivel()) return false
 
   const creators = artigo.autores.map(nome => {
@@ -163,6 +167,10 @@ export async function salvarArtigoPubMed(artigo: ArtigoPubMed): Promise<boolean>
     }
   })
 
+  const tags: Array<{ tag: string }> = [{ tag: TAG_AUTO }, { tag: 'pubmed' }]
+  if (opcoes?.cid10) tags.push({ tag: opcoes.cid10.replace('.', '').toUpperCase() })
+  if (opcoes?.template) tags.push({ tag: opcoes.template })
+
   const payload = [{
     itemType: 'journalArticle',
     title: artigo.titulo,
@@ -173,7 +181,7 @@ export async function salvarArtigoPubMed(artigo: ArtigoPubMed): Promise<boolean>
     DOI: artigo.doi ?? '',
     url: artigo.doi ? `https://doi.org/${artigo.doi}` : '',
     extra: `PMID: ${artigo.pmid}`,
-    tags: [{ tag: TAG_AUTO }, { tag: 'pubmed' }],
+    tags,
   }]
 
   try {

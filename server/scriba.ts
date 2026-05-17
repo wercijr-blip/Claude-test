@@ -217,6 +217,7 @@ export async function processarConsulta(params: {
         condutaAtual,
         populacao,
         perfilPacienteJson: JSON.stringify(knowledge_metadata.perfil_paciente),
+        template,
       })
       logger.info('[scriba] Síntese PubMed enfileirada', { soapNoteId })
     } catch (err) {
