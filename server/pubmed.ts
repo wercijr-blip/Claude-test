@@ -79,8 +79,9 @@ function parseMedline(raw: string): MedlineRecord[] {
       continue
     }
 
-    // Tagged line: "TAG - value" (tag is 2-4 chars, then " - ")
-    const match = /^([A-Z]{2,4})\s+-\s+(.*)$/.exec(line)
+    // Tagged line: "TAG - value". Short tags (TI, AU) are space-padded to 4 chars;
+    // PMID (4 chars) has no space before hyphen. Use \s* to handle both forms.
+    const match = /^([A-Z]{2,4})\s*-\s+(.*)$/.exec(line)
     if (match) {
       lastTag = match[1]!
       if (!current[lastTag]) current[lastTag] = []
