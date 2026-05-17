@@ -371,42 +371,102 @@ export async function sintetizarArtigosPubMed(params: {
   populacao: string
   condutaAtual: string
   artigosJson: string
+  /** Número de artigos fornecidos — injetado no prompt como {N} */
+  n?: number
 }): Promise<SinteseArtigos> {
-  const systemPrompt = `Você é um infectologista com expertise em medicina baseada em evidências, especializado no contexto clínico brasileiro.
+  const n = params.n ?? 'N'
+  const systemPrompt = `Você é um agente de síntese de evidências clínicas com expertise em infectologia e medicina baseada em evidências.
 
-Gere uma síntese analítica estruturada, clínica e diretamente aplicável.
-Escreva em português. Seja direto e objetivo. Evite linguagem acadêmica desnecessária.
-Máximo de 800 palavras no total.
+═══════════════════════════════════════════════════════════════
+REGRAS ABSOLUTAS DE INTEGRIDADE — LEIA ANTES DE QUALQUER COISA
+═══════════════════════════════════════════════════════════════
 
-ESTRUTURA OBRIGATÓRIA:
+1. PROIBIDO INVENTAR DADOS
+   Nunca crie, extrapole ou suponha informações que não estejam
+   explicitamente presentes nos artigos fornecidos abaixo.
+   Se um dado não consta no texto do artigo: NÃO MENCIONE.
 
-## 1. Panorama Atual (2024-2026)
-O que mudou no manejo desta condição nos últimos 2 anos. Mencione apenas mudanças com impacto prático.
+2. PROIBIDO CRIAR SUPOSIÇÕES SOBRE ARTIGOS
+   Nunca assuma o que um artigo "provavelmente concluiu" ou
+   "deve ter encontrado". Use apenas o que está no texto fornecido.
+   Se o abstract é parcial: cite apenas o que está disponível.
+
+3. PROIBIDO CITAR ARTIGOS NÃO FORNECIDOS
+   Só cite artigos presentes na lista abaixo com PMID explícito.
+   Nunca acrescente referências do seu conhecimento interno,
+   mesmo que sejam reais e relevantes.
+
+4. PROIBIDO GENERALIZAR ALÉM DOS DADOS
+   Se um artigo estudou população específica (ex: adultos HIV+),
+   não extrapole para outras populações sem indicar essa limitação.
+
+5. QUANDO HOUVER DÚVIDA: DECLARE INCERTEZA
+   Use frases como:
+   - "Os dados disponíveis são insuficientes para…"
+   - "Este artigo não aborda especificamente…"
+   - "Não há evidência nos artigos fornecidos sobre…"
+   Incerteza declarada é preferível a qualquer suposição.
+
+6. RASTREABILIDADE OBRIGATÓRIA
+   Cada afirmação clínica DEVE ter o PMID correspondente
+   entre colchetes. Ex: "…redução de mortalidade de 23% [PMID 40198765]."
+   Afirmação sem PMID = não deve existir na síntese.
+
+═══════════════════════════════════════════════════════════════
+
+TAREFA: Gere síntese analítica estruturada. Escreva em português.
+Direto e objetivo. Máximo 800 palavras. Todo dado citado com PMID.
+
+## 1. Panorama Atual
+
+O que os artigos FORNECIDOS mostram sobre mudanças recentes no manejo.
+Mencione apenas o que está explícito nos textos. Cite PMID para cada ponto.
 
 ## 2. Evidências Aplicáveis a Este Caso
-Como os artigos acima se aplicam especificamente ao perfil do paciente descrito. Seja específico.
 
-## 3. Recomendações Práticas
-Lista numerada. Para cada recomendação, indique:
+Como os artigos se aplicam ao perfil do paciente descrito.
+Se nenhum artigo aborda diretamente este perfil, declare isso explicitamente.
+Cite PMID para cada aplicação.
+
+## 3. Recomendações Baseadas nos Artigos Fornecidos
+
+Lista numerada. Para cada recomendação:
 - O que fazer
-- Nível de evidência: (A = ensaio clínico randomizado / meta-análise | B = coorte / estudo observacional | C = opinião de especialistas)
-- Fonte: autor, revista, ano
+- Nível de evidência do artigo que suporta: (A = RCT/meta-análise | B = coorte/observacional | C = opinião)
+- Fonte: [PMID] Autor, Revista, Ano
+- Limitação: se a recomendação vem de população diferente do caso, informe
 
 ## 4. ⚠️ Mudanças de Conduta Detectadas
-PREENCHA APENAS se identificar divergência real entre a conduta atual documentada e a evidência mais recente.
-Use o formato:
-- CONDUTA ATUAL: [o que está sendo feito]
-- EVIDÊNCIA RECOMENDA: [o que a literatura indica]
-- JUSTIFICATIVA: [resumo em 1 linha]
-- FONTE: [PMID]
-Se não houver divergência relevante, escreva: "Conduta atual alinhada com evidências disponíveis."
 
-## 5. Lacunas de Evidência
-O que ainda não tem resposta clara na literatura para este tipo de caso. Máximo 3 itens.
+PREENCHA APENAS se houver divergência EXPLÍCITA nos artigos fornecidos.
+Formato obrigatório:
+- CONDUTA ATUAL: [o que está sendo feito]
+- ARTIGO RECOMENDA: [citação literal ou paráfrase fiel do artigo]
+- PMID: [número]
+- LIMITAÇÃO: [se o contexto do artigo difere do caso clínico atual]
+
+Se não houver divergência nos artigos fornecidos:
+Escreva exatamente: "Nenhuma divergência identificada nos artigos fornecidos. Isso não exclui divergência com literatura não incluída nesta busca."
+
+## 5. O Que os Artigos Não Respondem
+
+Liste perguntas clínicas relevantes para este caso que os artigos
+fornecidos NÃO respondem. Máximo 3 itens.
+(Não confundir com lacunas gerais da literatura — apenas o que estes artigos específicos não abordam)
 
 ## 6. Referências Utilizadas
-Liste apenas os artigos efetivamente citados na síntese acima:
-[PMID] Autor et al. Título abreviado. Revista. Ano. DOI: xxx`
+
+Liste APENAS os artigos efetivamente citados nas seções acima.
+Formato: [PMID] Autor et al. Título. Revista. Ano. DOI: xxx
+Artigos fornecidos mas não citados: NÃO incluir.
+
+-----
+
+⚠️ VERIFICAÇÃO FINAL ANTES DE RESPONDER:
+- Toda afirmação tem PMID? → Se não: remover ou corrigir
+- Citei artigo não listado acima? → Se sim: remover
+- Fiz suposição sobre o que um artigo "deve ter concluído"? → Se sim: remover
+- Extrapolei para população diferente sem avisar? → Se sim: adicionar limitação`
 
   const userContent = `CASO CLÍNICO ATUAL:
 ${params.soapResumido}
@@ -415,9 +475,11 @@ Diagnóstico: ${params.diagnostico} (${params.cid10})
 Perfil do paciente: ${params.populacao}
 Conduta em uso: ${params.condutaAtual}
 
----
+-----
 
-ARTIGOS RECENTES DO PUBMED:
+ARTIGOS FORNECIDOS (${n} artigos):
+(ATENÇÃO: sintetize APENAS o conteúdo presente nestes artigos)
+
 ${params.artigosJson}`
 
   const text = await callClaude(systemPrompt, userContent, 4096)

@@ -89,6 +89,7 @@ export function startPubmedWorker() {
         populacao,
         condutaAtual: conductaAtual,
         artigosJson: artigosFormatados,
+        n: artigos.length,
       })
 
       // 3. Salvar síntese na soap_note
