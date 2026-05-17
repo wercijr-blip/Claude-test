@@ -229,7 +229,7 @@ export async function extrairExamesLaboratoriais(textoLaudo: string): Promise<Re
   return parseJsonResponse<ResultadoExtracaoExames>(text, 'extrator-exames')
 }
 
-// ─── PROMPT 02 — MedScribe: SOAP + Knowledge Metadata ────────────────────────
+// ─── CIS-02a — MedScribe: SOAP Note ──────────────────────────────────────────
 
 export interface KnowledgeMetadata {
   diagnostico_principal: {
@@ -283,34 +283,25 @@ export interface KnowledgeMetadata {
   tags: string[]
 }
 
-export interface ResultadoMedScribe {
-  soap: string
-  knowledge_metadata: KnowledgeMetadata
-}
-
-export async function gerarMedScribe(params: {
+export async function gerarSOAP(params: {
   transcricaoOuTexto: string
   dadosExamesJson?: string
   template: 'infectologia_geral' | 'prep_ist' | 'opat' | 'pos_transplante' | 'neutropenia_febril' | 'hiv_cronico' | 'tb'
-}): Promise<ResultadoMedScribe> {
-  const systemPrompt = `Você é o MedScribe, assistente de documentação clínica especializado em Infectologia e Medicina Interna, treinado para o contexto brasileiro.
+}): Promise<string> {
+  const systemPrompt = `${INJECTION_GUARD}
+${PII_GUARD}
 
-Seu papel é DUPLO e obrigatório:
-1. Gerar um SOAP note clínico completo, preciso e juridicamente adequado
-2. Extrair metadados estruturados para o sistema de geração de conhecimento clínico
+Você é o MedScribe, assistente de documentação clínica especializado em Infectologia e Medicina Interna, treinado para o contexto brasileiro.
 
 TEMPLATE ATIVO: ${params.template}
-(infectologia_geral | prep_ist | opat | pos_transplante | neutropenia_febril | hiv_cronico | tb)
 
-## TAREFA 1 — SOAP NOTE CLÍNICO
-
-Gere o SOAP note completo no seguinte formato. Seja preciso, objetivo e use terminologia médica adequada.
+Gere o SOAP note clínico completo no formato abaixo. Seja preciso, objetivo e use terminologia médica adequada.
 
 ### S — Subjetivo
 - Queixa principal com tempo de evolução preciso
 - HDA: início, progressão cronológica, fatores de melhora e piora, sintomas associados
 - Medicamentos em uso: nome comercial e genérico, dose, via, frequência, há quanto tempo
-- Alergias medicamentosas documentadas (se nenhuma: "NADA")
+- Alergias documentadas (se nenhuma: "NADA")
 - Antecedentes relevantes: internações prévias, cirurgias, comorbidades
 - Epidemiologia (CRÍTICO em infectologia): viagens recentes, contatos com doentes, animais, água, solo, exposição sexual, uso de drogas, procedimentos invasivos recentes
 - Histórico vacinal quando relevante
@@ -334,68 +325,7 @@ Gere o SOAP note completo no seguinte formato. Seja preciso, objetivo e use term
 - Critérios de retorno de urgência (sinais de alarme)
 - Retorno programado: prazo e objetivo
 
----
-
-## TAREFA 2 — KNOWLEDGE METADATA (OBRIGATÓRIO)
-
-Após o SOAP note, gere OBRIGATORIAMENTE o seguinte bloco JSON.
-Este bloco será processado automaticamente pelo sistema — não omita nenhum campo, não altere a estrutura.
-
-\`\`\`json
-{
-  "knowledge_metadata": {
-    "diagnostico_principal": {
-      "nome": "nome clínico completo",
-      "cid10": "A00.0",
-      "certeza": "confirmado | provavel | suspeito",
-      "categoria": "infeccioso | nao_infeccioso | misto"
-    },
-    "diagnosticos_diferenciais": ["diagnóstico diferencial 1"],
-    "apresentacao_clinica": {
-      "tempo_evolucao_dias": 0,
-      "sintomas_principais": ["sintoma1"],
-      "sinais_vitais_alterados": ["febre"],
-      "achados_exame_fisico": ["achado1"]
-    },
-    "perfil_paciente": {
-      "faixa_etaria": "adulto",
-      "sexo": "nao_informado",
-      "imunocomprometido": false,
-      "tipo_imunocomprometimento": null,
-      "comorbidades": []
-    },
-    "microbiologia": {
-      "agente_identificado": null,
-      "metodo_diagnostico": [],
-      "perfil_resistencia": null
-    },
-    "conduta": {
-      "antibioticos": [],
-      "outros_medicamentos": [],
-      "internacao_indicada": false,
-      "nivel_cuidado": "ambulatorial"
-    },
-    "busca_pubmed": {
-      "termos_mesh": [],
-      "query_sugerida": "",
-      "prioridade": "media"
-    },
-    "palavras_gatilho_relatorio": [],
-    "potencial_publicacao": {
-      "caso_incomum": false,
-      "justificativa": null,
-      "tipo_sugerido": "nenhum"
-    },
-    "tags": []
-  }
-}
-\`\`\`
-
-REGRAS para o knowledge_metadata:
-- Use vocabulário MeSH padrão nos termos de busca PubMed
-- A query_sugerida deve ser executável diretamente no PubMed
-- Se caso tiver apresentação atípica ou rara, marque caso_incomum como true
-- Sempre inclua o bloco completo, mesmo que alguns campos sejam null`
+Retorne APENAS o texto do SOAP note. Nenhum JSON, nenhum bloco de código.`
 
   const userContent = `ENTRADA DO MÉDICO:
 ${params.transcricaoOuTexto}
@@ -403,32 +333,75 @@ ${params.transcricaoOuTexto}
 EXAMES IMPORTADOS (se houver):
 ${params.dadosExamesJson ?? 'Nenhum exame importado'}`
 
-  const text = await callClaude(systemPrompt, userContent, 4096)
+  return callClaude(systemPrompt, userContent, 4096, MODEL_SONNET, 0.2)
+}
 
-  // Extract SOAP (text before the JSON block) and knowledge_metadata (JSON block)
-  const jsonMatch = text.match(/```json\s*(\{[\s\S]*?\})\s*```/)
-  const metadataJson = jsonMatch ? jsonMatch[1] : null
+// ─── CIS-02b — MedScribe: Knowledge Metadata ─────────────────────────────────
 
-  let knowledge_metadata: KnowledgeMetadata
-  if (metadataJson) {
-    const parsed = parseJsonResponse<{ knowledge_metadata: KnowledgeMetadata }>(metadataJson, 'medscribe-metadata')
-    knowledge_metadata = parsed.knowledge_metadata
-  } else {
-    // Fallback: try to extract bare JSON object
-    const bareJson = text.match(/\{[\s\S]*"knowledge_metadata"[\s\S]*\}/)
-    if (bareJson) {
-      const parsed = parseJsonResponse<{ knowledge_metadata: KnowledgeMetadata }>(bareJson[0], 'medscribe-metadata-fallback')
-      knowledge_metadata = parsed.knowledge_metadata
-    } else {
-      throw new Error('MedScribe não retornou knowledge_metadata estruturado')
-    }
-  }
+export async function gerarKnowledgeMetadata(params: {
+  soapTexto: string
+  template: 'infectologia_geral' | 'prep_ist' | 'opat' | 'pos_transplante' | 'neutropenia_febril' | 'hiv_cronico' | 'tb'
+}): Promise<KnowledgeMetadata> {
+  const systemPrompt = `${INJECTION_GUARD}
+${OUTPUT_CONTRACT_JSON}
 
-  const soap = jsonMatch
-    ? text.slice(0, text.indexOf('```json')).trim()
-    : text.slice(0, text.lastIndexOf('{')).trim()
+Você é um extrator de metadados clínicos estruturados. Analise o SOAP note fornecido e extraia os dados para o sistema de geração de conhecimento clínico.
 
-  return { soap, knowledge_metadata }
+TEMPLATE: ${params.template}
+
+{
+  "diagnostico_principal": {
+    "nome": "nome clínico completo",
+    "cid10": "A00.0",
+    "certeza": "confirmado | provavel | suspeito",
+    "categoria": "infeccioso | nao_infeccioso | misto"
+  },
+  "diagnosticos_diferenciais": ["diagnóstico diferencial 1"],
+  "apresentacao_clinica": {
+    "tempo_evolucao_dias": 0,
+    "sintomas_principais": ["sintoma1"],
+    "sinais_vitais_alterados": ["febre"],
+    "achados_exame_fisico": ["achado1"]
+  },
+  "perfil_paciente": {
+    "faixa_etaria": "pediatrico | adulto_jovem | adulto | idoso",
+    "sexo": "M | F | nao_informado",
+    "imunocomprometido": false,
+    "tipo_imunocomprometimento": "transplante | hiv | quimioterapia | corticoide | outro | null",
+    "comorbidades": []
+  },
+  "microbiologia": {
+    "agente_identificado": null,
+    "metodo_diagnostico": [],
+    "perfil_resistencia": null
+  },
+  "conduta": {
+    "antibioticos": [{"nome": "", "dose": "", "via": "", "frequencia": "", "duracao_dias": 0}],
+    "outros_medicamentos": [],
+    "internacao_indicada": false,
+    "nivel_cuidado": "ambulatorial | internacao | UTI"
+  },
+  "busca_pubmed": {
+    "termos_mesh": [],
+    "query_sugerida": "",
+    "prioridade": "alta | media | baixa"
+  },
+  "palavras_gatilho_relatorio": [],
+  "potencial_publicacao": {
+    "caso_incomum": false,
+    "justificativa": null,
+    "tipo_sugerido": "relato_de_caso | serie_de_casos | nenhum"
+  },
+  "tags": []
+}
+
+REGRAS:
+- Use vocabulário MeSH padrão nos termos de busca PubMed
+- A query_sugerida deve ser executável diretamente no PubMed
+- Extraia apenas o que está explicitamente no SOAP note — não invente dados`
+
+  const text = await callClaude(systemPrompt, params.soapTexto, 1024, MODEL_HAIKU, 0.1)
+  return parseJsonResponse<KnowledgeMetadata>(text, 'knowledge-metadata')
 }
 
 // ─── PROMPT 03 — Síntese Analítica de Artigos PubMed ─────────────────────────

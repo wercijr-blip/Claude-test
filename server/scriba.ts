@@ -12,7 +12,8 @@ import { clinicalSessions, soapNotes, conductAlerts } from '../drizzle/schema.ts
 import { eq, and, isNull, gte, sql } from 'drizzle-orm'
 import { encrypt } from './_core/encryption.ts'
 import {
-  gerarMedScribe,
+  gerarSOAP,
+  gerarKnowledgeMetadata,
   detectarDivergenciaConducta,
   type KnowledgeMetadata,
 } from './clinicalIntelligence.ts'
@@ -139,12 +140,10 @@ export async function processarConsulta(params: {
 }): Promise<ResultadoConsulta> {
   const template = params.template ?? 'infectologia_geral'
 
-  // ── SOAP + knowledge_metadata (Claude — Prompt 02) ──────────────────────────
+  // ── SOAP (CIS-02a, Sonnet) + knowledge_metadata (CIS-02b, Haiku) ─────────────
   logger.info('[scriba] Gerando SOAP', { sessionId: params.sessionId, template })
-  const { soap, knowledge_metadata } = await gerarMedScribe({
-    transcricaoOuTexto: params.transcricao,
-    template,
-  })
+  const soap = await gerarSOAP({ transcricaoOuTexto: params.transcricao, template })
+  const knowledge_metadata = await gerarKnowledgeMetadata({ soapTexto: soap, template })
 
   const diag = knowledge_metadata.diagnostico_principal
 
