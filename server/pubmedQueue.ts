@@ -12,7 +12,7 @@ import { env } from './_core/env.ts'
 import { redis } from './_core/redis.ts'
 import { db } from './db.ts'
 import { soapNotes, conductAlerts } from '../drizzle/schema.ts'
-import { eq, and, isNotNull, desc, gt } from 'drizzle-orm'
+import { eq, and, isNotNull, desc, gt, ne, inArray } from 'drizzle-orm'
 import { buscarArtigosDual } from './pubmed.ts'
 import { enriquecerArtigos, formatarArtigosEnriquecidosParaPrompt } from './unpaywall.ts'
 import { buscarReferenciasPorQuery, salvarArtigoPubMed, formatarZoteroParaPrompt } from './zotero.ts'
@@ -55,6 +55,49 @@ export interface PubmedJobData {
   perfilPacienteJson: string // JSON do perfil_paciente para Prompt 06
   template: string           // template clínico — tag automática no Zotero
   termosMesh: string[]       // termos MeSH gerados pelo Prompt 02b
+}
+
+// ─── Extrator de metadados de qualidade de evidência ─────────────────────────
+
+export interface EvidenceGradeMetadata {
+  grade1A: number; grade1B: number
+  grade2A: number; grade2B: number; grade2C: number
+  grade3: number;  grade4: number;  grade5: number
+  lacunas: string[]
+  totalCitacoes: number
+}
+
+/** Extrai contagem de níveis GRADE e lacunas da síntese (Prompt 03) sem LLM. */
+export function extrairGradeMetadata(sintese: string): EvidenceGradeMetadata {
+  // Conta menções de cada nível GRADE no texto
+  const gradeRe = /\bGRADE\s+(\d[A-C]?)\b/gi
+  const counts: Record<string, number> = {}
+  for (const m of sintese.matchAll(gradeRe)) {
+    const k = m[1].toUpperCase()
+    counts[k] = (counts[k] ?? 0) + 1
+  }
+
+  // Extrai bullets da seção "4a. Lacunas de cobertura"
+  const lacunasMatch = sintese.match(/4a\.\s*Lacunas[^#\n]*\n([\s\S]*?)(?=\n##|\n\*\*4b\.|\n4b\.|\n---|\n# |$)/i)
+  const lacunas = lacunasMatch
+    ? [...lacunasMatch[1].matchAll(/^[-–•]\s+(.+)$/gm)].map(m => m[1].trim()).slice(0, 3)
+    : []
+
+  // Conta PMIDs únicos citados
+  const pmids = new Set([...sintese.matchAll(/\[PMID\s+(\d+)\]/gi)].map(m => m[1]))
+
+  return {
+    grade1A: counts['1A'] ?? 0,
+    grade1B: counts['1B'] ?? 0,
+    grade2A: counts['2A'] ?? 0,
+    grade2B: counts['2B'] ?? 0,
+    grade2C: counts['2C'] ?? 0,
+    grade3:  counts['3']  ?? 0,
+    grade4:  counts['4']  ?? 0,
+    grade5:  counts['5']  ?? 0,
+    lacunas,
+    totalCitacoes: pmids.size,
+  }
 }
 
 // ─── Enqueue público ──────────────────────────────────────────────────────────
@@ -113,13 +156,20 @@ export function startPubmedWorker() {
         zoteroReferencias,
       })
 
-      // 3. Salvar síntese na soap_note
+      // 3. Salvar síntese + metadados de qualidade (GRADE, lacunas, citações)
+      const evidenceMetadata = extrairGradeMetadata(sintese.texto)
       await db
         .update(soapNotes)
-        .set({ sinteseEvidencias: sintese.texto })
+        .set({ sinteseEvidencias: sintese.texto, evidenceMetadata })
         .where(eq(soapNotes.id, soapNoteId))
 
-      logger.info('[pubmedQueue] Síntese salva', { soapNoteId, artigos: artigos.length })
+      logger.info('[pubmedQueue] Síntese salva', {
+        soapNoteId,
+        artigos: artigos.length,
+        grade1A: evidenceMetadata.grade1A,
+        grade1B: evidenceMetadata.grade1B,
+        lacunas: evidenceMetadata.lacunas.length,
+      })
 
       // 3c. Verificar acumulação de casos — enfileira série se N ≥ 3 (best-effort)
       if (cid10 && diagnosticoPrincipal) {
@@ -156,12 +206,13 @@ export function startPubmedWorker() {
           return { soapNoteId, artigosEncontrados: artigos.length }
         }
 
-        // Busca histórico de feedback para calibrar Prompt 06
-        const feedbackRows = await db
-          .select({
+        // Busca histórico de feedback — mesmo CID-10 (até 10) + padrões descartados globalmente (até 5)
+        const [feedbackCid10, feedbackGlobal] = await Promise.all([
+          db.select({
             hashAlerta: conductAlerts.hashAlerta,
             feedbackMedico: conductAlerts.feedbackMedico,
             feedbackMotivo: conductAlerts.feedbackMotivo,
+            cid10: conductAlerts.cid10,
           })
           .from(conductAlerts)
           .where(and(
@@ -170,13 +221,38 @@ export function startPubmedWorker() {
             isNotNull(conductAlerts.feedbackMedico),
           ))
           .orderBy(desc(conductAlerts.feedbackEm))
-          .limit(10)
+          .limit(10),
 
-        const historicoFeedback: FeedbackHistoricoItem[] = feedbackRows.map(r => ({
-          hashAlerta: r.hashAlerta,
-          feedback: r.feedbackMedico!,
-          motivo: r.feedbackMotivo,
-        }))
+          // Alertas descartados em outros diagnósticos — revela padrões sistemáticos do médico
+          db.select({
+            hashAlerta: conductAlerts.hashAlerta,
+            feedbackMedico: conductAlerts.feedbackMedico,
+            feedbackMotivo: conductAlerts.feedbackMotivo,
+            cid10: conductAlerts.cid10,
+          })
+          .from(conductAlerts)
+          .where(and(
+            eq(conductAlerts.medicoId, medicoId),
+            ne(conductAlerts.cid10, cid10),
+            inArray(conductAlerts.feedbackMedico, ['discordo', 'inaplicavel']),
+          ))
+          .orderBy(desc(conductAlerts.feedbackEm))
+          .limit(5),
+        ])
+
+        const historicoFeedback: FeedbackHistoricoItem[] = [
+          ...feedbackCid10.map(r => ({
+            hashAlerta: r.hashAlerta,
+            feedback: r.feedbackMedico!,
+            motivo: r.feedbackMotivo,
+          })),
+          ...feedbackGlobal.map(r => ({
+            hashAlerta: r.hashAlerta,
+            feedback: r.feedbackMedico!,
+            motivo: r.feedbackMotivo,
+            cid10Origem: r.cid10 ?? undefined,
+          })),
+        ]
 
         const alerta = await detectarDivergenciaConducta({
           diagnostico: diagnosticoPrincipal,

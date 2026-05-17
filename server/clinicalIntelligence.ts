@@ -816,8 +816,9 @@ REGRAS:
 
 export interface FeedbackHistoricoItem {
   hashAlerta: string | null
-  feedback: string   // 'concordo' | 'discordo' | 'inaplicavel'
+  feedback: string        // 'concordo' | 'discordo' | 'inaplicavel'
   motivo: string | null
+  cid10Origem?: string    // preenchido quando o feedback vem de diagnóstico diferente (padrão global)
 }
 
 export async function detectarDivergenciaConducta(params: {
@@ -846,15 +847,17 @@ export async function detectarDivergenciaConducta(params: {
     : 'Perfil não disponível — aplique critérios conservadores de compatibilidade.'
 
   const feedbackStr = params.historicoFeedback?.length
-    ? params.historicoFeedback.map(f =>
-        `- hash: ${f.hashAlerta ?? 'desconhecido'} | feedback: ${f.feedback}${f.motivo ? ` | motivo: "${f.motivo}"` : ''}`
-      ).join('\n')
-    : 'Nenhum feedback registrado para este CID-10.'
+    ? params.historicoFeedback.map(f => {
+        const origem = f.cid10Origem ? ` | outro diagnóstico: ${f.cid10Origem} [padrão global]` : ''
+        return `- hash: ${f.hashAlerta ?? 'desconhecido'} | feedback: ${f.feedback}${f.motivo ? ` | motivo: "${f.motivo}"` : ''}${origem}`
+      }).join('\n')
+    : 'Nenhum feedback registrado.'
 
   const userContent = `PERFIL DO PACIENTE:
 ${perfilStr}
 
-HISTÓRICO DE FEEDBACK DO MÉDICO (alertas anteriores para ${params.cid10}):
+HISTÓRICO DE FEEDBACK DO MÉDICO:
+(itens sem [padrão global] são específicos de ${params.cid10}; itens [padrão global] indicam que o médico descartou aspecto análogo em outro diagnóstico — considere o padrão mas não descarte automaticamente)
 ${feedbackStr}
 
 CONDUTA ATUAL DOCUMENTADA:

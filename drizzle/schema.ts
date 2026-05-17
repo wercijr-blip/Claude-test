@@ -398,6 +398,8 @@ export const soapNotes = mysqlTable('soap_notes', {
   pubmedQuery: text('pubmed_query'),
   // Síntese das evidências PubMed gerada pelo Prompt 03 (null até o worker completar)
   sinteseEvidencias: text('sintese_evidencias'),
+  // Metadados de qualidade extraídos da síntese: contagem por nível GRADE, lacunas, total de citações
+  evidenceMetadata: json('evidence_metadata'),
   createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (t) => ({
   sessionIdx: index('idx_soap_session').on(t.sessionId),

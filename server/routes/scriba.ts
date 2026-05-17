@@ -218,6 +218,7 @@ export const scribaRouter = router({
           medicoId: soapNotes.medicoId,
           sinteseEvidencias: soapNotes.sinteseEvidencias,
           pubmedQuery: soapNotes.pubmedQuery,
+          evidenceMetadata: soapNotes.evidenceMetadata,
         })
         .from(soapNotes)
         .where(eq(soapNotes.id, input.soapNoteId))
@@ -229,6 +230,7 @@ export const scribaRouter = router({
         soapNoteId: nota.id,
         sinteseEvidencias: nota.sinteseEvidencias ?? null,
         pubmedQuery: nota.pubmedQuery ?? null,
+        evidenceMetadata: nota.evidenceMetadata ?? null,
         pronta: nota.sinteseEvidencias !== null,
       }
     }),
@@ -475,33 +477,62 @@ export const scribaRouter = router({
 
   /**
    * Solicita revisão narrativa de literatura (CIS-11).
-   * O tema e os artigos definem o escopo da revisão.
+   * Se soapNoteId for fornecido, extrai lacunas da síntese (seção 4a do Prompt 03)
+   * e usa-as para enriquecer a query PubMed e contextualizar o Prompt 11.
    */
   solicitarRevisaoLiteratura: medicoProcedure
     .input(z.object({
       tema: z.string().min(5).max(255),
       contextoClinicos: z.string().max(2000).optional(),
+      /** Se informado, extrai lacunas da síntese dessa nota para guiar a revisão */
+      soapNoteId: z.number().int().positive().optional(),
     }))
     .mutation(async ({ input, ctx }) => {
       const medicoId = ctx.session.id
 
-      // Revisão de literatura é disparada diretamente (sem acumulação)
       const { gerarRevisaoLiteratura } = await import('../clinicalIntelligence.ts')
       const { buscarArtigosDual } = await import('../pubmed.ts')
       const { publicarRevisaoLiteratura } = await import('../obsidian.ts')
+      const { extrairGradeMetadata } = await import('../pubmedQueue.ts')
 
-      // Busca artigos para o tema
-      const artigos = await buscarArtigosDual(input.tema, [], 15)
+      // C3 — Extrai lacunas da síntese quando soapNoteId é fornecido
+      let lacunasContexto = ''
+      let queryEnriquecida = input.tema
+      if (input.soapNoteId) {
+        const [nota] = await db
+          .select({ sinteseEvidencias: soapNotes.sinteseEvidencias, medicoId: soapNotes.medicoId })
+          .from(soapNotes)
+          .where(eq(soapNotes.id, input.soapNoteId))
+          .limit(1)
+
+        if (!nota) throw new TRPCError({ code: 'NOT_FOUND', message: 'SOAP note não encontrada.' })
+        if (nota.medicoId !== medicoId) throw new TRPCError({ code: 'FORBIDDEN' })
+
+        if (nota.sinteseEvidencias) {
+          const gradeData = extrairGradeMetadata(nota.sinteseEvidencias)
+          if (gradeData.lacunas.length > 0) {
+            lacunasContexto = `\n\nLacunas identificadas na síntese anterior (seção 4a):\n${gradeData.lacunas.map((l, i) => `${i + 1}. ${l}`).join('\n')}\n\nFoco prioritário: endereçar essas lacunas com evidências atualizadas.`
+            // Enriquece a query PubMed com termos das lacunas
+            const termoLacuna = gradeData.lacunas[0]?.split(/\s+/).slice(0, 5).join(' ') ?? ''
+            if (termoLacuna) queryEnriquecida = `${input.tema} ${termoLacuna}`
+          }
+        }
+      }
+
+      // Busca artigos com query enriquecida pelas lacunas
+      const artigos = await buscarArtigosDual(queryEnriquecida, [], 15)
       if (artigos.length === 0) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Nenhum artigo encontrado para este tema no PubMed.' })
       }
+
+      const contextoClinico = (input.contextoClinicos ?? '') + lacunasContexto
 
       // Gera revisão (Prompt 11 — Opus)
       const revisao = await gerarRevisaoLiteratura({
         tema: input.tema,
         nArtigos: artigos.length,
         artigosJson: JSON.stringify(artigos),
-        contextoClinico: input.contextoClinicos ?? '',
+        contextoClinico,
       })
 
       // Persiste

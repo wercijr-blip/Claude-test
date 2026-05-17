@@ -9,7 +9,7 @@ import { env } from './_core/env.ts'
 import { logger } from './_core/logger.ts'
 import { db } from './db.ts'
 import { clinicalSessions, soapNotes, conductAlerts } from '../drizzle/schema.ts'
-import { eq, and, isNull, gte, isNotNull, desc, sql, gt } from 'drizzle-orm'
+import { eq, and, isNull, gte, isNotNull, desc, sql, gt, ne, inArray } from 'drizzle-orm'
 import { encrypt } from './_core/encryption.ts'
 import {
   gerarSOAP,
@@ -269,9 +269,9 @@ export async function processarConsulta(params: {
           .map(a => `${a.nome} ${a.dose} ${a.via} ${a.frequencia} por ${a.duracao_dias}d`)
           .join('; ') || 'Sem antibióticos documentados'
 
-        // Busca histórico de feedback para calibrar Prompt 06
-        const feedbackRows = await db
-          .select({
+        // Busca histórico de feedback — mesmo CID-10 (até 10) + padrões descartados globalmente (até 5)
+        const [feedbackCid10, feedbackGlobal] = await Promise.all([
+          db.select({
             hashAlerta: conductAlerts.hashAlerta,
             feedbackMedico: conductAlerts.feedbackMedico,
             feedbackMotivo: conductAlerts.feedbackMotivo,
@@ -283,13 +283,37 @@ export async function processarConsulta(params: {
             isNotNull(conductAlerts.feedbackMedico),
           ))
           .orderBy(desc(conductAlerts.feedbackEm))
-          .limit(10)
+          .limit(10),
 
-        const historicoFeedback: FeedbackHistoricoItem[] = feedbackRows.map(r => ({
-          hashAlerta: r.hashAlerta,
-          feedback: r.feedbackMedico!,
-          motivo: r.feedbackMotivo,
-        }))
+          db.select({
+            hashAlerta: conductAlerts.hashAlerta,
+            feedbackMedico: conductAlerts.feedbackMedico,
+            feedbackMotivo: conductAlerts.feedbackMotivo,
+            cid10: conductAlerts.cid10,
+          })
+          .from(conductAlerts)
+          .where(and(
+            eq(conductAlerts.medicoId, params.medicoId),
+            ne(conductAlerts.cid10, diag.cid10),
+            inArray(conductAlerts.feedbackMedico, ['discordo', 'inaplicavel']),
+          ))
+          .orderBy(desc(conductAlerts.feedbackEm))
+          .limit(5),
+        ])
+
+        const historicoFeedback: FeedbackHistoricoItem[] = [
+          ...feedbackCid10.map(r => ({
+            hashAlerta: r.hashAlerta,
+            feedback: r.feedbackMedico!,
+            motivo: r.feedbackMotivo,
+          })),
+          ...feedbackGlobal.map(r => ({
+            hashAlerta: r.hashAlerta,
+            feedback: r.feedbackMedico!,
+            motivo: r.feedbackMotivo,
+            cid10Origem: r.cid10 ?? undefined,
+          })),
+        ]
 
         const divergencia = await detectarDivergenciaConducta({
           condutaAtual,
