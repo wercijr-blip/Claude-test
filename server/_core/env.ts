@@ -76,6 +76,10 @@ const envSchema = z.object({
   // Obter em: zotero.org/settings/keys
   ZOTERO_API_KEY: z.string().optional(),
   ZOTERO_USER_ID: z.string().optional(),
+
+  // Unpaywall — texto completo open access de artigos por DOI
+  // Gratuito; e-mail usado apenas para identificação na API (sem cadastro)
+  UNPAYWALL_EMAIL: z.string().email().optional(),
 })
 
 const parsed = envSchema.safeParse(process.env)
