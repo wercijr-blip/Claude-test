@@ -8,7 +8,7 @@ import { logger } from './_core/logger.ts'
 
 // ─── Shared API helper ────────────────────────────────────────────────────────
 
-const MODEL = 'claude-sonnet-4-6'
+const MODEL = 'claude-sonnet-4-20250514'
 
 async function callClaude(systemPrompt: string, userContent: string, maxTokens: number): Promise<string> {
   let response: Response
@@ -60,8 +60,11 @@ function parseJsonResponse<T>(text: string, context: string): T {
 const MEDICO = {
   nome: env.MEDICO_NOME,
   crm: `CRM-${env.MEDICO_CRM_UF} ${env.MEDICO_CRM}`,
+  rqe: env.MEDICO_RQE,
   especialidade: 'Infectologia',
   cbo: '2251-50',
+  clinicaNome: env.CLINICA_NOME,
+  cnes: env.SUS_CNES,
 }
 
 // ─── PROMPT 01 — Extrator de Exames ──────────────────────────────────────────
