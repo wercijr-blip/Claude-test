@@ -957,47 +957,38 @@ export async function gerarSerieCasos(params: {
   casosJson: string
   artigosReferenciasJson: string
 }): Promise<ResultadoSerieCasos> {
-  const systemPrompt = `Você é um agente de redação científica assistindo na elaboração de série de casos clínicos para publicação.
+  if (params.nCasos < 3) {
+    return {
+      texto: `⚠️ SÉRIE DE CASOS NÃO GERADA\n\nPublicações de série de casos requerem mínimo de 3 casos documentados.\nCasos fornecidos: ${params.nCasos} (CID ${params.cid10}).\n\nAcumule mais casos antes de gerar o rascunho.`,
+    }
+  }
 
-═══════════════════════════════════════════════════════════════
-REGRAS ABSOLUTAS DE INTEGRIDADE
-═══════════════════════════════════════════════════════════════
+  const systemPrompt = `${INTEGRITY_GUARD}
+${PII_GUARD}
 
-1. USE APENAS OS DADOS FORNECIDOS
-   Cada informação clínica deve vir dos casos_json abaixo.
-   Nunca invente sintomas, exames, desfechos ou detalhes
-   que não estejam explicitamente nos dados fornecidos.
-
-2. DADOS FALTANTES = MARCADOR, NÃO SUPOSIÇÃO
-   Se um dado clínico não estiver disponível, use:
-   [INSERIR: descrição do dado que falta]
-   Nunca preencha lacunas com suposições plausíveis.
-
-3. REFERÊNCIAS APENAS DA LISTA FORNECIDA
-   Cite somente artigos presentes em artigos_referencias_json.
-   Nunca adicione referências do seu conhecimento interno,
-   mesmo que sejam reais, relevantes e publicadas.
-
-4. DISCUSSÃO BASEADA NOS ARTIGOS FORNECIDOS
-   Compare os casos com a literatura usando apenas os artigos
-   fornecidos. Se nenhum artigo abordar um ponto relevante,
-   declare: "[Sem referência disponível nos artigos fornecidos]"
-
-5. ANONIMIZAÇÃO RIGOROSA
-   Nenhum dado que permita identificar o paciente.
-   Use: Caso 1, Caso 2, etc.
-   Faixa etária em vez de idade exata quando necessário.
-
-═══════════════════════════════════════════════════════════════
+Você é um agente de redação científica assistindo na elaboração de série de casos clínicos para publicação em periódico indexado.
 
 AUTOR: ${MEDICO.nome} — ${MEDICO.crm} | ${MEDICO.rqe}
 Infectologista — Brasília-DF, Brasil
+
+FAIXAS ETÁRIAS PADRONIZADAS (use apenas estas — nunca idade exata):
+• Pediátrico: < 2 anos | 2–11 anos | 12–17 anos
+• Adulto jovem: 18–39 anos
+• Adulto: 40–59 anos
+• Idoso: 60–69 anos | 70–79 anos | ≥ 80 anos
 
 TAREFA: Rascunho completo em português, CARE guidelines, máximo 2000 palavras.
 
 ## TÍTULO
 
 [Descritivo: diagnóstico + N casos + população — máximo 20 palavras]
+
+## NOTA ÉTICA (inclua este bloco literalmente)
+
+Este rascunho requer, antes da submissão:
+1. TCLE (Termo de Consentimento Livre e Esclarecido) de cada paciente ou representante legal
+2. Aprovação de CEP (Comitê de Ética em Pesquisa) — obrigatória no Brasil (Res. CNS 466/2012)
+3. Número do CAAE/CEP deve constar na seção Métodos
 
 ## RESUMO (máximo 250 palavras)
 
@@ -1007,7 +998,7 @@ Não inclua dados que não estejam nos casos fornecidos.
 ## 1. INTRODUÇÃO
 
 Relevância clínica e epidemiológica — cite artigos fornecidos com [número].
-Se não houver artigo sobre epidemiologia na lista: declare explicitamente.
+Se não houver artigo sobre epidemiologia: declare explicitamente.
 [Máximo 200 palavras]
 
 ## 2. RELATO DOS CASOS
@@ -1020,13 +1011,12 @@ Se não houver artigo sobre epidemiologia na lista: declare explicitamente.
 ### Descrição Individual
 
 Para cada caso: apresentação → investigação → diagnóstico → tratamento → desfecho.
-Se algum dado estiver ausente nos casos_json: marcar como [INSERIR: dado faltante]
+Use faixas etárias padronizadas acima. Dado ausente: [INSERIR: dado faltante]
 
 ## 3. DISCUSSÃO
 
-Compare os casos entre si e com os artigos fornecidos.
-Cite cada artigo com [número] no texto.
-Se não houver artigo comparável: "Não há referência disponível nos artigos fornecidos para este ponto."
+Compare os casos entre si e com os artigos fornecidos com [número].
+Sem artigo comparável: "[Sem referência nos artigos fornecidos para este ponto]"
 [Máximo 400 palavras]
 
 ## 4. CONCLUSÃO
@@ -1036,15 +1026,15 @@ Achados principais + implicações práticas + estudos necessários.
 
 ## 5. REFERÊNCIAS
 
-Apenas artigos citados nas seções acima, em Vancouver.
-[PMID disponível quando fornecido]
+Apenas artigos citados nas seções acima, Vancouver. [PMID quando disponível]
 
 -----
 
-VERIFICAÇÃO FINAL ANTES DE RESPONDER:
+VERIFICAÇÃO FINAL:
 - Todos os dados clínicos vêm dos casos_json? → Se não: remover ou marcar [INSERIR]
 - Todas as referências estão na lista fornecida? → Se não: remover
-- Há suposições preenchendo lacunas dos dados? → Se sim: substituir por [INSERIR]`
+- Faixas etárias padronizadas usadas? → Verificar
+- Dados que permitam identificar o paciente? → Remover`
 
   const userContent = `DIAGNÓSTICO: ${params.diagnostico} — CID ${params.cid10}
 NÚMERO DE CASOS: ${params.nCasos}
@@ -1055,7 +1045,7 @@ ${params.casosJson}
 ARTIGOS DE REFERÊNCIA DISPONÍVEIS:
 ${params.artigosReferenciasJson}`
 
-  const text = await callClaude(systemPrompt, userContent, 4096)
+  const text = await callClaude(systemPrompt, userContent, 4096, MODEL_OPUS, 0.2)
   return { texto: text }
 }
 
