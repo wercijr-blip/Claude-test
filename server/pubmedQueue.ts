@@ -2,7 +2,7 @@
  * pubmed-synthesis queue — BullMQ
  *
  * Disparado por evento após processarConsulta (scriba.ts).
- * Pipeline: buscarArtigosPubMed → sintetizarArtigosPubMed (Prompt 03)
+ * Pipeline: buscarArtigosDual (query+MeSH, dedup, 10 art.) → sintetizarArtigosPubMed (Prompt 03)
  *           → salvar em soap_notes.sintese_evidencias
  *           → re-executar detectarDivergenciaConducta com síntese (best-effort)
  */
@@ -13,7 +13,7 @@ import { redis } from './_core/redis.ts'
 import { db } from './db.ts'
 import { soapNotes, conductAlerts } from '../drizzle/schema.ts'
 import { eq, and, isNotNull, desc } from 'drizzle-orm'
-import { buscarArtigosPubMed } from './pubmed.ts'
+import { buscarArtigosDual } from './pubmed.ts'
 import { enriquecerArtigos, formatarArtigosEnriquecidosParaPrompt } from './unpaywall.ts'
 import { buscarReferenciasPorQuery, salvarArtigoPubMed, formatarZoteroParaPrompt } from './zotero.ts'
 import { sintetizarArtigosPubMed, detectarDivergenciaConducta, type FeedbackHistoricoItem } from './clinicalIntelligence.ts'
@@ -54,6 +54,7 @@ export interface PubmedJobData {
   populacao: string          // extraído do knowledge_metadata
   perfilPacienteJson: string // JSON do perfil_paciente para Prompt 06
   template: string           // template clínico — tag automática no Zotero
+  termosMesh: string[]       // termos MeSH gerados pelo Prompt 02b
 }
 
 // ─── Enqueue público ──────────────────────────────────────────────────────────
@@ -78,11 +79,11 @@ export function startPubmedWorker() {
   const worker = new Worker<PubmedJobData>(
     PUBMED_QUEUE_NAME,
     async (job) => {
-      const { soapNoteId, medicoId, pubmedQuery, diagnosticoPrincipal, cid10, soapTexto, condutaAtual, populacao, perfilPacienteJson, template } = job.data
+      const { soapNoteId, medicoId, pubmedQuery, diagnosticoPrincipal, cid10, soapTexto, condutaAtual, populacao, perfilPacienteJson, template, termosMesh } = job.data
       const perfilPaciente = perfilPacienteJson ? JSON.parse(perfilPacienteJson) : undefined
 
-      // 1. Buscar artigos no PubMed + enriquecer com Unpaywall (texto completo OA)
-      const artigos = await buscarArtigosPubMed(pubmedQuery, 5)
+      // 1. Buscar artigos no PubMed (query livre + MeSH, dedup, até 10) + enriquecer com Unpaywall
+      const artigos = await buscarArtigosDual(pubmedQuery, termosMesh ?? [], 10)
       const artigosEnriquecidos = await enriquecerArtigos(artigos)
       const artigosFormatados = formatarArtigosEnriquecidosParaPrompt(artigosEnriquecidos)
       const artigosJson = JSON.stringify(artigos)

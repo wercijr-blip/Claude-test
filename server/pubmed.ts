@@ -17,6 +17,7 @@ export interface ArtigoPubMed {
 
 const EUTILS_BASE = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils'
 const DEFAULT_MAX_ARTIGOS = 5
+const DEFAULT_MAX_ARTIGOS_DUAL = 10
 
 // Without API key: 3 req/s. With key: 10 req/s.
 // We fetch in two sequential calls (esearch → efetch) so no explicit throttle needed.
@@ -140,6 +141,58 @@ export async function buscarArtigosPubMed(
     return artigos
   } catch (err) {
     logger.error('[pubmed] erro na busca', { query, err })
+    return []
+  }
+}
+
+/**
+ * Busca dual: query livre + query MeSH em paralelo, com deduplicação por PMID.
+ * Garante cobertura maior: a query livre captura artigos recentes ainda sem indexação
+ * MeSH completa; a query MeSH garante precisão nos artigos já indexados.
+ */
+export async function buscarArtigosDual(
+  query: string,
+  termosMesh: string[],
+  maxArtigos = DEFAULT_MAX_ARTIGOS_DUAL,
+): Promise<ArtigoPubMed[]> {
+  try {
+    const meshQuery = termosMesh.length > 0
+      ? termosMesh.map(t => `"${t}"[MeSH Terms]`).join(' AND ')
+      : null
+
+    // Busca livre + MeSH em paralelo; cada uma pede metade do máximo
+    const perBusca = Math.ceil(maxArtigos / 2)
+    const [pmidsFree, pmidsMesh] = await Promise.all([
+      esearch(query, perBusca),
+      meshQuery ? esearch(meshQuery, perBusca) : Promise.resolve([] as string[]),
+    ])
+
+    // Deduplicação preservando ordem: livre primeiro (mais recentes), depois MeSH exclusivos
+    const seen = new Set<string>()
+    const merged: string[] = []
+    for (const id of [...pmidsFree, ...pmidsMesh]) {
+      if (!seen.has(id)) { seen.add(id); merged.push(id) }
+    }
+    const pmids = merged.slice(0, maxArtigos)
+
+    if (pmids.length === 0) {
+      logger.info('[pubmed] buscarArtigosDual retornou 0 resultados', { query, meshQuery })
+      return []
+    }
+
+    const raw = await efetch(pmids)
+    const records = parseMedline(raw)
+    const artigos = records.map(recordToArtigo).filter((a): a is ArtigoPubMed => a !== null)
+
+    logger.info('[pubmed] buscarArtigosDual concluída', {
+      query,
+      termosMesh: termosMesh.length,
+      pmidsUnicos: pmids.length,
+      artigos: artigos.length,
+    })
+    return artigos
+  } catch (err) {
+    logger.error('[pubmed] erro em buscarArtigosDual', { query, err })
     return []
   }
 }

@@ -219,6 +219,7 @@ export async function processarConsulta(params: {
         populacao,
         perfilPacienteJson: JSON.stringify(knowledge_metadata.perfil_paciente),
         template,
+        termosMesh: knowledge_metadata.busca_pubmed.termos_mesh ?? [],
       })
       logger.info('[scriba] Síntese PubMed enfileirada', { soapNoteId })
     } catch (err) {
