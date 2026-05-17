@@ -31,7 +31,7 @@ export const adminRouter = router({
     .input(z.object({
       email: z.string().email(),
       nome: z.string().min(2),
-      role: z.enum(['secretaria', 'medico', 'admin']),
+      role: z.enum(['medico', 'admin']),
     }))
     .mutation(async ({ input }) => {
       // Verificar se já existe usuário com esse e-mail
@@ -59,7 +59,7 @@ export const adminRouter = router({
 
   // Alterar role de usuário
   alterarRole: adminProcedure
-    .input(z.object({ userId: z.number(), role: z.enum(['secretaria', 'medico', 'admin']) }))
+    .input(z.object({ userId: z.number(), role: z.enum(['medico', 'admin']) }))
     .mutation(async ({ input }) => {
       const [user] = await db.select().from(users).where(eq(users.id, input.userId)).limit(1)
       if (!user) throw new TRPCError({ code: 'NOT_FOUND' })

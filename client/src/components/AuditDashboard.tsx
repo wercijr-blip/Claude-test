@@ -15,7 +15,7 @@ export default function AuditDashboard() {
   const { data: usuarios, refetch: refetchUsuarios } = trpc.admin.listarUsuarios.useQuery()
   const alterarRole = trpc.admin.alterarRole.useMutation({ onSuccess: () => refetchUsuarios() })
   const toggleAtivo = trpc.admin.toggleAtivo.useMutation({ onSuccess: () => refetchUsuarios() })
-  const cadastrarUsuario = trpc.admin.cadastrarUsuario.useMutation({ onSuccess: () => { refetchUsuarios(); setNovoEmail(''); setNovoNome(''); setNovoRole('secretaria') } })
+  const cadastrarUsuario = trpc.admin.cadastrarUsuario.useMutation({ onSuccess: () => { refetchUsuarios(); setNovoEmail(''); setNovoNome(''); setNovoRole('medico') } })
   const deletarStaff = trpc.admin.deletarStaff.useMutation({ onSuccess: () => { refetchUsuarios(); setDeleteTarget(null); setDeleteConfirmText('') } })
 
   // Confirmação dupla para delete
@@ -25,7 +25,7 @@ export default function AuditDashboard() {
   // Novo usuário
   const [novoEmail, setNovoEmail] = useState('')
   const [novoNome, setNovoNome] = useState('')
-  const [novoRole, setNovoRole] = useState<'secretaria' | 'medico' | 'admin'>('secretaria')
+  const [novoRole, setNovoRole] = useState<'medico' | 'admin'>('medico')
 
   // Pacientes
   const [busca, setBusca] = useState('')
@@ -114,10 +114,9 @@ export default function AuditDashboard() {
                 <label className="block text-xs text-slate-600 mb-1">Perfil</label>
                 <select
                   value={novoRole}
-                  onChange={(e) => setNovoRole(e.target.value as 'secretaria' | 'medico' | 'admin')}
+                  onChange={(e) => setNovoRole(e.target.value as 'medico' | 'admin')}
                   className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
                 >
-                  <option value="secretaria">Secretaria</option>
                   <option value="medico">Médico</option>
                   <option value="admin">Admin</option>
                 </select>
@@ -204,10 +203,9 @@ export default function AuditDashboard() {
                       <td className="py-3 pr-4">
                         <select
                           value={u.role}
-                          onChange={(e) => alterarRole.mutate({ userId: u.id, role: e.target.value as 'secretaria' | 'medico' | 'admin' })}
+                          onChange={(e) => alterarRole.mutate({ userId: u.id, role: e.target.value as 'medico' | 'admin' })}
                           className="border border-slate-200 rounded px-2 py-1 text-xs"
                         >
-                          <option value="secretaria">Secretaria</option>
                           <option value="medico">Médico</option>
                           <option value="admin">Admin</option>
                         </select>

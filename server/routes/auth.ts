@@ -104,21 +104,30 @@ export const authRouter = router({
       }
 
       const resolvedUser = existing ?? preRegistered
+      const isOwner = data.openId === env.OWNER_OPEN_ID
+
+      // Sistema fechado — só admin (OWNER_OPEN_ID) e médicos pré-cadastrados têm acesso.
+      // Qualquer conta Google não cadastrada é recusada explicitamente.
+      if (!resolvedUser && !isOwner) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Acesso não autorizado. Solicite ao administrador que cadastre seu e-mail.',
+        })
+      }
 
       let userId: number
       let role: Role
 
       if (resolvedUser) {
         userId = resolvedUser.id
-        const isOwner = data.openId === env.OWNER_OPEN_ID
         role = isOwner ? 'admin' : resolvedUser.role as Role
         await db
           .update(users)
           .set({ email: data.email, nome: data.name, openId: data.openId, role, updatedAt: new Date() })
           .where(eq(users.id, resolvedUser.id))
       } else {
-        const isOwner = data.openId === env.OWNER_OPEN_ID
-        role = isOwner ? 'admin' : 'secretaria'
+        // isOwner sem registro prévio — cria entrada admin na primeira vez
+        role = 'admin'
         const [result] = await db.insert(users).values({
           openId: data.openId,
           email: data.email,
@@ -173,7 +182,7 @@ export const authRouter = router({
   // Login mock para desenvolvimento local. Responde NOT_FOUND em produção
   // para ser indistinguível de um endpoint inexistente.
   devLogin: publicProcedure
-    .input(z.object({ role: z.enum(['admin', 'medico', 'secretaria']) }))
+    .input(z.object({ role: z.enum(['admin', 'medico']) }))
     .mutation(async ({ input }) => {
       if (env.NODE_ENV !== 'development') {
         throw new TRPCError({ code: 'NOT_FOUND' })

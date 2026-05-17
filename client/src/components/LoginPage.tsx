@@ -5,7 +5,6 @@ import { LogoWordmark } from './Logo.tsx'
 const DEV_ROLES = [
   { role: 'admin' as const, label: 'Entrar como Admin', color: 'bg-fp-accent hover:bg-fp-dark-soft', goto: '/admin' },
   { role: 'medico' as const, label: 'Entrar como Médico', color: 'bg-fp-blue hover:bg-fp-info', goto: '/medico' },
-  { role: 'secretaria' as const, label: 'Entrar como Secretaria', color: 'bg-sage hover:bg-sage-dark', goto: '/secretaria' },
 ]
 
 export default function LoginPage() {
