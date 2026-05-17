@@ -117,11 +117,13 @@ export function startPubmedWorker() {
             diagnostico: diagnosticoPrincipal,
             cid10,
             nivelUrgencia: alerta.nivel_urgencia ?? 'baixo',
+            hashAlerta: alerta.hash_alerta ?? null,
             alertaJson: alerta as unknown as Record<string, unknown>,
             mensagemMedico: alerta.mensagem_para_medico ?? null,
           }).onDuplicateKeyUpdate({
             // Se já existe alerta para esta soapNote, atualiza com a versão enriquecida
             set: {
+              hashAlerta: alerta.hash_alerta ?? null,
               alertaJson: alerta as unknown as Record<string, unknown>,
               mensagemMedico: alerta.mensagem_para_medico ?? null,
             },

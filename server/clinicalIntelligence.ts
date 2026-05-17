@@ -657,45 +657,60 @@ ${params.referenciasVancouver}`
 export interface ResultadoDivergenciaConducta {
   tem_divergencia: boolean
   nivel_urgencia: 'baixo' | 'medio' | 'alto' | null
+  hash_alerta: string | null
+  supressao_sugerida_dias: number | null
   divergencias: Array<{
     aspecto: string
     conduta_atual: string
     evidencia_recomenda: string
     justificativa: string
-    nivel_evidencia: 'A' | 'B' | 'C'
+    grade: string
+    forca_recomendacao: 'forte' | 'condicional'
     fonte: string
   }>
   mensagem_para_medico: string | null
 }
 
-const PROMPT_06_SYSTEM = `Você é um consultor de qualidade clínica especializado em infectologia.
+const PROMPT_06_SYSTEM = `${INJECTION_GUARD}
+${OUTPUT_CONTRACT_JSON}
 
-Analise se existe divergência clinicamente relevante entre a conduta atual e a evidência mais recente.
+${EVIDENCE_GRADING}
 
-Considere divergência relevante apenas quando:
-- A evidência tem nível A (ensaio clínico randomizado ou meta-análise)
+Você é um consultor de qualidade clínica especializado em infectologia.
+
+Analise se existe divergência clinicamente relevante entre a conduta atual e a evidência fornecida.
+
+Considere divergência relevante APENAS quando:
+- A evidência tem GRADE 1A ou 1B (RCT ou meta-análise)
 - A mudança tem impacto direto em desfecho do paciente (mortalidade, toxicidade, eficácia)
-- A recomendação é de guidelines de referência (IDSA, ESCMID, WHO, MS Brasil)
+- A recomendação é de guidelines de referência (IDSA, ESCMID, WHO, MS Brasil, ANVISA)
 
 Não sinalize como divergência diferenças de preferência ou adaptações locais justificáveis.
-
-Retorne APENAS JSON válido:
 
 {
   "tem_divergencia": false,
   "nivel_urgencia": "baixo | medio | alto | null",
+  "hash_alerta": "chave canônica snake_case: {cid10}_{aspecto_normalizado} (ex: b20_profilaxia_primaria_pcp) — null se sem divergência",
+  "supressao_sugerida_dias": null,
   "divergencias": [
     {
       "aspecto": "qual aspecto específico da conduta",
       "conduta_atual": "o que está sendo feito",
       "evidencia_recomenda": "o que a literatura mais recente recomenda",
       "justificativa": "resumo em 1-2 linhas da evidência",
-      "nivel_evidencia": "A | B | C",
+      "grade": "1A | 1B | 2A | 2B | 2C | 3 | 4 | 5",
+      "forca_recomendacao": "forte | condicional",
       "fonte": "autores, revista, ano, PMID"
     }
   ],
-  "mensagem_para_medico": "null se sem divergência | texto amigável, não julgamental, que explica a divergência e sugere revisão da conduta"
-}`
+  "mensagem_para_medico": "null se sem divergência | texto amigável, não julgamental, sugerindo revisão da conduta"
+}
+
+REGRAS:
+- hash_alerta: gere apenas se tem_divergencia = true; use snake_case, sem acentos, máximo 80 chars.
+- supressao_sugerida_dias: sugira com base na urgência — alto: 7, medio: 14, baixo: 30; null se sem divergência.
+- grade: use a hierarquia GRADE acima; se incerto, use o nível mais conservador.
+- forca_recomendacao: forte = benefícios claramente superam riscos; condicional = balanço mais próximo.`
 
 export async function detectarDivergenciaConducta(params: {
   condutaAtual: string
@@ -711,7 +726,7 @@ ${params.sinteseEvidencias}
 
 Diagnóstico: ${params.diagnostico} (${params.cid10})`
 
-  const text = await callClaude(PROMPT_06_SYSTEM, userContent, 1024)
+  const text = await callClaude(PROMPT_06_SYSTEM, userContent, 1500, MODEL_SONNET, 0.1)
   return parseJsonResponse<ResultadoDivergenciaConducta>(text, 'divergencia-conduta')
 }
 

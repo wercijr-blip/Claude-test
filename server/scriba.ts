@@ -233,6 +233,7 @@ export async function processarConsulta(params: {
           diagnostico: diag.nome,
           cid10: diag.cid10,
           nivelUrgencia: divergencia.nivel_urgencia,
+          hashAlerta: divergencia.hash_alerta ?? null,
           alertaJson: divergencia,
           mensagemMedico: divergencia.mensagem_para_medico,
         })

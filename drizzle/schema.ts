@@ -412,18 +412,23 @@ export const conductAlerts = mysqlTable('conduct_alerts', {
   diagnostico: varchar('diagnostico', { length: 255 }),
   cid10: varchar('cid10', { length: 10 }),
   nivelUrgencia: varchar('nivel_urgencia', { length: 10 }).notNull(), // baixo | medio | alto
+  // Chave canônica gerada pelo Prompt 06 — usada para deduplicação e supressão
+  hashAlerta: varchar('hash_alerta', { length: 128 }),
   // JSON completo retornado pelo Prompt 06 (ResultadoDivergenciaConducta)
   alertaJson: json('alerta_json').notNull(),
   mensagemMedico: text('mensagem_medico'),
   // Controle de leitura — preenchido quando médico marca como visto
   vistoPorId: int('visto_por_id').references(() => users.id),
   vistoEm: datetime('visto_em'),
+  // Supressão — preenchido quando médico suprime o tipo de alerta
+  supressaoAte: datetime('supressao_ate'),
   createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (t) => ({
   soapIdx: index('idx_calerts_soap').on(t.soapNoteId),
   medicoIdx: index('idx_calerts_medico').on(t.medicoId),
   urgenciaIdx: index('idx_calerts_urgencia').on(t.nivelUrgencia),
   vistoIdx: index('idx_calerts_visto').on(t.vistoEm),
+  hashIdx: index('idx_calerts_hash').on(t.hashAlerta),
 }))
 
 export const clinicalDigests = mysqlTable('clinical_digests', {
