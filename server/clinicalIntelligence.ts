@@ -730,6 +730,19 @@ Diagnóstico: ${params.diagnostico} (${params.cid10})`
   return parseJsonResponse<ResultadoDivergenciaConducta>(text, 'divergencia-conduta')
 }
 
+// ─── DIGEST_BASE — bloco comum a todos os digests ────────────────────────────
+
+const DIGEST_BASE = `\
+Você é o assistente de síntese clínica do ${MEDICO.nome} (${MEDICO.crm}), infectologista em Brasília-DF.
+
+Idioma: português brasileiro. Tom: colega médico — analítico, direto, sem floreios, sem elogios.
+
+REGRAS COMUNS:
+• Prioridade invariável: alertas de conduta (GRADE 1A/1B) ► evidências GRADE 1A ► GRADE 1B/2A ► demais
+• Se não houver dados para uma seção: escreva uma linha indicando ausência — não omita a seção
+• Nunca use linguagem motivacional, marketing ou elogios ao médico
+• Evidências: cite com [PMID] Autor et al., Revista, Ano quando disponível`
+
 // ─── PROMPT 07 — Digest Diário ────────────────────────────────────────────────
 
 export interface DigestDiario {
@@ -744,46 +757,37 @@ export async function gerarDigestDiario(params: {
   alertasCondutaJson: string
   relatoriosGerados: string
 }): Promise<DigestDiario> {
-  const systemPrompt = `Você é o assistente de síntese clínica do ${MEDICO.nome}, infectologista em Brasília-DF.
+  const systemPrompt = `${DIGEST_BASE}
 
-Gere um resumo clínico do dia em até 2 páginas (máximo 600 palavras).
-Tom: colega médico conversando, não robótico. Direto ao ponto.
-Idioma: português brasileiro.
-
-ESTRUTURA OBRIGATÓRIA:
+Gere o resumo do dia. Máximo 600 palavras.
 
 ## Resumo do Dia — {data}
 
 **{total_pacientes} pacientes atendidos**
-[Liste os diagnósticos/hipóteses em bullets concisos, agrupando similares se houver]
+[Diagnósticos/hipóteses em bullets concisos, agrupando similares]
 
 ---
 
-## Novas Evidências Geradas Hoje
+## ⚠️ Alertas de Conduta
 
-[PRIORIDADE 1 — Mudanças de conduta: se houver alertas, abra com eles]
-⚠️ ATENÇÃO — Mudança de conduta sugerida:
-[Para cada alerta: diagnóstico, conduta atual vs. recomendada, fonte]
-
-[PRIORIDADE 2 — Evidências nível A relevantes]
-[Para cada artigo relevante: diagnóstico, achado principal em 1 linha, fonte]
-
-[PRIORIDADE 3 — Demais evidências, se couber no espaço]
+[Se houver: diagnóstico, conduta atual vs. recomendada, nível GRADE, fonte]
+[Se não houver: "Nenhum alerta de conduta hoje."]
 
 ---
 
-## Para o Seu Conhecimento
+## Novas Evidências
 
-[1-2 linhas sobre o que o sistema fez hoje: artigos indexados, notas geradas]
+[GRADE 1A/1B: diagnóstico, achado principal em 1 linha, fonte]
+[GRADE 2A/2B: apenas se couber no limite de palavras]
+[Se não houver: "Nenhuma nova evidência sintetizada hoje."]
 
 ---
 
-REGRAS:
-- Máximo absoluto: 600 palavras
-- Se houver muito conteúdo: corte primeiro as evidências nível C, depois nível B, nunca corte mudanças de conduta
-- Se não houver novas evidências relevantes: diga isso diretamente em uma linha
-- Não use linguagem de marketing ou elogios
-- Termine sempre com: "Próximo resumo: [frequência configurada]"`
+## Sistema
+
+[1-2 linhas: artigos indexados, notas geradas, relatórios emitidos]
+
+Termine com: "Próximo resumo: amanhã."`
 
   const userContent = `DADOS DO DIA — ${params.data}:
 - Total de pacientes atendidos: ${params.totalPacientes}
@@ -792,7 +796,7 @@ REGRAS:
 - Alertas de conduta gerados: ${params.alertasCondutaJson}
 - Relatórios emitidos: ${params.relatoriosGerados}`
 
-  const text = await callClaude(systemPrompt, userContent, 1500)
+  const text = await callClaude(systemPrompt, userContent, 1500, MODEL_SONNET, 0.2)
   return { texto: text }
 }
 
@@ -811,49 +815,44 @@ export async function gerarDigestSemanal(params: {
   seriesStatusJson: string
   relatoriosSemana: string
 }): Promise<DigestSemanal> {
-  const systemPrompt = `Você é o assistente de síntese clínica do ${MEDICO.nome}, infectologista em Brasília-DF.
+  const systemPrompt = `${DIGEST_BASE}
 
-Gere um resumo semanal em até 2 páginas (máximo 800 palavras).
-Tom: colega médico conversando, analítico mas direto. Sem floreios.
-Idioma: português brasileiro.
-
-ESTRUTURA OBRIGATÓRIA:
+Gere o resumo semanal. Máximo 800 palavras.
 
 ## Resumo Semanal — {semana}
 
 ### Visão Geral
-{total_pacientes} pacientes · [principais diagnósticos com quantidade] · [destaques da semana em 2 linhas]
+{total_pacientes} pacientes · [principais diagnósticos com quantidade] · [destaques em 2 linhas]
 
 ---
 
-### ⚠️ Mudanças de Conduta — Revisar
-[SEMPRE inclua se houver alertas. Para cada um: diagnóstico, o que muda e por quê, fonte]
-[Se não houver: "Nenhuma mudança de conduta detectada esta semana."]
+### ⚠️ Alertas de Conduta — Revisar
+
+[SEMPRE inclua se houver. Para cada: diagnóstico, o que muda, nível GRADE, fonte]
+[Se não houver: "Nenhum alerta de conduta esta semana."]
 
 ---
 
-### Evidências Mais Relevantes da Semana
-[Máximo 5 itens, priorizando nível A e impacto clínico direto]
-[Formato: **Diagnóstico** — achado principal (Fonte, ano, nível evidência)]
+### Evidências GRADE 1A/1B da Semana
+
+[Máximo 5 itens. Formato: **Diagnóstico** — achado principal (Fonte, Ano, GRADE)]
+[Se houver mais: "X evidências adicionais disponíveis no painel."]
+[Se não houver: "Nenhuma evidência de alto nível sintetizada esta semana."]
 
 ---
 
 ### Séries de Casos — Status
-[Para cada CID com casos acumulados: quantos casos, quantos faltam para threshold, se rascunho está pronto]
+
+[Para cada CID: casos acumulados, quantos faltam para threshold, status do rascunho]
+[Se não houver: "Nenhuma série em progresso."]
 
 ---
 
 ### Conhecimento Acumulado
-[1-2 linhas: artigos sintetizados, notas geradas, total acumulado desde início]
 
----
+[Artigos sintetizados na semana, total acumulado, relatórios emitidos]
 
-REGRAS:
-- Máximo absoluto: 800 palavras
-- Priorize sempre: mudanças de conduta > evidências nível A > séries próximas do threshold
-- Se houver mais de 5 evidências relevantes: mencione as demais em uma linha como "X evidências adicionais disponíveis no painel"
-- Nunca elogie o médico ou use linguagem motivacional
-- Termine com: "Próximo resumo semanal: próxima sexta-feira às 19h"`
+Termine com: "Próximo resumo semanal: próxima sexta-feira às 19h."`
 
   const userContent = `DADOS DA SEMANA — ${params.semana}:
 - Total de pacientes: ${params.totalPacientes}
@@ -863,7 +862,7 @@ REGRAS:
 - Status das séries de casos: ${params.seriesStatusJson}
 - Relatórios emitidos: ${params.relatoriosSemana}`
 
-  const text = await callClaude(systemPrompt, userContent, 2000)
+  const text = await callClaude(systemPrompt, userContent, 2000, MODEL_SONNET, 0.2)
   return { texto: text }
 }
 
@@ -884,57 +883,52 @@ export async function gerarDigestMensal(params: {
   totalAcumuladoJson: string
   cronogramaPublicacaoJson: string
 }): Promise<DigestMensal> {
-  const systemPrompt = `Você é o assistente de síntese clínica do ${MEDICO.nome}, infectologista em Brasília-DF.
+  const systemPrompt = `${DIGEST_BASE}
 
-Gere um resumo mensal analítico em até 2 páginas (máximo 1000 palavras).
-Tom: relatório clínico analítico, como um colega senior avaliando a prática do mês.
-Idioma: português brasileiro.
-
-ESTRUTURA OBRIGATÓRIA:
+Gere o resumo mensal analítico. Máximo 1000 palavras. Seja analítico — identifique padrões, priorize informações acionáveis.
 
 ## Resumo Mensal — {mes_ano}
 
 ### Performance Clínica
 {total_pacientes} pacientes · [top 5 diagnósticos com %, padrões identificados]
-[Identifique qualquer padrão epidemiológico relevante: aumento de algum diagnóstico, perfil de pacientes]
+[Padrões epidemiológicos: aumento de diagnósticos, perfil de pacientes]
 
 ---
 
-### ⚠️ Mudanças de Conduta — Mês
-[Lista consolidada de todos os alertas do mês, agrupados por diagnóstico]
-[Para cada um: o que mudou, quando foi detectado, se já foi incorporado]
+### ⚠️ Alertas de Conduta — Mês
+
+[Lista consolidada agrupada por diagnóstico]
+[Para cada: o que mudou, quando detectado, nível GRADE, se já incorporado]
+[Se não houver: "Nenhum alerta de conduta no mês."]
 
 ---
 
-### Top 5 Evidências do Mês
-[As 5 evidências mais impactantes, justificando a seleção]
-[Formato: **Diagnóstico** — achado (Fonte) — por que é relevante para sua prática]
+### Top 5 Evidências GRADE 1A/1B do Mês
+
+[As 5 mais impactantes com justificativa da seleção]
+[**Diagnóstico** — achado (Fonte, Ano, GRADE) — relevância para sua prática]
+[Se não houver: "Nenhuma evidência de alto nível sintetizada este mês."]
 
 ---
 
-### Geração de Conhecimento — Balanço Mensal
+### Balanço de Conhecimento
+
 - Artigos sintetizados no mês: [N] | Total acumulado: [N]
-- Séries de casos geradas este mês: [lista]
-- Séries publicadas: [lista com revista]
+- Séries geradas: [lista] | Séries publicadas: [lista com revista]
 
 ---
 
 ### Próximas Publicações
-[Com base no cronograma e no volume atual de casos, indique as 2-3 publicações mais próximas de estarem prontas]
+
+[2-3 publicações mais próximas de estar prontas, com base no cronograma e volume de casos]
 
 ---
 
-### Destaques para o Próximo Mês
-[2-3 pontos de atenção: séries quase prontas, diagnósticos com muitos casos, alertas pendentes de revisão]
+### Foco para o Próximo Mês
 
----
+[2-3 pontos de atenção: séries quase prontas, diagnósticos em ascensão, alertas pendentes]
 
-REGRAS:
-- Máximo absoluto: 1000 palavras
-- Seja analítico, não apenas descritivo. Identifique padrões.
-- Priorize informações acionáveis sobre estatísticas brutas
-- Nunca use linguagem motivacional ou elogios
-- Termine com: "Próximo resumo mensal: último dia de [próximo mês]"`
+Termine com: "Próximo resumo mensal: último dia de [próximo mês]."`
 
   const userContent = `DADOS DO MÊS — ${params.mesAno}:
 - Total de pacientes no mês: ${params.totalPacientes}
@@ -946,7 +940,7 @@ REGRAS:
 - Totais acumulados (desde o início): ${params.totalAcumuladoJson}
 - Cronograma de publicação: ${params.cronogramaPublicacaoJson}`
 
-  const text = await callClaude(systemPrompt, userContent, 2500)
+  const text = await callClaude(systemPrompt, userContent, 2500, MODEL_SONNET, 0.2)
   return { texto: text }
 }
 
