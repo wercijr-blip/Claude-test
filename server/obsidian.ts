@@ -99,10 +99,11 @@ export async function publicarNotaSOAP(params: {
   metadata: KnowledgeMetadata
   pacienteRef?: string  // ex: "Paciente 001" — nunca nome real
 }): Promise<boolean> {
+  const { soapNoteId, soapTexto, metadata, pacienteRef } = params
   const diag = metadata.diagnostico_principal
   const cid = diag?.cid10?.replace('.', '') ?? 'SEM-CID'
   const data = dataHoje()
-  const path = `CIS/SOAP/${data}-${cid}-${params.soapNoteId}.md`
+  const path = `CIS/SOAP/${data}-${cid}-${soapNoteId}.md`
 
   const tags = [
     'soap',
@@ -118,7 +119,7 @@ export async function publicarNotaSOAP(params: {
   const markdown = `---
 tipo: soap
 data: ${data}
-soapNoteId: ${params.soapNoteId}
+soapNoteId: ${soapNoteId}
 diagnostico: "${diag?.nome ?? 'Não definido'}"
 cid10: "${diag?.cid10 ?? ''}"
 certeza: ${diag?.certeza ?? 'suspeito'}
@@ -129,9 +130,9 @@ gerado_em: "${dataHoraAgora()}"
 ---
 
 # SOAP — ${diag?.nome ?? 'Consulta'} (${diag?.cid10 ?? ''})
-> ${params.pacienteRef ?? 'Paciente'} · ${data}
+> ${pacienteRef ?? 'Paciente'} · ${data}
 
-${params.soapTexto}
+${soapTexto}
 
 ---
 
@@ -152,7 +153,7 @@ ${metadata.busca_pubmed?.query_sugerida ?? 'Não gerada'}
 ${metadata.caso_atipico.atipico ? `### ⚠️ Caso Atípico\n${metadata.caso_atipico.criterios_objetivos.map(c => `- ${c}`).join('\n')}\n**Tipo sugerido:** ${metadata.caso_atipico.tipo_sugerido}` : ''}
 `
 
-  return publicarNotaObsidian({ path, conteudo: markdown, mensagemCommit: `soap(${cid}): nota #${params.soapNoteId}` })
+  return publicarNotaObsidian({ path, conteudo: markdown, mensagemCommit: `soap(${cid}): nota #${soapNoteId}` })
 }
 
 /** CIS-03: Síntese de artigos PubMed */
