@@ -5,6 +5,7 @@
 
 import { startPdfWorker, startLembreteWorker, startPesquisaWorker, startLinkAcessoWorker, agendarLembreteDiario } from './pdfQueue.ts'
 import { startExamWorker } from './examQueue.ts'
+import { startDigestWorker, agendarDigestCrons } from './digestQueue.ts'
 import { logger } from './_core/logger.ts'
 
 async function main() {
@@ -15,7 +16,9 @@ async function main() {
   startPesquisaWorker()
   startLinkAcessoWorker()
   startExamWorker()
+  startDigestWorker()
   await agendarLembreteDiario()
+  await agendarDigestCrons()
 
   logger.info('[workers] Workers prontos.')
 
