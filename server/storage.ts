@@ -69,6 +69,14 @@ export async function getPresignedUrl(key: string, expiresIn = 900): Promise<str
   return getSignedUrl(s3, new GetObjectCommand({ Bucket: env.AWS_S3_BUCKET, Key: key }), { expiresIn })
 }
 
+export async function getPresignedUploadUrl(key: string, contentType: string, expiresIn = 300): Promise<string> {
+  return getSignedUrl(
+    s3,
+    new PutObjectCommand({ Bucket: env.AWS_S3_BUCKET, Key: key, ContentType: contentType, ServerSideEncryption: 'AES256' }),
+    { expiresIn },
+  )
+}
+
 export async function deleteObject(key: string): Promise<void> {
   await s3.send(new DeleteObjectCommand({ Bucket: env.AWS_S3_BUCKET, Key: key }))
 }
