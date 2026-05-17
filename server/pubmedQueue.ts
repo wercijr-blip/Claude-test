@@ -13,7 +13,9 @@ import { redis } from './_core/redis.ts'
 import { db } from './db.ts'
 import { soapNotes, conductAlerts } from '../drizzle/schema.ts'
 import { eq } from 'drizzle-orm'
-import { buscarArtigosPubMed, formatarArtigosParaPrompt } from './pubmed.ts'
+import { buscarArtigosPubMed } from './pubmed.ts'
+import { enriquecerArtigos, formatarArtigosEnriquecidosParaPrompt } from './unpaywall.ts'
+import { buscarReferenciasPorQuery, salvarArtigoPubMed, formatarZoteroParaPrompt } from './zotero.ts'
 import { sintetizarArtigosPubMed, detectarDivergenciaConducta } from './clinicalIntelligence.ts'
 import { logger } from './_core/logger.ts'
 
@@ -74,13 +76,25 @@ export function startPubmedWorker() {
     async (job) => {
       const { soapNoteId, medicoId, pubmedQuery, diagnosticoPrincipal, cid10, soapTexto, conductaAtual, populacao } = job.data
 
-      // 1. Buscar artigos no PubMed
+      // 1. Buscar artigos no PubMed + enriquecer com Unpaywall (texto completo OA)
       const artigos = await buscarArtigosPubMed(pubmedQuery, 5)
-      const artigosFormatados = formatarArtigosParaPrompt(artigos)
+      const artigosEnriquecidos = await enriquecerArtigos(artigos)
+      const artigosFormatados = formatarArtigosEnriquecidosParaPrompt(artigosEnriquecidos)
       const artigosJson = JSON.stringify(artigos)
 
+      // 1b. Buscar referências Zotero + salvar artigos PubMed na biblioteca (best-effort)
+      let zoteroReferencias = ''
+      try {
+        const zoteroItems = await buscarReferenciasPorQuery(`${diagnosticoPrincipal} ${cid10}`, 8)
+        zoteroReferencias = formatarZoteroParaPrompt(zoteroItems)
+        // Salva artigos PubMed no Zotero em fire-and-forget — não bloqueia síntese
+        for (const artigo of artigos) salvarArtigoPubMed(artigo).catch(() => null)
+      } catch {
+        logger.warn('[pubmedQueue] Zotero indisponível — síntese prossegue sem biblioteca pessoal', { soapNoteId })
+      }
+
       // 2. Gerar síntese (Prompt 03)
-      const soapResumido = soapTexto.slice(0, 1500) // primeiros 1500 chars evitam tokens excessivos
+      const soapResumido = soapTexto.slice(0, 1500)
 
       const sintese = await sintetizarArtigosPubMed({
         soapResumido,
@@ -90,6 +104,7 @@ export function startPubmedWorker() {
         condutaAtual: conductaAtual,
         artigosJson: artigosFormatados,
         n: artigos.length,
+        zoteroReferencias,
       })
 
       // 3. Salvar síntese na soap_note
