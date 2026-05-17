@@ -65,6 +65,10 @@ const envSchema = z.object({
   // Payment methods — toggle via Railway without code deploy.
   // Set ENABLE_DEBIT_CARD=true once Asaas account enables DEBIT_CARD billing.
   ENABLE_DEBIT_CARD: z.coerce.boolean().default(false),
+
+  // PubMed E-utilities — opcional; sem chave: 3 req/s, com chave: 10 req/s
+  // Obter em: https://www.ncbi.nlm.nih.gov/account/
+  NCBI_API_KEY: z.string().optional(),
 })
 
 const parsed = envSchema.safeParse(process.env)
