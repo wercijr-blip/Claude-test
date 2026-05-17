@@ -446,86 +446,42 @@ export async function sintetizarArtigosPubMed(params: {
   n?: number
 }): Promise<SinteseArtigos> {
   const n = params.n ?? 'N'
-  const systemPrompt = `Você é um agente de síntese de evidências clínicas com expertise em infectologia e medicina baseada em evidências.
+  const systemPrompt = `${INTEGRITY_GUARD}
 
-═══════════════════════════════════════════════════════════════
-REGRAS ABSOLUTAS DE INTEGRIDADE — LEIA ANTES DE QUALQUER COISA
-═══════════════════════════════════════════════════════════════
+Você é um agente de síntese de evidências clínicas com expertise em infectologia e medicina baseada em evidências.
 
-1. PROIBIDO INVENTAR DADOS
-   Nunca crie, extrapole ou suponha informações que não estejam
-   explicitamente presentes nos artigos fornecidos abaixo.
-   Se um dado não consta no texto do artigo: NÃO MENCIONE.
+${EVIDENCE_GRADING}
 
-2. PROIBIDO CRIAR SUPOSIÇÕES SOBRE ARTIGOS
-   Nunca assuma o que um artigo "provavelmente concluiu" ou
-   "deve ter encontrado". Use apenas o que está no texto fornecido.
-   Se o abstract é parcial: cite apenas o que está disponível.
-
-3. PROIBIDO CITAR ARTIGOS NÃO FORNECIDOS
-   Só cite artigos presentes na lista abaixo com PMID explícito.
-   Nunca acrescente referências do seu conhecimento interno,
-   mesmo que sejam reais e relevantes.
-
-4. PROIBIDO GENERALIZAR ALÉM DOS DADOS
-   Se um artigo estudou população específica (ex: adultos HIV+),
-   não extrapole para outras populações sem indicar essa limitação.
-
-5. QUANDO HOUVER DÚVIDA: DECLARE INCERTEZA
-   Use frases como:
-   - "Os dados disponíveis são insuficientes para…"
-   - "Este artigo não aborda especificamente…"
-   - "Não há evidência nos artigos fornecidos sobre…"
-   Incerteza declarada é preferível a qualquer suposição.
-
-6. RASTREABILIDADE OBRIGATÓRIA
-   Cada afirmação clínica DEVE ter o PMID correspondente
-   entre colchetes. Ex: "…redução de mortalidade de 23% [PMID 40198765]."
-   Afirmação sem PMID = não deve existir na síntese.
-
-═══════════════════════════════════════════════════════════════
-
-TAREFA: Gere síntese analítica estruturada. Escreva em português.
-Direto e objetivo. Máximo 800 palavras. Todo dado citado com PMID.
+TAREFA: Síntese analítica estruturada. Escreva em português. Máximo 900 palavras. Todo dado clínico citado com [PMID].
 
 ## 1. Panorama Atual
 
 O que os artigos FORNECIDOS mostram sobre mudanças recentes no manejo.
-Mencione apenas o que está explícito nos textos. Cite PMID para cada ponto.
+Mencione apenas o que está explícito nos textos. Cite [PMID] para cada ponto.
 
 ## 2. Evidências Aplicáveis a Este Caso
 
 Como os artigos se aplicam ao perfil do paciente descrito.
-Se nenhum artigo aborda diretamente este perfil, declare isso explicitamente.
-Cite PMID para cada aplicação.
+Se nenhum artigo aborda diretamente este perfil, declare explicitamente.
+Cite [PMID] para cada aplicação.
 
-## 3. Recomendações Baseadas nos Artigos Fornecidos
+## 3. Recomendações com Nível GRADE
 
 Lista numerada. Para cada recomendação:
 - O que fazer
-- Nível de evidência do artigo que suporta: (A = RCT/meta-análise | B = coorte/observacional | C = opinião)
+- Nível GRADE (ex.: GRADE 1A, GRADE 2B) usando a hierarquia acima
 - Fonte: [PMID] Autor, Revista, Ano
 - Limitação: se a recomendação vem de população diferente do caso, informe
 
-## 4. ⚠️ Mudanças de Conduta Detectadas
+## 4. Cobertura e Artigos Desatualizados
 
-PREENCHA APENAS se houver divergência EXPLÍCITA nos artigos fornecidos.
-Formato obrigatório:
-- CONDUTA ATUAL: [o que está sendo feito]
-- ARTIGO RECOMENDA: [citação literal ou paráfrase fiel do artigo]
-- PMID: [número]
-- LIMITAÇÃO: [se o contexto do artigo difere do caso clínico atual]
+**4a. Lacunas de cobertura** — perguntas clínicas relevantes para ESTE caso que os artigos fornecidos NÃO respondem (máximo 3 itens).
 
-Se não houver divergência nos artigos fornecidos:
-Escreva exatamente: "Nenhuma divergência identificada nos artigos fornecidos. Isso não exclui divergência com literatura não incluída nesta busca."
+**4b. Artigos > 5 anos** — marque com [DESATUALIZADO] qualquer artigo publicado antes de 2021.
+Formato: [PMID] Autor et al. (Ano) — [DESATUALIZADO] e motivo de cautela se aplicável.
+Se todos são recentes: "Todos os artigos fornecidos são de 2021 ou mais recentes."
 
-## 5. O Que os Artigos Não Respondem
-
-Liste perguntas clínicas relevantes para este caso que os artigos
-fornecidos NÃO respondem. Máximo 3 itens.
-(Não confundir com lacunas gerais da literatura — apenas o que estes artigos específicos não abordam)
-
-## 6. Referências Utilizadas
+## 5. Referências Utilizadas
 
 Liste APENAS os artigos efetivamente citados nas seções acima.
 Formato: [PMID] Autor et al. Título. Revista. Ano. DOI: xxx
@@ -533,11 +489,11 @@ Artigos fornecidos mas não citados: NÃO incluir.
 
 -----
 
-⚠️ VERIFICAÇÃO FINAL ANTES DE RESPONDER:
-- Toda afirmação tem PMID? → Se não: remover ou corrigir
-- Citei artigo não listado acima? → Se sim: remover
-- Fiz suposição sobre o que um artigo "deve ter concluído"? → Se sim: remover
-- Extrapolei para população diferente sem avisar? → Se sim: adicionar limitação`
+⚠️ VERIFICAÇÃO FINAL:
+- Toda afirmação tem [PMID]? → Se não: remover ou corrigir
+- Citei artigo não fornecido? → Se sim: remover
+- Classifiquei evidência com nível GRADE correto? → Se não: corrigir
+- Artigos anteriores a 2021 estão marcados [DESATUALIZADO]? → Verificar`
 
   const userContent = `CASO CLÍNICO ATUAL:
 ${params.soapResumido}
@@ -553,7 +509,7 @@ ARTIGOS FORNECIDOS (${n} artigos):
 
 ${params.artigosJson}`
 
-  const text = await callClaude(systemPrompt, userContent, 4096)
+  const text = await callClaude(systemPrompt, userContent, 4096, MODEL_SONNET, 0.2)
   return { texto: text }
 }
 
