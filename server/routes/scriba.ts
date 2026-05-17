@@ -118,6 +118,8 @@ export const scribaRouter = router({
         'pos_transplante', 'neutropenia_febril', 'hiv_cronico', 'tb',
       ]).default('infectologia_geral'),
       sinteseEvidencias: z.string().optional(),
+      /** Texto bruto do laudo laboratorial — extraído via Prompt 01 antes do SOAP */
+      examesTexto: z.string().max(8000).optional(),
     }))
     .mutation(async ({ input, ctx }) => {
       const medicoId = ctx.session.id
@@ -143,6 +145,7 @@ export const scribaRouter = router({
         transcricao: input.transcricao,
         template: input.template,
         sinteseEvidencias: input.sinteseEvidencias,
+        examesTexto: input.examesTexto,
       })
 
       return resultado
@@ -303,6 +306,44 @@ export const scribaRouter = router({
       return { ok: true }
     }),
 
+  /**
+   * Suprime um tipo de alerta por N dias (baseado em supressao_sugerida_dias do Prompt 06).
+   * Alertas futuros para o mesmo CID-10 não serão gerados até supressaoAte.
+   */
+  suprimirAlerta: medicoProcedure
+    .input(z.object({
+      alertaId: z.number().int().positive(),
+      dias: z.number().int().min(1).max(365).optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const medicoId = ctx.session.id
+
+      const [alerta] = await db
+        .select({
+          id: conductAlerts.id,
+          medicoId: conductAlerts.medicoId,
+          alertaJson: conductAlerts.alertaJson,
+        })
+        .from(conductAlerts)
+        .where(eq(conductAlerts.id, input.alertaId))
+        .limit(1)
+
+      if (!alerta) throw new TRPCError({ code: 'NOT_FOUND' })
+      if (alerta.medicoId !== medicoId) throw new TRPCError({ code: 'FORBIDDEN' })
+
+      const json = alerta.alertaJson as { supressao_sugerida_dias?: number } | null
+      const dias = input.dias ?? json?.supressao_sugerida_dias ?? 30
+      const supressaoAte = new Date()
+      supressaoAte.setDate(supressaoAte.getDate() + dias)
+
+      await db
+        .update(conductAlerts)
+        .set({ supressaoAte, vistoPorId: medicoId, vistoEm: new Date() })
+        .where(eq(conductAlerts.id, input.alertaId))
+
+      return { ok: true, supressaoAte, dias }
+    }),
+
   /** Marca um alerta de conduta como visto pelo médico autenticado. */
   marcarAlertaVisto: medicoProcedure
     .input(z.object({ alertaId: z.number().int().positive() }))
@@ -456,11 +497,11 @@ export const scribaRouter = router({
       }
 
       // Gera revisão (Prompt 11 — Opus)
-      const texto = await gerarRevisaoLiteratura({
+      const revisao = await gerarRevisaoLiteratura({
         tema: input.tema,
         nArtigos: artigos.length,
         artigosJson: JSON.stringify(artigos),
-        contextoClinicos: input.contextoClinicos,
+        contextoClinico: input.contextoClinicos ?? '',
       })
 
       // Persiste
@@ -470,7 +511,7 @@ export const scribaRouter = router({
         status: 'rascunho',
         tema: input.tema,
         nArtigos: artigos.length,
-        textoGerado: texto,
+        textoGerado: revisao.texto,
       })
 
       const [draft] = await db
@@ -484,7 +525,7 @@ export const scribaRouter = router({
         .limit(1)
 
       // Publica no Obsidian (best-effort)
-      publicarRevisaoLiteratura({ tema: input.tema, nArtigos: artigos.length, texto }).catch(() => null)
+      publicarRevisaoLiteratura({ tema: input.tema, nArtigos: artigos.length, texto: revisao.texto }).catch(() => null)
 
       return { ok: true, draftId: draft?.id, nArtigos: artigos.length }
     }),

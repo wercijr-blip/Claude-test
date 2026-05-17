@@ -9,11 +9,12 @@ import { env } from './_core/env.ts'
 import { logger } from './_core/logger.ts'
 import { db } from './db.ts'
 import { clinicalSessions, soapNotes, conductAlerts } from '../drizzle/schema.ts'
-import { eq, and, isNull, gte, isNotNull, desc, sql } from 'drizzle-orm'
+import { eq, and, isNull, gte, isNotNull, desc, sql, gt } from 'drizzle-orm'
 import { encrypt } from './_core/encryption.ts'
 import {
   gerarSOAP,
   gerarKnowledgeMetadata,
+  extrairExamesLaboratoriais,
   detectarDivergenciaConducta,
   type KnowledgeMetadata,
   type FeedbackHistoricoItem,
@@ -140,12 +141,30 @@ export async function processarConsulta(params: {
   template?: 'infectologia_geral' | 'prep_ist' | 'opat' | 'pos_transplante' | 'neutropenia_febril' | 'hiv_cronico' | 'tb'
   /** Se fornecida, roda detecção de divergência de conduta (Prompt 06) */
   sinteseEvidencias?: string
+  /** Texto bruto do laudo laboratorial — Prompt 01 extrai estruturado antes do SOAP */
+  examesTexto?: string
 }): Promise<ResultadoConsulta> {
   const template = params.template ?? 'infectologia_geral'
 
+  // ── Prompt 01: extração de exames (Haiku) — enriquece o SOAP com dados estruturados ──
+  let dadosExamesJson: string | undefined
+  if (params.examesTexto?.trim()) {
+    try {
+      const exames = await extrairExamesLaboratoriais(params.examesTexto)
+      dadosExamesJson = JSON.stringify(exames)
+      logger.info('[scriba] Exames extraídos via Prompt 01', {
+        sessionId: params.sessionId,
+        parametros: exames.metricas_extracao.total_parametros,
+        criticos: exames.metricas_extracao.criticos,
+      })
+    } catch (err) {
+      logger.warn('[scriba] Falha na extração de exames (Prompt 01) — SOAP gerado sem dados laboratoriais', { error: String(err) })
+    }
+  }
+
   // ── SOAP (CIS-02a, Sonnet) + knowledge_metadata (CIS-02b, Haiku) ─────────────
   logger.info('[scriba] Gerando SOAP', { sessionId: params.sessionId, template })
-  const soap = await gerarSOAP({ transcricaoOuTexto: params.transcricao, template })
+  const soap = await gerarSOAP({ transcricaoOuTexto: params.transcricao, dadosExamesJson, template })
   const knowledge_metadata = await gerarKnowledgeMetadata({ soapTexto: soap, template })
 
   const diag = knowledge_metadata.diagnostico_principal
@@ -231,74 +250,89 @@ export async function processarConsulta(params: {
   // Só executa se síntese de evidências foi fornecida (requer PubMed — Frente 4)
   let alerta: ResultadoConsulta['alerta'] = null
   if (params.sinteseEvidencias && diag?.cid10) {
-    try {
-      const condutaAtual = knowledge_metadata.conduta.antibioticos
-        .map(a => `${a.nome} ${a.dose} ${a.via} ${a.frequencia} por ${a.duracao_dias}d`)
-        .join('; ') || 'Sem antibióticos documentados'
+    // Verifica supressão ativa — se médico suprimiu alertas deste CID-10, pula a chamada ao LLM
+    const [supressaoAtiva] = await db
+      .select({ id: conductAlerts.id })
+      .from(conductAlerts)
+      .where(and(
+        eq(conductAlerts.medicoId, params.medicoId),
+        eq(conductAlerts.cid10, diag.cid10),
+        gt(conductAlerts.supressaoAte, new Date()),
+      ))
+      .limit(1)
 
-      // Busca histórico de feedback para calibrar Prompt 06
-      const feedbackRows = await db
-        .select({
-          hashAlerta: conductAlerts.hashAlerta,
-          feedbackMedico: conductAlerts.feedbackMedico,
-          feedbackMotivo: conductAlerts.feedbackMotivo,
-        })
-        .from(conductAlerts)
-        .where(and(
-          eq(conductAlerts.medicoId, params.medicoId),
-          eq(conductAlerts.cid10, diag.cid10),
-          isNotNull(conductAlerts.feedbackMedico),
-        ))
-        .orderBy(desc(conductAlerts.feedbackEm))
-        .limit(10)
+    if (supressaoAtiva) {
+      logger.info('[scriba] Alerta suprimido — supressaoAte ativa', { soapNoteId, cid10: diag.cid10 })
+    } else {
+      try {
+        const condutaAtual = knowledge_metadata.conduta.antibioticos
+          .map(a => `${a.nome} ${a.dose} ${a.via} ${a.frequencia} por ${a.duracao_dias}d`)
+          .join('; ') || 'Sem antibióticos documentados'
 
-      const historicoFeedback: FeedbackHistoricoItem[] = feedbackRows.map(r => ({
-        hashAlerta: r.hashAlerta,
-        feedback: r.feedbackMedico!,
-        motivo: r.feedbackMotivo,
-      }))
+        // Busca histórico de feedback para calibrar Prompt 06
+        const feedbackRows = await db
+          .select({
+            hashAlerta: conductAlerts.hashAlerta,
+            feedbackMedico: conductAlerts.feedbackMedico,
+            feedbackMotivo: conductAlerts.feedbackMotivo,
+          })
+          .from(conductAlerts)
+          .where(and(
+            eq(conductAlerts.medicoId, params.medicoId),
+            eq(conductAlerts.cid10, diag.cid10),
+            isNotNull(conductAlerts.feedbackMedico),
+          ))
+          .orderBy(desc(conductAlerts.feedbackEm))
+          .limit(10)
 
-      const divergencia = await detectarDivergenciaConducta({
-        condutaAtual,
-        sinteseEvidencias: params.sinteseEvidencias,
-        diagnostico: diag.nome,
-        cid10: diag.cid10,
-        perfilPaciente: knowledge_metadata.perfil_paciente,
-        historicoFeedback,
-      })
+        const historicoFeedback: FeedbackHistoricoItem[] = feedbackRows.map(r => ({
+          hashAlerta: r.hashAlerta,
+          feedback: r.feedbackMedico!,
+          motivo: r.feedbackMotivo,
+        }))
 
-      if (divergencia.tem_divergencia && divergencia.nivel_urgencia) {
-        await db.insert(conductAlerts).values({
-          soapNoteId,
-          medicoId: params.medicoId,
+        const divergencia = await detectarDivergenciaConducta({
+          condutaAtual,
+          sinteseEvidencias: params.sinteseEvidencias,
           diagnostico: diag.nome,
           cid10: diag.cid10,
-          nivelUrgencia: divergencia.nivel_urgencia,
-          hashAlerta: divergencia.hash_alerta ?? null,
-          alertaJson: divergencia,
-          mensagemMedico: divergencia.mensagem_para_medico,
+          perfilPaciente: knowledge_metadata.perfil_paciente,
+          historicoFeedback,
         })
 
-        const [alertaInserido] = await db
-          .select({ id: conductAlerts.id })
-          .from(conductAlerts)
-          .where(eq(conductAlerts.soapNoteId, soapNoteId))
-          .limit(1)
+        if (divergencia.tem_divergencia && divergencia.nivel_urgencia) {
+          await db.insert(conductAlerts).values({
+            soapNoteId,
+            medicoId: params.medicoId,
+            diagnostico: diag.nome,
+            cid10: diag.cid10,
+            nivelUrgencia: divergencia.nivel_urgencia,
+            hashAlerta: divergencia.hash_alerta ?? null,
+            alertaJson: divergencia,
+            mensagemMedico: divergencia.mensagem_para_medico,
+          })
 
-        alerta = {
-          id: alertaInserido.id,
-          nivelUrgencia: divergencia.nivel_urgencia,
-          mensagemMedico: divergencia.mensagem_para_medico,
+          const [alertaInserido] = await db
+            .select({ id: conductAlerts.id })
+            .from(conductAlerts)
+            .where(eq(conductAlerts.soapNoteId, soapNoteId))
+            .limit(1)
+
+          alerta = {
+            id: alertaInserido.id,
+            nivelUrgencia: divergencia.nivel_urgencia,
+            mensagemMedico: divergencia.mensagem_para_medico,
+          }
+
+          logger.info('[scriba] Alerta de conduta registrado', {
+            soapNoteId,
+            urgencia: divergencia.nivel_urgencia,
+          })
         }
-
-        logger.info('[scriba] Alerta de conduta registrado', {
-          soapNoteId,
-          urgencia: divergencia.nivel_urgencia,
-        })
+      } catch (err) {
+        // Divergência é best-effort — não bloqueia o fluxo principal
+        logger.warn('[scriba] Detecção de divergência falhou', { error: String(err) })
       }
-    } catch (err) {
-      // Divergência é best-effort — não bloqueia o fluxo principal
-      logger.warn('[scriba] Detecção de divergência falhou', { error: String(err) })
     }
   }
 

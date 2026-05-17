@@ -175,7 +175,7 @@ async function getSintesesPeriodo(medicoId: number, de: Date, ate: Date): Promis
   if (!rows.length) return '[]'
   return JSON.stringify(rows.map(r => ({
     diagnostico: r.diagnosticoPrincipal,
-    sintese: r.sinteseEvidencias?.slice(0, 500), // resumo para o digest
+    sintese: r.sinteseEvidencias?.slice(0, 1500), // resumo para o digest
   })))
 }
 

@@ -12,7 +12,7 @@ import { env } from './_core/env.ts'
 import { redis } from './_core/redis.ts'
 import { db } from './db.ts'
 import { soapNotes, conductAlerts } from '../drizzle/schema.ts'
-import { eq, and, isNotNull, desc } from 'drizzle-orm'
+import { eq, and, isNotNull, desc, gt } from 'drizzle-orm'
 import { buscarArtigosDual } from './pubmed.ts'
 import { enriquecerArtigos, formatarArtigosEnriquecidosParaPrompt } from './unpaywall.ts'
 import { buscarReferenciasPorQuery, salvarArtigoPubMed, formatarZoteroParaPrompt } from './zotero.ts'
@@ -100,7 +100,7 @@ export function startPubmedWorker() {
       }
 
       // 2. Gerar síntese (Prompt 03)
-      const soapResumido = soapTexto.slice(0, 1500)
+      const soapResumido = soapTexto.slice(0, 3000)
 
       const sintese = await sintetizarArtigosPubMed({
         soapResumido,
@@ -140,6 +140,22 @@ export function startPubmedWorker() {
       // 4. Re-executar divergência de conduta com síntese (best-effort)
       // Se falhar não bloqueia — alerta sem síntese já foi gerado em processarConsulta
       try {
+        // Verifica supressão ativa — não re-executa se médico suprimiu alertas deste CID-10
+        const [supressaoAtiva] = await db
+          .select({ id: conductAlerts.id })
+          .from(conductAlerts)
+          .where(and(
+            eq(conductAlerts.medicoId, medicoId),
+            eq(conductAlerts.cid10, cid10),
+            gt(conductAlerts.supressaoAte, new Date()),
+          ))
+          .limit(1)
+
+        if (supressaoAtiva) {
+          logger.info('[pubmedQueue] Alerta suprimido — supressaoAte ativa', { soapNoteId, cid10 })
+          return { soapNoteId, artigosEncontrados: artigos.length }
+        }
+
         // Busca histórico de feedback para calibrar Prompt 06
         const feedbackRows = await db
           .select({

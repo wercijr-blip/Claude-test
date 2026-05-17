@@ -149,7 +149,7 @@ export function startCaseSeriesWorker() {
         cid10,
         nCasos: notas.length,
         casosJson,
-        artigosJson: JSON.stringify(artigos),
+        artigosReferenciasJson: JSON.stringify(artigos),
         zoteroReferencias,
       })
 
@@ -163,7 +163,7 @@ export function startCaseSeriesWorker() {
         nCasos: notas.length,
         soapNoteIds: soapNoteIds,
         nArtigos: artigos.length,
-        textoGerado: resultado,
+        textoGerado: resultado.texto,
       })
 
       const [draft] = await db
@@ -186,7 +186,7 @@ export function startCaseSeriesWorker() {
         diagnostico,
         cid10,
         nCasos: notas.length,
-        texto: resultado,
+        texto: resultado.texto,
       }).catch(() => null)
 
       return { draftId: draft?.id, cid10, nCasos: notas.length }
