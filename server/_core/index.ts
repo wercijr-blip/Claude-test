@@ -311,7 +311,7 @@ const server = app.listen(env.PORT, async () => {
     const { startPdfWorker, startLembreteWorker, startPesquisaWorker, startLinkAcessoWorker, agendarLembreteDiario } = await import('../pdfQueue.ts')
     const { startExamWorker } = await import('../examQueue.ts')
     const { startPubmedWorker } = await import('../pubmedQueue.ts')
-    const { startDigestWorker } = await import('../digestQueue.ts')
+    const { startDigestWorker, agendarDigestCrons } = await import('../digestQueue.ts')
     const { startCaseSeriesWorker } = await import('../caseSeriesQueue.ts')
     startPdfWorker()
     startLembreteWorker()
@@ -322,6 +322,7 @@ const server = app.listen(env.PORT, async () => {
     startDigestWorker()
     startCaseSeriesWorker()
     await agendarLembreteDiario()
+    await agendarDigestCrons()
     logger.info('[server] Workers BullMQ iniciados em-processo.')
   } else {
     logger.info('[server] WORKERS_ENABLED=false — aguardando worker service separado.')
