@@ -1,0 +1,261 @@
+/**
+ * Scriba — Documentação clínica assistida por IA.
+ *
+ * Transcrição de áudio: OpenAI Whisper (mais robusto para pt-BR médico).
+ * SOAP + knowledge: Claude via clinicalIntelligence.ts.
+ */
+
+import { env } from './_core/env.ts'
+import { logger } from './_core/logger.ts'
+import { db } from './db.ts'
+import { clinicalSessions, soapNotes, conductAlerts } from '../drizzle/schema.ts'
+import { eq, and, isNull, gte, sql } from 'drizzle-orm'
+import { encrypt } from './_core/encryption.ts'
+import {
+  gerarMedScribe,
+  detectarDivergenciaConducta,
+  type KnowledgeMetadata,
+} from './clinicalIntelligence.ts'
+
+// ─── Whisper (OpenAI) ─────────────────────────────────────────────────────────
+// Mantido com OpenAI: Whisper é o modelo de transcrição mais robusto disponível
+// para português médico com sotaque regional. A API Claude não suporta áudio.
+
+const WHISPER_CHUNK_BYTES = 10 * 1024 * 1024 // 10 MB
+
+function getOpenAIKey(): string {
+  return process.env['OPENAI_API_KEY'] ?? env.BUILT_IN_FORGE_API_KEY ?? ''
+}
+
+export async function transcribeAudio(audioBuffer: Buffer, filename = 'audio.webm'): Promise<string> {
+  const apiKey = getOpenAIKey()
+  if (!apiKey) throw new Error('Chave OpenAI não configurada (OPENAI_API_KEY)')
+
+  const formData = new FormData()
+  const ab = audioBuffer.buffer.slice(audioBuffer.byteOffset, audioBuffer.byteOffset + audioBuffer.byteLength) as ArrayBuffer
+  formData.append('file', new Blob([ab], { type: 'audio/webm' }), filename)
+  formData.append('model', 'gpt-4o-mini-transcribe')
+  formData.append('language', 'pt')
+
+  const resp = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}` },
+    body: formData,
+    signal: AbortSignal.timeout(8 * 60 * 1000),
+  })
+
+  if (!resp.ok) {
+    const txt = await resp.text().catch(() => '')
+    throw new Error(`Whisper error ${resp.status}: ${txt.slice(0, 200)}`)
+  }
+
+  const data = await resp.json() as { text: string }
+  return data.text
+}
+
+export async function transcribeWithChunking(audioUrl: string): Promise<string> {
+  const response = await fetch(audioUrl)
+  const buffer = Buffer.from(await response.arrayBuffer())
+
+  if (buffer.length <= WHISPER_CHUNK_BYTES) {
+    return transcribeAudio(buffer)
+  }
+
+  logger.info('[scriba] Áudio grande — dividindo em chunks', {
+    sizeMB: (buffer.length / 1024 / 1024).toFixed(1),
+  })
+
+  const transcriptions: string[] = []
+  for (let i = 0, offset = 0; offset < buffer.length; i++, offset += WHISPER_CHUNK_BYTES) {
+    const chunk = buffer.subarray(offset, offset + WHISPER_CHUNK_BYTES)
+    try {
+      transcriptions.push(await transcribeAudio(chunk, `chunk_${i}.webm`))
+    } catch (err) {
+      logger.error('[scriba] Chunk de áudio falhou', { chunk: i, error: String(err) })
+    }
+  }
+
+  return transcriptions.join(' ')
+}
+
+// ─── Sessão clínica ───────────────────────────────────────────────────────────
+
+export async function abrirSessao(medicoId: number): Promise<{ sessionId: number; nova: boolean }> {
+  const inicioDia = new Date()
+  inicioDia.setHours(0, 0, 0, 0)
+
+  // Reutiliza sessão aberta do mesmo dia se existir
+  const [existente] = await db
+    .select({ id: clinicalSessions.id })
+    .from(clinicalSessions)
+    .where(and(
+      eq(clinicalSessions.medicoId, medicoId),
+      isNull(clinicalSessions.encerradaEm),
+      gte(clinicalSessions.abertaEm, inicioDia),
+    ))
+    .limit(1)
+
+  if (existente) {
+    return { sessionId: existente.id, nova: false }
+  }
+
+  await db.insert(clinicalSessions).values({ medicoId })
+
+  const [nova] = await db
+    .select({ id: clinicalSessions.id })
+    .from(clinicalSessions)
+    .where(and(
+      eq(clinicalSessions.medicoId, medicoId),
+      isNull(clinicalSessions.encerradaEm),
+      gte(clinicalSessions.abertaEm, inicioDia),
+    ))
+    .limit(1)
+
+  return { sessionId: nova.id, nova: true }
+}
+
+// ─── Processamento de consulta ────────────────────────────────────────────────
+
+export interface ResultadoConsulta {
+  soapNoteId: number
+  soap: string
+  knowledgeMetadata: KnowledgeMetadata
+  alerta: {
+    id: number
+    nivelUrgencia: string
+    mensagemMedico: string | null
+  } | null
+}
+
+export async function processarConsulta(params: {
+  sessionId: number
+  medicoId: number
+  /** Nome do paciente já encriptado via encryption.ts */
+  pacienteNomeEncrypted: string
+  transcricao: string
+  template?: 'infectologia_geral' | 'prep_ist' | 'opat' | 'pos_transplante' | 'neutropenia_febril' | 'hiv_cronico' | 'tb'
+  /** Se fornecida, roda detecção de divergência de conduta (Prompt 06) */
+  sinteseEvidencias?: string
+}): Promise<ResultadoConsulta> {
+  const template = params.template ?? 'infectologia_geral'
+
+  // ── SOAP + knowledge_metadata (Claude — Prompt 02) ──────────────────────────
+  logger.info('[scriba] Gerando SOAP', { sessionId: params.sessionId, template })
+  const { soap, knowledge_metadata } = await gerarMedScribe({
+    transcricaoOuTexto: params.transcricao,
+    template,
+  })
+
+  const diag = knowledge_metadata.diagnostico_principal
+
+  // ── Persiste soap_note ──────────────────────────────────────────────────────
+  await db.insert(soapNotes).values({
+    sessionId: params.sessionId,
+    medicoId: params.medicoId,
+    pacienteNomeEncrypted: params.pacienteNomeEncrypted,
+    template,
+    soapTexto: soap,
+    knowledgeMetadata: knowledge_metadata,
+    diagnosticoPrincipal: diag?.nome ?? null,
+    cid10: diag?.cid10 ?? null,
+    certeza: diag?.certeza ?? null,
+    pubmedQuery: knowledge_metadata.busca_pubmed?.query_sugerida ?? null,
+  })
+
+  const [inserted] = await db
+    .select({ id: soapNotes.id })
+    .from(soapNotes)
+    .where(and(
+      eq(soapNotes.sessionId, params.sessionId),
+      eq(soapNotes.medicoId, params.medicoId),
+    ))
+    .orderBy(sql`${soapNotes.createdAt} DESC`)
+    .limit(1)
+
+  const soapNoteId = inserted.id
+
+  // ── Incrementa contador da sessão ───────────────────────────────────────────
+  await db
+    .update(clinicalSessions)
+    .set({ totalConsultas: sql`${clinicalSessions.totalConsultas} + 1` })
+    .where(eq(clinicalSessions.id, params.sessionId))
+
+  // ── Detecção de divergência (Claude — Prompt 06) ────────────────────────────
+  // Só executa se síntese de evidências foi fornecida (requer PubMed — Frente 4)
+  let alerta: ResultadoConsulta['alerta'] = null
+  if (params.sinteseEvidencias && diag?.cid10) {
+    try {
+      const condutaAtual = knowledge_metadata.conduta.antibioticos
+        .map(a => `${a.nome} ${a.dose} ${a.via} ${a.frequencia} por ${a.duracao_dias}d`)
+        .join('; ') || 'Sem antibióticos documentados'
+
+      const divergencia = await detectarDivergenciaConducta({
+        condutaAtual,
+        sinteseEvidencias: params.sinteseEvidencias,
+        diagnostico: diag.nome,
+        cid10: diag.cid10,
+      })
+
+      if (divergencia.tem_divergencia && divergencia.nivel_urgencia) {
+        await db.insert(conductAlerts).values({
+          soapNoteId,
+          medicoId: params.medicoId,
+          diagnostico: diag.nome,
+          cid10: diag.cid10,
+          nivelUrgencia: divergencia.nivel_urgencia,
+          alertaJson: divergencia,
+          mensagemMedico: divergencia.mensagem_para_medico,
+        })
+
+        const [alertaInserido] = await db
+          .select({ id: conductAlerts.id })
+          .from(conductAlerts)
+          .where(eq(conductAlerts.soapNoteId, soapNoteId))
+          .limit(1)
+
+        alerta = {
+          id: alertaInserido.id,
+          nivelUrgencia: divergencia.nivel_urgencia,
+          mensagemMedico: divergencia.mensagem_para_medico,
+        }
+
+        logger.info('[scriba] Alerta de conduta registrado', {
+          soapNoteId,
+          urgencia: divergencia.nivel_urgencia,
+        })
+      }
+    } catch (err) {
+      // Divergência é best-effort — não bloqueia o fluxo principal
+      logger.warn('[scriba] Detecção de divergência falhou', { error: String(err) })
+    }
+  }
+
+  return { soapNoteId, soap, knowledgeMetadata: knowledge_metadata, alerta }
+}
+
+// ─── Encerramento de sessão (dispara digest diário) ───────────────────────────
+
+export async function encerrarSessao(sessionId: number, medicoId: number): Promise<void> {
+  const agora = new Date()
+
+  await db
+    .update(clinicalSessions)
+    .set({ encerradaEm: agora })
+    .where(and(
+      eq(clinicalSessions.id, sessionId),
+      eq(clinicalSessions.medicoId, medicoId),
+      isNull(clinicalSessions.encerradaEm),
+    ))
+
+  logger.info('[scriba] Sessão encerrada', { sessionId, medicoId })
+
+  // Enfileira digest diário no BullMQ (digestQueue criado na próxima ação)
+  try {
+    const { enqueueDigestDiario } = await import('./digestQueue.ts')
+    const periodoRef = agora.toISOString().slice(0, 10) // "YYYY-MM-DD"
+    await enqueueDigestDiario({ medicoId, sessionId, periodoRef })
+    logger.info('[scriba] Digest diário enfileirado', { medicoId, periodoRef })
+  } catch (err) {
+    logger.warn('[scriba] Falha ao enfileirar digest diário', { error: String(err) })
+  }
+}
