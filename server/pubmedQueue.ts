@@ -52,6 +52,7 @@ export interface PubmedJobData {
   soapTexto: string          // para compor soapResumido no Prompt 03
   conductaAtual: string      // extraído do soapTexto (seção Plan/Conduta)
   populacao: string          // extraído do knowledge_metadata
+  perfilPacienteJson: string // JSON do perfil_paciente para Prompt 06
 }
 
 // ─── Enqueue público ──────────────────────────────────────────────────────────
@@ -76,7 +77,8 @@ export function startPubmedWorker() {
   const worker = new Worker<PubmedJobData>(
     PUBMED_QUEUE_NAME,
     async (job) => {
-      const { soapNoteId, medicoId, pubmedQuery, diagnosticoPrincipal, cid10, soapTexto, conductaAtual, populacao } = job.data
+      const { soapNoteId, medicoId, pubmedQuery, diagnosticoPrincipal, cid10, soapTexto, conductaAtual, populacao, perfilPacienteJson } = job.data
+      const perfilPaciente = perfilPacienteJson ? JSON.parse(perfilPacienteJson) : undefined
 
       // 1. Buscar artigos no PubMed + enriquecer com Unpaywall (texto completo OA)
       const artigos = await buscarArtigosPubMed(pubmedQuery, 5)
@@ -134,6 +136,7 @@ export function startPubmedWorker() {
           cid10,
           condutaAtual: conductaAtual,
           sinteseEvidencias: sintese.texto,
+          perfilPaciente,
         })
 
         if (alerta.tem_divergencia) {

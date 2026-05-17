@@ -216,6 +216,7 @@ export async function processarConsulta(params: {
         soapTexto: soap,
         condutaAtual,
         populacao,
+        perfilPacienteJson: JSON.stringify(knowledge_metadata.perfil_paciente),
       })
       logger.info('[scriba] Síntese PubMed enfileirada', { soapNoteId })
     } catch (err) {
@@ -237,6 +238,7 @@ export async function processarConsulta(params: {
         sinteseEvidencias: params.sinteseEvidencias,
         diagnostico: diag.nome,
         cid10: diag.cid10,
+        perfilPaciente: knowledge_metadata.perfil_paciente,
       })
 
       if (divergencia.tem_divergencia && divergencia.nivel_urgencia) {

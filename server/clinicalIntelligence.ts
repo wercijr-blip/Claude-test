@@ -675,6 +675,7 @@ export interface ResultadoDivergenciaConducta {
   nivel_urgencia: 'baixo' | 'medio' | 'alto' | null
   hash_alerta: string | null
   supressao_sugerida_dias: number | null
+  confianca_aplicabilidade: 'alta' | 'media' | 'baixa' | null
   divergencias: Array<{
     aspecto: string
     conduta_atual: string
@@ -683,6 +684,8 @@ export interface ResultadoDivergenciaConducta {
     grade: '1A' | '1B' | '2A' | '2B' | '2C' | '3' | '4' | '5'
     forca_recomendacao: 'forte' | 'condicional'
     fonte: string
+    populacao_estudo: string
+    aplicavel_ao_perfil: boolean
   }>
   mensagem_para_medico: string | null
 }
@@ -703,11 +706,21 @@ Considere divergência relevante APENAS quando:
 
 Não sinalize como divergência diferenças de preferência ou adaptações locais justificáveis.
 
+REGRA DE APLICABILIDADE POPULACIONAL (crítica antes de qualquer sinalização):
+Para cada divergência identificada, verifique se a população do estudo é compatível com
+o perfil do paciente fornecido. Incompatibilidades que reduzem aplicabilidade:
+• Imunocompetente vs imunocomprometido (HIV, transplante, quimioterapia, corticoide)
+• Adulto vs pediátrico vs idoso (≥65 anos)
+• Ausência de comorbidade relevante no estudo que está presente no paciente
+Se incompatível: aplicavel_ao_perfil = false, confianca_aplicabilidade reduzida,
+nivel_urgencia recuado um grau (alto→medio, medio→baixo).
+
 {
   "tem_divergencia": false,
   "nivel_urgencia": "baixo | medio | alto | null",
-  "hash_alerta": "chave canônica snake_case: {cid10}_{aspecto_normalizado} (ex: b20_profilaxia_primaria_pcp) — null se sem divergência",
+  "hash_alerta": "chave canônica snake_case: {cid10}_{aspecto_normalizado} — null se sem divergência",
   "supressao_sugerida_dias": null,
+  "confianca_aplicabilidade": "alta | media | baixa | null",
   "divergencias": [
     {
       "aspecto": "qual aspecto específico da conduta",
@@ -716,28 +729,51 @@ Não sinalize como divergência diferenças de preferência ou adaptações loca
       "justificativa": "resumo em 1-2 linhas da evidência",
       "grade": "1A | 1B | 2A | 2B | 2C | 3 | 4 | 5",
       "forca_recomendacao": "forte | condicional",
-      "fonte": "autores, revista, ano, PMID"
+      "fonte": "autores, revista, ano, PMID",
+      "populacao_estudo": "descrição da população do estudo fonte",
+      "aplicavel_ao_perfil": true
     }
   ],
-  "mensagem_para_medico": "null se sem divergência | texto amigável, não julgamental, sugerindo revisão da conduta"
+  "mensagem_para_medico": "null se sem divergência | texto amigável, não julgamental; se confianca_aplicabilidade = baixa, mencione a limitação populacional"
 }
 
 REGRAS:
-- hash_alerta: gere apenas se tem_divergencia = true; use snake_case, sem acentos, máximo 80 chars.
-- supressao_sugerida_dias: sugira com base na urgência — alto: 7, medio: 14, baixo: 30; null se sem divergência.
-- grade: use a hierarquia GRADE acima; se incerto, use o nível mais conservador.
-- forca_recomendacao: forte = benefícios claramente superam riscos; condicional = balanço mais próximo.`
+- hash_alerta: gere apenas se tem_divergencia = true; snake_case, sem acentos, máximo 80 chars.
+- supressao_sugerida_dias: alto: 7, medio: 14, baixo: 30; null se sem divergência.
+- confianca_aplicabilidade: alta = população do estudo é compatível com o perfil; media = parcialmente compatível; baixa = população claramente diferente.
+- Se TODAS as divergências tiverem aplicavel_ao_perfil = false: tem_divergencia = false.`
 
 export async function detectarDivergenciaConducta(params: {
   condutaAtual: string
   sinteseEvidencias: string
   diagnostico: string
   cid10: string
+  perfilPaciente?: {
+    faixa_etaria: string
+    imunocomprometido: boolean
+    tipo_imunocomprometimento: string | null
+    comorbidades: string[]
+  }
 }): Promise<ResultadoDivergenciaConducta> {
-  const userContent = `CONDUTA ATUAL DOCUMENTADA:
+  const perfilStr = params.perfilPaciente
+    ? [
+        `Faixa etária: ${params.perfilPaciente.faixa_etaria}`,
+        params.perfilPaciente.imunocomprometido
+          ? `Imunocomprometido: sim (${params.perfilPaciente.tipo_imunocomprometimento ?? 'não especificado'})`
+          : 'Imunocomprometido: não',
+        params.perfilPaciente.comorbidades.length
+          ? `Comorbidades: ${params.perfilPaciente.comorbidades.join(', ')}`
+          : 'Comorbidades: nenhuma documentada',
+      ].join('\n')
+    : 'Perfil não disponível — aplique critérios conservadores de compatibilidade.'
+
+  const userContent = `PERFIL DO PACIENTE:
+${perfilStr}
+
+CONDUTA ATUAL DOCUMENTADA:
 ${params.condutaAtual}
 
-SÍNTESE DAS EVIDÊNCIAS MAIS RECENTES (2024-2026):
+SÍNTESE DAS EVIDÊNCIAS MAIS RECENTES:
 ${params.sinteseEvidencias}
 
 Diagnóstico: ${params.diagnostico} (${params.cid10})`
