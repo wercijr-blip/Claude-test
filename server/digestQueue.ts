@@ -24,6 +24,8 @@ import {
   gerarDigestSemanal,
   gerarDigestMensal,
 } from './clinicalIntelligence.ts'
+import { publicarDigest } from './obsidian.ts'
+import { notificarDigest } from './n8n.ts'
 import { logger } from './_core/logger.ts'
 
 // ─── Configuração ─────────────────────────────────────────────────────────────
@@ -239,6 +241,9 @@ async function runDiario(data: DiarioJobData) {
     totalAlertas: alertas.length,
   })
 
+  publicarDigest({ tipo: 'diario', periodoRef: data.periodoRef, texto }).catch(() => null)
+  notificarDigest({ tipo: 'diario', periodoRef: data.periodoRef, totalConsultas: consultas.length, totalAlertas: alertas.length, resumoTexto: texto })
+
   logger.info('[digestQueue] Digest diário gerado', {
     medicoId: data.medicoId,
     periodo: data.periodoRef,
@@ -283,6 +288,9 @@ async function runSemanal(periodoRef: string) {
       totalAlertas: alertas.length,
     })
 
+    publicarDigest({ tipo: 'semanal', periodoRef: semanaLabel, texto }).catch(() => null)
+    notificarDigest({ tipo: 'semanal', periodoRef: semanaLabel, totalConsultas: consultas.length, totalAlertas: alertas.length, resumoTexto: texto })
+
     logger.info('[digestQueue] Digest semanal gerado', { medicoId, semana: semanaLabel })
   }
 }
@@ -323,6 +331,9 @@ async function runMensal(periodoRef: string) {
       totalConsultas: consultas.length,
       totalAlertas: alertas.length,
     })
+
+    publicarDigest({ tipo: 'mensal', periodoRef: mesLabel, texto }).catch(() => null)
+    notificarDigest({ tipo: 'mensal', periodoRef: mesLabel, totalConsultas: consultas.length, totalAlertas: alertas.length, resumoTexto: texto })
 
     logger.info('[digestQueue] Digest mensal gerado', { medicoId, mes: mesLabel })
   }

@@ -1,0 +1,78 @@
+{
+  "name": "CIS — Alerta de Conduta",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cis-alerta-conduta",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "1a2b3c4d-0001-0001-0001-000000000001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "cis-alerta-conduta"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "cond-urgencia",
+              "leftValue": "={{ $json.body.nivelUrgencia }}",
+              "rightValue": "baixo",
+              "operator": { "type": "string", "operation": "notEquals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "1a2b3c4d-0001-0001-0001-000000000002",
+      "name": "Urgência média ou alta?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $vars.TELEGRAM_CHAT_ID }}",
+        "text": "={{ '⚠️ *ALERTA DE CONDUTA* — ' + ($json.body.nivelUrgencia === 'alto' ? '🔴 ALTA URGÊNCIA' : '🟡 URGÊNCIA MÉDIA') + '\\n\\n*Diagnóstico:* ' + $json.body.diagnostico + ' (' + $json.body.cid10 + ')\\n\\n*Mensagem:* ' + ($json.body.mensagemMedico ?? 'Ver painel CIS') + '\\n\\n*SOAP Note:* #' + $json.body.soapNoteId }}",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "id": "1a2b3c4d-0001-0001-0001-000000000003",
+      "name": "Telegram — Alerta",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [680, 200]
+    },
+    {
+      "parameters": {},
+      "id": "1a2b3c4d-0001-0001-0001-000000000004",
+      "name": "Ignorar (baixa urgência)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [680, 420]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Urgência média ou alta?", "type": "main", "index": 0 }]]
+    },
+    "Urgência média ou alta?": {
+      "main": [
+        [{ "node": "Telegram — Alerta", "type": "main", "index": 0 }],
+        [{ "node": "Ignorar (baixa urgência)", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "cis-v4"
+  },
+  "notes": "Recebe alertas de conduta do CIS. Configure a credencial Telegram com seu Bot Token e defina a variável TELEGRAM_CHAT_ID com seu Chat ID. Ative o workflow após configurar."
+}

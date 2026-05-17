@@ -17,6 +17,8 @@ import {
   detectarDivergenciaConducta,
   type KnowledgeMetadata,
 } from './clinicalIntelligence.ts'
+import { publicarNotaSOAP } from './obsidian.ts'
+import { notificarSOAP } from './n8n.ts'
 
 // ─── Whisper (OpenAI) ─────────────────────────────────────────────────────────
 // Mantido com OpenAI: Whisper é o modelo de transcrição mais robusto disponível
@@ -178,6 +180,17 @@ export async function processarConsulta(params: {
     .update(clinicalSessions)
     .set({ totalConsultas: sql`${clinicalSessions.totalConsultas} + 1` })
     .where(eq(clinicalSessions.id, params.sessionId))
+
+  // ── Publica SOAP no Obsidian + notifica n8n se caso atípico (best-effort) ───
+  publicarNotaSOAP({ soapNoteId, soapTexto: soap, metadata: knowledge_metadata }).catch(() => null)
+  notificarSOAP({
+    soapNoteId,
+    diagnostico: diag?.nome ?? '',
+    cid10: diag?.cid10 ?? '',
+    casoAtipico: knowledge_metadata.caso_atipico.atipico,
+    criteriosAtipicos: knowledge_metadata.caso_atipico.criterios_objetivos,
+    tipoSugerido: knowledge_metadata.caso_atipico.tipo_sugerido,
+  })
 
   // ── Enfileira síntese PubMed (Prompt 03) — best-effort, não bloqueia ────────
   if (knowledge_metadata.busca_pubmed?.query_sugerida) {

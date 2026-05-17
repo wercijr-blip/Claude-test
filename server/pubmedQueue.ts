@@ -17,6 +17,8 @@ import { buscarArtigosPubMed } from './pubmed.ts'
 import { enriquecerArtigos, formatarArtigosEnriquecidosParaPrompt } from './unpaywall.ts'
 import { buscarReferenciasPorQuery, salvarArtigoPubMed, formatarZoteroParaPrompt } from './zotero.ts'
 import { sintetizarArtigosPubMed, detectarDivergenciaConducta } from './clinicalIntelligence.ts'
+import { publicarNotaSintese, publicarAlertaConduta } from './obsidian.ts'
+import { notificarAlertaConduta } from './n8n.ts'
 import { logger } from './_core/logger.ts'
 
 // ─── Configuração ─────────────────────────────────────────────────────────────
@@ -115,6 +117,15 @@ export function startPubmedWorker() {
 
       logger.info('[pubmedQueue] Síntese salva', { soapNoteId, artigos: artigos.length })
 
+      // 3b. Publicar síntese no Obsidian (best-effort)
+      publicarNotaSintese({
+        soapNoteId,
+        diagnostico: diagnosticoPrincipal,
+        cid10,
+        sinteseTexto: sintese.texto,
+        nArtigos: artigos.length,
+      }).catch(() => null)
+
       // 4. Re-executar divergência de conduta com síntese (best-effort)
       // Se falhar não bloqueia — alerta sem síntese já foi gerado em processarConsulta
       try {
@@ -147,6 +158,17 @@ export function startPubmedWorker() {
           logger.info('[pubmedQueue] Alerta de conduta enriquecido com síntese', {
             soapNoteId,
             nivel: alerta.nivel_urgencia,
+          })
+
+          // Publicar alerta no Obsidian + notificar n8n (best-effort)
+          publicarAlertaConduta({ soapNoteId, diagnostico: diagnosticoPrincipal, cid10, alerta }).catch(() => null)
+          notificarAlertaConduta({
+            soapNoteId,
+            diagnostico: diagnosticoPrincipal,
+            cid10,
+            nivelUrgencia: alerta.nivel_urgencia ?? 'baixo',
+            hashAlerta: alerta.hash_alerta ?? null,
+            mensagemMedico: alerta.mensagem_para_medico ?? null,
           })
         }
       } catch (alertaErr) {

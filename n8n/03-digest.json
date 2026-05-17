@@ -1,0 +1,82 @@
+{
+  "name": "CIS — Digest (Diário / Semanal / Mensal)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cis-digest",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "3a2b3c4d-0003-0003-0003-000000000001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "cis-digest"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "cond-tem-alertas",
+              "leftValue": "={{ $json.body.totalAlertas }}",
+              "rightValue": 0,
+              "operator": { "type": "number", "operation": "gt" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "3a2b3c4d-0003-0003-0003-000000000002",
+      "name": "Tem alertas?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $vars.TELEGRAM_CHAT_ID }}",
+        "text": "={{ '🗓️ *' + ($json.body.tipo === 'diario' ? 'DIGEST DIÁRIO' : $json.body.tipo === 'semanal' ? 'DIGEST SEMANAL' : 'DIGEST MENSAL') + '* — ' + $json.body.periodoRef + '\\n\\n⚠️ ' + $json.body.totalAlertas + ' alerta(s) de conduta\\n👥 ' + $json.body.totalConsultas + ' consulta(s)\\n\\n' + $json.body.resumoTexto.slice(0, 600) + '\\n\\nVer nota completa no Obsidian.' }}",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "id": "3a2b3c4d-0003-0003-0003-000000000003",
+      "name": "Telegram — Digest com Alertas",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [680, 180]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $vars.TELEGRAM_CHAT_ID }}",
+        "text": "={{ '🗓️ *' + ($json.body.tipo === 'diario' ? 'DIGEST DIÁRIO' : $json.body.tipo === 'semanal' ? 'DIGEST SEMANAL' : 'DIGEST MENSAL') + '* — ' + $json.body.periodoRef + '\\n\\n✅ Sem alertas de conduta\\n👥 ' + $json.body.totalConsultas + ' consulta(s)\\n\\nVer nota completa no Obsidian.' }}",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "id": "3a2b3c4d-0003-0003-0003-000000000004",
+      "name": "Telegram — Digest sem Alertas",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [680, 420]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Tem alertas?", "type": "main", "index": 0 }]]
+    },
+    "Tem alertas?": {
+      "main": [
+        [{ "node": "Telegram — Digest com Alertas", "type": "main", "index": 0 }],
+        [{ "node": "Telegram — Digest sem Alertas", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "cis-v4"
+  },
+  "notes": "Recebe os três tipos de digest do CIS. Envia resumo diferenciado no Telegram: se houver alertas de conduta, destaca com ⚠️. Ative após configurar a credencial Telegram."
+}

@@ -1,0 +1,43 @@
+{
+  "name": "CIS — Caso Atípico Detectado",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cis-caso-atipico",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "2a2b3c4d-0002-0002-0002-000000000001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "cis-caso-atipico"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $vars.TELEGRAM_CHAT_ID }}",
+        "text": "={{ '📋 *CASO ATÍPICO DETECTADO*\\n\\n*Diagnóstico:* ' + $json.body.diagnostico + ' (' + $json.body.cid10 + ')\\n*Tipo sugerido:* ' + $json.body.tipoSugerido + '\\n\\n*Critérios objetivos:*\\n' + ($json.body.criteriosAtipicos ?? []).map(c => '• ' + c).join('\\n') + '\\n\\nSOAP Note #' + $json.body.soapNoteId + ' disponível no Obsidian.' }}",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "id": "2a2b3c4d-0002-0002-0002-000000000002",
+      "name": "Telegram — Caso Atípico",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [460, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Telegram — Caso Atípico", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "cis-v4"
+  },
+  "notes": "Notifica quando o CIS detecta um caso atípico com potencial de publicação. O CIS só dispara este webhook quando caso_atipico.atipico = true (critérios objetivos verificados)."
+}

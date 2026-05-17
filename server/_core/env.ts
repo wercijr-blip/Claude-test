@@ -86,6 +86,11 @@ const envSchema = z.object({
   // OBSIDIAN_GITHUB_TOKEN: Personal Access Token com escopo "repo"
   OBSIDIAN_GITHUB_TOKEN: z.string().optional(),
   OBSIDIAN_GITHUB_REPO: z.string().optional(),
+
+  // n8n — orquestrador de automações (notificações, fluxos cross-system)
+  // N8N_WEBHOOK_URL: URL base do n8n, ex: "http://localhost:5678" ou "http://IP:5678"
+  N8N_WEBHOOK_URL: z.string().url().optional(),
+  N8N_WEBHOOK_SECRET: z.string().optional(),
 })
 
 const parsed = envSchema.safeParse(process.env)
