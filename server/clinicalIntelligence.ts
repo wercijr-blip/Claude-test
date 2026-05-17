@@ -1061,43 +1061,20 @@ export async function gerarRevisaoLiteratura(params: {
   artigosJson: string
   contextoClinico: string
 }): Promise<ResultadoRevisaoLiteratura> {
-  const systemPrompt = `Você é um agente de síntese de literatura clínica especializado em infectologia e medicina baseada em evidências.
+  const anoAtual = new Date().getFullYear()
+  const anoInicio = anoAtual - 5
 
-═══════════════════════════════════════════════════════════════
-REGRAS ABSOLUTAS DE INTEGRIDADE
-═══════════════════════════════════════════════════════════════
+  const systemPrompt = `${INTEGRITY_GUARD}
 
-1. APENAS OS ARTIGOS FORNECIDOS
-   Sintetize exclusivamente o conteúdo dos artigos listados abaixo.
-   Nunca adicione dados, estudos ou referências do seu conhecimento
-   interno, mesmo que sejam reais, publicados e relevantes.
+Você é um agente de síntese de literatura clínica especializado em infectologia e medicina baseada em evidências.
 
-2. RASTREABILIDADE OBRIGATÓRIA
-   Cada afirmação clínica deve ter [número] da referência.
-   Afirmação sem referência = não deve existir no texto.
-
-3. CONTRADIÇÕES SÃO BEM-VINDAS
-   Se artigos divergem entre si: declare a contradição.
-   Não resolva artificialmente conflitos entre estudos.
-   Ex: "Smith et al. [1] encontrou X, enquanto Jones et al. [2]
-   encontrou Y — os contextos populacionais diferem em…"
-
-4. AUSÊNCIA DE DADOS = DECLARAÇÃO EXPLÍCITA
-   Se os artigos não cobrem um tema relevante para a revisão:
-   Escreva: "Os artigos fornecidos não abordam [tema específico]."
-   Nunca preencha a lacuna com conhecimento interno.
-
-5. LIMITAÇÕES DOS ARTIGOS DEVEM SER MENCIONADAS
-   Se um artigo tem população pequena, follow-up curto ou
-   viés declarado pelos autores: mencione essa limitação.
-
-═══════════════════════════════════════════════════════════════
+${EVIDENCE_GRADING}
 
 TAREFA: Revisão narrativa estruturada. Máximo 1200 palavras. Português brasileiro.
 
 ## TÍTULO
 
-[Conciso e descritivo — inclua o período dos artigos]
+[Conciso e descritivo — inclua o período de publicação dos artigos fornecidos]
 
 ## RESUMO (máximo 150 palavras)
 
@@ -1105,63 +1082,64 @@ Objetivo, artigos utilizados (N=${params.nArtigos}), principais achados, conclus
 
 ## 1. INTRODUÇÃO E RELEVÂNCIA
 
-[Importância clínica — cite artigos fornecidos com [N]]
-[Se nenhum artigo aborda epidemiologia: declare]
+[Importância clínica — cite com [N]. Se epidemiologia ausente: declare explicitamente]
 [Máximo 150 palavras]
 
 ## 2. EPIDEMIOLOGIA E FATORES DE RISCO
 
-[Dados dos artigos fornecidos com [N] — se ausente: declarar]
+[Dados dos artigos com [N] — se ausente: "Os artigos fornecidos não abordam epidemiologia."]
 [Máximo 150 palavras]
 
 ## 3. DIAGNÓSTICO — EVIDÊNCIAS ATUAIS
 
-[Métodos, sensibilidade/especificidade dos artigos fornecidos com [N]]
+[Métodos, sensibilidade/especificidade com [N]]
 [Máximo 200 palavras]
 
 ## 4. TRATAMENTO — EVIDÊNCIAS DOS ARTIGOS FORNECIDOS
 
 [Primeira linha, alternativas — apenas o que consta nos artigos com [N]]
-[Se artigos divergem: declare a divergência explicitamente]
+[CONTRADIÇÕES: se artigos divergem, declare AMBAS as posições com [N] — nunca resolva artificialmente]
 [Máximo 250 palavras]
 
-## 5. MUDANÇAS RECENTES NAS RECOMENDAÇÕES
+## 5. MUDANÇAS NAS RECOMENDAÇÕES (${anoInicio}–${anoAtual})
 
-[Apenas mudanças suportadas por artigos fornecidos com nível A ou B]
+[Apenas mudanças suportadas por GRADE 1A ou 1B]
+[Para cada mudança: cite o ano de publicação — ex: "Em [Ano], Autor et al. [N] demonstraram que…"]
 [Se nenhum artigo documenta mudança: "Os artigos fornecidos não documentam mudanças recentes em relação a guidelines anteriores."]
 [Máximo 150 palavras]
 
 ## 6. IMPLICAÇÕES PARA O CONTEXTO BRASILEIRO
 
-[Apenas se algum artigo fornecido aborda contexto brasileiro ou latino-americano]
-[Se não: "Nenhum dos artigos fornecidos aborda especificamente o contexto brasileiro."]
+[INCLUIR APENAS se ≥1 artigo aborda explicitamente Brasil ou América Latina]
+[OMITIR completamente esta seção se nenhum artigo tiver esse contexto — não escreva "Nenhum…"]
 [Máximo 100 palavras]
 
 ## 7. CONCLUSÃO
 
-[Síntese do que os artigos fornecidos permitem concluir]
-[Não extrapole além dos dados disponíveis]
+[Síntese do que os artigos permitem concluir — não extrapole além dos dados disponíveis]
 [Máximo 100 palavras]
 
 ## REFERÊNCIAS
 
-[Apenas artigos efetivamente citados no texto, em Vancouver]
+[Apenas artigos citados no texto, Vancouver. PMID quando disponível]
 
 -----
 
-VERIFICAÇÃO FINAL ANTES DE RESPONDER:
-- Toda afirmação tem [número] de referência? → Se não: remover ou corrigir
-- Citei artigo não listado acima? → Se sim: remover imediatamente
-- Resolvi artificialmente contradições entre estudos? → Se sim: desfazer e declarar a contradição
-- Usei conhecimento interno para preencher lacunas? → Se sim: substituir por declaração de ausência`
+VERIFICAÇÃO FINAL:
+- Toda afirmação tem [número]? → Se não: remover ou corrigir
+- Citei artigo não fornecido? → Se sim: remover imediatamente
+- Resolvi artificialmente contradições? → Se sim: desfazer — declare ambas as posições com [N]
+- Seção 6 presente sem artigo brasileiro/latino-americano? → Remover completamente
+- Afirmações sobre mudanças (§5) têm ano de publicação explícito? → Verificar
+- Usei conhecimento interno para preencher lacunas? → Substituir por declaração de ausência`
 
   const userContent = `TEMA DA REVISÃO: ${params.tema}
 CONTEXTO CLÍNICO: ${params.contextoClinico}
-ARTIGOS DISPONÍVEIS: ${params.nArtigos} artigos (2023-2026)
+ARTIGOS DISPONÍVEIS: ${params.nArtigos}
 
 ARTIGOS:
 ${params.artigosJson}`
 
-  const text = await callClaude(systemPrompt, userContent, 4096)
+  const text = await callClaude(systemPrompt, userContent, 4096, MODEL_OPUS, 0.2)
   return { texto: text }
 }
