@@ -422,6 +422,10 @@ export const conductAlerts = mysqlTable('conduct_alerts', {
   vistoEm: datetime('visto_em'),
   // Supressão — preenchido quando médico suprime o tipo de alerta
   supressaoAte: datetime('supressao_ate'),
+  // Feedback do médico — alimenta histórico do Prompt 06
+  feedbackMedico: varchar('feedback_medico', { length: 20 }),   // concordo | discordo | inaplicavel
+  feedbackMotivo: text('feedback_motivo'),
+  feedbackEm: datetime('feedback_em'),
   createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (t) => ({
   soapIdx: index('idx_calerts_soap').on(t.soapNoteId),
@@ -429,6 +433,7 @@ export const conductAlerts = mysqlTable('conduct_alerts', {
   urgenciaIdx: index('idx_calerts_urgencia').on(t.nivelUrgencia),
   vistoIdx: index('idx_calerts_visto').on(t.vistoEm),
   hashIdx: index('idx_calerts_hash').on(t.hashAlerta),
+  feedbackIdx: index('idx_calerts_feedback').on(t.feedbackMedico),
 }))
 
 export const clinicalDigests = mysqlTable('clinical_digests', {

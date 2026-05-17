@@ -12,11 +12,11 @@ import { env } from './_core/env.ts'
 import { redis } from './_core/redis.ts'
 import { db } from './db.ts'
 import { soapNotes, conductAlerts } from '../drizzle/schema.ts'
-import { eq } from 'drizzle-orm'
+import { eq, and, isNotNull, desc } from 'drizzle-orm'
 import { buscarArtigosPubMed } from './pubmed.ts'
 import { enriquecerArtigos, formatarArtigosEnriquecidosParaPrompt } from './unpaywall.ts'
 import { buscarReferenciasPorQuery, salvarArtigoPubMed, formatarZoteroParaPrompt } from './zotero.ts'
-import { sintetizarArtigosPubMed, detectarDivergenciaConducta } from './clinicalIntelligence.ts'
+import { sintetizarArtigosPubMed, detectarDivergenciaConducta, type FeedbackHistoricoItem } from './clinicalIntelligence.ts'
 import { publicarNotaSintese, publicarAlertaConduta } from './obsidian.ts'
 import { notificarAlertaConduta } from './n8n.ts'
 import { logger } from './_core/logger.ts'
@@ -132,12 +132,35 @@ export function startPubmedWorker() {
       // 4. Re-executar divergência de conduta com síntese (best-effort)
       // Se falhar não bloqueia — alerta sem síntese já foi gerado em processarConsulta
       try {
+        // Busca histórico de feedback para calibrar Prompt 06
+        const feedbackRows = await db
+          .select({
+            hashAlerta: conductAlerts.hashAlerta,
+            feedbackMedico: conductAlerts.feedbackMedico,
+            feedbackMotivo: conductAlerts.feedbackMotivo,
+          })
+          .from(conductAlerts)
+          .where(and(
+            eq(conductAlerts.medicoId, medicoId),
+            eq(conductAlerts.cid10, cid10),
+            isNotNull(conductAlerts.feedbackMedico),
+          ))
+          .orderBy(desc(conductAlerts.feedbackEm))
+          .limit(10)
+
+        const historicoFeedback: FeedbackHistoricoItem[] = feedbackRows.map(r => ({
+          hashAlerta: r.hashAlerta,
+          feedback: r.feedbackMedico!,
+          motivo: r.feedbackMotivo,
+        }))
+
         const alerta = await detectarDivergenciaConducta({
           diagnostico: diagnosticoPrincipal,
           cid10,
           condutaAtual: condutaAtual,
           sinteseEvidencias: sintese.texto,
           perfilPaciente,
+          historicoFeedback,
         })
 
         if (alerta.tem_divergencia) {

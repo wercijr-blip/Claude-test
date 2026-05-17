@@ -741,7 +741,14 @@ REGRAS:
 - hash_alerta: gere apenas se tem_divergencia = true; snake_case, sem acentos, máximo 80 chars.
 - supressao_sugerida_dias: alto: 7, medio: 14, baixo: 30; null se sem divergência.
 - confianca_aplicabilidade: alta = população do estudo é compatível com o perfil; media = parcialmente compatível; baixa = população claramente diferente.
-- Se TODAS as divergências tiverem aplicavel_ao_perfil = false: tem_divergencia = false.`
+- Se TODAS as divergências tiverem aplicavel_ao_perfil = false: tem_divergencia = false.
+- FEEDBACK HISTÓRICO: se o médico marcou 'discordo' ou 'inaplicavel' em alerta similar (mesmo hash_alerta) antes, recue o nivel_urgencia um grau e mencione o feedback na mensagem_para_medico. Se marcou 'concordo', mantenha ou eleve.`
+
+export interface FeedbackHistoricoItem {
+  hashAlerta: string | null
+  feedback: string   // 'concordo' | 'discordo' | 'inaplicavel'
+  motivo: string | null
+}
 
 export async function detectarDivergenciaConducta(params: {
   condutaAtual: string
@@ -754,6 +761,7 @@ export async function detectarDivergenciaConducta(params: {
     tipo_imunocomprometimento: string | null
     comorbidades: string[]
   }
+  historicoFeedback?: FeedbackHistoricoItem[]
 }): Promise<ResultadoDivergenciaConducta> {
   const perfilStr = params.perfilPaciente
     ? [
@@ -767,8 +775,17 @@ export async function detectarDivergenciaConducta(params: {
       ].join('\n')
     : 'Perfil não disponível — aplique critérios conservadores de compatibilidade.'
 
+  const feedbackStr = params.historicoFeedback?.length
+    ? params.historicoFeedback.map(f =>
+        `- hash: ${f.hashAlerta ?? 'desconhecido'} | feedback: ${f.feedback}${f.motivo ? ` | motivo: "${f.motivo}"` : ''}`
+      ).join('\n')
+    : 'Nenhum feedback registrado para este CID-10.'
+
   const userContent = `PERFIL DO PACIENTE:
 ${perfilStr}
+
+HISTÓRICO DE FEEDBACK DO MÉDICO (alertas anteriores para ${params.cid10}):
+${feedbackStr}
 
 CONDUTA ATUAL DOCUMENTADA:
 ${params.condutaAtual}

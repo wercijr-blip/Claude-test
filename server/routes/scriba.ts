@@ -254,12 +254,52 @@ export const scribaRouter = router({
           mensagemMedico: conductAlerts.mensagemMedico,
           alertaJson: conductAlerts.alertaJson,
           vistoEm: conductAlerts.vistoEm,
+          feedbackMedico: conductAlerts.feedbackMedico,
+          feedbackEm: conductAlerts.feedbackEm,
           createdAt: conductAlerts.createdAt,
         })
         .from(conductAlerts)
         .where(and(...conditions))
         .orderBy(desc(conductAlerts.createdAt))
         .limit(input?.limit ?? 20)
+    }),
+
+  /**
+   * Registra o feedback do médico sobre um alerta de conduta.
+   * O feedback é armazenado e alimenta o histórico do Prompt 06 em chamadas futuras,
+   * reduzindo falsos positivos para o mesmo CID-10.
+   */
+  registrarFeedbackAlerta: medicoProcedure
+    .input(z.object({
+      alertaId: z.number().int().positive(),
+      feedback: z.enum(['concordo', 'discordo', 'inaplicavel']),
+      motivo: z.string().max(500).optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const medicoId = ctx.session.id
+
+      const [alerta] = await db
+        .select({ id: conductAlerts.id, medicoId: conductAlerts.medicoId })
+        .from(conductAlerts)
+        .where(eq(conductAlerts.id, input.alertaId))
+        .limit(1)
+
+      if (!alerta) throw new TRPCError({ code: 'NOT_FOUND' })
+      if (alerta.medicoId !== medicoId) throw new TRPCError({ code: 'FORBIDDEN' })
+
+      await db
+        .update(conductAlerts)
+        .set({
+          feedbackMedico: input.feedback,
+          feedbackMotivo: input.motivo ?? null,
+          feedbackEm: new Date(),
+          // Se médico deu feedback, considera o alerta visto automaticamente
+          vistoPorId: medicoId,
+          vistoEm: new Date(),
+        })
+        .where(eq(conductAlerts.id, input.alertaId))
+
+      return { ok: true }
     }),
 
   /** Marca um alerta de conduta como visto pelo médico autenticado. */
