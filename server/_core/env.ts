@@ -41,7 +41,9 @@ const envSchema = z.object({
   MEDICO_CRM: z.string().default('16381'),
   MEDICO_CRM_UF: z.string().default('DF'),
   MEDICO_CRM_TIPO: z.string().default('CRM'),
+  MEDICO_RQE: z.string().default('RQE 14486'),
 
+  CLINICA_NOME: z.string().default('ATOS Saúde Integrada Hospital Dia e Vacinas'),
   SUS_CNES: z.string().default('9843744'),
 
   APP_URL: z.string().url().default('https://www.facilitaprep.com.br'),
