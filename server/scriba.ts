@@ -180,6 +180,37 @@ export async function processarConsulta(params: {
     .set({ totalConsultas: sql`${clinicalSessions.totalConsultas} + 1` })
     .where(eq(clinicalSessions.id, params.sessionId))
 
+  // ── Enfileira síntese PubMed (Prompt 03) — best-effort, não bloqueia ────────
+  if (knowledge_metadata.busca_pubmed?.query_sugerida) {
+    try {
+      const { enqueueSintesePubMed } = await import('./pubmedQueue.ts')
+      const perfil = knowledge_metadata.perfil_paciente
+      const populacao = [
+        perfil.faixa_etaria,
+        perfil.imunocomprometido ? `imunocomprometido (${perfil.tipo_imunocomprometimento ?? 'outro'})` : null,
+        perfil.comorbidades.slice(0, 2).join(', '),
+      ].filter(Boolean).join(', ')
+
+      const condutaAtual = knowledge_metadata.conduta.antibioticos
+        .map(a => `${a.nome} ${a.dose} ${a.via} ${a.frequencia} por ${a.duracao_dias}d`)
+        .join('; ') || 'Sem antibióticos documentados'
+
+      await enqueueSintesePubMed({
+        soapNoteId,
+        medicoId: params.medicoId,
+        pubmedQuery: knowledge_metadata.busca_pubmed.query_sugerida,
+        diagnosticoPrincipal: diag?.nome ?? '',
+        cid10: diag?.cid10 ?? '',
+        soapTexto: soap,
+        condutaAtual,
+        populacao,
+      })
+      logger.info('[scriba] Síntese PubMed enfileirada', { soapNoteId })
+    } catch (err) {
+      logger.warn('[scriba] Falha ao enfileirar síntese PubMed', { error: String(err) })
+    }
+  }
+
   // ── Detecção de divergência (Claude — Prompt 06) ────────────────────────────
   // Só executa se síntese de evidências foi fornecida (requer PubMed — Frente 4)
   let alerta: ResultadoConsulta['alerta'] = null

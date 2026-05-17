@@ -199,6 +199,36 @@ export const scribaRouter = router({
       return notaSemPii
     }),
 
+  /**
+   * Retorna a síntese de evidências PubMed de uma nota SOAP.
+   * Null se o worker ainda não completou (processamento assíncrono).
+   */
+  getSinteseEvidencias: medicoProcedure
+    .input(z.object({ soapNoteId: z.number().int().positive() }))
+    .query(async ({ input, ctx }) => {
+      const medicoId = ctx.session.id
+
+      const [nota] = await db
+        .select({
+          id: soapNotes.id,
+          medicoId: soapNotes.medicoId,
+          sinteseEvidencias: soapNotes.sinteseEvidencias,
+          pubmedQuery: soapNotes.pubmedQuery,
+        })
+        .from(soapNotes)
+        .where(eq(soapNotes.id, input.soapNoteId))
+        .limit(1)
+
+      assertSoapDoMedico(nota, medicoId)
+
+      return {
+        soapNoteId: nota.id,
+        sinteseEvidencias: nota.sinteseEvidencias ?? null,
+        pubmedQuery: nota.pubmedQuery ?? null,
+        pronta: nota.sinteseEvidencias !== null,
+      }
+    }),
+
   // ── Alertas de Conduta ─────────────────────────────────────────────────────
 
   /** Lista alertas de conduta do médico. Por padrão retorna apenas os não vistos. */

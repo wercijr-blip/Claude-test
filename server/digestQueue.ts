@@ -147,6 +147,7 @@ async function getSoapResumo(medicoId: number, de: Date, ate: Date) {
       cid10: soapNotes.cid10,
       certeza: soapNotes.certeza,
       template: soapNotes.template,
+      sinteseEvidencias: soapNotes.sinteseEvidencias,
       createdAt: soapNotes.createdAt,
     })
     .from(soapNotes)
@@ -155,6 +156,24 @@ async function getSoapResumo(medicoId: number, de: Date, ate: Date) {
       gte(soapNotes.createdAt, de),
       lte(soapNotes.createdAt, ate),
     ))
+}
+
+async function getSintesesPeriodo(medicoId: number, de: Date, ate: Date): Promise<string> {
+  const rows = await db
+    .select({ sinteseEvidencias: soapNotes.sinteseEvidencias, diagnosticoPrincipal: soapNotes.diagnosticoPrincipal })
+    .from(soapNotes)
+    .where(and(
+      eq(soapNotes.medicoId, medicoId),
+      gte(soapNotes.createdAt, de),
+      lte(soapNotes.createdAt, ate),
+      isNotNull(soapNotes.sinteseEvidencias),
+    ))
+
+  if (!rows.length) return '[]'
+  return JSON.stringify(rows.map(r => ({
+    diagnostico: r.diagnosticoPrincipal,
+    sintese: r.sinteseEvidencias?.slice(0, 500), // resumo para o digest
+  })))
 }
 
 async function getAlertasResumo(medicoId: number, de: Date, ate: Date) {
@@ -196,16 +215,17 @@ async function runDiario(data: DiarioJobData) {
   const de = inicioDia(hoje)
   const ate = fimDia(hoje)
 
-  const [consultas, alertas] = await Promise.all([
+  const [consultas, alertas, artigosSintetizadosJson] = await Promise.all([
     getSoapResumo(data.medicoId, de, ate),
     getAlertasResumo(data.medicoId, de, ate),
+    getSintesesPeriodo(data.medicoId, de, ate),
   ])
 
   const { texto } = await gerarDigestDiario({
     data: data.periodoRef,
     totalPacientes: consultas.length,
     consultasJson: JSON.stringify(consultas),
-    artigosSintetizadosJson: '[]', // preenchido na Frente 4 (PubMed)
+    artigosSintetizadosJson,
     alertasCondutaJson: JSON.stringify(alertas),
     relatoriosGerados: '0',
   })
@@ -236,9 +256,10 @@ async function runSemanal(periodoRef: string) {
   const semanaLabel = periodoRef || `${agora.getUTCFullYear()}-W${String(Math.ceil(agora.getUTCDate() / 7)).padStart(2, '0')}`
 
   for (const medicoId of medicoIds) {
-    const [consultas, alertas] = await Promise.all([
+    const [consultas, alertas, artigosSemanaJson] = await Promise.all([
       getSoapResumo(medicoId, de, ate),
       getAlertasResumo(medicoId, de, ate),
+      getSintesesPeriodo(medicoId, de, ate),
     ])
 
     if (!consultas.length && !alertas.length) continue
@@ -247,7 +268,7 @@ async function runSemanal(periodoRef: string) {
       semana: semanaLabel,
       totalPacientes: consultas.length,
       diagnosticosJson: JSON.stringify(consultas),
-      artigosSemanaJson: '[]',
+      artigosSemanaJson,
       alertasSemanaJson: JSON.stringify(alertas),
       seriesStatusJson: '[]',
       relatoriosSemana: '0',
@@ -276,16 +297,17 @@ async function runMensal(periodoRef: string) {
   const mesLabel = periodoRef || `${agora.getUTCFullYear()}-${String(agora.getUTCMonth() + 1).padStart(2, '0')}`
 
   for (const medicoId of medicoIds) {
-    const [consultas, alertas] = await Promise.all([
+    const [consultas, alertas, artigosMesJson] = await Promise.all([
       getSoapResumo(medicoId, de, ate),
       getAlertasResumo(medicoId, de, ate),
+      getSintesesPeriodo(medicoId, de, ate),
     ])
 
     const { texto } = await gerarDigestMensal({
       mesAno: mesLabel,
       totalPacientes: consultas.length,
       diagnosticosMesJson: JSON.stringify(consultas),
-      artigosMesJson: '[]',
+      artigosMesJson,
       alertasMesJson: JSON.stringify(alertas),
       seriesGeradasJson: '[]',
       seriesPublicadasJson: '[]',

@@ -395,6 +395,8 @@ export const soapNotes = mysqlTable('soap_notes', {
   cid10: varchar('cid10', { length: 10 }),
   certeza: varchar('certeza', { length: 20 }), // confirmado | provavel | suspeito
   pubmedQuery: text('pubmed_query'),
+  // Síntese das evidências PubMed gerada pelo Prompt 03 (null até o worker completar)
+  sinteseEvidencias: text('sintese_evidencias'),
   createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (t) => ({
   sessionIdx: index('idx_soap_session').on(t.sessionId),
