@@ -2,16 +2,18 @@ import { z } from 'zod'
 import { router, adminProcedure } from '../_core/trpc.ts'
 import { TRPCError } from '@trpc/server'
 import { db } from '../db.ts'
-import { users, securityEvents, pacientes, exames } from '../../drizzle/schema.ts'
+import { users, securityEvents, pacientes, exames, pdfs, consultasInicio } from '../../drizzle/schema.ts'
 import { eq, desc, inArray, count, isNull, and } from 'drizzle-orm'
 import type { Role } from '../../shared/types.ts'
 import { decrypt } from '../_core/encryption.ts'
 import { filtrarExamePorStatus } from '../examUtils.ts'
-import { inspecionarCertificado } from '../pdfSigner.ts'
+import { inspecionarCertificado, assinarPdf } from '../pdfSigner.ts'
 import { gerarEEnviarLinkAcesso } from './intake.ts'
 import { env } from '../_core/env.ts'
 import { linkAcessoQueue } from '../pdfQueue.ts'
 import { logAudit } from '../_core/audit.ts'
+import { uploadBuffer, deleteObject, getPresignedUrl } from '../storage.ts'
+import { preencherFichaAtendimento } from '../sus/preencherFichaAtendimento.ts'
 
 type ResultadoIaJson = {
   status?: string
@@ -364,6 +366,75 @@ export const adminRouter = router({
   // Verifica env vars críticas e conectividade com Redis/BullMQ.
   // Bater nesse endpoint antes de testar fluxos de pagamento confirma
   // que todos os recursos estão disponíveis.
+  regenerarFichaAtendimento: adminProcedure
+    .input(z.object({ pacienteId: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const { pacienteId } = input
+
+      const [p] = await db.select().from(pacientes).where(eq(pacientes.id, pacienteId)).limit(1)
+      if (!p) throw new TRPCError({ code: 'NOT_FOUND', message: 'Paciente não encontrado' })
+
+      const [consulta] = await db
+        .select({ tipoConsulta: consultasInicio.tipoConsulta, dataExameValidado: consultasInicio.dataExameValidado })
+        .from(consultasInicio)
+        .where(eq(consultasInicio.tokenId, p.tokenId))
+        .limit(1)
+
+      // Delete corrupted ficha(s) from S3 + DB
+      const fichasExistentes = await db
+        .select({ id: pdfs.id, s3Key: pdfs.s3Key })
+        .from(pdfs)
+        .where(and(eq(pdfs.pacienteId, pacienteId), eq(pdfs.tipo, 'ficha_atendimento')))
+      for (const f of fichasExistentes) {
+        await deleteObject(f.s3Key).catch(() => {})
+        await db.delete(pdfs).where(eq(pdfs.id, f.id))
+      }
+
+      const nome = decrypt(p.nomeEncrypted)
+      const cpf = decrypt(p.cpfEncrypted)
+      const dataNascimento = p.dataNascimentoEncrypted ? decrypt(p.dataNascimentoEncrypted) : ''
+      const nomeMae = p.nomeMaeEncrypted ? decrypt(p.nomeMaeEncrypted) : ''
+
+      const cond = (p.condutaJson ?? {}) as {
+        temSintomasDst?: boolean
+        usoDrogas?: boolean
+        prepAdesao?: 'diaria' | 'sob_demanda'
+      }
+      const prepAdesaoLabel: 'Esquema diário' | 'Esquema sob demanda' | undefined =
+        cond.prepAdesao === 'diaria' ? 'Esquema diário' :
+        cond.prepAdesao === 'sob_demanda' ? 'Esquema sob demanda' :
+        undefined
+
+      const configClinica = {
+        cnes: env.SUS_CNES,
+        crmTipo: env.MEDICO_CRM_TIPO,
+        crmUf: env.MEDICO_CRM_UF,
+        crmNumero: env.MEDICO_CRM,
+      }
+
+      const fichaBuf = Buffer.from(await preencherFichaAtendimento({
+        pacienteId,
+        cpf, nome, nomeMae, dataNascimento,
+        dataExameHiv: consulta?.dataExameValidado ?? null,
+        prepModalidade: (p.prepModalidade as 'PrEP diária' | 'PrEP sob demanda' | null) ?? 'PrEP diária',
+        tipoConsulta: (consulta?.tipoConsulta as 'primeiro_atendimento' | 'ja_faco_prep') ?? 'primeiro_atendimento',
+        prepAdesao: prepAdesaoLabel ?? null,
+        temSintomasDst: cond.temSintomasDst ?? null,
+        usoDrogas: cond.usoDrogas ?? null,
+      }, configClinica))
+
+      const { buffer: signedFicha, certificadoSerial, assinadoEm } =
+        await assinarPdf(fichaBuf, 'Ficha de Atendimento PrEP — Facilita PrEP')
+      const fichaKey = `pdfs/${pacienteId}/${Date.now()}-ficha-atendimento.pdf`
+      await uploadBuffer(fichaKey, signedFicha, 'application/pdf')
+      await db.insert(pdfs).values({ pacienteId, s3Key: fichaKey, tipo: 'ficha_atendimento', certificadoSerial, assinadoEm })
+
+      await logAudit({ actorId: ctx.session.id, actorRole: ctx.session.role, action: 'pdf.generate', resourceType: 'ficha_atendimento', resourceId: pacienteId, detalhes: { fichasRemovidas: fichasExistentes.length } })
+
+      const url = await getPresignedUrl(fichaKey, 3600)
+      return { ok: true, url, fichasRemovidas: fichasExistentes.length }
+    }),
+
   saudeIntake: adminProcedure.query(async () => {
     let redisOk = false
     let linkAcessoQueueSize: number | null = null
