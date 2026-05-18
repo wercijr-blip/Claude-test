@@ -13,6 +13,7 @@ import { JWT_EXPIRY_PATIENT } from '../../shared/security-constants.ts'
 import { getPresignedUrl } from '../storage.ts'
 import { enqueueGerarPdf } from '../pdfQueue.ts'
 import { enviarCadastroRecebidoExames } from '../email.ts'
+import { enviarWhatsApp } from '../whatsapp.ts'
 import { gerarLinkDeAcesso } from './intake.ts'
 import * as Sentry from '@sentry/node'
 import type { ResultSetHeader } from 'mysql2'
@@ -178,13 +179,23 @@ export const pacienteRouter = router({
       ;(async () => {
         try {
           const [precad] = await db
-            .select({ id: precadastros.id, emailEncrypted: precadastros.emailEncrypted })
+            .select({ id: precadastros.id, emailEncrypted: precadastros.emailEncrypted, telefoneEncrypted: precadastros.telefoneEncrypted })
             .from(precadastros)
             .where(eq(precadastros.accessTokenId, tokenId))
             .limit(1)
           if (!precad) return
           const { link, expiresAt, raw } = await gerarLinkDeAcesso(precad.id)
           await enviarCadastroRecebidoExames(decrypt(precad.emailEncrypted), input.nome, link, expiresAt, raw)
+          const telefone = decrypt(precad.telefoneEncrypted)
+          if (telefone) {
+            const primeiroNome = input.nome.split(' ')[0]
+            await enviarWhatsApp(
+              telefone,
+              `Olá ${primeiroNome}! Recebemos seu cadastro.\n\n` +
+              `📋 *Próximo passo:* envie os exames laboratoriais (HIV ≤7 dias, Creatinina, HBsAg, Anti-HCV, Sífilis).\n\n` +
+              `Acesse:\n${link}\n\n_Facilita PrEP_`,
+            ).catch(() => {})
+          }
         } catch (err) {
           Sentry.captureException(err, { tags: { route: 'salvarStep1', stage: 'email2' } })
         }

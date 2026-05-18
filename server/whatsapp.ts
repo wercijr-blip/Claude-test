@@ -15,7 +15,7 @@ export async function enviarWhatsApp(telefone: string, mensagem: string): Promis
       `https://api.z-api.io/instances/${env.ZAPI_INSTANCE_ID}/token/${env.ZAPI_TOKEN}/send-text`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Client-Token': env.ZAPI_TOKEN },
+        headers: { 'Content-Type': 'application/json', 'Client-Token': env.ZAPI_CLIENT_TOKEN ?? env.ZAPI_TOKEN! },
         body: JSON.stringify({ phone: numero, message: mensagem }),
       },
     )

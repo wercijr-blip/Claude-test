@@ -36,6 +36,7 @@ const envSchema = z.object({
 
   ZAPI_INSTANCE_ID: z.string().optional(),
   ZAPI_TOKEN: z.string().optional(),
+  ZAPI_CLIENT_TOKEN: z.string().optional(),
 
   MEDICO_NOME: z.string().default('Werciley Saraiva Vieira Junior'),
   MEDICO_CRM: z.string().default('16381'),
