@@ -1,5 +1,6 @@
 import './instrument.ts'
 import express from 'express'
+import compression from 'compression'
 import cookieParser from 'cookie-parser'
 import { createExpressMiddleware } from '@trpc/server/adapters/express'
 import path from 'path'
@@ -13,9 +14,23 @@ import { applySecurityMiddleware } from './security.ts'
 import { appRouter } from '../routers.ts'
 import { createContext } from './context.ts'
 import { authLimiter, tokenValidateLimiter, uploadLimiter, totpLimiter, dataRightsLimiter, globalLimiter } from './rateLimiters.ts'
-import { db } from '../db.ts'
+import { db, pool } from '../db.ts'
 import { ensureSchema } from './ensureSchema.ts'
 import { Sentry } from './instrument.ts'
+import type { Worker } from 'bullmq'
+
+// Keeps references so graceful shutdown can close BullMQ workers cleanly.
+let _activeWorkers: Worker[] = []
+
+// Protects ops-only endpoints. No-op when OPS_TOKEN is not configured (dev).
+function requireOpsToken(req: express.Request, res: express.Response, next: express.NextFunction) {
+  if (!env.OPS_TOKEN) { next(); return }
+  if (req.headers['x-ops-token'] !== env.OPS_TOKEN) {
+    res.status(401).json({ error: 'Não autorizado' })
+    return
+  }
+  next()
+}
 
 declare global {
   namespace Express {
@@ -33,6 +48,7 @@ const app = express()
 app.set('trust proxy', 1)
 
 applySecurityMiddleware(app)
+app.use(compression())
 app.use(cookieParser())
 app.use(globalLimiter)
 
@@ -272,7 +288,7 @@ app.get('/api/health/version', (_req, res) => {
 })
 
 // Metrics — queue depth, memory, circuit breaker state
-app.get('/api/metrics', async (_req, res) => {
+app.get('/api/metrics', requireOpsToken, async (_req, res) => {
   const { getCircuitStatus } = await import('./circuitBreaker.ts')
   let pdfWaiting = -1
   let linkWaiting = -1
@@ -304,8 +320,8 @@ app.get('/api/metrics', async (_req, res) => {
   })
 })
 
-// LLM usage — consumo diário vs limite (admin/ops only — sem autenticação intencional: dados não sensíveis)
-app.get('/api/admin/usage', async (_req, res) => {
+// LLM usage — consumo diário vs limite
+app.get('/api/admin/usage', requireOpsToken, async (_req, res) => {
   const today = new Date().toISOString().slice(0, 10)
   const key = `llm:daily:${today}`
   let llmToday = 0
@@ -395,11 +411,13 @@ const server = app.listen(env.PORT, async () => {
   if (env.WORKERS_ENABLED !== false) {
     const { startPdfWorker, startLembreteWorker, startPesquisaWorker, startLinkAcessoWorker, agendarLembreteDiario, agendarDrMensal } = await import('../pdfQueue.ts')
     const { startExamWorker } = await import('../examQueue.ts')
-    startPdfWorker()
-    startLembreteWorker()
-    startPesquisaWorker()
-    startLinkAcessoWorker()
-    startExamWorker()
+    _activeWorkers = [
+      startPdfWorker(),
+      startLembreteWorker(),
+      startPesquisaWorker(),
+      startLinkAcessoWorker(),
+      startExamWorker(),
+    ]
     await agendarLembreteDiario()
     await agendarDrMensal()
     logger.info('[server] Workers BullMQ iniciados em-processo.')
@@ -413,8 +431,13 @@ const server = app.listen(env.PORT, async () => {
 async function shutdown(signal: string) {
   logger.info(`[server] ${signal} recebido — encerrando graciosamente...`)
   server.close(async () => {
+    if (_activeWorkers.length > 0) {
+      await Promise.allSettled(_activeWorkers.map((w) => w.close()))
+      logger.info('[server] Workers BullMQ encerrados.')
+    }
     const { redis } = await import('./redis.ts')
     await redis.quit().catch(() => undefined)
+    await pool.end().catch(() => undefined)
     logger.info('[server] Conexões encerradas. Saindo.')
     process.exit(0)
   })

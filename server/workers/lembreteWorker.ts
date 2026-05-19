@@ -20,11 +20,11 @@ export async function agendarLembreteDiario() {
   })
 }
 
-// Agendado todo dia 1 às 9h — valida conectividade dos recursos críticos
+// Roda diariamente às 7h — valida conectividade dos recursos críticos
 // e alerta via Sentry se qualquer serviço estiver degradado.
 export async function agendarDrMensal() {
   await lembreteQueue.add('dr-mensal', {}, {
-    repeat: { pattern: '0 9 1 * *' },
+    repeat: { pattern: '0 7 * * *' },
     jobId: 'dr-mensal-fixo',
   })
 }

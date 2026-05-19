@@ -25,9 +25,9 @@ export default defineConfig({
         'server/scripts/**',
       ],
       thresholds: {
-        // Raise incrementally as test surface grows — do not lower below these values.
-        lines: 7,
-        functions: 30,
+        // Do not lower below these values.
+        lines: 40,
+        functions: 40,
         branches: 60,
       },
     },

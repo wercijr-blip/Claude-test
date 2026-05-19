@@ -68,6 +68,10 @@ const envSchema = z.object({
   // Gerar com: openssl rand -hex 32
   TOTP_ENC_KEY: z.string().length(64),
 
+  // Ops endpoints protection (/api/metrics, /api/admin/usage)
+  // Gerar com: openssl rand -hex 32
+  OPS_TOKEN: z.string().min(32).optional(),
+
   // Payment methods — toggle via Railway without code deploy.
   // Set ENABLE_DEBIT_CARD=true once Asaas account enables DEBIT_CARD billing.
   ENABLE_DEBIT_CARD: z.coerce.boolean().default(false),
