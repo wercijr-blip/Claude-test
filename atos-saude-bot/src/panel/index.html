@@ -4,80 +4,124 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Atos Hospital Dia — Painel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 <style>
+  * { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
   [x-cloak] { display: none !important; }
 
-  /* Sidebar */
+  /* ── SIDEBAR ─────────────────────────────────────────── */
   .nav-item {
     display: flex; align-items: center; gap: 10px;
-    padding: 9px 12px; border-radius: 8px;
-    font-size: 13px; transition: all .15s; cursor: pointer;
-    width: 100%; text-align: left; color: #C4B5E8;
+    padding: 9px 14px; border-radius: 10px;
+    font-size: 13px; transition: all .18s ease; cursor: pointer;
+    width: 100%; text-align: left; color: #94A3B8; font-weight: 500;
   }
-  .nav-item:hover { background: #2E1F5E; color: #fff; }
-  .nav-item.active { background: #2D8C8C; color: #fff; font-weight: 600; }
+  .nav-item:hover { background: rgba(255,255,255,0.07); color: #E2E8F0; }
+  .nav-item.active {
+    background: linear-gradient(135deg, #0D9488 0%, #0891B2 100%);
+    color: #fff; font-weight: 600;
+    box-shadow: 0 4px 14px rgba(13,148,136,0.35);
+  }
   .nav-badge {
-    margin-left: auto; background: #ef4444; color: #fff;
-    font-size: 11px; font-weight: 700; border-radius: 999px;
-    min-width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;
+    margin-left: auto; background: #EF4444; color: #fff;
+    font-size: 10px; font-weight: 700; border-radius: 999px;
+    min-width: 18px; height: 18px; padding: 0 4px;
+    display: flex; align-items: center; justify-content: center;
     animation: pulse 2s cubic-bezier(.4,0,.6,1) infinite;
   }
 
-  /* Cards / Tables */
-  .card { background: #fff; border-radius: 14px; box-shadow: 0 1px 4px rgba(34,23,72,.07); }
-  .tbl-head th { background: #F8F7FC; color: #5B4B8A; font-size: 11px; font-weight: 600;
-    text-transform: uppercase; letter-spacing: .05em; padding: 10px 14px; text-align: left; }
-  .tbl-row td { padding: 10px 14px; font-size: 13px; border-bottom: 1px solid #F3F1FB; }
+  /* ── CARDS ─────────────────────────────────────────────── */
+  .card {
+    background: #fff; border-radius: 16px;
+    box-shadow: 0 1px 3px rgba(15,23,42,.05), 0 4px 16px rgba(15,23,42,.05);
+    border: 1px solid #F1F5F9;
+  }
+
+  /* ── TABLE ─────────────────────────────────────────────── */
+  .tbl-head th {
+    background: #F8FAFC; color: #64748B; font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .06em; padding: 12px 16px; text-align: left;
+    border-bottom: 1px solid #E2E8F0;
+  }
+  .tbl-row td { padding: 11px 16px; font-size: 13px; border-bottom: 1px solid #F8FAFC; color: #334155; }
   .tbl-row:last-child td { border-bottom: none; }
-  .tbl-row:hover td { background: #FAFAFE; }
+  .tbl-row:hover td { background: #F8FAFC; transition: background .1s; }
 
-  /* Buttons */
-  .btn-primary { background: #2D8C8C; color: #fff; border-radius: 8px; padding: 8px 18px;
-    font-size: 13px; font-weight: 600; transition: opacity .15s; }
-  .btn-primary:hover { opacity: .88; }
-  .btn-primary:disabled { opacity: .45; cursor: not-allowed; }
-  .btn-danger { background: #DC2626; color: #fff; border-radius: 8px; padding: 8px 18px;
-    font-size: 13px; font-weight: 600; transition: opacity .15s; }
-  .btn-danger:hover { opacity: .88; }
-  .btn-ghost { background: #F1EEF9; color: #5B4B8A; border-radius: 8px; padding: 8px 18px;
-    font-size: 13px; font-weight: 600; transition: background .15s; }
-  .btn-ghost:hover { background: #E4DFF5; }
+  /* ── BUTTONS ───────────────────────────────────────────── */
+  .btn-primary {
+    background: linear-gradient(135deg, #0D9488 0%, #0891B2 100%);
+    color: #fff; border-radius: 10px; padding: 8px 18px;
+    font-size: 13px; font-weight: 600; transition: all .18s;
+    box-shadow: 0 2px 8px rgba(13,148,136,0.28);
+  }
+  .btn-primary:hover { opacity: .92; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(13,148,136,0.38); }
+  .btn-primary:disabled { opacity: .45; cursor: not-allowed; transform: none; box-shadow: none; }
+  .btn-danger {
+    background: linear-gradient(135deg, #EF4444, #DC2626);
+    color: #fff; border-radius: 10px; padding: 8px 18px;
+    font-size: 13px; font-weight: 600; transition: all .18s;
+    box-shadow: 0 2px 8px rgba(239,68,68,0.22);
+  }
+  .btn-danger:hover { opacity: .9; transform: translateY(-1px); }
+  .btn-ghost {
+    background: #F1F5F9; color: #475569; border-radius: 10px; padding: 8px 18px;
+    font-size: 13px; font-weight: 600; transition: all .15s;
+    border: 1px solid #E2E8F0;
+  }
+  .btn-ghost:hover { background: #E2E8F0; color: #1E293B; }
 
-  /* Badges */
-  .badge-pendente  { background:#FEF3C7; color:#92400E; }
-  .badge-confirmado{ background:#D1FAE5; color:#065F46; }
-  .badge-cancelado { background:#FEE2E2; color:#991B1B; }
-  .badge-convenio  { background:#DBEAFE; color:#1E40AF; }
-  .badge-particular{ background:#FEF9C3; color:#854D0E; }
-  .badge { border-radius: 999px; padding: 2px 10px; font-size: 11px; font-weight: 600; }
+  /* ── BADGES ────────────────────────────────────────────── */
+  .badge-pendente   { background: #FEF3C7; color: #92400E; }
+  .badge-confirmado { background: #D1FAE5; color: #065F46; }
+  .badge-cancelado  { background: #FEE2E2; color: #991B1B; }
+  .badge-convenio   { background: #E0F2FE; color: #0369A1; }
+  .badge-particular { background: #FEF9C3; color: #854D0E; }
+  .badge { border-radius: 6px; padding: 3px 10px; font-size: 11px; font-weight: 600; }
 
-  /* Row colors */
+  /* ── ROW TINTS ─────────────────────────────────────────── */
   .row-particular { background: #FFFBEB; }
   .row-infusao    { background: #FAF5FF; }
   .row-medicacao  { background: #F0FDF4; }
 
-  /* Input */
-  .inp { border: 1.5px solid #E5E0F3; border-radius: 8px; padding: 8px 12px;
-    font-size: 13px; width: 100%; transition: border-color .15s; outline: none; }
-  .inp:focus { border-color: #2D8C8C; }
+  /* ── INPUTS ────────────────────────────────────────────── */
+  .inp {
+    border: 1.5px solid #E2E8F0; border-radius: 10px; padding: 9px 13px;
+    font-size: 13px; width: 100%; transition: all .15s; outline: none;
+    background: #fff; color: #1E293B;
+  }
+  .inp:focus { border-color: #0D9488; box-shadow: 0 0 0 3px rgba(13,148,136,0.12); }
+  select.inp { cursor: pointer; }
 
-  /* Drag-over */
-  .drag-over { border-color: #2D8C8C !important; background: #E6F7F7; }
+  /* ── DRAG OVER ─────────────────────────────────────────── */
+  .drag-over { border-color: #0D9488 !important; background: #CCFBF1 !important; }
 
-  /* Scrollbar sidebar */
+  /* ── STAT CARDS ────────────────────────────────────────── */
+  .stat-card {
+    background: #fff; border-radius: 16px; padding: 16px;
+    border: 1px solid #F1F5F9;
+    box-shadow: 0 1px 3px rgba(15,23,42,.04), 0 4px 16px rgba(15,23,42,.04);
+    transition: transform .18s, box-shadow .18s;
+  }
+  .stat-card:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(15,23,42,.08); }
+
+  /* ── SCROLLBAR ─────────────────────────────────────────── */
   .sidebar-nav::-webkit-scrollbar { width: 4px; }
   .sidebar-nav::-webkit-scrollbar-track { background: transparent; }
-  .sidebar-nav::-webkit-scrollbar-thumb { background: #3D2870; border-radius: 4px; }
+  .sidebar-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 4px; }
+
+  /* ── SMOOTH SCROLLING ──────────────────────────────────── */
+  html { scroll-behavior: smooth; }
 </style>
 </head>
-<body class="bg-[#F4F6FB]" x-data="painel()" x-init="init()">
+<body class="bg-[#F1F5F9]" x-data="painel()" x-init="init()">
 
 <!-- ═══════════════════ TELA DE LOGIN ═══════════════════ -->
 <div x-show="!autenticado" x-cloak
   class="min-h-screen flex items-center justify-center"
-  style="background: linear-gradient(135deg, #221748 0%, #2D8C8C 100%)">
+  style="background: linear-gradient(135deg, #0F172A 0%, #0D9488 100%)">
   <div class="card p-8 w-full max-w-sm mx-4">
 
     <!-- Logo -->
@@ -126,7 +170,7 @@
       <div class="w-12 h-12 rounded-full bg-[#EDE9FA] flex items-center justify-center mx-auto mb-3">
         <span class="text-2xl">🔐</span>
       </div>
-      <h2 class="text-lg font-bold text-[#3A2169]">Troque sua senha</h2>
+      <h2 class="text-lg font-bold text-slate-800">Troque sua senha</h2>
       <p class="text-xs text-gray-400 mt-1">Por segurança, defina uma senha pessoal antes de continuar.</p>
     </div>
     <div class="space-y-3">
@@ -195,13 +239,13 @@
 <div x-show="autenticado && !showChangePwd" x-cloak class="flex min-h-screen">
 
   <!-- SIDEBAR -->
-  <aside class="fixed left-0 top-0 h-screen w-60 flex flex-col z-30 shadow-xl transition-transform duration-200"
+  <aside class="fixed left-0 top-0 h-screen w-60 flex flex-col z-30 transition-transform duration-200"
     :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
-    style="background:#221748"
+    style="background:linear-gradient(180deg,#0F172A 0%,#111827 100%);box-shadow:4px 0 24px rgba(0,0,0,0.18)"
     aria-label="Navegação principal">
 
     <!-- Logo -->
-    <div class="px-5 py-5 border-b" style="border-color:#2E1F5E">
+    <div class="px-5 py-5 border-b" style="border-color:rgba(255,255,255,0.07)">
       <svg viewBox="0 0 160 52" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full max-w-[148px]">
         <circle cx="16" cy="11" r="8" fill="#2D8C8C" opacity=".95"/>
         <circle cx="8"  cy="24" r="8" fill="#2D8C8C" opacity=".8"/>
@@ -229,10 +273,10 @@
     </nav>
 
     <!-- User + logout -->
-    <div class="p-4 border-t" style="border-color:#2E1F5E">
+    <div class="p-4 border-t" style="border-color:rgba(255,255,255,0.07)">
       <div class="flex items-center gap-3 mb-3">
         <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
-          style="background:#2D8C8C; color:#fff"
+          style="background:linear-gradient(135deg,#0D9488,#0891B2);color:#fff"
           x-text="(currentUser?.name || 'U').charAt(0).toUpperCase()">
         </div>
         <div class="overflow-hidden">
@@ -249,9 +293,9 @@
       </div>
       <button @click="sairSessao()"
         class="w-full text-xs py-2 rounded-lg transition-colors text-center font-medium"
-        style="background:#2E1F5E; color:#C4B5E8"
-        onmouseover="this.style.background='#3D2870'"
-        onmouseout="this.style.background='#2E1F5E'">
+        style="background:rgba(255,255,255,0.06);color:#94A3B8"
+        onmouseover="this.style.background='rgba(255,255,255,0.1)'"
+        onmouseout="this.style.background='rgba(255,255,255,0.06)'">
         Sair da conta
       </button>
     </div>
@@ -267,13 +311,14 @@
   <main class="lg:ml-60 flex-1 min-h-screen flex flex-col">
 
     <!-- TOP BAR -->
-    <header class="bg-white border-b border-gray-100 px-4 lg:px-6 py-3 flex items-center justify-between sticky top-0 z-20 shadow-sm">
+    <header class="bg-white/90 backdrop-blur border-b border-slate-100 px-4 lg:px-6 py-3 flex items-center justify-between sticky top-0 z-20"
+      style="box-shadow:0 1px 12px rgba(15,23,42,0.06)">
       <div class="flex items-center gap-3">
         <button @click="sidebarOpen=!sidebarOpen"
           class="lg:hidden w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600"
           aria-label="Abrir menu">☰</button>
         <span class="text-lg" x-text="tabs.find(t=>t.id===activeTab)?.icon || '📋'"></span>
-        <h1 class="text-base font-bold text-[#3A2169]"
+        <h1 class="text-base font-bold text-slate-800"
           x-text="tabs.find(t=>t.id===activeTab)?.label || 'Painel'"></h1>
       </div>
       <div class="flex items-center gap-5">
@@ -298,9 +343,13 @@
     <!-- STATS BAR -->
     <div class="px-6 pt-5 pb-2 grid grid-cols-2 md:grid-cols-6 gap-3">
       <template x-for="card in statCards" :key="card.label">
-        <div class="card p-3 text-center border-t-4" :style="'border-color:' + card.color">
-          <p class="text-2xl font-bold" :style="'color:' + card.color" x-text="stats[card.key] ?? 0"></p>
-          <p class="text-xs text-gray-400 mt-0.5" x-text="card.label"></p>
+        <div class="stat-card flex items-center gap-3 text-left"
+          :style="`border-left: 4px solid ${card.color}`">
+          <div class="flex-1 min-w-0">
+            <p class="text-2xl font-extrabold leading-none" :style="'color:' + card.color" x-text="stats[card.key] ?? 0"></p>
+            <p class="text-xs text-slate-400 mt-1 font-medium" x-text="card.label"></p>
+          </div>
+          <span class="text-2xl opacity-40 shrink-0" x-text="card.icon || '📊'" aria-hidden="true"></span>
         </div>
       </template>
     </div>
@@ -388,7 +437,7 @@
     <!-- ── Tab: Nova Marcação ───────────────────────────────── -->
     <div x-show="activeTab==='marcacao'" x-cloak class="pt-4">
       <div class="card p-6 max-w-2xl mx-auto">
-        <h2 class="text-base font-bold text-[#3A2169] mb-1">📝 Nova Marcação Manual</h2>
+        <h2 class="text-base font-bold text-slate-800 mb-1">📝 Nova Marcação Manual</h2>
         <p class="text-xs text-gray-400 mb-5">Lembretes de 24h e 2h + pesquisa de satisfação disparam automaticamente.</p>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="md:col-span-2">
@@ -414,7 +463,7 @@
           <div>
             <label class="block text-xs font-semibold text-gray-500 mb-1">Horário *</label>
             <div x-show="marcacao.slots.length===0&&!marcacao.loadingSlots" class="text-xs text-gray-300 py-2">Selecione médico e data</div>
-            <div x-show="marcacao.loadingSlots" class="text-xs text-[#2D8C8C] py-2">Buscando no Google Calendar…</div>
+            <div x-show="marcacao.loadingSlots" class="text-xs text-teal-600 py-2">Buscando no Google Calendar…</div>
             <div class="flex flex-wrap gap-2 mt-1">
               <template x-for="slot in marcacao.slots" :key="slot.iso">
                 <button @click="marcacao.slotISO=slot.iso"
@@ -471,7 +520,7 @@
         <div class="card p-5">
           <div class="flex items-start justify-between mb-3">
             <div>
-              <h2 class="text-base font-bold text-[#3A2169]">✏️ Editar Textos do Bot</h2>
+              <h2 class="text-base font-bold text-slate-800">✏️ Editar Textos do Bot</h2>
               <p class="text-xs text-gray-400 mt-0.5">Alterações entram em vigor imediatamente.</p>
             </div>
             <div class="flex gap-2">
@@ -523,7 +572,7 @@
       <div class="card overflow-auto">
         <div class="p-4 flex items-center justify-between border-b border-gray-50">
           <div class="flex items-center gap-3">
-            <h2 class="font-bold text-[#3A2169]">👩‍⚕️ Fila de Atendimento Humano</h2>
+            <h2 class="font-bold text-slate-800">👩‍⚕️ Fila de Atendimento Humano</h2>
             <span x-show="humanWaiting.length>0"
               class="nav-badge static animate-pulse" x-text="humanWaiting.length"></span>
           </div>
@@ -568,7 +617,7 @@
     <div x-show="activeTab==='encaixe'" x-cloak class="pt-4">
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div class="card p-5">
-          <h2 class="font-bold text-[#3A2169] mb-4">➕ Adicionar à Fila</h2>
+          <h2 class="font-bold text-slate-800 mb-4">➕ Adicionar à Fila</h2>
           <div class="space-y-3">
             <div>
               <label class="block text-xs font-semibold text-gray-500 mb-1">WhatsApp *</label>
@@ -590,7 +639,7 @@
         </div>
         <div class="md:col-span-2 card overflow-auto">
           <div class="p-4 flex items-center justify-between border-b border-gray-50">
-            <h2 class="font-bold text-[#3A2169]">🔄 Fila de Encaixe
+            <h2 class="font-bold text-slate-800">🔄 Fila de Encaixe
               <span x-show="encaixeQueue.length>0"
                 class="ml-2 text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-bold"
                 x-text="encaixeQueue.length"></span>
@@ -607,7 +656,7 @@
               </template>
               <template x-for="(row,idx) in encaixeQueue" :key="row.id||idx">
                 <tr class="tbl-row">
-                  <td class="font-semibold text-[#2D8C8C]" x-text="(idx+1)+'º'"></td>
+                  <td class="font-semibold text-teal-600" x-text="(idx+1)+'º'"></td>
                   <td class="font-mono text-xs text-gray-500" x-text="row.phone"></td>
                   <td class="font-medium" x-text="row.nome||'—'"></td>
                   <td x-text="row.especialidade||'—'"></td>
@@ -629,7 +678,7 @@
     <div x-show="activeTab==='medicos'" x-cloak class="pt-4">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div class="card p-5">
-          <h2 class="font-bold text-[#3A2169] mb-1">👨‍⚕️ Cadastrar Novo Médico</h2>
+          <h2 class="font-bold text-slate-800 mb-1">👨‍⚕️ Cadastrar Novo Médico</h2>
           <p class="text-xs text-gray-400 mb-4">Google Calendar criado automaticamente.</p>
           <div class="space-y-3">
             <div class="grid grid-cols-2 gap-3">
@@ -690,7 +739,7 @@
         </div>
         <div class="card overflow-auto">
           <div class="p-4 flex items-center justify-between border-b border-gray-50">
-            <h2 class="font-bold text-[#3A2169]">📋 Médicos Cadastrados</h2>
+            <h2 class="font-bold text-slate-800">📋 Médicos Cadastrados</h2>
             <button @click="loadDoctorsAll()" class="btn-ghost px-3 py-1.5 text-xs">🔄</button>
           </div>
           <table class="w-full">
@@ -711,7 +760,7 @@
                     x-text="doc.active?'Ativo':'Inativo'"></span></td>
                   <td>
                     <button @click="toggleMedico(doc)"
-                      :class="doc.active?'text-red-500 hover:text-red-700':'text-[#2D8C8C] hover:opacity-80'"
+                      :class="doc.active?'text-red-500 hover:text-red-700':'text-teal-600 hover:opacity-80'"
                       class="text-xs underline font-medium"
                       x-text="doc.active?'Desativar':'Ativar'"></button>
                   </td>
@@ -728,7 +777,7 @@
     <div x-show="activeTab==='usuarios'" x-cloak class="pt-4">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div class="card p-5">
-          <h2 class="font-bold text-[#3A2169] mb-4">👤 Criar Novo Usuário</h2>
+          <h2 class="font-bold text-slate-800 mb-4">👤 Criar Novo Usuário</h2>
           <div class="space-y-3">
             <div>
               <label class="block text-xs font-semibold text-gray-500 mb-1">Nome completo *</label>
@@ -763,7 +812,7 @@
         </div>
         <div class="card overflow-auto">
           <div class="p-4 flex items-center justify-between border-b border-gray-50">
-            <h2 class="font-bold text-[#3A2169]">👥 Usuários do Sistema</h2>
+            <h2 class="font-bold text-slate-800">👥 Usuários do Sistema</h2>
             <button @click="loadUsuarios()" class="btn-ghost px-3 py-1.5 text-xs">🔄</button>
           </div>
           <table class="w-full">
@@ -787,7 +836,7 @@
                     x-text="usr.active?'Ativo':'Inativo'"></span></td>
                   <td class="flex gap-2">
                     <button @click="toggleUsuario(usr)"
-                      :class="usr.active?'text-red-500':'text-[#2D8C8C]'"
+                      :class="usr.active?'text-red-500':'text-teal-600'"
                       class="text-xs underline font-medium"
                       x-text="usr.active?'Bloquear':'Ativar'"></button>
                     <button @click="resetarSenha(usr)"
@@ -806,7 +855,7 @@
     <div x-show="activeTab==='exames'" x-cloak class="space-y-4">
       <div class="card overflow-auto">
         <div class="p-4 flex items-center justify-between border-b border-gray-50">
-          <h2 class="font-bold text-[#3A2169]">🩺 Exames Enviados para Análise</h2>
+          <h2 class="font-bold text-slate-800">🩺 Exames Enviados para Análise</h2>
           <button @click="loadExames()" class="btn-ghost px-3 py-1.5 text-xs">🔄</button>
         </div>
         <table class="w-full">
@@ -830,7 +879,7 @@
                 <td>
                   <a x-show="e.file_path"
                     :href="'/api/exames/'+e.id+'/download'"
-                    class="text-xs text-[#2D8C8C] underline font-medium"
+                    class="text-xs text-teal-600 underline font-medium"
                     target="_blank">⬇ Baixar</a>
                   <span x-show="!e.file_path" class="text-xs text-gray-300">Sem arquivo</span>
                 </td>
@@ -846,7 +895,7 @@
     <!-- Tab WhatsApp ─────────────────────────────────────────── -->
     <div x-show="activeTab==='whatsapp'" x-cloak class="space-y-5">
       <div class="card p-5">
-        <h2 class="font-bold text-[#3A2169] mb-4">📱 Status da Conexão WhatsApp</h2>
+        <h2 class="font-bold text-slate-800 mb-4">📱 Status da Conexão WhatsApp</h2>
         <div class="flex items-center gap-4 mb-5">
           <span class="w-3 h-3 rounded-full" role="status"
             :class="{'bg-green-400':waStatus==='open','bg-yellow-400':waStatus==='connecting','bg-red-400':!waStatus||waStatus==='close'}"
@@ -886,7 +935,7 @@
     <div x-show="activeTab==='medicacoes'" x-cloak class="space-y-4">
       <div class="card overflow-auto">
         <div class="p-4 flex items-center justify-between border-b border-gray-50">
-          <h2 class="font-bold text-[#3A2169]">💊 Solicitações de Medicação</h2>
+          <h2 class="font-bold text-slate-800">💊 Solicitações de Medicação</h2>
           <button @click="loadMedicacoes()" class="btn-ghost px-3 py-1.5 text-xs">🔄</button>
         </div>
         <table class="w-full">
@@ -918,7 +967,7 @@
     <div x-show="activeTab==='conhecimento'" x-cloak class="space-y-4">
       <div class="grid grid-cols-2 gap-4">
         <div class="card p-4 text-center">
-          <p class="text-2xl font-black text-[#2D8C8C]" x-text="conhecimentoStats.perguntasHoje ?? 0"></p>
+          <p class="text-2xl font-black text-teal-600" x-text="conhecimentoStats.perguntasHoje ?? 0"></p>
           <p class="text-xs text-gray-400 mt-0.5">Perguntas hoje</p>
         </div>
         <div class="card p-4 text-center">
@@ -929,7 +978,7 @@
         </div>
       </div>
       <div class="card p-5">
-        <h2 class="font-bold text-[#3A2169] mb-4">📚 Base de Conhecimento</h2>
+        <h2 class="font-bold text-slate-800 mb-4">📚 Base de Conhecimento</h2>
         <div class="flex gap-2 mb-4">
           <input x-model="novoConhecimento.filename" class="inp flex-1" placeholder="Nome / título">
           <select x-model="novoConhecimento.category" class="inp w-40">
@@ -942,7 +991,7 @@
       </div>
       <div class="card overflow-auto">
         <div class="p-4 flex items-center justify-between border-b border-gray-50">
-          <span class="font-bold text-[#3A2169]">Documentos ativos</span>
+          <span class="font-bold text-slate-800">Documentos ativos</span>
           <button @click="loadConhecimento()" class="btn-ghost px-3 py-1.5 text-xs">🔄</button>
         </div>
         <table class="w-full">
@@ -987,11 +1036,11 @@
       </div>
       <div class="grid grid-cols-3 gap-4">
         <div class="card p-5 text-center">
-          <p class="text-3xl font-black text-[#2D8C8C]" x-text="mediaNotas||'—'"></p>
+          <p class="text-3xl font-black text-teal-600" x-text="mediaNotas||'—'"></p>
           <p class="text-xs text-gray-400 mt-1">Nota média</p>
         </div>
         <div class="card p-5 text-center">
-          <p class="text-3xl font-black text-[#3A2169]" x-text="satisfacoes.length"></p>
+          <p class="text-3xl font-black text-slate-800" x-text="satisfacoes.length"></p>
           <p class="text-xs text-gray-400 mt-1">Avaliações</p>
         </div>
         <div class="card p-5 text-center">
@@ -1001,7 +1050,7 @@
       </div>
       <div class="card overflow-auto">
         <div class="p-4 flex items-center justify-between border-b border-gray-50">
-          <h2 class="font-bold text-[#3A2169]">⭐ Pesquisas de Satisfação</h2>
+          <h2 class="font-bold text-slate-800">⭐ Pesquisas de Satisfação</h2>
           <button @click="loadSatisfacao()" class="btn-ghost px-3 py-1.5 text-xs">🔄</button>
         </div>
         <table class="w-full">
@@ -1032,7 +1081,7 @@
     <div x-show="activeTab==='conversas'" x-cloak class="space-y-4">
       <div x-show="!conversaAberta" class="card overflow-auto">
         <div class="p-4 flex items-center justify-between border-b border-gray-50">
-          <h2 class="font-bold text-[#3A2169]">💬 Monitor de Conversas</h2>
+          <h2 class="font-bold text-slate-800">💬 Monitor de Conversas</h2>
           <button @click="loadConversas()" class="btn-ghost px-3 py-1.5 text-xs">🔄</button>
         </div>
         <table class="w-full">
@@ -1046,13 +1095,13 @@
                 <td class="font-mono text-xs text-gray-500" x-text="c.phone"></td>
                 <td class="font-medium" x-text="c.nome||'—'"></td>
                 <td class="max-w-xs truncate text-sm"
-                  :class="c.last_direction==='IN'?'text-gray-700':'text-[#2D8C8C]'"
+                  :class="c.last_direction==='IN'?'text-gray-700':'text-teal-600'"
                   x-text="(c.last_direction==='IN'?'':'▶ ')+c.last_message">
                 </td>
                 <td><span class="badge bg-purple-100 text-purple-700 text-xs" x-text="c.current_flow||c.last_flow||'—'"></span></td>
-                <td class="text-center text-xs font-bold text-[#3A2169]" x-text="c.message_count"></td>
+                <td class="text-center text-xs font-bold text-slate-800" x-text="c.message_count"></td>
                 <td class="text-xs text-gray-400" x-text="formatDate(c.last_timestamp)"></td>
-                <td><button class="text-xs text-[#2D8C8C] underline">Ver →</button></td>
+                <td><button class="text-xs text-teal-600 underline">Ver →</button></td>
               </tr>
             </template>
           </tbody>
@@ -1063,7 +1112,7 @@
         <div class="p-4 flex items-center gap-3 border-b border-gray-100">
           <button @click="conversaAberta=null" class="btn-ghost px-3 py-1.5 text-xs">← Voltar</button>
           <div>
-            <p class="font-bold text-[#3A2169]" x-text="conversaAberta?.nome||conversaAberta?.phone"></p>
+            <p class="font-bold text-slate-800" x-text="conversaAberta?.nome||conversaAberta?.phone"></p>
             <p class="text-xs text-gray-400 font-mono" x-text="conversaAberta?.phone"></p>
           </div>
           <span class="ml-auto badge bg-purple-100 text-purple-700" x-text="conversaAberta?.current_flow||'—'"></span>
@@ -1110,7 +1159,7 @@
     class="fixed inset-0 z-50 flex items-center justify-center"
     style="background:rgba(34,23,72,.55)">
     <div class="card p-6 w-full max-w-lg mx-4" @click.stop>
-      <h3 class="font-bold text-[#3A2169] mb-4">➕ Novo Texto</h3>
+      <h3 class="font-bold text-slate-800 mb-4">➕ Novo Texto</h3>
       <div class="space-y-3">
         <div>
           <label class="text-xs font-medium text-gray-600 mb-1 block">Chave (ex: boas_vindas)</label>
@@ -1136,7 +1185,7 @@
     class="fixed inset-0 z-50 flex items-center justify-center"
     style="background:rgba(34,23,72,.55)">
     <div class="card p-6 w-full max-w-sm mx-4" @click.stop>
-      <h3 class="font-bold text-[#3A2169] mb-1">🔑 Redefinir Senha</h3>
+      <h3 class="font-bold text-slate-800 mb-1">🔑 Redefinir Senha</h3>
       <p class="text-xs text-gray-400 mb-4"
         x-text="resetSenhaTarget ? 'Usuário: '+resetSenhaTarget.name : ''"></p>
       <div>
@@ -1206,12 +1255,12 @@ function painel() {
 
     // Stats cards definition
     statCards: [
-      { key:'agenda',    label:'Pendentes',  color:'#F59E0B' },
-      { key:'hoje',      label:'Hoje',       color:'#10B981' },
-      { key:'humano',    label:'Humano',     color:'#EF4444' },
-      { key:'encaixe',   label:'Encaixe',    color:'#8B5CF6' },
-      { key:'conversas', label:'Conversas',  color:'#2D8C8C' },
-      { key:'consultas', label:'Consultas',  color:'#3B82F6' },
+      { key:'agenda',    label:'Pendentes',  color:'#F59E0B', icon:'⏳' },
+      { key:'hoje',      label:'Hoje',       color:'#10B981', icon:'📅' },
+      { key:'humano',    label:'Humano',     color:'#EF4444', icon:'🙋' },
+      { key:'encaixe',   label:'Encaixe',    color:'#8B5CF6', icon:'🔄' },
+      { key:'conversas', label:'Conversas',  color:'#0D9488', icon:'💬' },
+      { key:'consultas', label:'Consultas',  color:'#3B82F6', icon:'🩺' },
     ],
 
     // Clock compat
