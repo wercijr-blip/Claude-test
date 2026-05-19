@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockLoggerInfo = vi.fn();
-const mockInsert = vi
-  .fn()
-  .mockReturnValue({ values: vi.fn().mockReturnValue({ catch: vi.fn() }) });
+const mockLoggerError = vi.fn();
+const mockCatch = vi.fn();
+const mockValues = vi.fn().mockReturnValue({ catch: mockCatch });
+const mockInsert = vi.fn().mockReturnValue({ values: mockValues });
 
 vi.mock("./_core/logger.ts", () => ({
-  logger: { info: mockLoggerInfo, error: vi.fn(), warn: vi.fn() },
+  logger: { info: mockLoggerInfo, error: mockLoggerError, warn: vi.fn() },
 }));
 
 vi.mock("./db.ts", () => ({
@@ -123,6 +124,24 @@ describe("logAudit", () => {
         action: "data.portability_request",
         ip: "127.0.0.1",
       }),
+    );
+  });
+
+  it("logs error when DB insert fails", () => {
+    mockCatch.mockImplementationOnce((cb: (err: Error) => void) =>
+      cb(new Error("db timeout")),
+    );
+
+    logAudit({
+      actorId: 1,
+      actorRole: "medico",
+      action: "user.login",
+      resourceType: "user",
+    });
+
+    expect(mockLoggerError).toHaveBeenCalledWith(
+      "[audit] falha ao persistir no banco",
+      expect.objectContaining({ error: "Error: db timeout" }),
     );
   });
 });
