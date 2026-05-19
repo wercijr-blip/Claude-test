@@ -148,8 +148,10 @@ db.exec(`
   );
 `)
 
-try { db.exec('CREATE INDEX IF NOT EXISTS idx_messages_log_phone ON messages_log(phone)') } catch {}
-try { db.exec('CREATE INDEX IF NOT EXISTS idx_messages_log_ts    ON messages_log(timestamp)') } catch {}
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_messages_log_phone   ON messages_log(phone)') } catch {}
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_messages_log_ts      ON messages_log(timestamp)') } catch {}
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_agendamentos_created ON agendamentos(created_at)') } catch {}
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_agendamentos_exported ON agendamentos(exported)') } catch {}
 
 // Adiciona coluna agendamento_id à tabela sessions se ainda não existir
 try { db.exec('ALTER TABLE sessions ADD COLUMN agendamento_id TEXT') } catch {}
@@ -325,6 +327,10 @@ export function toggleUserActive(id, active) {
 
 export function getUserById(id) {
   return db.prepare('SELECT id, username, name, role, active FROM users WHERE id = ? AND active = 1').get(id) || null
+}
+
+export function getUserAnyStatus(id) {
+  return db.prepare('SELECT id, username, name, role, active FROM users WHERE id = ?').get(id) || null
 }
 
 export function userCount() {

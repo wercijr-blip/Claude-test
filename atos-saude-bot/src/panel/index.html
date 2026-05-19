@@ -1299,11 +1299,17 @@ function painel() {
       setInterval(() => this.tickClock(), 1000)
       if (this.autenticado) {
         this.loadAll()
-        this.pollTimer = setInterval(() => {
-          this.loadSessoesHumanas()
-          this.loadEncaixe()
-        }, 30000)
+        this._startPoll()
       }
+    },
+
+    _startPoll() {
+      if (this.pollTimer) return
+      this.pollTimer = setInterval(() => {
+        if (document.hidden) return
+        this.loadSessoesHumanas()
+        this.loadEncaixe()
+      }, 30000)
     },
 
     tickClock() {
@@ -1337,6 +1343,7 @@ function painel() {
         this.autenticado = true
         if (d.user?.first_login) { this.showChangePwd = true; return }
         this.loadAll()
+        this._startPoll()
       } catch (e) { this.loginErr = e.message }
       finally { this.loginLoading = false }
     },
@@ -1345,7 +1352,7 @@ function painel() {
       this.token = ''; this.user = null; this.autenticado = false
       localStorage.removeItem('token'); localStorage.removeItem('user')
       clearInterval(this.qrTimer)
-      clearInterval(this.pollTimer)
+      clearInterval(this.pollTimer); this.pollTimer = null
     },
 
     async salvarNovaSenha() {
@@ -1357,6 +1364,7 @@ function painel() {
         await this.api('/auth/change-password', { method:'POST', body: JSON.stringify({ currentPassword: this.currentPwd, newPassword: this.newPwd }) })
         this.showChangePwd = false; this.newPwd = ''; this.newPwd2 = ''; this.currentPwd = ''
         this.loadAll()
+        this._startPoll()
       } catch (e) { this.changePwdErr = e.message }
     },
 
@@ -1409,27 +1417,6 @@ function painel() {
       catch (e) { alert(e.message) }
     },
 
-    async exportarCSV() {
-      try {
-        const d = await this.api('/agendamentos/export')
-        const rows = d.data || d
-        if (!rows.length) { alert('Nada para exportar'); return }
-        const keys = Object.keys(rows[0])
-        const csv = [keys.join(','), ...rows.map(r => keys.map(k => '"'+(r[k]||'').toString().replace(/"/g,'""')+'"').join(','))].join('\n')
-        const a = document.createElement('a')
-        a.href = URL.createObjectURL(new Blob([csv], { type:'text/csv' }))
-        a.download = 'agendamentos_'+new Date().toISOString().slice(0,10)+'.csv'
-        a.click()
-      } catch (e) { alert(e.message) }
-    },
-
-    async salvarBloqueio() {
-      try {
-        await this.api('/agenda/bloquear', { method:'POST', body: JSON.stringify({ data: this.bloqData, medico_id: this.bloqMedico, obs: this.bloqObs }) })
-        this.bloqModal = false; alert('Bloqueio registrado!')
-      } catch (e) { alert(e.message) }
-    },
-
     // Compat wrappers usados pelo HTML v1/v2
     async fazerLogin() {
       this.loginUser = this.login.username
@@ -1452,14 +1439,20 @@ function painel() {
 
     async confirmarBloqueio() {
       this.bloqueio.loading = true; this.bloqueio.msg = ''; this.bloqueio.erro = false
+      if (!this.bloqueio.inicio) {
+        this.bloqueio.msg = 'Informe o horário de início.'
+        this.bloqueio.erro = true; this.bloqueio.loading = false; return
+      }
+      const startISO = this.bloqueio.inicio
+      const endISO   = this.bloqueio.fim || (this.bloqueio.inicio.slice(0, 10) + 'T23:59:59')
       try {
         await this.api('/calendar/bloquear', {
           method:'POST',
           body: JSON.stringify({
             doctorId: this.bloqueio.doctorId,
-            startISO: this.bloqueio.inicio || (this.bloqueio.inicio?.slice(0,10) + 'T00:00:00'),
-            endISO:   this.bloqueio.fim    || (this.bloqueio.inicio?.slice(0,10) + 'T23:59:59'),
-            motivo:   this.bloqueio.motivo
+            startISO,
+            endISO,
+            motivo: this.bloqueio.motivo
           })
         })
         this.bloqueio.msg = '✅ Bloqueio registrado com sucesso!'

@@ -40,10 +40,10 @@ export function requireAuth(roles = []) {
     if (!user) return res.status(401).json({ error: 'Token inválido ou expirado. Faça login novamente.' })
     const dbUser = getUserById(user.id)
     if (!dbUser) return res.status(401).json({ error: 'Conta desativada. Faça login novamente.' })
-    if (roles.length > 0 && !roles.includes(user.role)) {
+    if (roles.length > 0 && !roles.includes(dbUser.role)) {
       return res.status(403).json({ error: 'Sem permissão para esta ação.' })
     }
-    req.user = user
+    req.user = dbUser
     next()
   }
 }

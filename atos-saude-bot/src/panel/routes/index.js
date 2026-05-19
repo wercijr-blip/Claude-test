@@ -11,7 +11,7 @@ import {
   getHumanWaitingSessions, clearSession,
   getConversations, getConversationByPhone,
   getExamSubmissions, insertMessageLog, upsertSession,
-  getAllUsers, insertUser, updateUserPassword, toggleUserActive
+  getAllUsers, insertUser, updateUserPassword, toggleUserActive, getUserAnyStatus
 } from '../../services/db.js'
 import db from '../../services/db.js'
 import { generateExcel } from '../../services/export.js'
@@ -454,10 +454,7 @@ apiRouter.post('/agendamentos/:id/cancelar-encaixe', async (req, res) => {
 })
 
 // POST /api/sessions/:phone/encerrar  (secretaria/admin marca atendimento humano como assumido)
-apiRouter.post('/sessions/:phone/encerrar', (req, res) => {
-  if (!['admin','secretaria'].includes(req.user?.role)) {
-    return res.status(403).json({ error: 'Sem permissão.' })
-  }
+apiRouter.post('/sessions/:phone/encerrar', requireAuth(['admin','secretaria']), (req, res) => {
   clearSession(req.params.phone)
   res.json({ ok: true })
 })
@@ -723,9 +720,9 @@ apiRouter.post('/usuarios', requireAuth(['admin']), (req, res) => {
 
 // PATCH /api/usuarios/:id/toggle — ativar/desativar
 apiRouter.patch('/usuarios/:id/toggle', requireAuth(['admin']), (req, res) => {
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id)
+  const user = getUserAnyStatus(Number(req.params.id))
   if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' })
-  toggleUserActive(req.params.id, !user.active)
+  toggleUserActive(user.id, !user.active)
   res.json({ ok: true, active: !user.active })
 })
 

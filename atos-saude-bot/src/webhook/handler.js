@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'crypto'
 import { sendText } from '../services/whatsapp.js'
 import { checkLimit } from '../utils/rate-limiter.js'
 import { getSession, insertMessageLog } from '../services/db.js'
@@ -7,10 +8,16 @@ import { router } from '../handlers/router.js'
 const MEDIA_TYPES = new Set(['imageMessage','documentMessage','audioMessage','videoMessage','stickerMessage','documentWithCaptionMessage'])
 
 const WEBHOOK_SECRET = process.env.EVOLUTION_WEBHOOK_SECRET
+const WEBHOOK_SECRET_BUF = WEBHOOK_SECRET ? Buffer.from(WEBHOOK_SECRET) : null
 
 export async function handleWebhook(req, res) {
-  if (WEBHOOK_SECRET && req.headers['apikey'] !== WEBHOOK_SECRET) {
-    return res.sendStatus(401)
+  if (WEBHOOK_SECRET_BUF) {
+    const incoming = req.headers['apikey'] || ''
+    const incomingBuf = Buffer.from(incoming)
+    if (incomingBuf.length !== WEBHOOK_SECRET_BUF.length ||
+        !timingSafeEqual(incomingBuf, WEBHOOK_SECRET_BUF)) {
+      return res.sendStatus(401)
+    }
   }
   res.sendStatus(200)
 

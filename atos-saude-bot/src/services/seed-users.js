@@ -27,9 +27,9 @@ export function seedDefaultUsers() {
   logger.warn(
     '\n╔══════════════════════════════════════════════════════════════════╗\n' +
     '║  ATENÇÃO: Usuários criados com senhas aleatórias. ANOTE AGORA!  ║\n' +
-    `║  admin       : ${adminPwd.padEnd(16)}                           ║\n` +
-    `║  secretaria  : ${secretariaPwd.padEnd(16)}                           ║\n` +
-    `║  faturamento : ${faturamentoPwd.padEnd(16)}                           ║\n` +
+    `║  admin       : ${adminPwd.padEnd(23)}                    ║\n` +
+    `║  secretaria  : ${secretariaPwd.padEnd(23)}                    ║\n` +
+    `║  faturamento : ${faturamentoPwd.padEnd(23)}                    ║\n` +
     '║  Estas senhas NÃO serão exibidas novamente.                     ║\n' +
     '╚══════════════════════════════════════════════════════════════════╝'
   )

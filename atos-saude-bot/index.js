@@ -55,6 +55,9 @@ app.use(helmet({
   contentSecurityPolicy: false // painel usa CDN inline — ajustar CSP por fase se necessário
 }))
 
+if (process.env.NODE_ENV === 'production' && !process.env.PANEL_ORIGIN) {
+  throw new Error('PANEL_ORIGIN é obrigatório em produção. Configure a variável de ambiente.')
+}
 app.use(cors({
   origin: process.env.PANEL_ORIGIN || `http://localhost:${process.env.PORT || 3000}`,
   credentials: true
