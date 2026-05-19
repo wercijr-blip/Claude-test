@@ -1,10 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { encryptPII, decryptPII } from '../utils/pii.js'
+import { encryptPII, decryptPII, resetKeyCache } from '../utils/pii.js'
 
 const VALID_KEY = '0'.repeat(64)
 
 afterEach(() => {
   vi.unstubAllEnvs()
+  resetKeyCache()
 })
 
 describe('encryptPII — sem chave', () => {

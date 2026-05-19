@@ -3,12 +3,19 @@ import { createCipheriv, createDecipheriv, randomBytes } from 'crypto'
 const ALGO = 'aes-256-gcm'
 const PREFIX = 'enc:'
 
+let _cachedKey = undefined
+
 function getKey() {
+  if (_cachedKey !== undefined) return _cachedKey
   const hex = process.env.PII_ENCRYPTION_KEY
-  if (!hex) return null
+  if (!hex) return (_cachedKey = null)
   const buf = Buffer.from(hex, 'hex')
   if (buf.length !== 32) throw new Error('PII_ENCRYPTION_KEY deve ter 64 hex chars (32 bytes)')
-  return buf
+  return (_cachedKey = buf)
+}
+
+export function resetKeyCache() {
+  _cachedKey = undefined
 }
 
 export function encryptPII(text) {

@@ -8,7 +8,8 @@ vi.mock('../services/db.js', () => ({
   insertRescheduleToken: vi.fn(),
   getEncaixeByEspecialidade: vi.fn().mockReturnValue([]),
   markEncaixeNotificado: vi.fn(),
-  deleteOldMessageLogs: vi.fn()
+  deleteOldMessageLogs: vi.fn(),
+  cleanOldSessions: vi.fn()
 }))
 
 vi.mock('../services/whatsapp.js', () => ({ sendText: vi.fn().mockResolvedValue(true) }))

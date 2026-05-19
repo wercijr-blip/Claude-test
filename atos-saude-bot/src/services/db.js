@@ -161,9 +161,7 @@ try { db.exec('CREATE INDEX IF NOT EXISTS idx_messages_log_covering ON messages_
 try { db.exec('CREATE INDEX IF NOT EXISTS idx_sessions_flow         ON sessions(flow)') } catch {}
 try { db.exec('CREATE INDEX IF NOT EXISTS idx_agendamentos_slot     ON agendamentos(slot_datetime) WHERE slot_datetime IS NOT NULL') } catch {}
 
-// Adiciona coluna agendamento_id à tabela sessions se ainda não existir
 try { db.exec('ALTER TABLE sessions ADD COLUMN agendamento_id TEXT') } catch {}
-// Adiciona coluna human_transfer_at para rastrear espera humana
 try { db.exec('ALTER TABLE sessions ADD COLUMN human_transfer_at DATETIME') } catch {}
 
 // Sessions
@@ -200,6 +198,7 @@ export function clearSession(phone) {
 const PII_FIELDS = ['nome', 'nascimento', 'telefone_contato']
 
 function _encryptRow(data) {
+  if (!process.env.PII_ENCRYPTION_KEY) return data
   const result = { ...data }
   for (const f of PII_FIELDS) {
     if (f in result && result[f] != null) result[f] = encryptPII(result[f])
@@ -209,6 +208,7 @@ function _encryptRow(data) {
 
 function _decryptRow(row) {
   if (!row) return row
+  if (!process.env.PII_ENCRYPTION_KEY) return row
   const result = { ...row }
   for (const f of PII_FIELDS) {
     if (f in result) result[f] = decryptPII(result[f])
@@ -494,9 +494,8 @@ export function getExamSubmissions() {
   return db.prepare('SELECT * FROM exam_submissions ORDER BY created_at DESC').all()
 }
 
-// Transaction helper — wraps multiple synchronous DB operations atomically
-export function runTransaction(fn) {
-  return db.transaction(fn)()
+export function runTransaction(fn, ...args) {
+  return db.transaction(fn)(...args)
 }
 
 export default db

@@ -10,7 +10,7 @@ import {
   deleteOldMessageLogs, cleanOldSessions
 } from './db.js'
 import { logger } from '../utils/logger.js'
-import { msg } from '../utils/messages.js'
+import { msg, hasMsg } from '../utils/messages.js'
 
 const BASE_URL = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`
 
@@ -102,8 +102,7 @@ async function verificarLembretes() {
       const token = randomBytes(16).toString('hex')
       insertRescheduleToken(token, ag.id)
       const linkRemarcar = `${BASE_URL}/remarcar/${token}`
-      const msgKey = msg('lembrete_24h_remarcar') !== `[mensagem 'lembrete_24h_remarcar' não encontrada]`
-        ? 'lembrete_24h_remarcar' : 'lembrete_24h'
+      const msgKey = hasMsg('lembrete_24h_remarcar') ? 'lembrete_24h_remarcar' : 'lembrete_24h'
       await sendText(ag.phone, msg(msgKey, { ...vars, linkRemarcar }))
       markReminderSent(ag.id, 'PATIENT_24H')
       logger.info({ agId: ag.id, phone: ag.phone }, 'Lembrete 24h enviado ao paciente')
@@ -113,8 +112,7 @@ async function verificarLembretes() {
       const token = randomBytes(16).toString('hex')
       insertRescheduleToken(token, ag.id)
       const linkRemarcar = `${BASE_URL}/remarcar/${token}`
-      const msgKey = msg('lembrete_2h_remarcar') !== `[mensagem 'lembrete_2h_remarcar' não encontrada]`
-        ? 'lembrete_2h_remarcar' : 'lembrete_2h'
+      const msgKey = hasMsg('lembrete_2h_remarcar') ? 'lembrete_2h_remarcar' : 'lembrete_2h'
       await sendText(ag.phone, msg(msgKey, { ...vars, linkRemarcar }))
       markReminderSent(ag.id, 'PATIENT_2H')
       logger.info({ agId: ag.id, phone: ag.phone }, 'Lembrete 2h enviado ao paciente')

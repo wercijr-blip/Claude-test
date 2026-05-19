@@ -12,7 +12,7 @@ import {
   getConversations, getConversationByPhone,
   getExamSubmissions, insertMessageLog, upsertSession,
   getAllUsers, insertUser, updateUserPassword, toggleUserActive, getUserAnyStatus,
-  invalidateUserCache, getMedicationRequests
+  invalidateUserCache, getMedicationRequests, getAgendamentosComSlot
 } from '../../services/db.js'
 import db from '../../services/db.js'
 import { generateExcel } from '../../services/export.js'
@@ -120,12 +120,9 @@ apiRouter.post('/agendamentos/:id/cancelar', async (req, res) => {
   // 3. Notifica o paciente via WhatsApp (se tiver telefone)
   let pacienteNotificado = false
   if (ag.phone) {
-    let dataHora = ''
-    if (ag.slot_datetime) {
-      const d = new Date(ag.slot_datetime)
-      const pad = n => String(n).padStart(2, '0')
-      dataHora = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} às ${pad(d.getHours())}h${pad(d.getMinutes())}`
-    }
+    const dataHora = ag.slot_datetime
+      ? `${fmtData(ag.slot_datetime).data} às ${fmtHora(ag.slot_datetime)}`
+      : ''
     const msg =
       `⚠️ Olá, *${ag.nome}*!\n\n` +
       `Precisamos informar que sua consulta foi *cancelada*:\n\n` +
@@ -149,12 +146,8 @@ apiRouter.post('/calendar/bloquear', requireAuth(['admin', 'secretaria']), async
     return res.status(400).json({ error: 'doctorId, startISO e endISO são obrigatórios.' })
   }
 
-  // Cancela e notifica todos os agendamentos de CONSULTA do médico naquele período
-  const afetados = db.prepare(`
-    SELECT * FROM agendamentos
-    WHERE medico_id = ? AND slot_datetime >= ? AND slot_datetime <= ?
-    AND tipo = 'CONSULTA' AND status != 'CANCELADO'
-  `).all(doctorId, startISO, endISO)
+  const afetados = getAgendamentosComSlot({ dateMin: startISO, dateMax: endISO })
+    .filter(ag => ag.medico_id === doctorId && ag.tipo === 'CONSULTA')
 
   const resultados = []
   for (const ag of afetados) {
@@ -162,12 +155,9 @@ apiRouter.post('/calendar/bloquear', requireAuth(['admin', 'secretaria']), async
     if (ag.google_event_id) await deleteEvent(ag.medico_id, ag.google_event_id)
 
     if (ag.phone) {
-      let dataHora = ''
-      if (ag.slot_datetime) {
-        const d = new Date(ag.slot_datetime)
-        const pad = n => String(n).padStart(2, '0')
-        dataHora = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} às ${pad(d.getHours())}h${pad(d.getMinutes())}`
-      }
+      const dataHora = ag.slot_datetime
+        ? `${fmtData(ag.slot_datetime).data} às ${fmtHora(ag.slot_datetime)}`
+        : ''
       const msg =
         `⚠️ Olá, *${ag.nome}*!\n\n` +
         `Infelizmente a agenda do *${ag.medico_nome || 'médico'}* ` +

@@ -31,6 +31,10 @@ export function msg(chave, vars = {}) {
   return texto
 }
 
+export function hasMsg(chave) {
+  return chave in load()
+}
+
 export function getMensagens() {
   return load()
 }

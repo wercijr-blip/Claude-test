@@ -44,8 +44,9 @@ if (missing.length > 0) {
 if (!process.env.JWT_SECRET) {
   if (process.env.NODE_ENV === 'production') {
     throw new Error('JWT_SECRET é obrigatório em produção. Configure a variável de ambiente.')
+  } else {
+    logger.warn('JWT_SECRET não definido — usando chave padrão INSEGURA. Configure JWT_SECRET em produção!')
   }
-  logger.warn('JWT_SECRET não definido — usando chave padrão INSEGURA. Configure JWT_SECRET em produção!')
 }
 if (process.env.NODE_ENV === 'production' && !process.env.PII_ENCRYPTION_KEY) {
   throw new Error('PII_ENCRYPTION_KEY é obrigatória em produção para proteger dados pessoais (LGPD). Gere com: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"')
@@ -189,18 +190,12 @@ const server = app.listen(PORT, () => {
   logger.info(`Painel disponível em http://localhost:${PORT}/painel`)
 })
 
-process.on('SIGTERM', () => {
-  logger.info('SIGTERM recebido — encerrando servidor')
+function shutdown(signal) {
+  logger.info(`${signal} recebido — encerrando servidor`)
   server.close(() => {
     db.close()
     process.exit(0)
   })
-})
-
-process.on('SIGINT', () => {
-  logger.info('SIGINT recebido — encerrando servidor')
-  server.close(() => {
-    db.close()
-    process.exit(0)
-  })
-})
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT',  () => shutdown('SIGINT'))
