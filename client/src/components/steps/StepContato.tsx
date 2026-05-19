@@ -1,16 +1,17 @@
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { trpc } from '../../lib/trpc.ts'
 import { useFormDraft } from '../../hooks/useFormDraft.ts'
 import { SubmitButton } from '../SubmitButton.tsx'
+import { PhoneInput } from '../PhoneInput.tsx'
 import { ESTADOS_BR } from '@shared/const.ts'
 
 const schema = z.object({
   pacienteId: z.number(),
   email: z.string().email('E-mail inválido'),
-  telefone: z.string().min(10, 'Telefone inválido'),
+  telefone: z.string().regex(/^\+\d{8,15}$/, 'Use formato internacional: +5561999998888'),
   cep: z.string().regex(/^\d{8}$/, 'CEP deve ter 8 dígitos'),
   logradouro: z.string().min(2),
   numero: z.string().min(1),
@@ -102,12 +103,18 @@ export default function StepContato({ pacienteId, onNext, onBack, defaultValues 
             <p className="mt-1 text-xs text-slate-400">Preenchido automaticamente do cadastro · não editável</p>
           </Field>
         ) : (
-          <Field label="Telefone celular" error={errors.telefone?.message}>
-            <input
-              {...register('telefone')}
-              className={inputCls(!!errors.telefone)}
-              placeholder="(00) 00000-0000"
-              maxLength={15}
+          <Field label="Telefone celular (WhatsApp)" error={errors.telefone?.message}>
+            <Controller
+              name="telefone"
+              control={form.control}
+              render={({ field }) => (
+                <PhoneInput
+                  value={field.value}
+                  onChange={field.onChange}
+                  hasError={!!errors.telefone}
+                  required
+                />
+              )}
             />
           </Field>
         )}

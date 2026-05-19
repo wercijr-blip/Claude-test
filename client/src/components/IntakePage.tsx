@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { trpc } from '../lib/trpc.ts'
@@ -8,6 +8,7 @@ import { Logo, LogoWordmark } from './Logo.tsx'
 import { trackFormSubmitPrecadastro } from '../lib/analytics.ts'
 import CheckoutAsaas from './CheckoutAsaas.tsx'
 import SeletorMetodoPagamento from './SeletorMetodoPagamento.tsx'
+import { PhoneInput } from './PhoneInput.tsx'
 
 const ABERTURA = HORARIO_ATENDIMENTO.ABERTURA_HORA
 const FECHAMENTO = HORARIO_ATENDIMENTO.FECHAMENTO_HORA
@@ -22,7 +23,7 @@ function isDentroHorarioAtendimento(): boolean {
 
 const schema = z.object({
   nome: z.string().min(2, 'Nome muito curto'),
-  telefone: z.string().min(10, 'Telefone inválido'),
+  telefone: z.string().regex(/^\+\d{8,15}$/, 'Use formato internacional: +5561999998888'),
   cpf: z.string().min(11, 'CPF inválido'),
   email: z.string().email('E-mail inválido'),
   plano: z.string().optional(),
@@ -113,7 +114,7 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
     return () => clearInterval(interval)
   }, [])
 
-  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, control, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
   })
 
@@ -494,7 +495,18 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
 
             <div>
               <label className={labelCls}>Telefone (WhatsApp)</label>
-              <input {...register('telefone')} className={inputCls} placeholder="(11) 99999-9999" />
+              <Controller
+                name="telefone"
+                control={control}
+                render={({ field }) => (
+                  <PhoneInput
+                    value={field.value}
+                    onChange={field.onChange}
+                    hasError={!!errors.telefone}
+                    required
+                  />
+                )}
+              />
               {errors.telefone && <p className={errCls}>{errors.telefone.message}</p>}
             </div>
 

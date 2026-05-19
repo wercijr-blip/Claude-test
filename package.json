@@ -73,6 +73,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.51.3",
+    "react-international-phone": "^4.8.0",
     "resend": "^6.12.2",
     "tailwind-merge": "^2.2.2",
     "tsx": "^4.21.0",
