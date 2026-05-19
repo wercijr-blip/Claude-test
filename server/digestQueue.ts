@@ -24,9 +24,8 @@ import {
   gerarDigestDiario,
   gerarDigestSemanal,
   gerarDigestMensal,
-  callClaudeBatch,
-  buildDigestSemanalRequest,
-  buildDigestMensalRequest,
+  gerarDigestSemanalLote,
+  gerarDigestMensalLote,
 } from './clinicalIntelligence.ts'
 import { publicarDigest } from './obsidian.ts'
 import { notificarDigest } from './n8n.ts'
@@ -295,8 +294,9 @@ async function runSemanal(periodoRef: string) {
   // Com 2+ médicos: Batch API (50% de desconto, todas as requisições em paralelo)
   // Com 1 médico: chamada direta (sem overhead de polling)
   if (ativos.length > 1) {
-    const batchRequests = ativos.map(d =>
-      buildDigestSemanalRequest({
+    const resultados = await gerarDigestSemanalLote(ativos.map(d => ({
+      id: String(d.medicoId),
+      params: {
         semana: semanaLabel,
         totalPacientes: d.consultas.length,
         diagnosticosJson: JSON.stringify(d.consultas),
@@ -304,10 +304,8 @@ async function runSemanal(periodoRef: string) {
         alertasSemanaJson: JSON.stringify(d.alertas),
         seriesStatusJson: JSON.stringify(d.seriesAtivas),
         relatoriosSemana: String(d.seriesAtivas.length),
-      }, String(d.medicoId)),
-    )
-
-    const resultados = await callClaudeBatch(batchRequests)
+      },
+    })))
 
     for (const d of ativos) {
       const texto = resultados.get(String(d.medicoId)) ?? ''
@@ -400,8 +398,7 @@ async function runMensal(periodoRef: string) {
   })
 
   if (dadosPorMedico.length > 1) {
-    const batchRequests = dadosPorMedico.map(d => buildDigestMensalRequest(buildParams(d), String(d.medicoId)))
-    const resultados = await callClaudeBatch(batchRequests)
+    const resultados = await gerarDigestMensalLote(dadosPorMedico.map(d => ({ id: String(d.medicoId), params: buildParams(d) })))
 
     for (const d of dadosPorMedico) {
       const texto = resultados.get(String(d.medicoId)) ?? ''

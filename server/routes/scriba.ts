@@ -26,9 +26,9 @@ import { getPresignedUrl } from '../storage.ts'
 function assertOwnership(
   entity: { medicoId: number } | undefined,
   medicoId: number,
-  notFoundMessage: string,
+  notFoundMessage?: string,
 ) {
-  if (!entity) throw new TRPCError({ code: 'NOT_FOUND', message: notFoundMessage })
+  if (!entity) throw new TRPCError({ code: 'NOT_FOUND', ...(notFoundMessage ? { message: notFoundMessage } : {}) })
   if (entity.medicoId !== medicoId) throw new TRPCError({ code: 'FORBIDDEN' })
 }
 
@@ -289,8 +289,7 @@ export const scribaRouter = router({
         .where(eq(conductAlerts.id, input.alertaId))
         .limit(1)
 
-      if (!alerta) throw new TRPCError({ code: 'NOT_FOUND' })
-      if (alerta.medicoId !== medicoId) throw new TRPCError({ code: 'FORBIDDEN' })
+      assertOwnership(alerta, medicoId)
 
       await db
         .update(conductAlerts)
@@ -329,8 +328,7 @@ export const scribaRouter = router({
         .where(eq(conductAlerts.id, input.alertaId))
         .limit(1)
 
-      if (!alerta) throw new TRPCError({ code: 'NOT_FOUND' })
-      if (alerta.medicoId !== medicoId) throw new TRPCError({ code: 'FORBIDDEN' })
+      assertOwnership(alerta, medicoId)
 
       const json = alerta.alertaJson as { supressao_sugerida_dias?: number } | null
       const dias = input.dias ?? json?.supressao_sugerida_dias ?? 30
@@ -357,8 +355,7 @@ export const scribaRouter = router({
         .where(eq(conductAlerts.id, input.alertaId))
         .limit(1)
 
-      if (!alerta) throw new TRPCError({ code: 'NOT_FOUND' })
-      if (alerta.medicoId !== medicoId) throw new TRPCError({ code: 'FORBIDDEN' })
+      assertOwnership(alerta, medicoId)
 
       await db
         .update(conductAlerts)
@@ -504,8 +501,7 @@ export const scribaRouter = router({
           .where(eq(soapNotes.id, input.soapNoteId))
           .limit(1)
 
-        if (!nota) throw new TRPCError({ code: 'NOT_FOUND', message: 'SOAP note não encontrada.' })
-        if (nota.medicoId !== medicoId) throw new TRPCError({ code: 'FORBIDDEN' })
+        assertOwnership(nota, medicoId, 'SOAP note não encontrada.')
 
         if (nota.sinteseEvidencias) {
           const gradeData = extrairGradeMetadata(nota.sinteseEvidencias)
@@ -579,8 +575,7 @@ export const scribaRouter = router({
         .where(eq(publicationDrafts.id, input.draftId))
         .limit(1)
 
-      if (!draft) throw new TRPCError({ code: 'NOT_FOUND' })
-      if (draft.medicoId !== medicoId) throw new TRPCError({ code: 'FORBIDDEN' })
+      assertOwnership(draft, medicoId)
 
       await db
         .update(publicationDrafts)

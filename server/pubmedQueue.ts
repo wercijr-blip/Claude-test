@@ -57,7 +57,7 @@ export interface PubmedJobData {
 
 // ─── Extrator de metadados de qualidade de evidência ─────────────────────────
 
-export interface EvidenceGradeMetadata {
+interface EvidenceGradeMetadata {
   grade1A: number; grade1B: number
   grade2A: number; grade2B: number; grade2C: number
   grade3: number;  grade4: number;  grade5: number

@@ -1079,9 +1079,15 @@ export async function gerarDigestSemanal(params: DigestSemanalParams): Promise<D
   return { texto: text }
 }
 
-/** Constrói uma BatchRequest para digest semanal — usar com callClaudeBatch() quando N > 1 médico. */
-export function buildDigestSemanalRequest(params: DigestSemanalParams, id: string): BatchRequest {
+function buildDigestSemanalRequest(params: DigestSemanalParams, id: string): BatchRequest {
   return { id, systemPrompt: PROMPT_08_SYSTEM, userContent: digestSemanalUserContent(params), maxTokens: 2000, model: MODEL_SONNET, temperature: 0.2 }
+}
+
+/** Gera digests semanais para múltiplos médicos em um único batch (50% mais barato). */
+export async function gerarDigestSemanalLote(
+  entradas: Array<{ id: string; params: DigestSemanalParams }>,
+): Promise<Map<string, string>> {
+  return callClaudeBatch(entradas.map(e => buildDigestSemanalRequest(e.params, e.id)))
 }
 
 // ─── PROMPT 09 — Digest Mensal ────────────────────────────────────────────────
@@ -1166,9 +1172,15 @@ export async function gerarDigestMensal(params: DigestMensalParams): Promise<Dig
   return { texto: text }
 }
 
-/** Constrói uma BatchRequest para digest mensal — usar com callClaudeBatch() quando N > 1 médico. */
-export function buildDigestMensalRequest(params: DigestMensalParams, id: string): BatchRequest {
+function buildDigestMensalRequest(params: DigestMensalParams, id: string): BatchRequest {
   return { id, systemPrompt: PROMPT_09_SYSTEM, userContent: digestMensalUserContent(params), maxTokens: 2500, model: MODEL_SONNET, temperature: 0.2 }
+}
+
+/** Gera digests mensais para múltiplos médicos em um único batch (50% mais barato). */
+export async function gerarDigestMensalLote(
+  entradas: Array<{ id: string; params: DigestMensalParams }>,
+): Promise<Map<string, string>> {
+  return callClaudeBatch(entradas.map(e => buildDigestMensalRequest(e.params, e.id)))
 }
 
 // ─── PROMPT 10 — Geração de Série de Casos ───────────────────────────────────

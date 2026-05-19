@@ -28,12 +28,8 @@ import { notificarSOAP } from './n8n.ts'
 
 const WHISPER_CHUNK_BYTES = 10 * 1024 * 1024 // 10 MB
 
-function getOpenAIKey(): string {
-  return process.env['OPENAI_API_KEY'] ?? env.BUILT_IN_FORGE_API_KEY ?? ''
-}
-
 export async function transcribeAudio(audioBuffer: Buffer, filename = 'audio.webm'): Promise<string> {
-  const apiKey = getOpenAIKey()
+  const apiKey = process.env['OPENAI_API_KEY'] ?? env.BUILT_IN_FORGE_API_KEY ?? ''
   if (!apiKey) throw new Error('Chave OpenAI não configurada (OPENAI_API_KEY)')
 
   const formData = new FormData()
