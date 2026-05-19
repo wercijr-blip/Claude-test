@@ -18,7 +18,11 @@
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
           "conditions": [
             {
               "id": "cond-tem-alertas",
@@ -67,8 +71,20 @@
     },
     "Tem alertas?": {
       "main": [
-        [{ "node": "Telegram — Digest com Alertas", "type": "main", "index": 0 }],
-        [{ "node": "Telegram — Digest sem Alertas", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Telegram — Digest com Alertas",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram — Digest sem Alertas",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },

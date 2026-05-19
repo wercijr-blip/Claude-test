@@ -9,48 +9,48 @@
  *  - Prompt 03 passa a receber texto completo quando open access, não só abstract
  */
 
-import { env } from './_core/env.ts'
-import { logger } from './_core/logger.ts'
-import type { ArtigoPubMed } from './pubmed.ts'
-import { CircuitBreaker } from './_core/circuitBreaker.ts'
+import { env } from "./_core/env.ts";
+import { logger } from "./_core/logger.ts";
+import type { ArtigoPubMed } from "./pubmed.ts";
+import { CircuitBreaker } from "./_core/circuitBreaker.ts";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface TextoCompletoInfo {
-  doi: string
-  is_oa: boolean
-  url_pdf: string | null
-  url_html: string | null
-  licenca: string | null
-  versao: 'publisher' | 'repository' | 'preprint' | null
+  doi: string;
+  is_oa: boolean;
+  url_pdf: string | null;
+  url_html: string | null;
+  licenca: string | null;
+  versao: "publisher" | "repository" | "preprint" | null;
 }
 
 export interface ArtigoPubMedEnriquecido extends ArtigoPubMed {
-  texto_completo: TextoCompletoInfo | null
+  texto_completo: TextoCompletoInfo | null;
 }
 
 interface UnpaywallLocation {
-  url: string | null
-  url_for_pdf: string | null
-  host_type: string | null
-  license: string | null
-  version: string | null
+  url: string | null;
+  url_for_pdf: string | null;
+  host_type: string | null;
+  license: string | null;
+  version: string | null;
 }
 
 interface UnpaywallResponse {
-  doi: string
-  is_oa: boolean
-  best_oa_location: UnpaywallLocation | null
+  doi: string;
+  is_oa: boolean;
+  best_oa_location: UnpaywallLocation | null;
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-const UNPAYWALL_BASE = 'https://api.unpaywall.org/v2'
-const DELAY_ENTRE_REQUESTS_MS = 200  // respeita limite de taxa sem agressividade
-const unpaywallCircuit = new CircuitBreaker('unpaywall')
+const UNPAYWALL_BASE = "https://api.unpaywall.org/v2";
+const DELAY_ENTRE_REQUESTS_MS = 200; // respeita limite de taxa sem agressividade
+const unpaywallCircuit = new CircuitBreaker("unpaywall");
 
 function unpaywallDisponivel(): boolean {
-  return Boolean(env.UNPAYWALL_EMAIL)
+  return Boolean(env.UNPAYWALL_EMAIL);
 }
 
 // ─── Core ─────────────────────────────────────────────────────────────────────
@@ -59,40 +59,50 @@ function unpaywallDisponivel(): boolean {
  * Busca informações de acesso aberto para um DOI específico.
  * Retorna null se o artigo não tiver versão open access ou se o DOI for inválido.
  */
-export async function buscarTextoCompleto(doi: string): Promise<TextoCompletoInfo | null> {
-  if (!unpaywallDisponivel() || !doi?.trim()) return null
+export async function buscarTextoCompleto(
+  doi: string,
+): Promise<TextoCompletoInfo | null> {
+  if (!unpaywallDisponivel() || !doi?.trim()) return null;
 
-  if (unpaywallCircuit.isOpen()) return null
+  if (unpaywallCircuit.isOpen()) return null;
 
-  const url = `${UNPAYWALL_BASE}/${encodeURIComponent(doi)}?email=${encodeURIComponent(env.UNPAYWALL_EMAIL!)}`
+  const url = `${UNPAYWALL_BASE}/${encodeURIComponent(doi)}?email=${encodeURIComponent(env.UNPAYWALL_EMAIL!)}`;
 
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(8_000) })
+    const res = await fetch(url, { signal: AbortSignal.timeout(8_000) });
 
     // 404 = DOI não encontrado no Unpaywall (comum para artigos sem DOI registrado)
-    if (res.status === 404) return null
+    if (res.status === 404) return null;
 
     if (!res.ok) {
-      logger.warn('[unpaywall] Requisição falhou', { doi, status: res.status })
-      unpaywallCircuit.recordFailure()
-      return null
+      logger.warn("[unpaywall] Requisição falhou", { doi, status: res.status });
+      unpaywallCircuit.recordFailure();
+      return null;
     }
 
-    const data = (await res.json()) as UnpaywallResponse
+    const data = (await res.json()) as UnpaywallResponse;
 
     if (!data.is_oa || !data.best_oa_location) {
-      unpaywallCircuit.recordSuccess()
-      return { doi, is_oa: false, url_pdf: null, url_html: null, licenca: null, versao: null }
+      unpaywallCircuit.recordSuccess();
+      return {
+        doi,
+        is_oa: false,
+        url_pdf: null,
+        url_html: null,
+        licenca: null,
+        versao: null,
+      };
     }
 
-    const loc = data.best_oa_location
-    const versao = loc.host_type === 'publisher'
-      ? 'publisher'
-      : loc.version?.includes('preprint')
-        ? 'preprint'
-        : 'repository'
+    const loc = data.best_oa_location;
+    const versao =
+      loc.host_type === "publisher"
+        ? "publisher"
+        : loc.version?.includes("preprint")
+          ? "preprint"
+          : "repository";
 
-    unpaywallCircuit.recordSuccess()
+    unpaywallCircuit.recordSuccess();
     return {
       doi,
       is_oa: true,
@@ -100,11 +110,11 @@ export async function buscarTextoCompleto(doi: string): Promise<TextoCompletoInf
       url_html: loc.url ?? null,
       licenca: loc.license ?? null,
       versao,
-    }
+    };
   } catch (err) {
-    logger.warn('[unpaywall] Erro ao buscar DOI', { doi, err: String(err) })
-    unpaywallCircuit.recordFailure()
-    return null
+    logger.warn("[unpaywall] Erro ao buscar DOI", { doi, err: String(err) });
+    unpaywallCircuit.recordFailure();
+    return null;
   }
 }
 
@@ -117,33 +127,37 @@ export async function enriquecerArtigos(
   artigos: ArtigoPubMed[],
 ): Promise<ArtigoPubMedEnriquecido[]> {
   if (!unpaywallDisponivel()) {
-    return artigos.map(a => ({ ...a, texto_completo: null }))
+    return artigos.map((a) => ({ ...a, texto_completo: null }));
   }
 
-  const resultado: ArtigoPubMedEnriquecido[] = []
-  const BATCH_SIZE = 3
+  const resultado: ArtigoPubMedEnriquecido[] = [];
+  const BATCH_SIZE = 3;
 
   for (let i = 0; i < artigos.length; i += BATCH_SIZE) {
-    const batch = artigos.slice(i, i + BATCH_SIZE)
+    const batch = artigos.slice(i, i + BATCH_SIZE);
     const batchResults = await Promise.all(
-      batch.map(async artigo => ({
+      batch.map(async (artigo) => ({
         ...artigo,
-        texto_completo: artigo.doi ? await buscarTextoCompleto(artigo.doi) : null,
+        texto_completo: artigo.doi
+          ? await buscarTextoCompleto(artigo.doi)
+          : null,
       })),
-    )
-    resultado.push(...batchResults)
+    );
+    resultado.push(...batchResults);
     if (i + BATCH_SIZE < artigos.length) {
-      await new Promise(resolve => setTimeout(resolve, DELAY_ENTRE_REQUESTS_MS))
+      await new Promise((resolve) =>
+        setTimeout(resolve, DELAY_ENTRE_REQUESTS_MS),
+      );
     }
   }
 
-  const comAcesso = resultado.filter(a => a.texto_completo?.is_oa).length
-  logger.info('[unpaywall] Artigos enriquecidos', {
+  const comAcesso = resultado.filter((a) => a.texto_completo?.is_oa).length;
+  logger.info("[unpaywall] Artigos enriquecidos", {
     total: artigos.length,
     com_acesso_aberto: comAcesso,
-  })
+  });
 
-  return resultado
+  return resultado;
 }
 
 // ─── Formatação para prompts ──────────────────────────────────────────────────
@@ -155,27 +169,34 @@ export async function enriquecerArtigos(
 export function formatarArtigosEnriquecidosParaPrompt(
   artigos: ArtigoPubMedEnriquecido[],
 ): string {
-  if (artigos.length === 0) return 'Nenhum artigo disponível.'
+  if (artigos.length === 0) return "Nenhum artigo disponível.";
 
-  return artigos.map((artigo, i) => {
-    const autores = artigo.autores.slice(0, 3).join(', ') + (artigo.autores.length > 3 ? ' et al.' : '')
-    const header = `[${i + 1}] PMID ${artigo.pmid} — ${autores}. "${artigo.titulo}". ${artigo.revista}. ${artigo.ano}.`
+  return artigos
+    .map((artigo, i) => {
+      const autores =
+        artigo.autores.slice(0, 3).join(", ") +
+        (artigo.autores.length > 3 ? " et al." : "");
+      const header = `[${i + 1}] PMID ${artigo.pmid} — ${autores}. "${artigo.titulo}". ${artigo.revista}. ${artigo.ano}.`;
 
-    const oa = artigo.texto_completo
-    let acesso = '⚠️ Apenas abstract disponível.'
+      const oa = artigo.texto_completo;
+      let acesso = "⚠️ Apenas abstract disponível.";
 
-    if (oa?.is_oa) {
-      const VERSAO_LABEL: Record<string, string> = { publisher: 'versão do editor', preprint: 'preprint' }
-      const tipo = VERSAO_LABEL[oa.versao ?? ''] ?? 'repositório'
-      const licenca = oa.licenca ? ` (${oa.licenca})` : ''
-      acesso = `✅ Texto completo open access — ${tipo}${licenca}.`
-      if (oa.url_pdf) acesso += ` PDF: ${oa.url_pdf}`
-    }
+      if (oa?.is_oa) {
+        const VERSAO_LABEL: Record<string, string> = {
+          publisher: "versão do editor",
+          preprint: "preprint",
+        };
+        const tipo = VERSAO_LABEL[oa.versao ?? ""] ?? "repositório";
+        const licenca = oa.licenca ? ` (${oa.licenca})` : "";
+        acesso = `✅ Texto completo open access — ${tipo}${licenca}.`;
+        if (oa.url_pdf) acesso += ` PDF: ${oa.url_pdf}`;
+      }
 
-    const conteudo = artigo.abstract
-      ? `Abstract: ${artigo.abstract}`
-      : 'Abstract não disponível.'
+      const conteudo = artigo.abstract
+        ? `Abstract: ${artigo.abstract}`
+        : "Abstract não disponível.";
 
-    return `${header}\n${acesso}\n${conteudo}`
-  }).join('\n\n---\n\n')
+      return `${header}\n${acesso}\n${conteudo}`;
+    })
+    .join("\n\n---\n\n");
 }

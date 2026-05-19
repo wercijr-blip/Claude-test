@@ -8,29 +8,29 @@
  */
 export default [
   {
-    files: ['server/**/*.ts', 'shared/**/*.ts'],
+    files: ["server/**/*.ts", "shared/**/*.ts"],
     rules: {
       // TypeScript cuida de undefined vars e vars não usadas — desligamos aqui
-      'no-unused-vars': 'off',
-      'no-undef': 'off',
+      "no-unused-vars": "off",
+      "no-undef": "off",
       // Boas práticas universais
-      'no-console': 'warn',
-      'prefer-const': 'error',
-      'no-var': 'error',
-      'no-eval': 'error',
-      'no-implied-eval': 'error',
-      'eqeqeq': ['error', 'always', { null: 'ignore' }],
+      "no-console": "warn",
+      "prefer-const": "error",
+      "no-var": "error",
+      "no-eval": "error",
+      "no-implied-eval": "error",
+      eqeqeq: ["error", "always", { null: "ignore" }],
     },
     languageOptions: {
       ecmaVersion: 2022,
-      sourceType: 'module',
+      sourceType: "module",
     },
   },
   {
     // Arquivos de teste: console e vars não usadas são aceitáveis
-    files: ['server/**/*.test.ts'],
+    files: ["server/**/*.test.ts"],
     rules: {
-      'no-console': 'off',
+      "no-console": "off",
     },
   },
-]
+];

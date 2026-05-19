@@ -18,7 +18,11 @@
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
           "conditions": [
             {
               "id": "cond-urgencia",
@@ -59,7 +63,9 @@
   ],
   "connections": {
     "Webhook": {
-      "main": [[{ "node": "Urgência média ou alta?", "type": "main", "index": 0 }]]
+      "main": [
+        [{ "node": "Urgência média ou alta?", "type": "main", "index": 0 }]
+      ]
     },
     "Urgência média ou alta?": {
       "main": [

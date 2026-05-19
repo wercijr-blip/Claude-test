@@ -30,7 +30,9 @@
   ],
   "connections": {
     "Webhook": {
-      "main": [[{ "node": "Telegram — Caso Atípico", "type": "main", "index": 0 }]]
+      "main": [
+        [{ "node": "Telegram — Caso Atípico", "type": "main", "index": 0 }]
+      ]
     }
   },
   "active": false,

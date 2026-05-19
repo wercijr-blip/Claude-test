@@ -1,45 +1,50 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import Script from 'next/script'
+import { useState, useEffect } from "react";
+import Script from "next/script";
 
-const CONSENT_KEY = 'fp_lgpd_consent'
+const CONSENT_KEY = "fp_lgpd_consent";
 
 interface Props {
-  gtmId?: string
-  metaPixelId?: string
-  googleAdsId?: string
-  tiktokPixelId?: string
+  gtmId?: string;
+  metaPixelId?: string;
+  googleAdsId?: string;
+  tiktokPixelId?: string;
 }
 
-export default function CookieConsent({ gtmId, metaPixelId, googleAdsId, tiktokPixelId }: Props) {
-  const [consent, setConsent] = useState<boolean | null>(null)
+export default function CookieConsent({
+  gtmId,
+  metaPixelId,
+  googleAdsId,
+  tiktokPixelId,
+}: Props) {
+  const [consent, setConsent] = useState<boolean | null>(null);
 
   useEffect(() => {
-    const stored = localStorage.getItem(CONSENT_KEY)
-    setConsent(stored === 'true' ? true : stored === 'false' ? false : null)
-  }, [])
+    const stored = localStorage.getItem(CONSENT_KEY);
+    setConsent(stored === "true" ? true : stored === "false" ? false : null);
+  }, []);
 
   function accept() {
-    localStorage.setItem(CONSENT_KEY, 'true')
-    setConsent(true)
-    if (typeof window !== 'undefined') {
-      window.dataLayer = window.dataLayer ?? []
-      window.dataLayer.push({ event: 'cookies_accepted', method: 'all' })
+    localStorage.setItem(CONSENT_KEY, "true");
+    setConsent(true);
+    if (typeof window !== "undefined") {
+      window.dataLayer = window.dataLayer ?? [];
+      window.dataLayer.push({ event: "cookies_accepted", method: "all" });
     }
   }
 
   function decline() {
-    localStorage.setItem(CONSENT_KEY, 'false')
-    setConsent(false)
-    if (typeof window !== 'undefined') {
-      window.dataLayer = window.dataLayer ?? []
-      window.dataLayer.push({ event: 'cookies_declined' })
+    localStorage.setItem(CONSENT_KEY, "false");
+    setConsent(false);
+    if (typeof window !== "undefined") {
+      window.dataLayer = window.dataLayer ?? [];
+      window.dataLayer.push({ event: "cookies_declined" });
     }
   }
 
-  const hasPixels = gtmId || metaPixelId || googleAdsId || tiktokPixelId
-  if (!hasPixels) return null
+  const hasPixels = gtmId || metaPixelId || googleAdsId || tiktokPixelId;
+  if (!hasPixels) return null;
 
   return (
     <>
@@ -97,10 +102,11 @@ export default function CookieConsent({ gtmId, metaPixelId, googleAdsId, tiktokP
         <div className="fixed bottom-0 left-0 right-0 z-50 p-4 bg-white border-t border-slate-200 shadow-lg">
           <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-start sm:items-center gap-4">
             <p className="text-sm text-slate-600 flex-1">
-              Usamos cookies analíticos para melhorar sua experiência. Seus dados são tratados conforme a{' '}
+              Usamos cookies analíticos para melhorar sua experiência. Seus
+              dados são tratados conforme a{" "}
               <a href="/privacidade" className="underline hover:text-fp-accent">
                 Política de Privacidade
-              </a>{' '}
+              </a>{" "}
               (LGPD — Lei 13.709/2018).
             </p>
             <div className="flex gap-2 shrink-0">
@@ -121,5 +127,5 @@ export default function CookieConsent({ gtmId, metaPixelId, googleAdsId, tiktokP
         </div>
       )}
     </>
-  )
+  );
 }

@@ -3,46 +3,46 @@
  * 11 prompts for AI-assisted clinical documentation, knowledge synthesis, and reporting.
  */
 
-import Anthropic from '@anthropic-ai/sdk'
-import { env } from './_core/env.ts'
-import { logger } from './_core/logger.ts'
-import { redis } from './_core/redis.ts'
+import Anthropic from "@anthropic-ai/sdk";
+import { env } from "./_core/env.ts";
+import { logger } from "./_core/logger.ts";
+import { redis } from "./_core/redis.ts";
 
 // ─── Shared API helper ────────────────────────────────────────────────────────
 
-const MODEL_HAIKU  = 'claude-haiku-4-5'    // CIS-01, CIS-02b, CIS-04
-const MODEL_SONNET = 'claude-sonnet-4-6'   // CIS-02a, CIS-03, CIS-05–09
-const MODEL_OPUS   = 'claude-opus-4-7'     // CIS-10, CIS-11
+const MODEL_HAIKU = "claude-haiku-4-5"; // CIS-01, CIS-02b, CIS-04
+const MODEL_SONNET = "claude-sonnet-4-6"; // CIS-02a, CIS-03, CIS-05–09
+const MODEL_OPUS = "claude-opus-4-7"; // CIS-10, CIS-11
 
 const anthropic = new Anthropic({
-  apiKey: env.BUILT_IN_FORGE_API_KEY ?? '',
+  apiKey: env.BUILT_IN_FORGE_API_KEY ?? "",
   baseURL: env.BUILT_IN_FORGE_API_URL,
-})
+});
 
 // ─── Opus daily budget (Redis counter) ───────────────────────────────────────
 
 function opusDateKey(): string {
-  return `cis:opus:tokens:${new Date().toISOString().slice(0, 10)}`
+  return `cis:opus:tokens:${new Date().toISOString().slice(0, 10)}`;
 }
 
 async function getOpusTokensToday(): Promise<number> {
   try {
-    const val = await redis.get(opusDateKey())
-    if (!val) return 0
-    const n = parseInt(val, 10)
-    return Number.isFinite(n) ? n : 0
+    const val = await redis.get(opusDateKey());
+    if (!val) return 0;
+    const n = parseInt(val, 10);
+    return Number.isFinite(n) ? n : 0;
   } catch {
-    return 0  // Redis indisponível → fail open (não bloqueia chamada)
+    return 0; // Redis indisponível → fail open (não bloqueia chamada)
   }
 }
 
 async function incrOpusTokens(tokens: number): Promise<void> {
   try {
-    const key = opusDateKey()
-    const newVal = await redis.incrby(key, tokens)
+    const key = opusDateKey();
+    const newVal = await redis.incrby(key, tokens);
     if (newVal <= tokens) {
       // Primeira incrementação do dia — define TTL de 48h (mantém dado de ontem para auditoria)
-      await redis.expire(key, 48 * 3600)
+      await redis.expire(key, 48 * 3600);
     }
   } catch {
     // Falha no rastreamento não é crítica — apenas registra silenciosamente
@@ -51,24 +51,25 @@ async function incrOpusTokens(tokens: number): Promise<void> {
 
 /** Retorna status atual do orçamento diário de Opus para monitoramento. */
 export async function getOpusBudgetStatus(): Promise<{
-  usado: number
-  limite: number
-  percentual: number
-  dataKey: string
+  usado: number;
+  limite: number;
+  percentual: number;
+  dataKey: string;
 }> {
-  const usado = await getOpusTokensToday()
-  const limite = env.OPUS_DAILY_TOKEN_BUDGET
+  const usado = await getOpusTokensToday();
+  const limite = env.OPUS_DAILY_TOKEN_BUDGET;
   return {
     usado,
     limite,
-    percentual: limite > 0 ? Math.min(100, Math.round((usado / limite) * 100)) : 0,
+    percentual:
+      limite > 0 ? Math.min(100, Math.round((usado / limite) * 100)) : 0,
     dataKey: opusDateKey(),
-  }
+  };
 }
 
 // Status codes that warrant a retry with exponential backoff
-const RETRYABLE_STATUS = new Set([429, 502, 503])
-const MAX_API_RETRIES  = 3
+const RETRYABLE_STATUS = new Set([429, 502, 503]);
+const MAX_API_RETRIES = 3;
 
 async function callClaude(
   systemPrompt: string,
@@ -76,90 +77,122 @@ async function callClaude(
   maxTokens: number,
   model = MODEL_SONNET,
   temperature?: number,
-  fnName = '',
+  fnName = "",
 ): Promise<string> {
   // Verifica orçamento diário antes de chamar Opus
-  let effectiveModel = model
+  let effectiveModel = model;
   if (model === MODEL_OPUS && env.OPUS_DAILY_TOKEN_BUDGET > 0) {
-    const tokensHoje = await getOpusTokensToday()
-    const limiteAlerta = Math.floor(env.OPUS_DAILY_TOKEN_BUDGET * 0.8)
-    if (tokensHoje >= limiteAlerta && tokensHoje < env.OPUS_DAILY_TOKEN_BUDGET) {
-      logger.warn('[cis] Orçamento Opus em 80% — considere aumentar OPUS_DAILY_TOKEN_BUDGET', {
-        tokensHoje,
-        limiteAlerta,
-        limite: env.OPUS_DAILY_TOKEN_BUDGET,
-        percentual: Math.round((tokensHoje / env.OPUS_DAILY_TOKEN_BUDGET) * 100),
-      })
+    const tokensHoje = await getOpusTokensToday();
+    const limiteAlerta = Math.floor(env.OPUS_DAILY_TOKEN_BUDGET * 0.8);
+    if (
+      tokensHoje >= limiteAlerta &&
+      tokensHoje < env.OPUS_DAILY_TOKEN_BUDGET
+    ) {
+      logger.warn(
+        "[cis] Orçamento Opus em 80% — considere aumentar OPUS_DAILY_TOKEN_BUDGET",
+        {
+          tokensHoje,
+          limiteAlerta,
+          limite: env.OPUS_DAILY_TOKEN_BUDGET,
+          percentual: Math.round(
+            (tokensHoje / env.OPUS_DAILY_TOKEN_BUDGET) * 100,
+          ),
+        },
+      );
     }
     if (tokensHoje >= env.OPUS_DAILY_TOKEN_BUDGET) {
-      logger.warn('[cis] Orçamento diário de Opus atingido — downgrade para Sonnet', {
-        tokensHoje,
-        limite: env.OPUS_DAILY_TOKEN_BUDGET,
-      })
-      effectiveModel = MODEL_SONNET
+      logger.warn(
+        "[cis] Orçamento diário de Opus atingido — downgrade para Sonnet",
+        {
+          tokensHoje,
+          limite: env.OPUS_DAILY_TOKEN_BUDGET,
+        },
+      );
+      effectiveModel = MODEL_SONNET;
     }
   }
 
   for (let attempt = 0; attempt <= MAX_API_RETRIES; attempt++) {
-    const start = Date.now()
+    const start = Date.now();
     try {
       const response = await anthropic.messages.create({
         model: effectiveModel,
         max_tokens: maxTokens,
         // System as array enables prompt caching for static system prompts.
-        system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
-        messages: [{ role: 'user', content: userContent }],
+        system: [
+          {
+            type: "text",
+            text: systemPrompt,
+            cache_control: { type: "ephemeral" },
+          },
+        ],
+        messages: [{ role: "user", content: userContent }],
         // Opus 4.7 removed temperature/top_p/top_k — omit them to avoid 400 errors.
-        ...(temperature !== undefined && effectiveModel !== MODEL_OPUS ? { temperature } : {}),
-      })
+        ...(temperature !== undefined && effectiveModel !== MODEL_OPUS
+          ? { temperature }
+          : {}),
+      });
 
       // Registra tokens consumidos se chamada Opus foi efetivamente executada
       if (effectiveModel === MODEL_OPUS) {
-        const total = (response.usage.input_tokens ?? 0) + (response.usage.output_tokens ?? 0)
-        await incrOpusTokens(total)
-        logger.info('[cis] Tokens Opus registrados', { total, key: opusDateKey() })
+        const total =
+          (response.usage.input_tokens ?? 0) +
+          (response.usage.output_tokens ?? 0);
+        await incrOpusTokens(total);
+        logger.info("[cis] Tokens Opus registrados", {
+          total,
+          key: opusDateKey(),
+        });
       }
 
-      logger.info('[cis] latência', { fn: fnName, model: effectiveModel, ms: Date.now() - start, inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens })
+      logger.info("[cis] latência", {
+        fn: fnName,
+        model: effectiveModel,
+        ms: Date.now() - start,
+        inputTokens: response.usage.input_tokens,
+        outputTokens: response.usage.output_tokens,
+      });
 
-      const block = response.content[0]
-      return block?.type === 'text' ? block.text : ''
+      const block = response.content[0];
+      return block?.type === "text" ? block.text : "";
     } catch (err) {
       if (err instanceof Anthropic.APIError) {
         if (RETRYABLE_STATUS.has(err.status) && attempt < MAX_API_RETRIES) {
-          const delayMs = (2 ** attempt) * 1000  // 1s → 2s → 4s
-          logger.warn('[cis] Erro transiente na API — aguardando para retry', {
+          const delayMs = 2 ** attempt * 1000; // 1s → 2s → 4s
+          logger.warn("[cis] Erro transiente na API — aguardando para retry", {
             attempt: attempt + 1,
             status: err.status,
             delayMs,
             model: effectiveModel,
-          })
-          await new Promise(r => setTimeout(r, delayMs))
-          continue
+          });
+          await new Promise((r) => setTimeout(r, delayMs));
+          continue;
         }
-        logger.error('[cis] Erro na API Anthropic', {
+        logger.error("[cis] Erro na API Anthropic", {
           status: err.status,
           message: err.message,
           model: effectiveModel,
-        })
-        throw new Error(`Erro na API de IA (HTTP ${err.status}): ${err.message}`)
+        });
+        throw new Error(
+          `Erro na API de IA (HTTP ${err.status}): ${err.message}`,
+        );
       }
-      throw err
+      throw err;
     }
   }
   // Unreachable — loop always returns or throws
-  throw new Error('[cis] callClaude: estado inesperado após retries')
+  throw new Error("[cis] callClaude: estado inesperado após retries");
 }
 
 // ─── Batch API ────────────────────────────────────────────────────────────────
 
 export interface BatchRequest {
-  id: string
-  systemPrompt: string
-  userContent: string
-  maxTokens: number
-  model?: string
-  temperature?: number
+  id: string;
+  systemPrompt: string;
+  userContent: string;
+  maxTokens: number;
+  model?: string;
+  temperature?: number;
 }
 
 /**
@@ -171,69 +204,89 @@ export async function callClaudeBatch(
   requests: BatchRequest[],
   { pollIntervalMs = 30_000, timeoutMs = 30 * 60_000 } = {},
 ): Promise<Map<string, string>> {
-  if (requests.length === 0) return new Map()
+  if (requests.length === 0) return new Map();
 
   const batch = await anthropic.messages.batches.create({
-    requests: requests.map(r => ({
+    requests: requests.map((r) => ({
       custom_id: r.id,
       params: {
         model: r.model ?? MODEL_SONNET,
         max_tokens: r.maxTokens,
-        system: [{ type: 'text' as const, text: r.systemPrompt, cache_control: { type: 'ephemeral' as const } }],
-        messages: [{ role: 'user' as const, content: r.userContent }],
-        ...(r.temperature !== undefined && (r.model ?? MODEL_SONNET) !== MODEL_OPUS
+        system: [
+          {
+            type: "text" as const,
+            text: r.systemPrompt,
+            cache_control: { type: "ephemeral" as const },
+          },
+        ],
+        messages: [{ role: "user" as const, content: r.userContent }],
+        ...(r.temperature !== undefined &&
+        (r.model ?? MODEL_SONNET) !== MODEL_OPUS
           ? { temperature: r.temperature }
           : {}),
       },
     })),
-  })
+  });
 
-  logger.info('[cis] Batch submetido', { batchId: batch.id, n: requests.length })
+  logger.info("[cis] Batch submetido", {
+    batchId: batch.id,
+    n: requests.length,
+  });
 
-  const deadline = Date.now() + timeoutMs
-  let current = batch
-  while (current.processing_status !== 'ended') {
+  const deadline = Date.now() + timeoutMs;
+  let current = batch;
+  while (current.processing_status !== "ended") {
     if (Date.now() > deadline) {
-      await anthropic.messages.batches.cancel(batch.id).catch(() => null)
-      throw new Error(`[cis] Batch timeout após ${timeoutMs / 60_000} min (id: ${batch.id})`)
+      await anthropic.messages.batches.cancel(batch.id).catch(() => null);
+      throw new Error(
+        `[cis] Batch timeout após ${timeoutMs / 60_000} min (id: ${batch.id})`,
+      );
     }
-    await new Promise(resolve => setTimeout(resolve, pollIntervalMs))
-    current = await anthropic.messages.batches.retrieve(batch.id)
-    logger.info('[cis] Batch aguardando', {
+    await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+    current = await anthropic.messages.batches.retrieve(batch.id);
+    logger.info("[cis] Batch aguardando", {
       batchId: batch.id,
       processing: current.request_counts.processing,
       succeeded: current.request_counts.succeeded,
-    })
+    });
   }
 
-  const results = new Map<string, string>()
-  for await (const result of await anthropic.messages.batches.results(batch.id)) {
-    if (result.result.type === 'succeeded') {
-      const block = result.result.message.content[0]
-      results.set(result.custom_id, block?.type === 'text' ? block.text : '')
+  const results = new Map<string, string>();
+  for await (const result of await anthropic.messages.batches.results(
+    batch.id,
+  )) {
+    if (result.result.type === "succeeded") {
+      const block = result.result.message.content[0];
+      results.set(result.custom_id, block?.type === "text" ? block.text : "");
     } else {
-      logger.warn('[cis] Batch request falhou', { id: result.custom_id, type: result.result.type })
-      results.set(result.custom_id, '')
+      logger.warn("[cis] Batch request falhou", {
+        id: result.custom_id,
+        type: result.result.type,
+      });
+      results.set(result.custom_id, "");
     }
   }
 
-  logger.info('[cis] Batch concluído', { batchId: batch.id, resultados: results.size })
-  return results
+  logger.info("[cis] Batch concluído", {
+    batchId: batch.id,
+    resultados: results.size,
+  });
+  return results;
 }
 
 function parseJsonResponse<T>(text: string, context: string): T {
   // Strip markdown code fences if the model wrapped the JSON in ```json … ```
-  const stripped = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/)?.[1] ?? text
-  const match = stripped.match(/\{[\s\S]*\}/)
-  const jsonStr = match ? match[0] : stripped
+  const stripped = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/)?.[1] ?? text;
+  const match = stripped.match(/\{[\s\S]*\}/);
+  const jsonStr = match ? match[0] : stripped;
   try {
-    return JSON.parse(jsonStr) as T
+    return JSON.parse(jsonStr) as T;
   } catch (err) {
     logger.error(`[clinicalIntelligence] Falha ao parsear JSON — ${context}`, {
       error: (err as Error).message,
       preview: text.slice(0, 300),
-    })
-    throw new Error(`Resposta da IA não é JSON válido (${context})`)
+    });
+    throw new Error(`Resposta da IA não é JSON válido (${context})`);
   }
 }
 
@@ -243,49 +296,72 @@ const MEDICO = {
   nome: env.MEDICO_NOME,
   crm: `CRM-${env.MEDICO_CRM_UF} ${env.MEDICO_CRM}`,
   rqe: env.MEDICO_RQE,
-  especialidade: 'Infectologia',
-  cbo: '2251-50',
+  especialidade: "Infectologia",
+  cbo: "2251-50",
   clinicaNome: env.CLINICA_NOME,
   cnes: env.SUS_CNES,
-}
+};
 
 // ─── Reusable prompt blocks ───────────────────────────────────────────────────
-import { INTEGRITY_GUARD, INJECTION_GUARD, PII_GUARD, OUTPUT_CONTRACT_JSON, EVIDENCE_GRADING, DIGEST_BASE } from './cis/blocks.ts'
+import {
+  INTEGRITY_GUARD,
+  INJECTION_GUARD,
+  PII_GUARD,
+  OUTPUT_CONTRACT_JSON,
+  EVIDENCE_GRADING,
+  DIGEST_BASE,
+} from "./cis/blocks.ts";
 
-const DIGEST_BASE_STR = DIGEST_BASE(MEDICO.nome, MEDICO.crm)
+const DIGEST_BASE_STR = DIGEST_BASE(MEDICO.nome, MEDICO.crm);
 
 // ─── PROMPT 01 — Extrator de Exames ──────────────────────────────────────────
 
 export interface ParametroLaboratorial {
-  nome: string
-  nome_normalizado: string
-  valor: string
-  valor_numerico: number | null
-  unidade: string | null
-  valor_referencia_min: number | null
-  valor_referencia_max: number | null
-  valor_referencia_texto: string | null
-  status: 'normal' | 'baixo' | 'alto' | 'critico_baixo' | 'critico_alto' | 'indeterminado'
-  categoria: 'hemograma' | 'bioquimica' | 'coagulacao' | 'urina' | 'microbiologia' | 'imunologia' | 'sorologias' | 'hormonio' | 'gasometria' | 'outro'
-  flag_critico: boolean
-  observacao: string | null
+  nome: string;
+  nome_normalizado: string;
+  valor: string;
+  valor_numerico: number | null;
+  unidade: string | null;
+  valor_referencia_min: number | null;
+  valor_referencia_max: number | null;
+  valor_referencia_texto: string | null;
+  status:
+    | "normal"
+    | "baixo"
+    | "alto"
+    | "critico_baixo"
+    | "critico_alto"
+    | "indeterminado";
+  categoria:
+    | "hemograma"
+    | "bioquimica"
+    | "coagulacao"
+    | "urina"
+    | "microbiologia"
+    | "imunologia"
+    | "sorologias"
+    | "hormonio"
+    | "gasometria"
+    | "outro";
+  flag_critico: boolean;
+  observacao: string | null;
 }
 
 export interface ResultadoExtracaoExames {
-  laboratorio: string | null
-  data_coleta: string | null
-  data_resultado: string | null
-  medico_solicitante: string | null
-  parametros: ParametroLaboratorial[]
-  observacoes_gerais: string | null
-  metodo: string | null
-  confianca_extracao: 'alta' | 'media' | 'baixa'
+  laboratorio: string | null;
+  data_coleta: string | null;
+  data_resultado: string | null;
+  medico_solicitante: string | null;
+  parametros: ParametroLaboratorial[];
+  observacoes_gerais: string | null;
+  metodo: string | null;
+  confianca_extracao: "alta" | "media" | "baixa";
   metricas_extracao: {
-    total_parametros: number
-    criticos: number
-    alterados: number
-    normais: number
-  }
+    total_parametros: number;
+    criticos: number;
+    alterados: number;
+    normais: number;
+  };
 }
 
 const PROMPT_01_SYSTEM = `${INJECTION_GUARD}
@@ -353,71 +429,93 @@ CRITÉRIOS DE VALOR CRÍTICO — SBPC/ML 2024 (flag_critico: true):
 - INR > 4,0
 - Troponina I > 10× URL do método
 - PCR > 200 mg/L
-- Hemocultura: qualquer crescimento bacteriano ou fúngico`
+- Hemocultura: qualquer crescimento bacteriano ou fúngico`;
 
-export async function extrairExamesLaboratoriais(textoLaudo: string): Promise<ResultadoExtracaoExames> {
-  const text = await callClaude(PROMPT_01_SYSTEM, textoLaudo, 2048, MODEL_HAIKU, 0.1, 'extrairExamesLaboratoriais')
-  return parseJsonResponse<ResultadoExtracaoExames>(text, 'extrator-exames')
+export async function extrairExamesLaboratoriais(
+  textoLaudo: string,
+): Promise<ResultadoExtracaoExames> {
+  const text = await callClaude(
+    PROMPT_01_SYSTEM,
+    textoLaudo,
+    2048,
+    MODEL_HAIKU,
+    0.1,
+    "extrairExamesLaboratoriais",
+  );
+  return parseJsonResponse<ResultadoExtracaoExames>(text, "extrator-exames");
 }
 
 // ─── CIS-02a — MedScribe: SOAP Note ──────────────────────────────────────────
 
 export interface KnowledgeMetadata {
   diagnostico_principal: {
-    nome: string
-    cid10: string
-    certeza: 'confirmado' | 'provavel' | 'suspeito'
-    categoria: 'infeccioso' | 'nao_infeccioso' | 'misto'
-  }
-  diagnosticos_diferenciais: string[]
+    nome: string;
+    cid10: string;
+    certeza: "confirmado" | "provavel" | "suspeito";
+    categoria: "infeccioso" | "nao_infeccioso" | "misto";
+  };
+  diagnosticos_diferenciais: string[];
   apresentacao_clinica: {
-    tempo_evolucao_dias: number
-    sintomas_principais: string[]
-    sinais_vitais_alterados: string[]
-    achados_exame_fisico: string[]
-  }
+    tempo_evolucao_dias: number;
+    sintomas_principais: string[];
+    sinais_vitais_alterados: string[];
+    achados_exame_fisico: string[];
+  };
   perfil_paciente: {
-    faixa_etaria: 'pediatrico' | 'adulto_jovem' | 'adulto' | 'idoso'
-    sexo: 'M' | 'F' | 'nao_informado'
-    imunocomprometido: boolean
-    tipo_imunocomprometimento: 'transplante' | 'hiv' | 'quimioterapia' | 'corticoide' | 'outro' | null
-    comorbidades: string[]
-  }
+    faixa_etaria: "pediatrico" | "adulto_jovem" | "adulto" | "idoso";
+    sexo: "M" | "F" | "nao_informado";
+    imunocomprometido: boolean;
+    tipo_imunocomprometimento:
+      | "transplante"
+      | "hiv"
+      | "quimioterapia"
+      | "corticoide"
+      | "outro"
+      | null;
+    comorbidades: string[];
+  };
   microbiologia: {
-    agente_identificado: string | null
-    metodo_diagnostico: string[]
-    perfil_resistencia: string | null
-  }
+    agente_identificado: string | null;
+    metodo_diagnostico: string[];
+    perfil_resistencia: string | null;
+  };
   conduta: {
     antibioticos: Array<{
-      nome: string
-      dose: string
-      via: string
-      frequencia: string
-      duracao_dias: number
-    }>
-    outros_medicamentos: string[]
-    internacao_indicada: boolean
-    nivel_cuidado: 'ambulatorial' | 'internacao' | 'UTI'
-  }
+      nome: string;
+      dose: string;
+      via: string;
+      frequencia: string;
+      duracao_dias: number;
+    }>;
+    outros_medicamentos: string[];
+    internacao_indicada: boolean;
+    nivel_cuidado: "ambulatorial" | "internacao" | "UTI";
+  };
   busca_pubmed: {
-    termos_mesh: string[]
-    query_sugerida: string
-    prioridade: 'alta' | 'media' | 'baixa'
-  }
-  palavras_gatilho_relatorio: string[]
+    termos_mesh: string[];
+    query_sugerida: string;
+    prioridade: "alta" | "media" | "baixa";
+  };
+  palavras_gatilho_relatorio: string[];
   caso_atipico: {
-    atipico: boolean
-    criterios_objetivos: string[]
-    tipo_sugerido: 'relato_de_caso' | 'serie_de_casos' | 'nenhum'
-  }
-  tags: string[]
+    atipico: boolean;
+    criterios_objetivos: string[];
+    tipo_sugerido: "relato_de_caso" | "serie_de_casos" | "nenhum";
+  };
+  tags: string[];
 }
 
 export async function gerarSOAP(params: {
-  transcricaoOuTexto: string
-  dadosExamesJson?: string
-  template: 'infectologia_geral' | 'prep_ist' | 'opat' | 'pos_transplante' | 'neutropenia_febril' | 'hiv_cronico' | 'tb'
+  transcricaoOuTexto: string;
+  dadosExamesJson?: string;
+  template:
+    | "infectologia_geral"
+    | "prep_ist"
+    | "opat"
+    | "pos_transplante"
+    | "neutropenia_febril"
+    | "hiv_cronico"
+    | "tb";
 }): Promise<string> {
   const systemPrompt = `${INTEGRITY_GUARD}
 ${INJECTION_GUARD}
@@ -458,22 +556,36 @@ Gere o SOAP note clínico completo no formato abaixo. Seja preciso, objetivo e u
 - Retorno programado: prazo e objetivo
 
 Retorne APENAS o texto do SOAP note. Nenhum JSON, nenhum bloco de código.
-Dado ausente na transcrição: escreva "[NÃO INFORMADO]" — nunca presuma nem invente.`
+Dado ausente na transcrição: escreva "[NÃO INFORMADO]" — nunca presuma nem invente.`;
 
   const userContent = `ENTRADA DO MÉDICO:
 ${params.transcricaoOuTexto}
 
 EXAMES IMPORTADOS (se houver):
-${params.dadosExamesJson ?? 'Nenhum exame importado'}`
+${params.dadosExamesJson ?? "Nenhum exame importado"}`;
 
-  return callClaude(systemPrompt, userContent, 4096, MODEL_SONNET, 0.2, 'gerarSOAP')
+  return callClaude(
+    systemPrompt,
+    userContent,
+    4096,
+    MODEL_SONNET,
+    0.2,
+    "gerarSOAP",
+  );
 }
 
 // ─── CIS-02b — MedScribe: Knowledge Metadata ─────────────────────────────────
 
 export async function gerarKnowledgeMetadata(params: {
-  soapTexto: string
-  template: 'infectologia_geral' | 'prep_ist' | 'opat' | 'pos_transplante' | 'neutropenia_febril' | 'hiv_cronico' | 'tb'
+  soapTexto: string;
+  template:
+    | "infectologia_geral"
+    | "prep_ist"
+    | "opat"
+    | "pos_transplante"
+    | "neutropenia_febril"
+    | "hiv_cronico"
+    | "tb";
 }): Promise<KnowledgeMetadata> {
   const systemPrompt = `${INJECTION_GUARD}
 ${OUTPUT_CONTRACT_JSON}
@@ -539,40 +651,49 @@ REGRAS:
   • Coinfecção simultânea de 2 ou mais agentes incomuns
   • Perfil de resistência emergente (ex: KPC, NDM, VRE em infecção comunitária)
   • Manifestação em faixa etária ou imunocompetência discordante do padrão descrito em guidelines
-  criterios_objetivos: liste apenas os critérios efetivamente verificáveis no SOAP ([] se atipico = false)`
+  criterios_objetivos: liste apenas os critérios efetivamente verificáveis no SOAP ([] se atipico = false)`;
 
-  const text = await callClaude(systemPrompt, params.soapTexto, 1024, MODEL_HAIKU, 0.1, 'gerarTermosMeSH')
-  return parseJsonResponse<KnowledgeMetadata>(text, 'knowledge-metadata')
+  const text = await callClaude(
+    systemPrompt,
+    params.soapTexto,
+    1024,
+    MODEL_HAIKU,
+    0.1,
+    "gerarTermosMeSH",
+  );
+  return parseJsonResponse<KnowledgeMetadata>(text, "knowledge-metadata");
 }
 
 // ─── Tipo compartilhado para todos os outputs de texto livre ─────────────────
 
-export interface ResultadoTexto { texto: string }
+export interface ResultadoTexto {
+  texto: string;
+}
 
 // Aliases mantidos para compatibilidade com callers existentes
-export type SinteseArtigos            = ResultadoTexto
-export type DigestDiario              = ResultadoTexto
-export type DigestSemanal             = ResultadoTexto
-export type DigestMensal              = ResultadoTexto
-export type ResultadoSerieCasos       = ResultadoTexto
-export type ResultadoRevisaoLiteratura = ResultadoTexto
+export type SinteseArtigos = ResultadoTexto;
+export type DigestDiario = ResultadoTexto;
+export type DigestSemanal = ResultadoTexto;
+export type DigestMensal = ResultadoTexto;
+export type ResultadoSerieCasos = ResultadoTexto;
+export type ResultadoRevisaoLiteratura = ResultadoTexto;
 
 // ─── PROMPT 03 — Síntese Analítica de Artigos PubMed ─────────────────────────
 
 export async function sintetizarArtigosPubMed(params: {
-  soapResumido: string
-  diagnostico: string
-  cid10: string
-  populacao: string
-  condutaAtual: string
-  artigosJson: string
+  soapResumido: string;
+  diagnostico: string;
+  cid10: string;
+  populacao: string;
+  condutaAtual: string;
+  artigosJson: string;
   /** Número de artigos fornecidos — injetado no prompt como {N} */
-  n?: number
+  n?: number;
   /** Referências da biblioteca Zotero do médico — formatadas com [Z1], [Z2] */
-  zoteroReferencias?: string
+  zoteroReferencias?: string;
 }): Promise<SinteseArtigos> {
-  const n = params.n ?? 'N'
-  const temZotero = Boolean(params.zoteroReferencias?.trim())
+  const n = params.n ?? "N";
+  const temZotero = Boolean(params.zoteroReferencias?.trim());
 
   const systemPrompt = `${INTEGRITY_GUARD}
 
@@ -584,7 +705,7 @@ TAREFA: Síntese analítica estruturada. Escreva em português. Máximo 900 pala
 
 SISTEMA DE CITAÇÃO:
 • [PMID XXXXXXXX] — artigos do PubMed fornecidos abaixo
-• [Z1], [Z2], … — referências da biblioteca pessoal do médico (Zotero), fornecidas abaixo${temZotero ? '' : '\n• (Sem referências Zotero nesta síntese)'}
+• [Z1], [Z2], … — referências da biblioteca pessoal do médico (Zotero), fornecidas abaixo${temZotero ? "" : "\n• (Sem referências Zotero nesta síntese)"}
 
 ## 1. Panorama Atual
 
@@ -626,7 +747,7 @@ Artigos fornecidos mas não citados: NÃO incluir.
 - Toda afirmação tem [PMID] ou [ZN]? → Se não: remover ou corrigir
 - Citei artigo não fornecido? → Se sim: remover
 - Classifiquei evidência com nível GRADE correto? → Se não: corrigir
-- Artigos anteriores a 2021 estão marcados [DESATUALIZADO]? → Verificar`
+- Artigos anteriores a 2021 estão marcados [DESATUALIZADO]? → Verificar`;
 
   const userContent = `CASO CLÍNICO ATUAL:
 ${params.soapResumido}
@@ -640,37 +761,48 @@ Conduta em uso: ${params.condutaAtual}
 ARTIGOS PUBMED FORNECIDOS (${n} artigos):
 (ATENÇÃO: sintetize APENAS o conteúdo presente nestes artigos)
 
-${params.artigosJson}${temZotero ? `
+${params.artigosJson}${
+    temZotero
+      ? `
 
 -----
 
 REFERÊNCIAS DA BIBLIOTECA PESSOAL DO MÉDICO (Zotero) — cite como [Z1], [Z2], etc.:
 (Estas referências foram salvas pelo médico — têm igual validade que os artigos PubMed)
 
-${params.zoteroReferencias}` : ''}`
+${params.zoteroReferencias}`
+      : ""
+  }`;
 
-  const text = await callClaude(systemPrompt, userContent, 4096, MODEL_SONNET, 0.2, 'sintetizarArtigosPubMed')
-  return { texto: text }
+  const text = await callClaude(
+    systemPrompt,
+    userContent,
+    4096,
+    MODEL_SONNET,
+    0.2,
+    "sintetizarArtigosPubMed",
+  );
+  return { texto: text };
 }
 
 // ─── PROMPT 04 — Verificação de Critérios DUT ────────────────────────────────
 
 export interface ResultadoVerificacaoDUT {
-  dut_numero: string
-  dut_aplicavel: boolean
+  dut_numero: string;
+  dut_aplicavel: boolean;
   criterios_atendidos: Array<{
-    criterio: string
-    encontrado: boolean
-    evidencia_no_soap: string
-  }>
+    criterio: string;
+    encontrado: boolean;
+    evidencia_no_soap: string;
+  }>;
   criterios_faltantes: Array<{
-    criterio: string
-    encontrado: boolean
-    sugestao_para_medico: string
-  }>
-  pode_gerar_relatorio: boolean
-  alerta_para_medico: string | null
-  justificativa_clinica: string
+    criterio: string;
+    encontrado: boolean;
+    sugestao_para_medico: string;
+  }>;
+  pode_gerar_relatorio: boolean;
+  alerta_para_medico: string | null;
+  justificativa_clinica: string;
 }
 
 const PROMPT_04_SYSTEM = `${INJECTION_GUARD}
@@ -704,13 +836,13 @@ Seja rigoroso: o critério precisa estar EXPLICITAMENTE documentado, não apenas
 }
 
 REGRAS:
-- alerta_para_medico: null quando pode_gerar_relatorio = true; string explicando os critérios faltantes quando false.`
+- alerta_para_medico: null quando pode_gerar_relatorio = true; string explicando os critérios faltantes quando false.`;
 
 export async function verificarCriteriosDUT(params: {
-  soapCompleto: string
-  diagnostico: string
-  numeroDut: string
-  criteriosDutJson: string
+  soapCompleto: string;
+  diagnostico: string;
+  numeroDut: string;
+  criteriosDutJson: string;
 }): Promise<ResultadoVerificacaoDUT> {
   const userContent = `SOAP DA CONSULTA:
 ${params.soapCompleto}
@@ -718,33 +850,40 @@ ${params.soapCompleto}
 DIAGNÓSTICO: ${params.diagnostico}
 
 DUT Nº ${params.numeroDut} — CRITÉRIOS OBRIGATÓRIOS:
-${params.criteriosDutJson}`
+${params.criteriosDutJson}`;
 
-  const text = await callClaude(PROMPT_04_SYSTEM, userContent, 1024, MODEL_SONNET, undefined, 'verificarCriteriosDUT')
-  return parseJsonResponse<ResultadoVerificacaoDUT>(text, 'verificacao-dut')
+  const text = await callClaude(
+    PROMPT_04_SYSTEM,
+    userContent,
+    1024,
+    MODEL_SONNET,
+    undefined,
+    "verificarCriteriosDUT",
+  );
+  return parseJsonResponse<ResultadoVerificacaoDUT>(text, "verificacao-dut");
 }
 
 // ─── PROMPT 05 — Geração de Relatório de Tratamento ──────────────────────────
 
 export interface ResultadoRelatorioTratamento {
-  texto: string
+  texto: string;
 }
 
 export async function gerarRelatorioTratamento(params: {
-  tipoRelatorio: string
-  dadosPaciente: string
-  soapS: string
-  soapO: string
-  soapA: string
-  soapP: string
-  diagnostico: string
-  cid10: string
-  medicamento: string
-  doseViaFrequencia: string
-  tussCodigo: string
-  dutNumero: string
-  criteriosAtendidos: string
-  referenciasVancouver: string
+  tipoRelatorio: string;
+  dadosPaciente: string;
+  soapS: string;
+  soapO: string;
+  soapA: string;
+  soapP: string;
+  diagnostico: string;
+  cid10: string;
+  medicamento: string;
+  doseViaFrequencia: string;
+  tussCodigo: string;
+  dutNumero: string;
+  criteriosAtendidos: string;
+  referenciasVancouver: string;
 }): Promise<ResultadoRelatorioTratamento> {
   const systemPrompt = `${INJECTION_GUARD}
 
@@ -774,7 +913,7 @@ O texto deve cobrir obrigatoriamente, nesta ordem:
 6. CONCLUSÃO
    Solicite formalmente a autorização do procedimento/medicamento, reforçando a necessidade clínica.
 
-Não inclua cabeçalho, rodapé, assinatura ou formatação — esses elementos serão adicionados automaticamente pelo sistema.`
+Não inclua cabeçalho, rodapé, assinatura ou formatação — esses elementos serão adicionados automaticamente pelo sistema.`;
 
   const userContent = `DADOS DO CONTEXTO:
 - Tipo de relatório: ${params.tipoRelatorio}
@@ -792,39 +931,46 @@ Avaliação: ${params.soapA}
 Plano: ${params.soapP}
 
 REFERÊNCIAS DISPONÍVEIS:
-${params.referenciasVancouver}`
+${params.referenciasVancouver}`;
 
-  const text = await callClaude(systemPrompt, userContent, 2048, MODEL_SONNET, undefined, 'gerarRelatorioTratamento')
-  return { texto: text }
+  const text = await callClaude(
+    systemPrompt,
+    userContent,
+    2048,
+    MODEL_SONNET,
+    undefined,
+    "gerarRelatorioTratamento",
+  );
+  return { texto: text };
 }
 
 // ─── PROMPT 06 — Detecção de Divergência de Conduta ──────────────────────────
 
 export interface ResultadoDivergenciaConducta {
-  tem_divergencia: boolean
-  nivel_urgencia: 'baixo' | 'medio' | 'alto' | null
-  hash_alerta: string | null
-  supressao_sugerida_dias: number | null
-  confianca_aplicabilidade: 'alta' | 'media' | 'baixa' | null
+  tem_divergencia: boolean;
+  nivel_urgencia: "baixo" | "medio" | "alto" | null;
+  hash_alerta: string | null;
+  supressao_sugerida_dias: number | null;
+  confianca_aplicabilidade: "alta" | "media" | "baixa" | null;
   divergencias: Array<{
-    aspecto: string
-    conduta_atual: string
-    evidencia_recomenda: string
-    justificativa: string
-    grade: '1A' | '1B' | '2A' | '2B' | '2C' | '3' | '4' | '5'
-    forca_recomendacao: 'forte' | 'condicional'
-    fonte: string
-    populacao_estudo: string
-    aplicavel_ao_perfil: boolean
-  }>
-  mensagem_para_medico: string | null
+    aspecto: string;
+    conduta_atual: string;
+    evidencia_recomenda: string;
+    justificativa: string;
+    grade: "1A" | "1B" | "2A" | "2B" | "2C" | "3" | "4" | "5";
+    forca_recomendacao: "forte" | "condicional";
+    fonte: string;
+    populacao_estudo: string;
+    aplicavel_ao_perfil: boolean;
+  }>;
+  mensagem_para_medico: string | null;
 }
 
 export interface FeedbackHistoricoItem {
-  hashAlerta: string | null
-  feedback: string        // 'concordo' | 'discordo' | 'inaplicavel'
-  motivo: string | null
-  cid10Origem?: string    // preenchido quando o feedback vem de diagnóstico diferente (padrão global)
+  hashAlerta: string | null;
+  feedback: string; // 'concordo' | 'discordo' | 'inaplicavel'
+  motivo: string | null;
+  cid10Origem?: string; // preenchido quando o feedback vem de diagnóstico diferente (padrão global)
 }
 
 const PROMPT_06_SYSTEM = `${INJECTION_GUARD}
@@ -884,39 +1030,43 @@ REGRAS:
 - supressao_sugerida_dias: alto: 7, medio: 14, baixo: 30; null se sem divergência.
 - confianca_aplicabilidade: alta = população do estudo compatível com o perfil; media = parcialmente compatível; baixa = população claramente diferente.
 - mensagem_para_medico: null se tem_divergencia = false; texto amigável, não julgamental, se true. Inclua limitação populacional quando confianca_aplicabilidade = baixa.
-- Se TODAS as divergências tiverem aplicavel_ao_perfil = false: tem_divergencia = false.`
+- Se TODAS as divergências tiverem aplicavel_ao_perfil = false: tem_divergencia = false.`;
 
 export async function detectarDivergenciaConducta(params: {
-  condutaAtual: string
-  sinteseEvidencias: string
-  diagnostico: string
-  cid10: string
+  condutaAtual: string;
+  sinteseEvidencias: string;
+  diagnostico: string;
+  cid10: string;
   perfilPaciente?: {
-    faixa_etaria: string
-    imunocomprometido: boolean
-    tipo_imunocomprometimento: string | null
-    comorbidades: string[]
-  }
-  historicoFeedback?: FeedbackHistoricoItem[]
+    faixa_etaria: string;
+    imunocomprometido: boolean;
+    tipo_imunocomprometimento: string | null;
+    comorbidades: string[];
+  };
+  historicoFeedback?: FeedbackHistoricoItem[];
 }): Promise<ResultadoDivergenciaConducta> {
   const perfilStr = params.perfilPaciente
     ? [
         `Faixa etária: ${params.perfilPaciente.faixa_etaria}`,
         params.perfilPaciente.imunocomprometido
-          ? `Imunocomprometido: sim (${params.perfilPaciente.tipo_imunocomprometimento ?? 'não especificado'})`
-          : 'Imunocomprometido: não',
+          ? `Imunocomprometido: sim (${params.perfilPaciente.tipo_imunocomprometimento ?? "não especificado"})`
+          : "Imunocomprometido: não",
         params.perfilPaciente.comorbidades.length
-          ? `Comorbidades: ${params.perfilPaciente.comorbidades.join(', ')}`
-          : 'Comorbidades: nenhuma documentada',
-      ].join('\n')
-    : 'Perfil não disponível — aplique critérios conservadores de compatibilidade.'
+          ? `Comorbidades: ${params.perfilPaciente.comorbidades.join(", ")}`
+          : "Comorbidades: nenhuma documentada",
+      ].join("\n")
+    : "Perfil não disponível — aplique critérios conservadores de compatibilidade.";
 
   const feedbackStr = params.historicoFeedback?.length
-    ? params.historicoFeedback.map(f => {
-        const origem = f.cid10Origem ? ` | outro diagnóstico: ${f.cid10Origem} [padrão global]` : ''
-        return `- hash: ${f.hashAlerta ?? 'desconhecido'} | feedback: ${f.feedback}${f.motivo ? ` | motivo: "${f.motivo}"` : ''}${origem}`
-      }).join('\n')
-    : 'Nenhum feedback registrado.'
+    ? params.historicoFeedback
+        .map((f) => {
+          const origem = f.cid10Origem
+            ? ` | outro diagnóstico: ${f.cid10Origem} [padrão global]`
+            : "";
+          return `- hash: ${f.hashAlerta ?? "desconhecido"} | feedback: ${f.feedback}${f.motivo ? ` | motivo: "${f.motivo}"` : ""}${origem}`;
+        })
+        .join("\n")
+    : "Nenhum feedback registrado.";
 
   const userContent = `PERFIL DO PACIENTE:
 ${perfilStr}
@@ -931,21 +1081,31 @@ ${params.condutaAtual}
 SÍNTESE DAS EVIDÊNCIAS MAIS RECENTES:
 ${params.sinteseEvidencias}
 
-Diagnóstico: ${params.diagnostico} (${params.cid10})`
+Diagnóstico: ${params.diagnostico} (${params.cid10})`;
 
-  const text = await callClaude(PROMPT_06_SYSTEM, userContent, 1500, MODEL_SONNET, 0.1, 'detectarDivergenciaConducta')
-  return parseJsonResponse<ResultadoDivergenciaConducta>(text, 'divergencia-conduta')
+  const text = await callClaude(
+    PROMPT_06_SYSTEM,
+    userContent,
+    1500,
+    MODEL_SONNET,
+    0.1,
+    "detectarDivergenciaConducta",
+  );
+  return parseJsonResponse<ResultadoDivergenciaConducta>(
+    text,
+    "divergencia-conduta",
+  );
 }
 
 // ─── PROMPT 07 — Digest Diário ────────────────────────────────────────────────
 
 export async function gerarDigestDiario(params: {
-  data: string
-  totalPacientes: number
-  consultasJson: string
-  artigosSintetizadosJson: string
-  alertasCondutaJson: string
-  relatoriosGerados: string
+  data: string;
+  totalPacientes: number;
+  consultasJson: string;
+  artigosSintetizadosJson: string;
+  alertasCondutaJson: string;
+  relatoriosGerados: string;
 }): Promise<DigestDiario> {
   const systemPrompt = `${DIGEST_BASE_STR}
 
@@ -977,30 +1137,37 @@ Gere o resumo do dia. Máximo 600 palavras.
 
 [1-2 linhas: artigos indexados, notas geradas, relatórios emitidos]
 
-Termine com: "Próximo resumo: amanhã."`
+Termine com: "Próximo resumo: amanhã."`;
 
   const userContent = `DADOS DO DIA — ${params.data}:
 - Total de pacientes atendidos: ${params.totalPacientes}
 - Consultas: ${params.consultasJson}
 - Artigos sintetizados hoje: ${params.artigosSintetizadosJson}
 - Alertas de conduta gerados: ${params.alertasCondutaJson}
-- Relatórios emitidos: ${params.relatoriosGerados}`
+- Relatórios emitidos: ${params.relatoriosGerados}`;
 
-  const text = await callClaude(systemPrompt, userContent, 1500, MODEL_SONNET, 0.2, 'gerarDigestDiario')
-  return { texto: text }
+  const text = await callClaude(
+    systemPrompt,
+    userContent,
+    1500,
+    MODEL_SONNET,
+    0.2,
+    "gerarDigestDiario",
+  );
+  return { texto: text };
 }
 
 // ─── PROMPT 08 — Digest Semanal ───────────────────────────────────────────────
 
 type DigestSemanalParams = {
-  semana: string
-  totalPacientes: number
-  diagnosticosJson: string
-  artigosSemanaJson: string
-  alertasSemanaJson: string
-  seriesStatusJson: string
-  relatoriosSemana: string
-}
+  semana: string;
+  totalPacientes: number;
+  diagnosticosJson: string;
+  artigosSemanaJson: string;
+  alertasSemanaJson: string;
+  seriesStatusJson: string;
+  relatoriosSemana: string;
+};
 
 const PROMPT_08_SYSTEM = `${DIGEST_BASE_STR}
 
@@ -1039,7 +1206,7 @@ Gere o resumo semanal. Máximo 800 palavras.
 
 [Artigos sintetizados na semana, total acumulado, relatórios emitidos]
 
-Termine com: "Próximo resumo semanal: próxima sexta-feira às 19h."`
+Termine com: "Próximo resumo semanal: próxima sexta-feira às 19h."`;
 
 function digestSemanalUserContent(params: DigestSemanalParams): string {
   return `DADOS DA SEMANA — ${params.semana}:
@@ -1048,38 +1215,59 @@ function digestSemanalUserContent(params: DigestSemanalParams): string {
 - Artigos sintetizados: ${params.artigosSemanaJson}
 - Alertas de conduta: ${params.alertasSemanaJson}
 - Status das séries de casos: ${params.seriesStatusJson}
-- Relatórios emitidos: ${params.relatoriosSemana}`
+- Relatórios emitidos: ${params.relatoriosSemana}`;
 }
 
-export async function gerarDigestSemanal(params: DigestSemanalParams): Promise<DigestSemanal> {
-  const text = await callClaude(PROMPT_08_SYSTEM, digestSemanalUserContent(params), 2000, MODEL_SONNET, 0.2, 'gerarDigestSemanal')
-  return { texto: text }
+export async function gerarDigestSemanal(
+  params: DigestSemanalParams,
+): Promise<DigestSemanal> {
+  const text = await callClaude(
+    PROMPT_08_SYSTEM,
+    digestSemanalUserContent(params),
+    2000,
+    MODEL_SONNET,
+    0.2,
+    "gerarDigestSemanal",
+  );
+  return { texto: text };
 }
 
-function buildDigestSemanalRequest(params: DigestSemanalParams, id: string): BatchRequest {
-  return { id, systemPrompt: PROMPT_08_SYSTEM, userContent: digestSemanalUserContent(params), maxTokens: 2000, model: MODEL_SONNET, temperature: 0.2 }
+function buildDigestSemanalRequest(
+  params: DigestSemanalParams,
+  id: string,
+): BatchRequest {
+  return {
+    id,
+    systemPrompt: PROMPT_08_SYSTEM,
+    userContent: digestSemanalUserContent(params),
+    maxTokens: 2000,
+    model: MODEL_SONNET,
+    temperature: 0.2,
+  };
 }
 
 /** Gera digests semanais para múltiplos médicos em um único batch (50% mais barato). */
 export async function gerarDigestSemanalLote(
   entradas: Array<{ id: string; params: DigestSemanalParams }>,
 ): Promise<Map<string, string>> {
-  return callClaudeBatch(entradas.map(e => buildDigestSemanalRequest(e.params, e.id)))
+  return callClaudeBatch(
+    entradas.map((e) => buildDigestSemanalRequest(e.params, e.id)),
+  );
 }
 
 // ─── PROMPT 09 — Digest Mensal ────────────────────────────────────────────────
 
 type DigestMensalParams = {
-  mesAno: string
-  totalPacientes: number
-  diagnosticosMesJson: string
-  artigosMesJson: string
-  alertasMesJson: string
-  seriesGeradasJson: string
-  seriesPublicadasJson: string
-  totalAcumuladoJson: string
-  cronogramaPublicacaoJson: string
-}
+  mesAno: string;
+  totalPacientes: number;
+  diagnosticosMesJson: string;
+  artigosMesJson: string;
+  alertasMesJson: string;
+  seriesGeradasJson: string;
+  seriesPublicadasJson: string;
+  totalAcumuladoJson: string;
+  cronogramaPublicacaoJson: string;
+};
 
 const PROMPT_09_SYSTEM = `${DIGEST_BASE_STR}
 
@@ -1126,7 +1314,7 @@ Gere o resumo mensal analítico. Máximo 1000 palavras. Seja analítico — iden
 
 [2-3 pontos de atenção: séries quase prontas, diagnósticos em ascensão, alertas pendentes]
 
-Termine com: "Próximo resumo mensal: último dia de [próximo mês]."`
+Termine com: "Próximo resumo mensal: último dia de [próximo mês]."`;
 
 function digestMensalUserContent(params: DigestMensalParams): string {
   return `DADOS DO MÊS — ${params.mesAno}:
@@ -1137,40 +1325,61 @@ function digestMensalUserContent(params: DigestMensalParams): string {
 - Séries de casos geradas: ${params.seriesGeradasJson}
 - Séries publicadas: ${params.seriesPublicadasJson}
 - Totais acumulados (desde o início): ${params.totalAcumuladoJson}
-- Cronograma de publicação: ${params.cronogramaPublicacaoJson}`
+- Cronograma de publicação: ${params.cronogramaPublicacaoJson}`;
 }
 
-export async function gerarDigestMensal(params: DigestMensalParams): Promise<DigestMensal> {
-  const text = await callClaude(PROMPT_09_SYSTEM, digestMensalUserContent(params), 2500, MODEL_SONNET, 0.2, 'gerarDigestMensal')
-  return { texto: text }
+export async function gerarDigestMensal(
+  params: DigestMensalParams,
+): Promise<DigestMensal> {
+  const text = await callClaude(
+    PROMPT_09_SYSTEM,
+    digestMensalUserContent(params),
+    2500,
+    MODEL_SONNET,
+    0.2,
+    "gerarDigestMensal",
+  );
+  return { texto: text };
 }
 
-function buildDigestMensalRequest(params: DigestMensalParams, id: string): BatchRequest {
-  return { id, systemPrompt: PROMPT_09_SYSTEM, userContent: digestMensalUserContent(params), maxTokens: 2500, model: MODEL_SONNET, temperature: 0.2 }
+function buildDigestMensalRequest(
+  params: DigestMensalParams,
+  id: string,
+): BatchRequest {
+  return {
+    id,
+    systemPrompt: PROMPT_09_SYSTEM,
+    userContent: digestMensalUserContent(params),
+    maxTokens: 2500,
+    model: MODEL_SONNET,
+    temperature: 0.2,
+  };
 }
 
 /** Gera digests mensais para múltiplos médicos em um único batch (50% mais barato). */
 export async function gerarDigestMensalLote(
   entradas: Array<{ id: string; params: DigestMensalParams }>,
 ): Promise<Map<string, string>> {
-  return callClaudeBatch(entradas.map(e => buildDigestMensalRequest(e.params, e.id)))
+  return callClaudeBatch(
+    entradas.map((e) => buildDigestMensalRequest(e.params, e.id)),
+  );
 }
 
 // ─── PROMPT 10 — Geração de Série de Casos ───────────────────────────────────
 
 export async function gerarSerieCasos(params: {
-  diagnostico: string
-  cid10: string
-  nCasos: number
-  casosJson: string
-  artigosReferenciasJson: string
+  diagnostico: string;
+  cid10: string;
+  nCasos: number;
+  casosJson: string;
+  artigosReferenciasJson: string;
   /** Referências adicionais da biblioteca Zotero do médico — formatadas com [Z1], [Z2] */
-  zoteroReferencias?: string
+  zoteroReferencias?: string;
 }): Promise<ResultadoSerieCasos> {
   if (params.nCasos < 3) {
     return {
       texto: `⚠️ SÉRIE DE CASOS NÃO GERADA\n\nPublicações de série de casos requerem mínimo de 3 casos documentados.\nCasos fornecidos: ${params.nCasos} (CID ${params.cid10}).\n\nAcumule mais casos antes de gerar o rascunho.`,
-    }
+    };
   }
 
   const systemPrompt = `${INTEGRITY_GUARD}
@@ -1244,7 +1453,7 @@ VERIFICAÇÃO FINAL:
 - Todos os dados clínicos vêm dos casos_json? → Se não: remover ou marcar [INSERIR]
 - Todas as referências estão na lista fornecida? → Se não: remover
 - Faixas etárias padronizadas usadas? → Verificar
-- Dados que permitam identificar o paciente? → Remover`
+- Dados que permitam identificar o paciente? → Remover`;
 
   const userContent = `DIAGNÓSTICO: ${params.diagnostico} — CID ${params.cid10}
 NÚMERO DE CASOS: ${params.nCasos}
@@ -1253,27 +1462,38 @@ DADOS DOS CASOS:
 ${params.casosJson}
 
 ARTIGOS DE REFERÊNCIA DISPONÍVEIS (PubMed):
-${params.artigosReferenciasJson}${params.zoteroReferencias?.trim() ? `
+${params.artigosReferenciasJson}${
+    params.zoteroReferencias?.trim()
+      ? `
 
 REFERÊNCIAS DA BIBLIOTECA PESSOAL DO MÉDICO (Zotero) — cite como [Z1], [Z2], etc.:
-${params.zoteroReferencias}` : ''}`
+${params.zoteroReferencias}`
+      : ""
+  }`;
 
-  const text = await callClaude(systemPrompt, userContent, 4096, MODEL_OPUS, undefined, 'gerarSerieCasos')
-  return { texto: text }
+  const text = await callClaude(
+    systemPrompt,
+    userContent,
+    4096,
+    MODEL_OPUS,
+    undefined,
+    "gerarSerieCasos",
+  );
+  return { texto: text };
 }
 
 // ─── PROMPT 11 — Revisão de Literatura Automática ────────────────────────────
 
 export async function gerarRevisaoLiteratura(params: {
-  tema: string
-  nArtigos: number
-  artigosJson: string
-  contextoClinico: string
+  tema: string;
+  nArtigos: number;
+  artigosJson: string;
+  contextoClinico: string;
   /** Referências adicionais da biblioteca Zotero do médico — formatadas com [Z1], [Z2] */
-  zoteroReferencias?: string
+  zoteroReferencias?: string;
 }): Promise<ResultadoRevisaoLiteratura> {
-  const anoAtual = new Date().getFullYear()
-  const anoInicio = anoAtual - 5
+  const anoAtual = new Date().getFullYear();
+  const anoInicio = anoAtual - 5;
 
   const systemPrompt = `${INTEGRITY_GUARD}
 
@@ -1342,22 +1562,33 @@ VERIFICAÇÃO FINAL:
 - Resolvi artificialmente contradições? → Se sim: desfazer — declare ambas as posições com [N]
 - Seção 6 presente sem artigo brasileiro/latino-americano? → Remover completamente
 - Afirmações sobre mudanças (§5) têm ano de publicação explícito? → Verificar
-- Usei conhecimento interno para preencher lacunas? → Substituir por declaração de ausência`
+- Usei conhecimento interno para preencher lacunas? → Substituir por declaração de ausência`;
 
   const userContent = `TEMA DA REVISÃO: ${params.tema}
 CONTEXTO CLÍNICO: ${params.contextoClinico}
 ARTIGOS PUBMED DISPONÍVEIS: ${params.nArtigos}
 
 ARTIGOS (PubMed):
-${params.artigosJson}${params.zoteroReferencias?.trim() ? `
+${params.artigosJson}${
+    params.zoteroReferencias?.trim()
+      ? `
 
 -----
 
 REFERÊNCIAS DA BIBLIOTECA PESSOAL DO MÉDICO (Zotero) — cite como [Z1], [Z2], etc.:
 (Complementam os artigos PubMed — têm igual validade na revisão)
 
-${params.zoteroReferencias}` : ''}`
+${params.zoteroReferencias}`
+      : ""
+  }`;
 
-  const text = await callClaude(systemPrompt, userContent, 4096, MODEL_OPUS, undefined, 'gerarRevisaoLiteratura')
-  return { texto: text }
+  const text = await callClaude(
+    systemPrompt,
+    userContent,
+    4096,
+    MODEL_OPUS,
+    undefined,
+    "gerarRevisaoLiteratura",
+  );
+  return { texto: text };
 }

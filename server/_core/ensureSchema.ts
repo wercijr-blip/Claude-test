@@ -1,6 +1,6 @@
-import { sql } from 'drizzle-orm'
-import { db } from '../db.ts'
-import { logger } from './logger.ts'
+import { sql } from "drizzle-orm";
+import { db } from "../db.ts";
+import { logger } from "./logger.ts";
 
 // Creates CIS tables using IF NOT EXISTS — safe to run on every boot.
 // Tables listed in FK dependency order (users first, then tables referencing users).
@@ -127,108 +127,131 @@ const DDL_STATEMENTS = [
     INDEX idx_cdigests_tipo (tipo),
     CONSTRAINT fk_digests_medico FOREIGN KEY (medico_id) REFERENCES users(id)
   )`,
-]
+];
 
 // Column patches for tables that may exist from an older schema version.
 // Only additive — never drop or rename columns here.
 const COLUMN_PATCHES: Record<string, Array<{ name: string; ddl: string }>> = {
   users: [
-    { name: 'deleted_at', ddl: 'DATETIME' },
-    { name: 'totp_enabled', ddl: 'TINYINT(1) NOT NULL DEFAULT 0' },
+    { name: "deleted_at", ddl: "DATETIME" },
+    { name: "totp_enabled", ddl: "TINYINT(1) NOT NULL DEFAULT 0" },
   ],
   clinical_sessions: [
-    { name: 'aberta_em', ddl: 'DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP' },
-    { name: 'encerrada_em', ddl: 'DATETIME' },
-    { name: 'total_consultas', ddl: 'INT NOT NULL DEFAULT 0' },
+    { name: "aberta_em", ddl: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" },
+    { name: "encerrada_em", ddl: "DATETIME" },
+    { name: "total_consultas", ddl: "INT NOT NULL DEFAULT 0" },
   ],
   soap_notes: [
-    { name: 'evidence_metadata', ddl: 'JSON' },
-    { name: 'deleted_at', ddl: 'DATETIME' },
-    { name: 'certeza', ddl: 'VARCHAR(20)' },
+    { name: "evidence_metadata", ddl: "JSON" },
+    { name: "deleted_at", ddl: "DATETIME" },
+    { name: "certeza", ddl: "VARCHAR(20)" },
   ],
   conduct_alerts: [
-    { name: 'supressao_ate', ddl: 'DATETIME' },
-    { name: 'mensagem_medico', ddl: 'TEXT' },
-    { name: 'visto_por_id', ddl: 'INT' },
-    { name: 'visto_em', ddl: 'DATETIME' },
+    { name: "supressao_ate", ddl: "DATETIME" },
+    { name: "mensagem_medico", ddl: "TEXT" },
+    { name: "visto_por_id", ddl: "INT" },
+    { name: "visto_em", ddl: "DATETIME" },
   ],
   publication_drafts: [
-    { name: 'deleted_at', ddl: 'DATETIME' },
-    { name: 'obsidian_path', ddl: 'VARCHAR(500)' },
-    { name: 'titulo', ddl: 'TEXT' },
-    { name: 'tema', ddl: 'VARCHAR(255)' },
-    { name: 'jornal', ddl: 'VARCHAR(255)' },
-    { name: 'doi', ddl: 'VARCHAR(255)' },
-    { name: 'data_submissao', ddl: 'DATETIME' },
-    { name: 'data_publicacao', ddl: 'DATETIME' },
-    { name: 'atualizado_em', ddl: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" },
+    { name: "deleted_at", ddl: "DATETIME" },
+    { name: "obsidian_path", ddl: "VARCHAR(500)" },
+    { name: "titulo", ddl: "TEXT" },
+    { name: "tema", ddl: "VARCHAR(255)" },
+    { name: "jornal", ddl: "VARCHAR(255)" },
+    { name: "doi", ddl: "VARCHAR(255)" },
+    { name: "data_submissao", ddl: "DATETIME" },
+    { name: "data_publicacao", ddl: "DATETIME" },
+    {
+      name: "atualizado_em",
+      ddl: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+    },
   ],
   clinical_digests: [
-    { name: 'batch_id', ddl: 'VARCHAR(255)' },
-    { name: 'obsidian_path', ddl: 'VARCHAR(500)' },
-    { name: 'texto', ddl: "TEXT NOT NULL DEFAULT ''" },
-    { name: 'total_consultas', ddl: 'INT NOT NULL DEFAULT 0' },
-    { name: 'total_alertas', ddl: 'INT NOT NULL DEFAULT 0' },
-    { name: 'gerado_em', ddl: 'DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP' },
+    { name: "batch_id", ddl: "VARCHAR(255)" },
+    { name: "obsidian_path", ddl: "VARCHAR(500)" },
+    { name: "texto", ddl: "TEXT NOT NULL DEFAULT ''" },
+    { name: "total_consultas", ddl: "INT NOT NULL DEFAULT 0" },
+    { name: "total_alertas", ddl: "INT NOT NULL DEFAULT 0" },
+    { name: "gerado_em", ddl: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" },
   ],
-}
+};
 
 async function getExistingColumns(table: string): Promise<Set<string>> {
-  const rows = (await db.execute(sql.raw(
-    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '${table}'`,
-  ))) as unknown as Array<{ COLUMN_NAME?: string; column_name?: string }> | { rows?: Array<{ COLUMN_NAME?: string; column_name?: string }> }
+  const rows = (await db.execute(
+    sql.raw(
+      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '${table}'`,
+    ),
+  )) as unknown as
+    | Array<{ COLUMN_NAME?: string; column_name?: string }>
+    | { rows?: Array<{ COLUMN_NAME?: string; column_name?: string }> };
 
-  const list = Array.isArray(rows) ? rows : (rows.rows ?? [])
-  const flat: Array<{ COLUMN_NAME?: string; column_name?: string }> = Array.isArray(list[0])
-    ? (list[0] as Array<{ COLUMN_NAME?: string; column_name?: string }>)
-    : (list as Array<{ COLUMN_NAME?: string; column_name?: string }>)
+  const list = Array.isArray(rows) ? rows : (rows.rows ?? []);
+  const flat: Array<{ COLUMN_NAME?: string; column_name?: string }> =
+    Array.isArray(list[0])
+      ? (list[0] as Array<{ COLUMN_NAME?: string; column_name?: string }>)
+      : (list as Array<{ COLUMN_NAME?: string; column_name?: string }>);
 
-  return new Set(flat.map((r) => r.COLUMN_NAME ?? r.column_name ?? '').filter(Boolean))
+  return new Set(
+    flat.map((r) => r.COLUMN_NAME ?? r.column_name ?? "").filter(Boolean),
+  );
 }
 
-async function patchTableColumns(table: string, columns: Array<{ name: string; ddl: string }>): Promise<void> {
-  let existing: Set<string>
+async function patchTableColumns(
+  table: string,
+  columns: Array<{ name: string; ddl: string }>,
+): Promise<void> {
+  let existing: Set<string>;
   try {
-    existing = await getExistingColumns(table)
+    existing = await getExistingColumns(table);
   } catch (err) {
-    logger.error('[ensureSchema] Falha ao listar colunas', { table, error: String(err) })
-    return
+    logger.error("[ensureSchema] Falha ao listar colunas", {
+      table,
+      error: String(err),
+    });
+    return;
   }
 
   for (const col of columns) {
-    if (existing.has(col.name)) continue
+    if (existing.has(col.name)) continue;
     try {
-      await db.execute(sql.raw(`ALTER TABLE ${table} ADD COLUMN ${col.name} ${col.ddl}`))
-      logger.info('[ensureSchema] Coluna adicionada', { table, column: col.name })
+      await db.execute(
+        sql.raw(`ALTER TABLE ${table} ADD COLUMN ${col.name} ${col.ddl}`),
+      );
+      logger.info("[ensureSchema] Coluna adicionada", {
+        table,
+        column: col.name,
+      });
     } catch (err) {
-      logger.error('[ensureSchema] Falha ao adicionar coluna (continuando)', {
-        table, column: col.name, error: String(err),
-      })
+      logger.error("[ensureSchema] Falha ao adicionar coluna (continuando)", {
+        table,
+        column: col.name,
+        error: String(err),
+      });
     }
   }
 }
 
 export async function ensureSchema(): Promise<void> {
-  logger.info('[ensureSchema] Verificando schema CIS...')
-  let ok = 0
-  let failed = 0
+  logger.info("[ensureSchema] Verificando schema CIS...");
+  let ok = 0;
+  let failed = 0;
   for (const stmt of DDL_STATEMENTS) {
     try {
-      await db.execute(sql.raw(stmt))
-      ok++
+      await db.execute(sql.raw(stmt));
+      ok++;
     } catch (err) {
-      failed++
-      logger.error('[ensureSchema] Falha ao executar DDL (continuando)', {
+      failed++;
+      logger.error("[ensureSchema] Falha ao executar DDL (continuando)", {
         error: String(err),
         stmt: stmt.slice(0, 100),
-      })
+      });
     }
   }
-  logger.info(`[ensureSchema] DDL concluído: ${ok} ok, ${failed} falhas.`)
+  logger.info(`[ensureSchema] DDL concluído: ${ok} ok, ${failed} falhas.`);
 
   for (const [table, columns] of Object.entries(COLUMN_PATCHES)) {
-    await patchTableColumns(table, columns)
+    await patchTableColumns(table, columns);
   }
 
-  logger.info('[ensureSchema] Schema CIS verificado.')
+  logger.info("[ensureSchema] Schema CIS verificado.");
 }

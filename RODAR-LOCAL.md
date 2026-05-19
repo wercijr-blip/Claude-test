@@ -4,12 +4,12 @@ Guia passo-a-passo para subir o site **100% local** — você navega tudo no seu
 
 ## ✅ O que você vai precisar instalar (só uma vez)
 
-| Programa | Para que serve | Onde baixar |
-|---|---|---|
-| **Node.js 20+** | Roda o JavaScript do site | https://nodejs.org (escolha a versão LTS) |
-| **pnpm** | Gerenciador de pacotes (depois do Node) | No terminal: `npm install -g pnpm` |
-| **Git** | Para baixar o código | https://git-scm.com |
-| **Docker Desktop** | Sobe banco de dados + Redis + storage | https://www.docker.com/products/docker-desktop/ |
+| Programa           | Para que serve                          | Onde baixar                                     |
+| ------------------ | --------------------------------------- | ----------------------------------------------- |
+| **Node.js 20+**    | Roda o JavaScript do site               | https://nodejs.org (escolha a versão LTS)       |
+| **pnpm**           | Gerenciador de pacotes (depois do Node) | No terminal: `npm install -g pnpm`              |
+| **Git**            | Para baixar o código                    | https://git-scm.com                             |
+| **Docker Desktop** | Sobe banco de dados + Redis + storage   | https://www.docker.com/products/docker-desktop/ |
 
 > **Windows:** Docker Desktop pede para ativar o WSL2 — siga o assistente, ele faz tudo sozinho.
 > **Mac:** baixe a versão correta para o seu chip (Apple Silicon ou Intel).
@@ -34,11 +34,13 @@ git checkout claude/review-facilita-prep-setup-ZDKky
 Copie o arquivo de exemplo:
 
 **Windows (PowerShell):**
+
 ```powershell
 Copy-Item .env.exemplo .env
 ```
 
 **Mac / Linux:**
+
 ```bash
 cp .env.exemplo .env
 ```
@@ -56,6 +58,7 @@ docker compose up -d
 ```
 
 Vai baixar e subir 3 serviços:
+
 - **MySQL** (banco de dados) — porta 3306
 - **Redis** (filas) — porta 6379
 - **MinIO** (storage S3 local) — portas 9000 e 9001
@@ -109,13 +112,13 @@ Abra no navegador: **http://localhost:5173**
 
 ## 🧭 Rotas para validar cada etapa
 
-| URL | O que você vê |
-|---|---|
-| `http://localhost:5173/` | Página inicial — hero, escolha particular/plano, lista de convênios, "Como utilizar" |
-| `http://localhost:5173/duvidas` | Landing FAQ completo — PrEP, vacinação, exames, UDM, etc. |
-| `http://localhost:5173/cadastro` | Mesma página inicial |
-| `http://localhost:5173/inicio` | Fluxo do paciente — escolha de tipo de consulta, exame, validação |
-| `http://localhost:5173/login` | Tela de login (equipe) |
+| URL                              | O que você vê                                                                        |
+| -------------------------------- | ------------------------------------------------------------------------------------ |
+| `http://localhost:5173/`         | Página inicial — hero, escolha particular/plano, lista de convênios, "Como utilizar" |
+| `http://localhost:5173/duvidas`  | Landing FAQ completo — PrEP, vacinação, exames, UDM, etc.                            |
+| `http://localhost:5173/cadastro` | Mesma página inicial                                                                 |
+| `http://localhost:5173/inicio`   | Fluxo do paciente — escolha de tipo de consulta, exame, validação                    |
+| `http://localhost:5173/login`    | Tela de login (equipe)                                                               |
 
 ---
 

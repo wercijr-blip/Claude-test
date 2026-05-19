@@ -13,14 +13,14 @@ que oferece backup automático nativo — não é necessário script manual de `
 
 ### Backup Automático
 
-| Recurso | Detalhe |
-|---|---|
-| Frequência | Diária (automática pela TiDB Cloud) |
-| Retenção | 7 dias (padrão tier gratuito) |
-| Tipo | Snapshot incremental |
-| Acesso | Console TiDB Cloud → Cluster → Backups |
-| RPO | < 24 horas |
-| RTO | < 4 horas (restauração via console) |
+| Recurso    | Detalhe                                |
+| ---------- | -------------------------------------- |
+| Frequência | Diária (automática pela TiDB Cloud)    |
+| Retenção   | 7 dias (padrão tier gratuito)          |
+| Tipo       | Snapshot incremental                   |
+| Acesso     | Console TiDB Cloud → Cluster → Backups |
+| RPO        | < 24 horas                             |
+| RTO        | < 4 horas (restauração via console)    |
 
 > **LGPD/CFM:** Configurar retenção mínima de **20 dias** no painel TiDB Cloud para cumprir
 > CFM 2.299/2021 (dados de saúde). Verificar em Settings → Backup.
@@ -95,12 +95,12 @@ Gravações de consulta ficam no bucket `AWS_S3_BUCKET` (região: `sa-east-1`).
 
 ### Proteção
 
-| Recurso | Configuração |
-|---|---|
-| Versioning | Habilitar via console AWS S3 → Properties |
-| Lifecycle | `audio/` expira em 90 dias (após transcrição; o texto é o dado permanente) |
-| Replicação | Opcional: Cross-Region Replication `sa-east-1` → `us-east-1` |
-| Criptografia | SSE-S3 (Server-Side Encryption — padrão AWS) |
+| Recurso      | Configuração                                                               |
+| ------------ | -------------------------------------------------------------------------- |
+| Versioning   | Habilitar via console AWS S3 → Properties                                  |
+| Lifecycle    | `audio/` expira em 90 dias (após transcrição; o texto é o dado permanente) |
+| Replicação   | Opcional: Cross-Region Replication `sa-east-1` → `us-east-1`               |
+| Criptografia | SSE-S3 (Server-Side Encryption — padrão AWS)                               |
 
 ### Configurar Lifecycle (áudios expiram em 90 dias)
 
@@ -143,11 +143,11 @@ médico responsável no painel admin, respeitando o prazo legal de retenção.
 
 ## Tabelas CIS (referência)
 
-| Tabela | Dados | Retenção |
-|--------|-------|----------|
-| `users` | Staff (médico, admin) | Indefinida |
-| `clinical_sessions` | Sessões de atendimento | 20 anos |
-| `soap_notes` | SOAP + síntese PubMed | 20 anos (CFM) |
-| `conduct_alerts` | Alertas de divergência | 20 anos |
-| `publication_drafts` | Rascunhos científicos | Indefinida |
-| `clinical_digests` | Digests diário/semanal/mensal | 5 anos |
+| Tabela               | Dados                         | Retenção      |
+| -------------------- | ----------------------------- | ------------- |
+| `users`              | Staff (médico, admin)         | Indefinida    |
+| `clinical_sessions`  | Sessões de atendimento        | 20 anos       |
+| `soap_notes`         | SOAP + síntese PubMed         | 20 anos (CFM) |
+| `conduct_alerts`     | Alertas de divergência        | 20 anos       |
+| `publication_drafts` | Rascunhos científicos         | Indefinida    |
+| `clinical_digests`   | Digests diário/semanal/mensal | 5 anos        |

@@ -7,11 +7,11 @@
 
 ## Seção 1 — Definições de SLA
 
-| Métrica | Objetivo |
-|---------|----------|
-| **RTO — Banco de Dados / Redis** | < 1 hora |
+| Métrica                                 | Objetivo     |
+| --------------------------------------- | ------------ |
+| **RTO — Banco de Dados / Redis**        | < 1 hora     |
 | **RTO — Reinício de container Railway** | < 30 minutos |
-| **RPO — Dados de pacientes** | < 24 horas |
+| **RPO — Dados de pacientes**            | < 24 horas   |
 
 ---
 
@@ -30,12 +30,12 @@
 
 **Causas comuns e correção:**
 
-| Causa | Sintoma no log | Correção |
-|-------|---------------|----------|
-| Variável de ambiente ausente | `❌ Variáveis de ambiente inválidas:` seguido de JSON com campos faltando | Adicionar variável faltante em Railway → Variables → redeploy |
-| Bundle Vite ausente | `Cannot find module './dist/index.js'` ou similar | Verificar se `pnpm build` rodou no Dockerfile/nixpacks |
-| Certificado PFX inválido | `Error: mac verify failure` ou `Error loading ICP certificate` | Regenerar `ICP_PFX_BASE64` (ver Seção 3) |
-| Porta errada | Container sobe mas healthcheck não alcança | Confirmar que `PORT` está definida ou que Railway injeta a variável automaticamente |
+| Causa                        | Sintoma no log                                                            | Correção                                                                            |
+| ---------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Variável de ambiente ausente | `❌ Variáveis de ambiente inválidas:` seguido de JSON com campos faltando | Adicionar variável faltante em Railway → Variables → redeploy                       |
+| Bundle Vite ausente          | `Cannot find module './dist/index.js'` ou similar                         | Verificar se `pnpm build` rodou no Dockerfile/nixpacks                              |
+| Certificado PFX inválido     | `Error: mac verify failure` ou `Error loading ICP certificate`            | Regenerar `ICP_PFX_BASE64` (ver Seção 3)                                            |
+| Porta errada                 | Container sobe mas healthcheck não alcança                                | Confirmar que `PORT` está definida ou que Railway injeta a variável automaticamente |
 
 **Fix geral:** Corrigir a variável/configuração → Railway dashboard → **Deploy** (botão de redeploy manual).
 
@@ -44,11 +44,13 @@
 ### Cenário B: Redis indisponível
 
 **Sintomas:**
+
 - `GET /api/health` retorna `{ redis: "error" }` ou status 503.
 - Jobs de PDF, PubMed e Digest não são processados.
 - Logs do servidor mostram `connect ECONNREFUSED` ou `Redis connection failed`.
 
 **Impacto:**
+
 - **Filas paradas:** geração de PDFs, busca PubMed e Clinical Digest não funcionam.
 - **Rate limiting:** cai para armazenamento em memória local — aceita mais requisições do que o normal (risco de abuso temporário).
 - **Budget Opus:** contador de tokens perde o estado — limite diário não é aplicado até Redis voltar.
@@ -67,6 +69,7 @@
 ### Cenário C: TiDB indisponível
 
 **Sintomas:**
+
 - `GET /api/health` retorna `{ db: "error" }`.
 - Todos os endpoints retornam 503 ou `Internal Server Error`.
 - Logs mostram `ERROR 9002 (HY000): TiKV server timeout` ou similar.
@@ -85,6 +88,7 @@
 ### Cenário D: Certificado ICP-Brasil expirado
 
 **Sintomas:**
+
 - Geração de PDFs falha com erro de assinatura (logs: `Error: mac verify failure` ou `certificate has expired`).
 - Aba "Certificado ICP" no painel admin exibe indicador vermelho.
 
@@ -109,6 +113,7 @@
 ### Cenário E: Anthropic API indisponível
 
 **Sintomas:**
+
 - Jobs PubMed e Clinical Digest falham com erro 529 ou 503.
 - SOAP notes são geradas sem síntese clínica.
 - Logs mostram `overloaded_error` ou `Connection timeout` para `api.anthropic.com`.
@@ -127,6 +132,7 @@
 ### Cenário F: S3 indisponível
 
 **Sintomas:**
+
 - Upload de exames falha com erro de rede ou S3.
 - Logs mostram `NetworkingError` ou `TimeoutError` para `s3.amazonaws.com`.
 
@@ -198,10 +204,10 @@ O certificado A3 ICP-Brasil utilizado para assinatura digital de PDFs possui val
 
 ## Seção 5 — Contatos de Emergência
 
-| Papel | Contato |
-|-------|---------|
+| Papel               | Contato                               |
+| ------------------- | ------------------------------------- |
 | Responsável técnico | [PREENCHER — nome, e-mail e telefone] |
-| Suporte Railway | https://railway.app/help |
-| Suporte TiDB Cloud | https://tidbcloud.com/support |
-| Suporte AWS | https://aws.amazon.com/support |
-| Suporte Anthropic | https://support.anthropic.com |
+| Suporte Railway     | https://railway.app/help              |
+| Suporte TiDB Cloud  | https://tidbcloud.com/support         |
+| Suporte AWS         | https://aws.amazon.com/support        |
+| Suporte Anthropic   | https://support.anthropic.com         |

@@ -40,6 +40,8 @@
  * conforme CFM Res. 1821/2007 e Lei 13.787/2018.
  */
 
-console.log('[backup] Backup é gerenciado nativamente pelo TiDB Cloud (PITR).')
-console.log('[backup] Acesse https://tidbcloud.com → cluster cis_db → Settings → Backup')
-process.exit(0)
+console.log("[backup] Backup é gerenciado nativamente pelo TiDB Cloud (PITR).");
+console.log(
+  "[backup] Acesse https://tidbcloud.com → cluster cis_db → Settings → Backup",
+);
+process.exit(0);

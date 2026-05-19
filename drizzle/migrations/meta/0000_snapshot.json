@@ -84,25 +84,17 @@
       "indexes": {
         "idx_cdigests_medico": {
           "name": "idx_cdigests_medico",
-          "columns": [
-            "medico_id"
-          ],
+          "columns": ["medico_id"],
           "isUnique": false
         },
         "idx_cdigests_tipo": {
           "name": "idx_cdigests_tipo",
-          "columns": [
-            "tipo"
-          ],
+          "columns": ["tipo"],
           "isUnique": false
         },
         "idx_cdigests_periodo": {
           "name": "idx_cdigests_periodo",
-          "columns": [
-            "medico_id",
-            "tipo",
-            "periodo_ref"
-          ],
+          "columns": ["medico_id", "tipo", "periodo_ref"],
           "isUnique": true
         }
       },
@@ -111,12 +103,8 @@
           "name": "clinical_digests_medico_id_users_id_fk",
           "tableFrom": "clinical_digests",
           "tableTo": "users",
-          "columnsFrom": [
-            "medico_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["medico_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -124,9 +112,7 @@
       "compositePrimaryKeys": {
         "clinical_digests_id": {
           "name": "clinical_digests_id",
-          "columns": [
-            "id"
-          ]
+          "columns": ["id"]
         }
       },
       "uniqueConstraints": {},
@@ -184,16 +170,12 @@
       "indexes": {
         "idx_csessions_medico": {
           "name": "idx_csessions_medico",
-          "columns": [
-            "medico_id"
-          ],
+          "columns": ["medico_id"],
           "isUnique": false
         },
         "idx_csessions_aberta": {
           "name": "idx_csessions_aberta",
-          "columns": [
-            "aberta_em"
-          ],
+          "columns": ["aberta_em"],
           "isUnique": false
         }
       },
@@ -202,12 +184,8 @@
           "name": "clinical_sessions_medico_id_users_id_fk",
           "tableFrom": "clinical_sessions",
           "tableTo": "users",
-          "columnsFrom": [
-            "medico_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["medico_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -215,9 +193,7 @@
       "compositePrimaryKeys": {
         "clinical_sessions_id": {
           "name": "clinical_sessions_id",
-          "columns": [
-            "id"
-          ]
+          "columns": ["id"]
         }
       },
       "uniqueConstraints": {},
@@ -343,44 +319,32 @@
       "indexes": {
         "idx_calerts_soap": {
           "name": "idx_calerts_soap",
-          "columns": [
-            "soap_note_id"
-          ],
+          "columns": ["soap_note_id"],
           "isUnique": false
         },
         "idx_calerts_medico": {
           "name": "idx_calerts_medico",
-          "columns": [
-            "medico_id"
-          ],
+          "columns": ["medico_id"],
           "isUnique": false
         },
         "idx_calerts_urgencia": {
           "name": "idx_calerts_urgencia",
-          "columns": [
-            "nivel_urgencia"
-          ],
+          "columns": ["nivel_urgencia"],
           "isUnique": false
         },
         "idx_calerts_visto": {
           "name": "idx_calerts_visto",
-          "columns": [
-            "visto_em"
-          ],
+          "columns": ["visto_em"],
           "isUnique": false
         },
         "idx_calerts_hash": {
           "name": "idx_calerts_hash",
-          "columns": [
-            "hash_alerta"
-          ],
+          "columns": ["hash_alerta"],
           "isUnique": false
         },
         "idx_calerts_feedback": {
           "name": "idx_calerts_feedback",
-          "columns": [
-            "feedback_medico"
-          ],
+          "columns": ["feedback_medico"],
           "isUnique": false
         }
       },
@@ -389,12 +353,8 @@
           "name": "conduct_alerts_soap_note_id_soap_notes_id_fk",
           "tableFrom": "conduct_alerts",
           "tableTo": "soap_notes",
-          "columnsFrom": [
-            "soap_note_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["soap_note_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -402,12 +362,8 @@
           "name": "conduct_alerts_medico_id_users_id_fk",
           "tableFrom": "conduct_alerts",
           "tableTo": "users",
-          "columnsFrom": [
-            "medico_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["medico_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -415,12 +371,8 @@
           "name": "conduct_alerts_visto_por_id_users_id_fk",
           "tableFrom": "conduct_alerts",
           "tableTo": "users",
-          "columnsFrom": [
-            "visto_por_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["visto_por_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -428,9 +380,7 @@
       "compositePrimaryKeys": {
         "conduct_alerts_id": {
           "name": "conduct_alerts_id",
-          "columns": [
-            "id"
-          ]
+          "columns": ["id"]
         }
       },
       "uniqueConstraints": {},
@@ -574,33 +524,22 @@
       "indexes": {
         "idx_pdrafts_medico": {
           "name": "idx_pdrafts_medico",
-          "columns": [
-            "medico_id"
-          ],
+          "columns": ["medico_id"],
           "isUnique": false
         },
         "idx_pdrafts_status": {
           "name": "idx_pdrafts_status",
-          "columns": [
-            "status"
-          ],
+          "columns": ["status"],
           "isUnique": false
         },
         "idx_pdrafts_cid10": {
           "name": "idx_pdrafts_cid10",
-          "columns": [
-            "cid10"
-          ],
+          "columns": ["cid10"],
           "isUnique": false
         },
         "idx_pdrafts_uniq_cid10": {
           "name": "idx_pdrafts_uniq_cid10",
-          "columns": [
-            "medico_id",
-            "tipo",
-            "cid10",
-            "status"
-          ],
+          "columns": ["medico_id", "tipo", "cid10", "status"],
           "isUnique": true
         }
       },
@@ -609,12 +548,8 @@
           "name": "publication_drafts_medico_id_users_id_fk",
           "tableFrom": "publication_drafts",
           "tableTo": "users",
-          "columnsFrom": [
-            "medico_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["medico_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -622,9 +557,7 @@
       "compositePrimaryKeys": {
         "publication_drafts_id": {
           "name": "publication_drafts_id",
-          "columns": [
-            "id"
-          ]
+          "columns": ["id"]
         }
       },
       "uniqueConstraints": {},
@@ -752,30 +685,22 @@
       "indexes": {
         "idx_soap_session": {
           "name": "idx_soap_session",
-          "columns": [
-            "session_id"
-          ],
+          "columns": ["session_id"],
           "isUnique": false
         },
         "idx_soap_medico": {
           "name": "idx_soap_medico",
-          "columns": [
-            "medico_id"
-          ],
+          "columns": ["medico_id"],
           "isUnique": false
         },
         "idx_soap_cid10": {
           "name": "idx_soap_cid10",
-          "columns": [
-            "cid10"
-          ],
+          "columns": ["cid10"],
           "isUnique": false
         },
         "idx_soap_created": {
           "name": "idx_soap_created",
-          "columns": [
-            "created_at"
-          ],
+          "columns": ["created_at"],
           "isUnique": false
         }
       },
@@ -784,12 +709,8 @@
           "name": "soap_notes_session_id_clinical_sessions_id_fk",
           "tableFrom": "soap_notes",
           "tableTo": "clinical_sessions",
-          "columnsFrom": [
-            "session_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["session_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -797,12 +718,8 @@
           "name": "soap_notes_medico_id_users_id_fk",
           "tableFrom": "soap_notes",
           "tableTo": "users",
-          "columnsFrom": [
-            "medico_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["medico_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -810,9 +727,7 @@
       "compositePrimaryKeys": {
         "soap_notes_id": {
           "name": "soap_notes_id",
-          "columns": [
-            "id"
-          ]
+          "columns": ["id"]
         }
       },
       "uniqueConstraints": {},
@@ -900,16 +815,12 @@
       "indexes": {
         "idx_users_open_id": {
           "name": "idx_users_open_id",
-          "columns": [
-            "open_id"
-          ],
+          "columns": ["open_id"],
           "isUnique": true
         },
         "idx_users_role": {
           "name": "idx_users_role",
-          "columns": [
-            "role"
-          ],
+          "columns": ["role"],
           "isUnique": false
         }
       },
@@ -917,9 +828,7 @@
       "compositePrimaryKeys": {
         "users_id": {
           "name": "users_id",
-          "columns": [
-            "id"
-          ]
+          "columns": ["id"]
         }
       },
       "uniqueConstraints": {},

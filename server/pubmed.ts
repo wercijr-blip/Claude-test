@@ -1,159 +1,165 @@
-import { env } from './_core/env.ts'
-import { logger } from './_core/logger.ts'
-import { CircuitBreaker } from './_core/circuitBreaker.ts'
-import { redis } from './_core/redis.ts'
+import { env } from "./_core/env.ts";
+import { logger } from "./_core/logger.ts";
+import { CircuitBreaker } from "./_core/circuitBreaker.ts";
+import { redis } from "./_core/redis.ts";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface ArtigoPubMed {
-  pmid: string
-  titulo: string
-  autores: string[]
-  revista: string
-  ano: string
-  abstract: string
-  doi: string | null
+  pmid: string;
+  titulo: string;
+  autores: string[];
+  revista: string;
+  ano: string;
+  abstract: string;
+  doi: string | null;
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const EUTILS_BASE = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils'
+const EUTILS_BASE = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils";
 
-const pubmedCircuit = new CircuitBreaker('pubmed')
+const pubmedCircuit = new CircuitBreaker("pubmed");
 
-const PUBMED_CACHE_TTL = 24 * 3600  // 24 hours
+const PUBMED_CACHE_TTL = 24 * 3600; // 24 hours
 function pubmedCacheKey(query: string, termos: string[]): string {
-  const raw = `${query}||${[...termos].sort().join(',')}`
+  const raw = `${query}||${[...termos].sort().join(",")}`;
   // Simple hash: sum of charCodes (fast, good enough for cache key)
-  let h = 0
-  for (let i = 0; i < raw.length; i++) h = (h * 31 + raw.charCodeAt(i)) >>> 0
-  return `cis:pubmed:${h.toString(36)}`
+  let h = 0;
+  for (let i = 0; i < raw.length; i++) h = (h * 31 + raw.charCodeAt(i)) >>> 0;
+  return `cis:pubmed:${h.toString(36)}`;
 }
-const DEFAULT_MAX_ARTIGOS = 5
-const DEFAULT_MAX_ARTIGOS_DUAL = 10
+const DEFAULT_MAX_ARTIGOS = 5;
+const DEFAULT_MAX_ARTIGOS_DUAL = 10;
 
 // Without API key: 3 req/s. With key: 10 req/s.
 // We fetch in two sequential calls (esearch → efetch) so no explicit throttle needed.
 function apiKeyParam(): string {
-  return env.NCBI_API_KEY ? `&api_key=${env.NCBI_API_KEY}` : ''
+  return env.NCBI_API_KEY ? `&api_key=${env.NCBI_API_KEY}` : "";
 }
 
 // ── esearch: query → list of PMIDs ────────────────────────────────────────────
 
 async function esearch(query: string, retmax: number): Promise<string[]> {
   if (pubmedCircuit.isOpen()) {
-    throw new Error('[pubmed] Circuit aberto — E-utilities temporariamente indisponível')
+    throw new Error(
+      "[pubmed] Circuit aberto — E-utilities temporariamente indisponível",
+    );
   }
 
   const url =
     `${EUTILS_BASE}/esearch.fcgi?db=pubmed&retmode=json&retmax=${retmax}` +
-    `&term=${encodeURIComponent(query)}${apiKeyParam()}`
+    `&term=${encodeURIComponent(query)}${apiKeyParam()}`;
 
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(15_000) })
+    const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
     if (!res.ok) {
-      pubmedCircuit.recordFailure()
-      throw new Error(`esearch HTTP ${res.status}`)
+      pubmedCircuit.recordFailure();
+      throw new Error(`esearch HTTP ${res.status}`);
     }
 
-    const json = (await res.json()) as { esearchresult?: { idlist?: string[] } }
-    pubmedCircuit.recordSuccess()
-    return json.esearchresult?.idlist ?? []
+    const json = (await res.json()) as {
+      esearchresult?: { idlist?: string[] };
+    };
+    pubmedCircuit.recordSuccess();
+    return json.esearchresult?.idlist ?? [];
   } catch (err) {
-    if (!(err instanceof Error && err.message.startsWith('[pubmed] Circuit'))) {
-      pubmedCircuit.recordFailure()
+    if (!(err instanceof Error && err.message.startsWith("[pubmed] Circuit"))) {
+      pubmedCircuit.recordFailure();
     }
-    throw err
+    throw err;
   }
 }
 
 // ── efetch MEDLINE: PMIDs → raw text ─────────────────────────────────────────
 
 async function efetch(pmids: string[]): Promise<string> {
-  if (pmids.length === 0) return ''
+  if (pmids.length === 0) return "";
 
   if (pubmedCircuit.isOpen()) {
-    throw new Error('[pubmed] Circuit aberto — E-utilities temporariamente indisponível')
+    throw new Error(
+      "[pubmed] Circuit aberto — E-utilities temporariamente indisponível",
+    );
   }
 
   const url =
     `${EUTILS_BASE}/efetch.fcgi?db=pubmed&rettype=medline&retmode=text` +
-    `&id=${pmids.join(',')}${apiKeyParam()}`
+    `&id=${pmids.join(",")}${apiKeyParam()}`;
 
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(20_000) })
+    const res = await fetch(url, { signal: AbortSignal.timeout(20_000) });
     if (!res.ok) {
-      pubmedCircuit.recordFailure()
-      throw new Error(`efetch HTTP ${res.status}`)
+      pubmedCircuit.recordFailure();
+      throw new Error(`efetch HTTP ${res.status}`);
     }
 
-    pubmedCircuit.recordSuccess()
-    return res.text()
+    pubmedCircuit.recordSuccess();
+    return res.text();
   } catch (err) {
-    if (!(err instanceof Error && err.message.startsWith('[pubmed] Circuit'))) {
-      pubmedCircuit.recordFailure()
+    if (!(err instanceof Error && err.message.startsWith("[pubmed] Circuit"))) {
+      pubmedCircuit.recordFailure();
     }
-    throw err
+    throw err;
   }
 }
 
 // ── MEDLINE parser ────────────────────────────────────────────────────────────
 
 interface MedlineRecord {
-  [tag: string]: string[]
+  [tag: string]: string[];
 }
 
 function parseMedline(raw: string): MedlineRecord[] {
-  const records: MedlineRecord[] = []
-  let current: MedlineRecord = {}
-  let lastTag = ''
+  const records: MedlineRecord[] = [];
+  let current: MedlineRecord = {};
+  let lastTag = "";
 
-  for (const line of raw.split('\n')) {
-    if (line.trim() === '') {
+  for (const line of raw.split("\n")) {
+    if (line.trim() === "") {
       if (Object.keys(current).length > 0) {
-        records.push(current)
-        current = {}
-        lastTag = ''
+        records.push(current);
+        current = {};
+        lastTag = "";
       }
-      continue
+      continue;
     }
 
     // Tagged line: "TAG - value". Short tags (TI, AU) are space-padded to 4 chars;
     // PMID (4 chars) has no space before hyphen. Use \s* to handle both forms.
-    const match = /^([A-Z]{2,4})\s*-\s+(.*)$/.exec(line)
+    const match = /^([A-Z]{2,4})\s*-\s+(.*)$/.exec(line);
     if (match) {
-      lastTag = match[1]!
-      if (!current[lastTag]) current[lastTag] = []
-      current[lastTag]!.push(match[2]!.trim())
-    } else if (line.startsWith('      ') && lastTag) {
+      lastTag = match[1]!;
+      if (!current[lastTag]) current[lastTag] = [];
+      current[lastTag]!.push(match[2]!.trim());
+    } else if (line.startsWith("      ") && lastTag) {
       // Continuation of previous tag
-      const prev = current[lastTag]
+      const prev = current[lastTag];
       if (prev && prev.length > 0) {
-        prev[prev.length - 1] += ' ' + line.trim()
+        prev[prev.length - 1] += " " + line.trim();
       }
     }
   }
 
-  if (Object.keys(current).length > 0) records.push(current)
-  return records
+  if (Object.keys(current).length > 0) records.push(current);
+  return records;
 }
 
 function recordToArtigo(rec: MedlineRecord): ArtigoPubMed | null {
-  const pmid = rec['PMID']?.[0]?.trim()
-  const titulo = rec['TI']?.join(' ').trim()
-  if (!pmid || !titulo) return null
+  const pmid = rec["PMID"]?.[0]?.trim();
+  const titulo = rec["TI"]?.join(" ").trim();
+  if (!pmid || !titulo) return null;
 
-  const autores = (rec['AU'] ?? []).map((a) => a.trim()).filter(Boolean)
-  const revista = rec['TA']?.[0]?.trim() ?? rec['JT']?.[0]?.trim() ?? ''
-  const dp = rec['DP']?.[0]?.trim() ?? ''
-  const ano = /\d{4}/.exec(dp)?.[0] ?? ''
-  const abstract = rec['AB']?.join(' ').trim() ?? ''
+  const autores = (rec["AU"] ?? []).map((a) => a.trim()).filter(Boolean);
+  const revista = rec["TA"]?.[0]?.trim() ?? rec["JT"]?.[0]?.trim() ?? "";
+  const dp = rec["DP"]?.[0]?.trim() ?? "";
+  const ano = /\d{4}/.exec(dp)?.[0] ?? "";
+  const abstract = rec["AB"]?.join(" ").trim() ?? "";
 
   // AID lines look like "10.1234/... [doi]"
-  const doiLine = (rec['AID'] ?? []).find((l) => l.includes('[doi]'))
-  const doi = doiLine ? doiLine.replace(/\s*\[doi\].*$/, '').trim() : null
+  const doiLine = (rec["AID"] ?? []).find((l) => l.includes("[doi]"));
+  const doi = doiLine ? doiLine.replace(/\s*\[doi\].*$/, "").trim() : null;
 
-  return { pmid, titulo, autores, revista, ano, abstract, doi }
+  return { pmid, titulo, autores, revista, ano, abstract, doi };
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -167,21 +173,23 @@ export async function buscarArtigosPubMed(
   maxArtigos = DEFAULT_MAX_ARTIGOS,
 ): Promise<ArtigoPubMed[]> {
   try {
-    const pmids = await esearch(query, maxArtigos)
+    const pmids = await esearch(query, maxArtigos);
     if (pmids.length === 0) {
-      logger.info('[pubmed] esearch retornou 0 resultados', { query })
-      return []
+      logger.info("[pubmed] esearch retornou 0 resultados", { query });
+      return [];
     }
 
-    const raw = await efetch(pmids)
-    const records = parseMedline(raw)
-    const artigos = records.map(recordToArtigo).filter((a): a is ArtigoPubMed => a !== null)
+    const raw = await efetch(pmids);
+    const records = parseMedline(raw);
+    const artigos = records
+      .map(recordToArtigo)
+      .filter((a): a is ArtigoPubMed => a !== null);
 
-    logger.info('[pubmed] busca concluída', { query, found: artigos.length })
-    return artigos
+    logger.info("[pubmed] busca concluída", { query, found: artigos.length });
+    return artigos;
   } catch (err) {
-    logger.error('[pubmed] erro na busca', { query, err })
-    return []
+    logger.error("[pubmed] erro na busca", { query, err });
+    return [];
   }
 }
 
@@ -195,58 +203,71 @@ export async function buscarArtigosDual(
   termosMesh: string[],
   maxArtigos = DEFAULT_MAX_ARTIGOS_DUAL,
 ): Promise<ArtigoPubMed[]> {
-  const cacheKey = pubmedCacheKey(query, termosMesh)
+  const cacheKey = pubmedCacheKey(query, termosMesh);
   try {
-    const cached = await redis.get(cacheKey)
+    const cached = await redis.get(cacheKey);
     if (cached) {
-      const parsed = JSON.parse(cached) as ArtigoPubMed[]
-      logger.info('[pubmed] Cache hit', { cacheKey, n: parsed.length })
-      return parsed
+      const parsed = JSON.parse(cached) as ArtigoPubMed[];
+      logger.info("[pubmed] Cache hit", { cacheKey, n: parsed.length });
+      return parsed;
     }
   } catch {
     // Cache miss or Redis unavailable — proceed normally
   }
 
   try {
-    const meshQuery = termosMesh.length > 0
-      ? termosMesh.map(t => `"${t}"[MeSH Terms]`).join(' AND ')
-      : null
+    const meshQuery =
+      termosMesh.length > 0
+        ? termosMesh.map((t) => `"${t}"[MeSH Terms]`).join(" AND ")
+        : null;
 
     // Busca livre + MeSH em paralelo; cada uma pede metade do máximo
-    const perBusca = Math.ceil(maxArtigos / 2)
+    const perBusca = Math.ceil(maxArtigos / 2);
     const [pmidsFree, pmidsMesh] = await Promise.all([
       esearch(query, perBusca),
-      meshQuery ? esearch(meshQuery, perBusca) : Promise.resolve([] as string[]),
-    ])
+      meshQuery
+        ? esearch(meshQuery, perBusca)
+        : Promise.resolve([] as string[]),
+    ]);
 
     // Deduplicação preservando ordem: livre primeiro (mais recentes), depois MeSH exclusivos
-    const seen = new Set<string>()
-    const merged: string[] = []
+    const seen = new Set<string>();
+    const merged: string[] = [];
     for (const id of [...pmidsFree, ...pmidsMesh]) {
-      if (!seen.has(id)) { seen.add(id); merged.push(id) }
+      if (!seen.has(id)) {
+        seen.add(id);
+        merged.push(id);
+      }
     }
-    const pmids = merged.slice(0, maxArtigos)
+    const pmids = merged.slice(0, maxArtigos);
 
     if (pmids.length === 0) {
-      logger.info('[pubmed] buscarArtigosDual retornou 0 resultados', { query, meshQuery })
-      return []
+      logger.info("[pubmed] buscarArtigosDual retornou 0 resultados", {
+        query,
+        meshQuery,
+      });
+      return [];
     }
 
-    const raw = await efetch(pmids)
-    const records = parseMedline(raw)
-    const artigos = records.map(recordToArtigo).filter((a): a is ArtigoPubMed => a !== null)
+    const raw = await efetch(pmids);
+    const records = parseMedline(raw);
+    const artigos = records
+      .map(recordToArtigo)
+      .filter((a): a is ArtigoPubMed => a !== null);
 
-    logger.info('[pubmed] buscarArtigosDual concluída', {
+    logger.info("[pubmed] buscarArtigosDual concluída", {
       query,
       termosMesh: termosMesh.length,
       pmidsUnicos: pmids.length,
       artigos: artigos.length,
-    })
-    redis.setex(cacheKey, PUBMED_CACHE_TTL, JSON.stringify(artigos)).catch(() => null)
-    return artigos
+    });
+    redis
+      .setex(cacheKey, PUBMED_CACHE_TTL, JSON.stringify(artigos))
+      .catch(() => null);
+    return artigos;
   } catch (err) {
-    logger.error('[pubmed] erro em buscarArtigosDual', { query, err })
-    return []
+    logger.error("[pubmed] erro em buscarArtigosDual", { query, err });
+    return [];
   }
 }
 
@@ -255,19 +276,22 @@ export async function buscarArtigosDual(
  * Produces a compact numbered list with metadata + abstract.
  */
 export function formatarArtigosParaPrompt(artigos: ArtigoPubMed[]): string {
-  if (artigos.length === 0) return 'Nenhum artigo encontrado no PubMed para esta consulta.'
+  if (artigos.length === 0)
+    return "Nenhum artigo encontrado no PubMed para esta consulta.";
 
   return artigos
     .map((a, i) => {
-      const autoresStr = a.autores.length > 0
-        ? a.autores.slice(0, 3).join(', ') + (a.autores.length > 3 ? ' et al.' : '')
-        : 'Autores desconhecidos'
-      const doiStr = a.doi ? `DOI: ${a.doi}` : `PMID: ${a.pmid}`
+      const autoresStr =
+        a.autores.length > 0
+          ? a.autores.slice(0, 3).join(", ") +
+            (a.autores.length > 3 ? " et al." : "")
+          : "Autores desconhecidos";
+      const doiStr = a.doi ? `DOI: ${a.doi}` : `PMID: ${a.pmid}`;
       const abstractStr = a.abstract
-        ? `\nAbstract: ${a.abstract.slice(0, 800)}${a.abstract.length > 800 ? '…' : ''}`
-        : ''
+        ? `\nAbstract: ${a.abstract.slice(0, 800)}${a.abstract.length > 800 ? "…" : ""}`
+        : "";
 
-      return `[${i + 1}] ${a.titulo}\n${autoresStr}. ${a.revista}. ${a.ano}. ${doiStr}${abstractStr}`
+      return `[${i + 1}] ${a.titulo}\n${autoresStr}. ${a.revista}. ${a.ano}. ${doiStr}${abstractStr}`;
     })
-    .join('\n\n---\n\n')
+    .join("\n\n---\n\n");
 }
