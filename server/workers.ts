@@ -3,8 +3,6 @@
 // In Railway: configure a second service with this command so workers
 // run in a separate process from the HTTP server.
 
-import { startPdfWorker, startLembreteWorker, startPesquisaWorker, startLinkAcessoWorker, agendarLembreteDiario } from './pdfQueue.ts'
-import { startExamWorker } from './examQueue.ts'
 import { startDigestWorker, agendarDigestCrons } from './digestQueue.ts'
 import { startPubmedWorker } from './pubmedQueue.ts'
 import { startCaseSeriesWorker } from './caseSeriesQueue.ts'
@@ -13,15 +11,9 @@ import { logger } from './_core/logger.ts'
 async function main() {
   logger.info('[workers] Iniciando workers BullMQ...')
 
-  startPdfWorker()
-  startLembreteWorker()
-  startPesquisaWorker()
-  startLinkAcessoWorker()
-  startExamWorker()
   startDigestWorker()
   startPubmedWorker()
   startCaseSeriesWorker()
-  await agendarLembreteDiario()
   await agendarDigestCrons()
 
   logger.info('[workers] Workers prontos.')

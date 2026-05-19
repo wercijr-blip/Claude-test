@@ -21,8 +21,10 @@ export const users = mysqlTable('users', {
   nome: varchar('nome', { length: 255 }),
   role: varchar('role', { length: 50 }).notNull().default('user'),
   ativo: boolean('ativo').notNull().default(true),
+  totpEnabled: boolean('totp_enabled').notNull().default(false),
   deletedAt: datetime('deleted_at'),
   createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`).$onUpdateFn(() => new Date()),
 }, (t) => ({
   openIdIdx: uniqueIndex('idx_users_open_id').on(t.openId),
   roleIdx: index('idx_users_role').on(t.role),

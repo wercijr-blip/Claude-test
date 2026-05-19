@@ -15,24 +15,10 @@ const envSchema = z.object({
   AWS_REGION: z.string().default('sa-east-1'),
   AWS_S3_BUCKET: z.string().min(1),
 
-  RESEND_API_KEY: z.string().optional(),
-  EMAIL_FROM: z.string().default('CIS <noreply@cis.local>'),
-
-  ASAAS_API_KEY: z.string().optional(),
-  ASAAS_ENV: z.enum(['sandbox', 'production']).default('sandbox'),
-  ASAAS_WEBHOOK_TOKEN: z.string().optional(),
-
-  // Valor da consulta em reais (ex: 150). Alterável via Railway sem deploy de código.
-  CONSULTA_VALOR: z.coerce.number().positive().default(150),
-
   BUILT_IN_FORGE_API_URL: z.string().url().default('https://api.anthropic.com'),
   BUILT_IN_FORGE_API_KEY: z.string().optional(),
 
   REDIS_URL: z.string().default('redis://localhost:6379'),
-
-  // Certificado ICP-Brasil (Railway: base64 do .pfx; dev: arquivo em server/certs/)
-  ICP_PFX_BASE64: z.string().optional(),
-  ICP_PFX_PASSWORD: z.string().optional(),
 
   ZAPI_INSTANCE_ID: z.string().optional(),
   ZAPI_TOKEN: z.string().optional(),
@@ -59,14 +45,6 @@ const envSchema = z.object({
   SENTRY_DSN_SERVER: z.string().url().optional(),
   SENTRY_DSN_WEB: z.string().url().optional(),
   SENTRY_ENVIRONMENT: z.string().default('production'),
-
-  // TOTP 2FA — chave AES separada para encriptar segredos TOTP
-  // Gerar com: openssl rand -hex 32
-  TOTP_ENC_KEY: z.string().length(64).optional(),
-
-  // Payment methods — toggle via Railway without code deploy.
-  // Set ENABLE_DEBIT_CARD=true once Asaas account enables DEBIT_CARD billing.
-  ENABLE_DEBIT_CARD: z.coerce.boolean().default(false),
 
   // PubMed E-utilities — opcional; sem chave: 3 req/s, com chave: 10 req/s
   // Obter em: https://www.ncbi.nlm.nih.gov/account/

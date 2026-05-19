@@ -8,7 +8,7 @@ import {
   conductAlerts,
   clinicalDigests,
   publicationDrafts,
-} from '../../drizzle/schema.ts'
+} from '../../drizzle/cis-schema.ts'
 import { eq, and, isNull, desc, isNotNull, sql, inArray } from 'drizzle-orm'
 import { randomUUID } from 'crypto'
 import { encrypt } from '../_core/encryption.ts'
