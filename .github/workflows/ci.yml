@@ -54,3 +54,18 @@ jobs:
         env:
           VITE_APP_ID: facilita-prep
           NODE_ENV: production
+
+  deploy-staging:
+    needs: validate
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: staging
+    steps:
+      - name: Deploy to Railway staging
+        run: |
+          echo "Staging deploy triggered via Railway webhook"
+          curl -s -o /dev/null -w "%{http_code}" \
+            -X POST "$RAILWAY_DEPLOY_HOOK_STAGING" \
+            | grep -q "200\|201\|204" && echo "Deploy triggered" || echo "Deploy hook not configured"
+        env:
+          RAILWAY_DEPLOY_HOOK_STAGING: ${{ secrets.RAILWAY_DEPLOY_HOOK_STAGING }}

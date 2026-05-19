@@ -3,6 +3,7 @@ import { trpc } from '../lib/trpc.ts'
 import { useAuth } from '../_core/hooks/useAuth.ts'
 import { Copy, Link, Trash2, ExternalLink, CheckCircle, XCircle } from 'lucide-react'
 import { fmt } from '../lib/format.ts'
+import { EmptyState } from './EmptyState.tsx'
 
 type Tab = 'links' | 'planos' | 'documentos'
 type StatusFiltro = 'todos' | 'pendente' | 'validado' | 'rejeitado' | 'liberado'
@@ -301,7 +302,7 @@ export default function SecretariaDashboard() {
           <div className="bg-white rounded-2xl border border-slate-200 p-6">
             <h2 className="text-base font-semibold text-slate-800 mb-4">Links gerados</h2>
 
-            {!tokens?.length && <p className="text-sm text-slate-400">Nenhum link gerado ainda.</p>}
+            {!tokens?.length && <EmptyState message="Nenhum link gerado ainda." />}
 
             <div className="space-y-2">
               {tokens?.map((t) => (

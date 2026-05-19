@@ -4,6 +4,7 @@ import { trpc } from '../lib/trpc.ts'
 import { useAuth } from '../_core/hooks/useAuth.ts'
 import { PACIENTE_STATUS } from '@shared/const.ts'
 import { fmt } from '../lib/format.ts'
+import { EmptyState } from './EmptyState.tsx'
 
 type Tab = 'pacientes' | 'exames_inicio' | 'exames_rejeitados'
 type Acao = 'aprovar' | 'recusar' | 'solicitar_reenvio' | 'recomendar_consulta' | 'encaminhar_especialista' | 'solicitar_confirmacao'
@@ -237,9 +238,7 @@ export default function MedicoDashboard() {
           </div>
 
           {!examesRejeitados?.length && (
-            <div className="bg-white rounded-2xl border border-slate-200 p-10 text-center text-slate-400">
-              Nenhum exame aguardando liberação manual.
-            </div>
+            <EmptyState message="Nenhum exame aguardando liberação manual." className="bg-white rounded-2xl border border-slate-200" />
           )}
 
           {examesRejeitados?.map((exame) => {
@@ -357,7 +356,7 @@ function ExamesInicioTab({ revisoes }: { revisoes: Array<any> | undefined }) {
           <p className="text-sm font-medium text-slate-700">{ordenadas.length} exame(s) aguardando revisão</p>
           {urgentes.length > 0 && <p className="text-xs text-red-600 font-semibold mt-1">{urgentes.length} urgente(s) — HIV reagente</p>}
         </div>
-        {ordenadas.length === 0 && <div className="p-8 text-center text-slate-400 text-sm">Nenhum exame pendente.</div>}
+        {ordenadas.length === 0 && <EmptyState message="Nenhum exame pendente." />}
         {ordenadas.map((r) => (
           <button
             key={r.id}

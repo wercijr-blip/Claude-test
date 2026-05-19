@@ -129,3 +129,52 @@ o prazo legal de retenção.
 - Em produção: armazenados como variável de ambiente `ICP_PFX_BASE64` (base64 do .pfx)
 - Renovar certificado digital **antes do vencimento** (verificar data de expiração no console ICP-Brasil)
 - Backup local seguro dos certificados fora do repositório (ex.: cofre de senhas)
+
+---
+
+## Checklist de Teste de Restore (Mensal)
+
+Execute este checklist mensalmente para garantir que os procedimentos de restauração funcionam. Documente a data e o responsável.
+
+**Data do último teste:** ___________  **Responsável:** ___________
+
+### Banco de Dados (TiDB Cloud)
+
+- [ ] Acessar Console TiDB Cloud → Cluster → **Backups**
+- [ ] Confirmar que o backup mais recente tem status **"Success"** e data ≤ 24h atrás
+- [ ] Acionar restore do snapshot em **ambiente de staging** (não produção)
+- [ ] Após restore, executar: `SELECT COUNT(*) FROM pacientes` e `SELECT COUNT(*) FROM audit_log` — confirmar valores plausíveis e coerentes com produção
+- [ ] Executar `SELECT * FROM pacientes LIMIT 1` e confirmar que CPF/nome retornam como dados criptografados (não plaintext)
+- [ ] Verificar que todas as migrations estão aplicadas: `SELECT * FROM __drizzle_migrations ORDER BY created_at DESC LIMIT 5`
+- [ ] Documentar tempo total do restore (objetivo: < 1h para RTO ≤ 2h)
+
+### Arquivos S3
+
+- [ ] Executar: `aws s3api get-bucket-versioning --bucket $AWS_S3_BUCKET`
+- [ ] Confirmar resposta: `"Status": "Enabled"`
+- [ ] Testar recuperação de versão anterior de um arquivo: `aws s3api list-object-versions --bucket $AWS_S3_BUCKET --prefix exames/ --max-items 5`
+- [ ] Confirmar que pelo menos uma versão anterior existe para um exame de teste
+
+### Aplicação (Railway)
+
+- [ ] Acessar Railway Dashboard → Service → **Deployments**
+- [ ] Confirmar que o último deploy tem status "Success"
+- [ ] Testar redeploy manual no ambiente de staging: Railway → Deploy → Redeploy
+- [ ] Verificar que `/api/metrics` responde com HTTP 200 após redeploy
+- [ ] Verificar que Redis reconecta automaticamente após restart (railway restart redis-service)
+
+### Certificados ICP-Brasil
+
+- [ ] Verificar data de expiração do certificado: `openssl pkcs12 -in server/certs/werciley.pfx -nokeys -clcerts | openssl x509 -noout -dates`
+- [ ] Confirmar que `ICP_PFX_BASE64` está configurado como secret no Railway (não como arquivo)
+- [ ] Se expiração < 60 dias: iniciar processo de renovação com ICP-Brasil
+
+### Resultado do Drill
+
+| Item | Status | Observação |
+|---|---|---|
+| TiDB restore | ✅ / ❌ | |
+| S3 versioning | ✅ / ❌ | |
+| Railway redeploy | ✅ / ❌ | |
+| Certificado ICP | ✅ / ❌ | |
+| Tempo total (RTO) | ___min | Objetivo: < 2h |
