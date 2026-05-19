@@ -11,7 +11,7 @@ interface Props {
   pixCopiaECola: string
 }
 
-export default function CheckoutAsaas({ precadastroId, paymentId, pixQrCode, pixCopiaECola }: Props) {
+export default function CheckoutAsaas({ precadastroId: _precadastroId, paymentId, pixQrCode, pixCopiaECola }: Props) {
   const [copied, setCopied] = useState(false)
   const [, navigate] = useLocation()
   const { setToken } = useAuth()

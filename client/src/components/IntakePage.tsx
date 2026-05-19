@@ -51,7 +51,7 @@ function TrustBadge({ icon, text }: { icon: string; text: string }) {
   )
 }
 
-function HeroIllustration() {
+function _HeroIllustration() {
   return (
     <svg viewBox="0 0 320 280" className="w-full max-w-sm mx-auto" fill="none" xmlns="http://www.w3.org/2000/svg">
       {/* Background blob */}

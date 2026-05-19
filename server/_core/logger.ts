@@ -12,7 +12,6 @@ const pinoOpts: pino.LoggerOptions = {
   redact: { paths: REDACT_PATHS, censor: '[redacted]' },
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const _p: any = env.NODE_ENV !== 'production'
   ? pino(pinoOpts, pino.transport({
       target: 'pino-pretty',
@@ -35,7 +34,6 @@ export const logger = {
 }
 
 export function requestLogger(req: { requestId?: string }) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const child: any = _p.child({ requestId: req.requestId ?? 'unknown' })
   return {
     debug: (msg: string, ctx?: unknown) => ctx !== undefined ? child.debug(ctx, msg) : child.debug(msg),

@@ -17,6 +17,7 @@ import { enviarWhatsApp } from '../whatsapp.ts'
 import { gerarLinkDeAcesso } from './intake.ts'
 import * as Sentry from '@sentry/node'
 import type { ResultSetHeader } from 'mysql2'
+import { okEmpty } from '../_core/response.ts'
 
 async function emitirJwtPaciente(tokenId: number, pacienteId: number): Promise<string> {
   const secret = new TextEncoder().encode(env.JWT_SECRET)
@@ -245,7 +246,7 @@ export const pacienteRouter = router({
           updatedAt: new Date(),
         })
         .where(and(eq(pacientes.id, input.pacienteId), eq(pacientes.tokenId, ctx.session.tokenId)))
-      return { ok: true }
+      return okEmpty()
     }),
 
   // Step 3 — Contato
@@ -289,7 +290,7 @@ export const pacienteRouter = router({
           updatedAt: new Date(),
         })
         .where(and(eq(pacientes.id, input.pacienteId), eq(pacientes.tokenId, ctx.session.tokenId)))
-      return { ok: true }
+      return okEmpty()
     }),
 
   // Step 4 — Conduta
@@ -302,7 +303,7 @@ export const pacienteRouter = router({
         .update(pacientes)
         .set({ condutaJson: input.conduta, currentStep: Math.max(p.currentStep, 5), updatedAt: new Date() })
         .where(and(eq(pacientes.id, input.pacienteId), eq(pacientes.tokenId, ctx.session.tokenId)))
-      return { ok: true }
+      return okEmpty()
     }),
 
   // Step 5 — Modalidade da PrEP (substitui a antiga Prescrição editável)
@@ -333,7 +334,7 @@ export const pacienteRouter = router({
           updatedAt: new Date(),
         })
         .where(and(eq(pacientes.id, input.pacienteId), eq(pacientes.tokenId, ctx.session.tokenId)))
-      return { ok: true }
+      return okEmpty()
     }),
 
   // O antigo Step 6 (Serviço) foi removido. tipoAtendimento e convenio
@@ -372,7 +373,7 @@ export const pacienteRouter = router({
         .insert(tcleAssinaturas)
         .values({ pacienteId: input.pacienteId, ipAddress, userAgent })
         .onDuplicateKeyUpdate({ set: { ipAddress, userAgent, signedAt: new Date() } })
-      return { ok: true }
+      return okEmpty()
     }),
 
   // Finalizar formulário após TCLE
@@ -385,7 +386,7 @@ export const pacienteRouter = router({
         .set({ status: 'pendente', updatedAt: new Date() })
         .where(and(eq(pacientes.id, input.pacienteId), eq(pacientes.tokenId, ctx.session.tokenId)))
       await enqueueGerarPdf(input.pacienteId)
-      return { ok: true }
+      return okEmpty()
     }),
 
   // Buscar dados do pré-cadastro para pré-preencher o formulário

@@ -1,6 +1,7 @@
 import { Resend } from 'resend'
 import { env } from './_core/env.ts'
 import { logger } from './_core/logger.ts'
+import { withCircuitBreaker } from './_core/circuitBreaker.ts'
 
 const resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null
 
@@ -28,17 +29,17 @@ async function send(opts: {
     if ((e as Error).message === '__dev_skip__') return
     throw e
   }
-  const { error } = await client.emails.send({
+  const { error } = await withCircuitBreaker('resend', () => client.emails.send({
     from: env.EMAIL_FROM,
     to: opts.to,
     subject: opts.subject,
     html: opts.html,
     attachments: opts.attachments?.map(a => ({ filename: a.filename, content: a.content })),
-  })
+  }), { threshold: 5, resetMs: 60_000 })
   if (error) throw new Error(`Resend: ${error.message}`)
 }
 
-async function sendMultiple(opts: {
+async function _sendMultiple(opts: {
   to: string[]
   subject: string
   html: string
@@ -50,12 +51,12 @@ async function sendMultiple(opts: {
     if ((e as Error).message === '__dev_skip__') return
     throw e
   }
-  const { error } = await client.emails.send({
+  const { error } = await withCircuitBreaker('resend', () => client.emails.send({
     from: env.EMAIL_FROM,
     to: opts.to,
     subject: opts.subject,
     html: opts.html,
-  })
+  }), { threshold: 5, resetMs: 60_000 })
   if (error) throw new Error(`Resend: ${error.message}`)
 }
 

@@ -12,6 +12,7 @@ import { JWT_EXPIRY_STAFF } from '../../shared/security-constants.ts'
 import { isAllowedRedirectUri } from '../_core/originValidator.ts'
 import type { Role } from '../../shared/types.ts'
 import type { ResultSetHeader } from 'mysql2'
+import { okEmpty } from '../_core/response.ts'
 
 export const authRouter = router({
   // Callback OAuth — troca code por JWT interno
@@ -212,6 +213,6 @@ export const authRouter = router({
   }),
 
   logout: protectedProcedure.mutation(() => {
-    return { ok: true }
+    return okEmpty()
   }),
 })

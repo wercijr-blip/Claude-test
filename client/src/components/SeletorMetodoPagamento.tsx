@@ -48,8 +48,6 @@ const METODOS: Array<{
   },
 ]
 
-import { type ReactNode } from 'react'
-
 export default function SeletorMetodoPagamento({ loading, onSelect }: Props) {
   const { data: valorData } = trpc.intake.consultarValor.useQuery()
   const valorFormatado = valorData?.valorFormatado ?? 'R$ 150,00'

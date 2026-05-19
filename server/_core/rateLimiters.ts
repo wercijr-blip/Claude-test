@@ -5,7 +5,6 @@ import { RATE_LIMITS } from '../../shared/security-constants.ts'
 
 function makeStore(prefix: string) {
   return new RedisStore({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     sendCommand: ((...args: string[]) => redis.call(args[0], ...args.slice(1))) as any,
     prefix: `rl:${prefix}:`,
   })

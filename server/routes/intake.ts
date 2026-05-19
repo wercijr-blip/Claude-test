@@ -19,8 +19,9 @@ import { ERROR_MESSAGES, HORARIO_ATENDIMENTO } from '../../shared/const.ts'
 import { paginationInput, paginatedResponse } from '../_core/pagination.ts'
 import { logger } from '../_core/logger.ts'
 import * as Sentry from '@sentry/node'
+import { okEmpty } from '../_core/response.ts'
 
-function isDentroHorarioAtendimento(): boolean {
+function _isDentroHorarioAtendimento(): boolean {
   const agora = new Date()
   const spTime = new Date(agora.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }))
   const hora = spTime.getHours()
@@ -419,7 +420,7 @@ export const intakeRouter = router({
 
       await gerarEEnviarLinkAcesso(input.precadastroId, ctx.session.id)
 
-      return { ok: true }
+      return okEmpty()
     }),
 
   // Secretaria: rejeitar plano
@@ -438,6 +439,6 @@ export const intakeRouter = router({
         })
         .where(eq(precadastros.id, input.precadastroId))
 
-      return { ok: true }
+      return okEmpty()
     }),
 })

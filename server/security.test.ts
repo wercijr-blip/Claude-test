@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { validarCpf } from './_core/cpfValidator.ts'
 import { isAllowedRedirectUri } from './_core/originValidator.ts'
 

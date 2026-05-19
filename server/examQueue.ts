@@ -64,7 +64,8 @@ export function startExamWorker() {
           .where(eq(exames.id, exameId))
 
         logger.warn(`[examQueue] Exame ${exameId} rejeitado pela IA`, { resultado: resultado.resultado, confianca: resultado.confianca })
-        // TODO: send email/WhatsApp notification to medico
+        // Notification: log for now, replace with enviarNotificacaoMedico when email template is ready
+        logger.info(`[examQueue] Notificação pendente: exame ${exameId} aguarda revisão médica`, { motivo: 'resultado_reagente' })
       } else {
         // Inconclusive or unidentified → flag for medico review
         const novoResultado: ResultadoIa = { ...resultado, status: 'pendente_revisao' }
@@ -74,7 +75,8 @@ export function startExamWorker() {
           .where(eq(exames.id, exameId))
 
         logger.warn(`[examQueue] Exame ${exameId} inconclusivo`, { resultado: resultado.resultado, confianca: resultado.confianca })
-        // TODO: send email/WhatsApp notification to medico
+        // Notification: log for now, replace with enviarNotificacaoMedico when email template is ready
+        logger.info(`[examQueue] Notificação pendente: exame ${exameId} aguarda revisão médica`, { motivo: 'resultado_inconclusivo' })
       }
 
       return { exameId, resultado: resultado.resultado, status: resultado.status }

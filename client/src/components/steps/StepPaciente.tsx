@@ -25,7 +25,7 @@ interface Props {
   defaultValues?: { nome?: string; cpf?: string }
 }
 
-export default function StepPaciente({ pacienteId, onNext, defaultValues }: Props) {
+export default function StepPaciente({ pacienteId: _pacienteId, onNext, defaultValues }: Props) {
   const hasIntakeNome = !!defaultValues?.nome
   const hasIntakeCpf = !!defaultValues?.cpf
   const { setToken } = useAuth()

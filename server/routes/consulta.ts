@@ -24,6 +24,7 @@ import { gerarLinkDeAcesso } from './intake.ts'
 import { env } from '../_core/env.ts'
 import { logger } from '../_core/logger.ts'
 import { DIAS_VALIDADE_LINK_UPLOAD } from '../../shared/const.ts'
+import { okEmpty } from '../_core/response.ts'
 
 function assertPatient(session: unknown): asserts session is { type: 'patient'; tokenId: number; pacienteId: number | null } {
   if (!session || (session as { type: string }).type !== 'patient') {
@@ -675,7 +676,7 @@ export const consultaRouter = router({
           if (info.telefone) await enviarWhatsApp(info.telefone, `Olá ${info.nome}, sobre seu exame: ${input.observacoes}. Para mais informações: (61) 99401-8161`).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
         }
 
-        return { ok: true }
+        return okEmpty()
       }),
   }),
 })

@@ -4,7 +4,8 @@ import { router, publicProcedure } from '../_core/trpc.ts'
 import { TRPCError } from '@trpc/server'
 import { db } from '../db.ts'
 import { satisfacaoPesquisas, pesquisaTokens } from '../../drizzle/schema.ts'
-import { eq, gt } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
+import { okEmpty } from '../_core/response.ts'
 
 async function validarTokenPesquisa(pacienteId: number, token: string): Promise<void> {
   const [row] = await db
@@ -63,7 +64,7 @@ export const pesquisaRouter = router({
         await tx.delete(pesquisaTokens).where(eq(pesquisaTokens.pacienteId, input.pacienteId))
       })
 
-      return { ok: true }
+      return okEmpty()
     }),
 
   status: publicProcedure

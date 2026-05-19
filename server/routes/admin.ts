@@ -1,8 +1,13 @@
+/**
+ * adminRouter — Painel administrativo
+ * Seções: equipe | pacientes | documentos | auditoria | certificado | intake | dlq
+ * Cada procedure usa adminProcedure (role: admin).
+ */
 import { z } from 'zod'
 import { router, adminProcedure } from '../_core/trpc.ts'
 import { TRPCError } from '@trpc/server'
 import { db } from '../db.ts'
-import { users, securityEvents, pacientes, exames, pdfs, consultasInicio } from '../../drizzle/schema.ts'
+import { users, securityEvents, pacientes, exames, pdfs, consultasInicio, dlqJobs } from '../../drizzle/schema.ts'
 import { eq, desc, inArray, count, isNull, and } from 'drizzle-orm'
 import type { Role } from '../../shared/types.ts'
 import { decrypt } from '../_core/encryption.ts'
@@ -14,6 +19,7 @@ import { linkAcessoQueue } from '../pdfQueue.ts'
 import { logAudit } from '../_core/audit.ts'
 import { uploadBuffer, deleteObject, getPresignedUrl } from '../storage.ts'
 import { preencherFichaAtendimento, buildConfigClinica, mapPrepAdesaoLabel } from '../sus/preencherFichaAtendimento.ts'
+import { okEmpty } from '../_core/response.ts'
 
 type ResultadoIaJson = {
   status?: string
@@ -56,7 +62,7 @@ export const adminRouter = router({
         ativo: true,
       })
 
-      return { ok: true }
+      return okEmpty()
     }),
 
   // Alterar role de usuário
@@ -71,7 +77,7 @@ export const adminRouter = router({
         .set({ role: input.role as Role, updatedAt: new Date() })
         .where(eq(users.id, input.userId))
 
-      return { ok: true }
+      return okEmpty()
     }),
 
   // Ativar/desativar usuário
@@ -82,7 +88,7 @@ export const adminRouter = router({
         .update(users)
         .set({ ativo: input.ativo, updatedAt: new Date() })
         .where(eq(users.id, input.userId))
-      return { ok: true }
+      return okEmpty()
     }),
 
   // Soft-delete: marca deletedAt/deletedBy, desativa acesso. Nunca hard-delete.
@@ -122,7 +128,7 @@ export const adminRouter = router({
         detalhes: { targetEmail: target.email, targetRole: target.role },
       })
 
-      return { ok: true }
+      return okEmpty()
     }),
 
   // Reativar usuário soft-deleted
@@ -147,7 +153,7 @@ export const adminRouter = router({
         detalhes: { targetEmail: target.email, targetRole: target.role },
       })
 
-      return { ok: true }
+      return okEmpty()
     }),
 
   // ── Pacientes ─────────────────────────────────────────────────
@@ -288,7 +294,7 @@ export const adminRouter = router({
         })
         .where(eq(exames.id, input.exameId))
 
-      return { ok: true }
+      return okEmpty()
     }),
 
   // Listar pacientes pendentes de revisão médica (poder de médico)
@@ -425,6 +431,44 @@ export const adminRouter = router({
         logAudit({ actorId: ctx.session.id, actorRole: ctx.session.role, action: 'pdf.generate', resourceType: 'ficha_atendimento', resourceId: pacienteId, detalhes: { fichasRemovidas: fichasExistentes.length } }),
       ])
       return { ok: true, url, fichasRemovidas: fichasExistentes.length }
+    }),
+
+  // ── Dead Letter Queue ─────────────────────────────────────────
+
+  listarDlq: adminProcedure
+    .input(z.object({ limit: z.number().int().min(1).max(100).default(20) }))
+    .query(async ({ input }) => {
+      const rows = await db
+        .select()
+        .from(dlqJobs)
+        .orderBy(desc(dlqJobs.createdAt))
+        .limit(input.limit)
+      return rows
+    }),
+
+  reprocessarDlqJob: adminProcedure
+    .input(z.object({ jobId: z.number().int().positive() }))
+    .mutation(async ({ input }) => {
+      const [job] = await db
+        .select()
+        .from(dlqJobs)
+        .where(eq(dlqJobs.id, input.jobId))
+        .limit(1)
+      if (!job) throw new TRPCError({ code: 'NOT_FOUND', message: 'Job não encontrado na DLQ' })
+
+      // Re-enqueue based on queue name
+      if (job.queue === 'exam-analysis') {
+        const { enqueueAnalisarExame } = await import('../examQueue.ts')
+        await enqueueAnalisarExame((job.data as { exameId: number }).exameId)
+      } else if (job.queue === 'pdf-generation') {
+        const { enqueueGerarPdf } = await import('../pdfQueue.ts')
+        await enqueueGerarPdf((job.data as { pacienteId: number }).pacienteId)
+      }
+
+      // Mark as reprocessed by deleting from DLQ
+      await db.delete(dlqJobs).where(eq(dlqJobs.id, input.jobId))
+
+      return { ok: true, queue: job.queue, jobId: job.jobId }
     }),
 
   saudeIntake: adminProcedure.query(async () => {

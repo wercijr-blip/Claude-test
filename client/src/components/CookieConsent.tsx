@@ -10,7 +10,6 @@ type Consent = 'all' | 'essential' | null
 
 function loadMetaPixel(id: string) {
   if (document.getElementById('meta-pixel-script')) return
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const f = window as any
   f.fbq = f.fbq ?? function (...args: unknown[]) { f.fbq.callMethod ? f.fbq.callMethod(...args) : f.fbq.queue.push(args) }
   if (!f._fbq) f._fbq = f.fbq

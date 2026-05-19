@@ -6,6 +6,7 @@ import { pacientes, exames } from '../../drizzle/schema.ts'
 import { eq, inArray } from 'drizzle-orm'
 import { decrypt } from '../_core/encryption.ts'
 import { isExameRejeitadoIa } from '../examUtils.ts'
+import { okEmpty } from '../_core/response.ts'
 
 type ResultadoIaJson = {
   status?: string
@@ -92,7 +93,7 @@ export const medicoRouter = router({
         })
         .where(eq(pacientes.id, input.pacienteId))
 
-      return { ok: true }
+      return okEmpty()
     }),
 
   // Rejeitar paciente
@@ -115,7 +116,7 @@ export const medicoRouter = router({
         })
         .where(eq(pacientes.id, input.pacienteId))
 
-      return { ok: true }
+      return okEmpty()
     }),
 
   // Listar exames com rejeição de IA (status rejeitado_ia no resultadoIa)
@@ -172,6 +173,6 @@ export const medicoRouter = router({
         })
         .where(eq(exames.id, input.exameId))
 
-      return { ok: true }
+      return okEmpty()
     }),
 })
