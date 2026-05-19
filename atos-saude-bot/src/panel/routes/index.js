@@ -12,7 +12,7 @@ import {
   getConversations, getConversationByPhone,
   getExamSubmissions, insertMessageLog, upsertSession,
   getAllUsers, insertUser, updateUserPassword, toggleUserActive, getUserAnyStatus,
-  invalidateUserCache
+  invalidateUserCache, getMedicationRequests
 } from '../../services/db.js'
 import db from '../../services/db.js'
 import { generateExcel } from '../../services/export.js'
@@ -90,7 +90,7 @@ apiRouter.get('/stats', (req, res) => {
 
 // GET /api/medication-requests
 apiRouter.get('/medication-requests', (req, res) => {
-  const rows = db.prepare('SELECT * FROM medication_requests ORDER BY created_at DESC').all()
+  const rows = getMedicationRequests()
   res.json({ total: rows.length, data: rows })
 })
 
@@ -501,7 +501,7 @@ apiRouter.get('/whatsapp/status', requireAuth(['admin']), async (req, res) => {
   try {
     const r = await axios.get(
       `${EVO_URL()}/instance/connectionState/${EVO_INSTANCE()}`,
-      { headers: evolutionHeaders() }
+      { headers: evolutionHeaders(), timeout: 10_000 }
     )
     res.json(r.data)
   } catch (err) {
@@ -514,7 +514,7 @@ apiRouter.get('/whatsapp/qr', requireAuth(['admin']), async (req, res) => {
   try {
     const r = await axios.get(
       `${EVO_URL()}/instance/connect/${EVO_INSTANCE()}`,
-      { headers: evolutionHeaders() }
+      { headers: evolutionHeaders(), timeout: 10_000 }
     )
     res.json(r.data)
   } catch (err) {
@@ -527,7 +527,7 @@ apiRouter.post('/whatsapp/logout', requireAuth(['admin']), async (req, res) => {
   try {
     const r = await axios.delete(
       `${EVO_URL()}/instance/logout/${EVO_INSTANCE()}`,
-      { headers: evolutionHeaders() }
+      { headers: evolutionHeaders(), timeout: 10_000 }
     )
     res.json(r.data)
   } catch (err) {
@@ -541,7 +541,7 @@ apiRouter.post('/whatsapp/restart', requireAuth(['admin']), async (req, res) => 
     const r = await axios.put(
       `${EVO_URL()}/instance/restart/${EVO_INSTANCE()}`,
       {},
-      { headers: evolutionHeaders() }
+      { headers: evolutionHeaders(), timeout: 10_000 }
     )
     res.json(r.data)
   } catch (err) {
@@ -605,7 +605,7 @@ apiRouter.post('/sessions/:phone/assume', requireAuth(['admin','secretaria']), (
 
 // GET /api/medicacoes — alias de /api/medication-requests
 apiRouter.get('/medicacoes', requireAuth(['admin','secretaria','faturamento']), (req, res) => {
-  const rows = db.prepare('SELECT * FROM medication_requests ORDER BY created_at DESC').all()
+  const rows = getMedicationRequests()
   res.json({ total: rows.length, data: rows })
 })
 

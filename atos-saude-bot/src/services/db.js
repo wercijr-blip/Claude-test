@@ -1,12 +1,15 @@
 import Database from 'better-sqlite3'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
+import { encryptPII, decryptPII } from '../utils/pii.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const DB_PATH = process.env.DB_PATH || join(__dirname, '../../atos-saude.db')
 
 const db = new Database(DB_PATH)
 db.pragma('journal_mode = WAL')
+db.pragma('foreign_keys = ON')
+db.pragma('secure_delete = ON')
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS sessions (
@@ -190,9 +193,28 @@ export function clearSession(phone) {
   db.prepare('DELETE FROM sessions WHERE phone = ?').run(phone)
 }
 
+const PII_FIELDS = ['nome', 'nascimento', 'telefone_contato']
+
+function _encryptRow(data) {
+  const result = { ...data }
+  for (const f of PII_FIELDS) {
+    if (f in result && result[f] != null) result[f] = encryptPII(result[f])
+  }
+  return result
+}
+
+function _decryptRow(row) {
+  if (!row) return row
+  const result = { ...row }
+  for (const f of PII_FIELDS) {
+    if (f in result) result[f] = decryptPII(result[f])
+  }
+  return result
+}
+
 // Agendamentos
 export function getAgendamentoById(id) {
-  return db.prepare('SELECT * FROM agendamentos WHERE id = ?').get(id) || null
+  return _decryptRow(db.prepare('SELECT * FROM agendamentos WHERE id = ?').get(id) || null)
 }
 
 export function updateAgendamentoStatus(id, status) {
@@ -200,11 +222,12 @@ export function updateAgendamentoStatus(id, status) {
 }
 
 export function insertAgendamento(data) {
-  const keys = Object.keys(data)
+  const encrypted = _encryptRow(data)
+  const keys = Object.keys(encrypted)
   const stmt = db.prepare(
     `INSERT INTO agendamentos (${keys.join(', ')}) VALUES (${keys.map(k => '@' + k).join(', ')})`
   )
-  const result = stmt.run(data)
+  const result = stmt.run(encrypted)
   return result.lastInsertRowid
 }
 
@@ -216,17 +239,22 @@ export function getAgendamentos(filters = {}) {
   if (filters.especialidade) { query += ' AND especialidade = @especialidade'; params.especialidade = filters.especialidade }
   if (filters.data) { query += ' AND DATE(created_at) = @data'; params.data = filters.data }
   query += ' ORDER BY created_at DESC'
-  return db.prepare(query).all(params)
+  return db.prepare(query).all(params).map(_decryptRow)
 }
 
 // Medication requests
 export function insertMedicationRequest(data) {
-  const keys = Object.keys(data)
+  const encrypted = _encryptRow(data)
+  const keys = Object.keys(encrypted)
   const stmt = db.prepare(
     `INSERT INTO medication_requests (${keys.join(', ')}) VALUES (${keys.map(k => '@' + k).join(', ')})`
   )
-  const result = stmt.run(data)
+  const result = stmt.run(encrypted)
   return result.lastInsertRowid
+}
+
+export function getMedicationRequests() {
+  return db.prepare('SELECT * FROM medication_requests ORDER BY created_at DESC').all().map(_decryptRow)
 }
 
 // Authorization queries
@@ -284,7 +312,7 @@ export function getAgendamentosComSlot({ dateMin, dateMax } = {}) {
   if (dateMin) { query += ' AND slot_datetime >= ?'; params.push(dateMin) }
   if (dateMax) { query += ' AND slot_datetime <= ?'; params.push(dateMax) }
   query += ' ORDER BY slot_datetime ASC'
-  return db.prepare(query).all(...params)
+  return db.prepare(query).all(...params).map(_decryptRow)
 }
 
 // Pesquisa de satisfação
@@ -349,9 +377,6 @@ export function getUserAnyStatus(id) {
 export function userCount() {
   return db.prepare('SELECT COUNT(*) as c FROM users').get()?.c || 0
 }
-
-// SESSION_COLUMNS update to include human_transfer_at
-const _SESSION_EXTRA = 'human_transfer_at'
 
 // Encaixe queue
 export function getEncaixeQueue() {

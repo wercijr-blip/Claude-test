@@ -2,6 +2,7 @@ import 'dotenv/config'
 import express from 'express'
 import helmet from 'helmet'
 import cors from 'cors'
+import rateLimit from 'express-rate-limit'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 import { mkdirSync, existsSync } from 'fs'
@@ -52,7 +53,18 @@ const app = express()
 app.set('trust proxy', 1)
 
 app.use(helmet({
-  contentSecurityPolicy: false // painel usa CDN inline — ajustar CSP por fase se necessário
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-eval'", 'cdn.tailwindcss.com', 'cdn.jsdelivr.net'],
+      styleSrc: ["'self'", "'unsafe-inline'", 'cdn.tailwindcss.com'],
+      imgSrc: ["'self'", 'data:', 'https:'],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'", 'data:', 'cdn.jsdelivr.net'],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+    }
+  }
 }))
 
 if (process.env.NODE_ENV === 'production' && !process.env.PANEL_ORIGIN) {
@@ -73,6 +85,16 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 app.use(express.json({ limit: '1mb' }))
+
+// Rate limiting global na API (evita abuso)
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Muitas requisições. Tente novamente em instantes.' }
+})
+app.use('/api', apiLimiter)
 
 // Health check (Railway / load-balancer)
 app.get('/health', (req, res) => res.json({ ok: true, uptime: process.uptime() }))
@@ -139,6 +161,22 @@ app.get('/remarcar/:token', async (req, res) => {
 })
 
 const PORT = process.env.PORT || 3000
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   logger.info(`Painel disponível em http://localhost:${PORT}/painel`)
+})
+
+process.on('SIGTERM', () => {
+  logger.info('SIGTERM recebido — encerrando servidor')
+  server.close(() => {
+    db.close()
+    process.exit(0)
+  })
+})
+
+process.on('SIGINT', () => {
+  logger.info('SIGINT recebido — encerrando servidor')
+  server.close(() => {
+    db.close()
+    process.exit(0)
+  })
 })

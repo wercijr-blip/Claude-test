@@ -6,7 +6,8 @@ import { dirname, join } from 'path'
 import { sendText } from './whatsapp.js'
 import {
   upsertSession, getAgendamentosComSlot, wasReminderSent, markReminderSent,
-  insertRescheduleToken, getEncaixeByEspecialidade, markEncaixeNotificado
+  insertRescheduleToken, getEncaixeByEspecialidade, markEncaixeNotificado,
+  deleteOldMessageLogs
 } from './db.js'
 import { logger } from '../utils/logger.js'
 import { msg } from '../utils/messages.js'
@@ -201,5 +202,15 @@ export function initScheduler() {
     await verificarPesquisas().catch(e => logger.error({ err: e.message }, 'Erro ao verificar pesquisas'))
   })
 
-  logger.info('Scheduler iniciado: agenda médica (8h/dia) | lembretes 24h e 2h | pesquisa 3h pós-consulta')
+  // Retenção de dados: remove mensagens com mais de 90 dias (LGPD)
+  cron.schedule('0 3 * * *', () => {
+    try {
+      deleteOldMessageLogs(90)
+      logger.info('Scheduler: limpeza de mensagens antigas (>90 dias)')
+    } catch (e) {
+      logger.error({ err: e.message }, 'Erro ao limpar mensagens antigas')
+    }
+  }, { timezone: 'America/Sao_Paulo' })
+
+  logger.info('Scheduler iniciado: agenda médica (8h/dia) | lembretes 24h e 2h | pesquisa 3h pós-consulta | limpeza 3h/dia')
 }

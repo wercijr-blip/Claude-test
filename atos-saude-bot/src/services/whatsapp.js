@@ -11,7 +11,7 @@ export async function sendText(phone, text, { flow, step } = {}) {
     await withRetry(() => axios.post(
       `${EVOLUTION_URL}/message/sendText/${INSTANCE_NAME}`,
       { number: phone, text },
-      { headers: { apikey: EVOLUTION_API_KEY } }
+      { headers: { apikey: EVOLUTION_API_KEY }, timeout: 10_000 }
     ))
     try { insertMessageLog({ phone, direction: 'OUT', text, flow: flow || null, step: step || null }) } catch {}
     return true

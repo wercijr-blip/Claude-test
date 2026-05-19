@@ -12,7 +12,7 @@ let client = null
 function getClient() {
   if (!client) {
     if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY não configurada')
-    client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+    client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 25_000 })
   }
   return client
 }

@@ -17,7 +17,7 @@ Bot WhatsApp para a clínica **Atos Saúde Integrada** (Brasília-DF).
 
 ```bash
 # 1. Instalar dependências
-npm install
+pnpm install
 
 # 2. Configurar variáveis de ambiente
 cp .env.example .env
@@ -27,7 +27,7 @@ cp .env.example .env
 # Baixar Service Account JSON e salvar em src/config/google-service-account.json
 
 # 4. Iniciar
-npm start
+pnpm start
 ```
 
 ## Painel Web
@@ -37,8 +37,9 @@ Acesse: `http://localhost:3000/painel`
 ## Scripts
 
 ```bash
-npm run test:calendar   # Testa conexão com Google Calendar
-npm run add:doctor      # Adiciona novo médico interativamente
+pnpm test               # Roda testes unitários + integração
+pnpm run test:calendar  # Testa conexão com Google Calendar
+pnpm run add:doctor     # Adiciona novo médico interativamente
 ```
 
 ## Estrutura
