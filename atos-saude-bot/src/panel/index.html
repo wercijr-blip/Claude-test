@@ -303,27 +303,27 @@
       <div class="card p-4 flex flex-wrap gap-3 items-end">
         <div>
           <label class="block text-xs font-semibold text-gray-400 mb-1">Tipo</label>
-          <select x-model="filters.tipo" class="inp w-32">
+          <select x-model="filters.tipo" @change="loadAgenda()" class="inp w-32">
             <option value="">Todos</option>
             <option>CONSULTA</option><option>INFUSAO</option><option>MEDICACAO</option>
           </select>
         </div>
         <div>
           <label class="block text-xs font-semibold text-gray-400 mb-1">Especialidade</label>
-          <input x-model="filters.especialidade" placeholder="Ex: Infectologia" class="inp w-36">
+          <input x-model="filters.especialidade" @input.debounce.500ms="loadAgenda()" placeholder="Ex: Infectologia" class="inp w-36">
         </div>
         <div>
           <label class="block text-xs font-semibold text-gray-400 mb-1">Data</label>
-          <input type="date" x-model="filters.data" class="inp w-36">
+          <input type="date" x-model="filters.data" @change="loadAgenda()" class="inp w-36">
         </div>
         <div>
           <label class="block text-xs font-semibold text-gray-400 mb-1">Status</label>
-          <select x-model="filters.status" class="inp w-32">
+          <select x-model="filters.status" @change="loadAgenda()" class="inp w-32">
             <option value="">Todos</option>
             <option>PENDENTE</option><option>CONFIRMADO</option><option>CANCELADO</option>
           </select>
         </div>
-        <button @click="loadAgendamentos()" class="btn-primary px-4 py-2">🔍 Filtrar</button>
+        <button @click="loadAgenda()" class="btn-primary px-4 py-2">🔍 Filtrar</button>
         <div class="ml-auto flex gap-2 flex-wrap">
           <button x-show="permissions?.canBlock" @click="abrirModalBloqueio()"
             class="btn-danger px-3 py-2 text-xs">🚫 Bloquear Agenda</button>
@@ -537,9 +537,12 @@
                 <td class="font-semibold"
                   :class="row.human_transfer_at && (new Date()-new Date(row.human_transfer_at))>600000?'text-red-600':'text-gray-600'"
                   x-text="row.human_transfer_at ? Math.floor((new Date()-new Date(row.human_transfer_at))/60000)+'min' : '—'"></td>
-                <td>
+                <td class="flex gap-2">
                   <button @click="assumirAtendimento(row.phone)" class="btn-primary px-3 py-1 text-xs">
                     ✅ Assumir
+                  </button>
+                  <button @click="encerrarAtendimento(row.phone)" class="btn-danger px-3 py-1 text-xs">
+                    🔚 Encerrar
                   </button>
                 </td>
               </tr>
@@ -858,6 +861,10 @@
           <div class="text-5xl mb-3">✅</div>
           <p class="text-green-600 font-bold text-lg">WhatsApp conectado!</p>
           <p class="text-sm text-gray-400 mt-1">O bot está ativo e recebendo mensagens.</p>
+          <div class="flex justify-center gap-3 mt-4">
+            <button @click="reiniciarWhatsApp()" class="btn-ghost px-4 py-2 text-sm">🔁 Reiniciar</button>
+            <button @click="desconectarWhatsApp()" class="btn-danger px-4 py-2 text-sm">🔌 Desconectar</button>
+          </div>
         </div>
       </div>
     </div>
@@ -897,6 +904,18 @@
 
     <!-- Tab Conhecimento ─────────────────────────────────────── -->
     <div x-show="activeTab==='conhecimento'" x-cloak class="space-y-4">
+      <div class="grid grid-cols-2 gap-4">
+        <div class="card p-4 text-center">
+          <p class="text-2xl font-black text-[#2D8C8C]" x-text="conhecimentoStats.perguntasHoje ?? 0"></p>
+          <p class="text-xs text-gray-400 mt-0.5">Perguntas hoje</p>
+        </div>
+        <div class="card p-4 text-center">
+          <p class="text-2xl font-black"
+            :class="(conhecimentoStats.taxaResolucao||0)>=70?'text-green-600':'text-orange-500'"
+            x-text="(conhecimentoStats.taxaResolucao??0)+'%'"></p>
+          <p class="text-xs text-gray-400 mt-0.5">Taxa de resolução IA</p>
+        </div>
+      </div>
       <div class="card p-5">
         <h2 class="font-bold text-[#3A2169] mb-4">📚 Base de Conhecimento</h2>
         <div class="flex gap-2 mb-4">
@@ -936,6 +955,24 @@
 
     <!-- Tab Satisfação ───────────────────────────────────────── -->
     <div x-show="activeTab==='satisfacao'" x-cloak class="space-y-4">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div class="card p-4 text-center border-t-4 border-green-400">
+          <p class="text-2xl font-black text-green-600" x-text="satisfacaoStats.excelente"></p>
+          <p class="text-xs text-gray-400 mt-0.5">Excelente (5)</p>
+        </div>
+        <div class="card p-4 text-center border-t-4 border-blue-400">
+          <p class="text-2xl font-black text-blue-600" x-text="satisfacaoStats.bom"></p>
+          <p class="text-xs text-gray-400 mt-0.5">Bom (4)</p>
+        </div>
+        <div class="card p-4 text-center border-t-4 border-yellow-400">
+          <p class="text-2xl font-black text-yellow-600" x-text="satisfacaoStats.regular"></p>
+          <p class="text-xs text-gray-400 mt-0.5">Regular (3)</p>
+        </div>
+        <div class="card p-4 text-center border-t-4 border-red-400">
+          <p class="text-2xl font-black text-red-600" x-text="satisfacaoStats.ruim"></p>
+          <p class="text-xs text-gray-400 mt-0.5">Ruim (1-2)</p>
+        </div>
+      </div>
       <div class="grid grid-cols-3 gap-4">
         <div class="card p-5 text-center">
           <p class="text-3xl font-black text-[#2D8C8C]" x-text="mediaNotas||'—'"></p>
@@ -1056,6 +1093,55 @@
   </main>
   <!-- /MAIN CONTENT -->
 
+  <!-- ══ Modal: Novo Texto ══════════════════════════════════ -->
+  <div x-show="novoTextoModal" x-cloak
+    class="fixed inset-0 z-50 flex items-center justify-center"
+    style="background:rgba(34,23,72,.55)">
+    <div class="card p-6 w-full max-w-lg mx-4" @click.stop>
+      <h3 class="font-bold text-[#3A2169] mb-4">➕ Novo Texto</h3>
+      <div class="space-y-3">
+        <div>
+          <label class="text-xs font-medium text-gray-600 mb-1 block">Chave (ex: boas_vindas)</label>
+          <input x-model="novoTexto.nome" class="inp" placeholder="nome_da_chave" />
+        </div>
+        <div>
+          <label class="text-xs font-medium text-gray-600 mb-1 block">Conteúdo</label>
+          <textarea x-model="novoTexto.conteudo" class="inp font-mono resize-y" rows="5"
+            placeholder="Texto da mensagem... use {nome}, {medico}, etc."></textarea>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 mt-5">
+        <button @click="novoTextoModal=false; novoTexto={nome:'',conteudo:''}"
+          class="btn-ghost px-4 py-2 text-sm">Cancelar</button>
+        <button @click="adicionarTexto()" class="btn-primary px-4 py-2 text-sm">Salvar</button>
+      </div>
+    </div>
+  </div>
+  <!-- /Modal Novo Texto ════════════════════════════════════ -->
+
+  <!-- ══ Modal: Reset de Senha ══════════════════════════════ -->
+  <div x-show="resetSenhaModal" x-cloak
+    class="fixed inset-0 z-50 flex items-center justify-center"
+    style="background:rgba(34,23,72,.55)">
+    <div class="card p-6 w-full max-w-sm mx-4" @click.stop>
+      <h3 class="font-bold text-[#3A2169] mb-1">🔑 Redefinir Senha</h3>
+      <p class="text-xs text-gray-400 mb-4"
+        x-text="resetSenhaTarget ? 'Usuário: '+resetSenhaTarget.name : ''"></p>
+      <div>
+        <label class="text-xs font-medium text-gray-600 mb-1 block">Nova senha (mín. 6 caracteres)</label>
+        <input type="password" x-model="resetSenhaPwd" class="inp"
+          placeholder="••••••••"
+          @keydown.enter="confirmarResetSenha()" />
+      </div>
+      <div class="flex justify-end gap-2 mt-5">
+        <button @click="resetSenhaModal=false; resetSenhaPwd=''"
+          class="btn-ghost px-4 py-2 text-sm">Cancelar</button>
+        <button @click="confirmarResetSenha()" class="btn-primary px-4 py-2 text-sm">Redefinir</button>
+      </div>
+    </div>
+  </div>
+  <!-- /Modal Reset Senha ═══════════════════════════════════ -->
+
 </div>
 <!-- /PAINEL PRINCIPAL ══════════════════════════════════════ -->
 
@@ -1108,9 +1194,11 @@ function painel() {
     // Stats cards definition
     statCards: [
       { key:'agenda',    label:'Pendentes',  color:'#F59E0B' },
+      { key:'hoje',      label:'Hoje',       color:'#10B981' },
       { key:'humano',    label:'Humano',     color:'#EF4444' },
       { key:'encaixe',   label:'Encaixe',    color:'#8B5CF6' },
       { key:'conversas', label:'Conversas',  color:'#2D8C8C' },
+      { key:'consultas', label:'Consultas',  color:'#3B82F6' },
     ],
 
     // Clock compat
@@ -1163,12 +1251,13 @@ function painel() {
 
     // Usuários
     usuarios: [], novoUsuario: { username:'', name:'', role:'secretaria', password:'', msg:'', erro:false, loading:false },
+    resetSenhaModal: false, resetSenhaTarget: null, resetSenhaPwd: '',
 
     // Exames
     exames: [],
 
     // WhatsApp
-    waStatus: null, qrCode: '', qrTimer: null,
+    waStatus: null, qrCode: '', qrTimer: null, pollTimer: null,
 
     // Medicações
     medicacoes: [],
@@ -1184,7 +1273,9 @@ function painel() {
     replyText: '', replySending: false,
 
     // Stats
-    stats: { agenda: 0, humano: 0, encaixe: 0, conversas: 0 },
+    stats: { agenda: 0, humano: 0, encaixe: 0, conversas: 0, hoje: 0, consultas: 0, infusoes: 0 },
+    conhecimentoStats: { perguntasHoje: 0, taxaResolucao: 0 },
+    satisfacaoStats: { excelente: 0, bom: 0, regular: 0, ruim: 0 },
 
     // Clock
     clockStr: '',
@@ -1193,7 +1284,13 @@ function painel() {
       if (this.token) this.autenticado = true
       this.tickClock()
       setInterval(() => this.tickClock(), 1000)
-      if (this.autenticado) this.loadAll()
+      if (this.autenticado) {
+        this.loadAll()
+        this.pollTimer = setInterval(() => {
+          this.loadSessoesHumanas()
+          this.loadEncaixe()
+        }, 30000)
+      }
     },
 
     tickClock() {
@@ -1235,6 +1332,7 @@ function painel() {
       this.token = ''; this.user = null; this.autenticado = false
       localStorage.removeItem('token'); localStorage.removeItem('user')
       clearInterval(this.qrTimer)
+      clearInterval(this.pollTimer)
     },
 
     async salvarNovaSenha() {
@@ -1254,8 +1352,18 @@ function painel() {
         this.loadAgenda(), this.loadTextos(), this.loadSessoesHumanas(),
         this.loadEncaixe(), this.loadMedicos(), this.loadUsuarios(),
         this.loadMedicacoes(), this.loadConhecimento(), this.loadSatisfacao(),
-        this.loadConversas(), this.loadWAStatus(), this.loadExames()
+        this.loadConversas(), this.loadWAStatus(), this.loadExames(),
+        this.loadStats()
       ]).catch(e => console.error('loadAll error:', e))
+    },
+
+    async loadStats() {
+      try {
+        const d = await this.api('/stats')
+        this.stats.hoje     = d.hoje     ?? 0
+        this.stats.consultas = d.consultas ?? 0
+        this.stats.infusoes  = d.infusoes  ?? 0
+      } catch (e) { console.error(e) }
     },
 
     // Agenda
@@ -1327,13 +1435,15 @@ function painel() {
 
     async confirmarBloqueio() {
       this.bloqueio.loading = true; this.bloqueio.msg = ''; this.bloqueio.erro = false
-      this.bloqData   = this.bloqueio.inicio?.slice(0,10) || ''
-      this.bloqMedico = this.bloqueio.doctorId
-      this.bloqObs    = this.bloqueio.motivo
       try {
-        await this.api('/agenda/bloquear', {
+        await this.api('/calendar/bloquear', {
           method:'POST',
-          body: JSON.stringify({ data: this.bloqData, medico_id: this.bloqMedico, obs: this.bloqObs })
+          body: JSON.stringify({
+            doctorId: this.bloqueio.doctorId,
+            startISO: this.bloqueio.inicio || (this.bloqueio.inicio?.slice(0,10) + 'T00:00:00'),
+            endISO:   this.bloqueio.fim    || (this.bloqueio.inicio?.slice(0,10) + 'T23:59:59'),
+            motivo:   this.bloqueio.motivo
+          })
         })
         this.bloqueio.msg = '✅ Bloqueio registrado com sucesso!'
         this.bloqueio.loading = false
@@ -1508,6 +1618,8 @@ function painel() {
     loadDoctorsAll() { return this.loadMedicos() },
 
     async toggleMedico(doc) {
+      const acao = doc.ativo ? 'desativar' : 'ativar'
+      if (!confirm(`Deseja ${acao} o médico ${doc.nome}?`)) return
       try { await this.api('/medicos/'+doc.id+'/toggle', { method:'PATCH' }); this.loadMedicos() }
       catch (e) { alert(e.message) }
     },
@@ -1554,18 +1666,38 @@ function painel() {
     criarUsuario() { return this.salvarUsuario() },
 
     async toggleUsuario(usr) {
+      const acao = usr.active ? 'bloquear' : 'ativar'
+      if (!confirm(`Deseja ${acao} o usuário ${usr.name}?`)) return
       try { await this.api('/usuarios/'+usr.id+'/toggle', { method:'PATCH' }); this.loadUsuarios() }
       catch (e) { alert(e.message) }
     },
 
-    async resetarSenha(usr) {
-      const pwd = prompt('Nova senha para '+usr.name+' (mín. 6 chars):')
-      if (!pwd || pwd.length < 6) return
-      try { await this.api('/usuarios/'+usr.id+'/reset-senha', { method:'PATCH', body: JSON.stringify({ password: pwd }) }); alert('Senha redefinida!') }
-      catch (e) { alert(e.message) }
+    resetarSenha(usr) {
+      this.resetSenhaTarget = usr; this.resetSenhaPwd = ''; this.resetSenhaModal = true
+    },
+
+    async confirmarResetSenha() {
+      if (!this.resetSenhaPwd || this.resetSenhaPwd.length < 6) { alert('Mínimo 6 caracteres'); return }
+      try {
+        await this.api('/usuarios/'+this.resetSenhaTarget.id+'/reset-senha', { method:'PATCH', body: JSON.stringify({ password: this.resetSenhaPwd }) })
+        this.resetSenhaModal = false; this.resetSenhaPwd = ''; this.resetSenhaTarget = null
+        alert('Senha redefinida com sucesso!')
+      } catch (e) { alert(e.message) }
     },
 
     // WhatsApp / QR
+    async desconectarWhatsApp() {
+      if (!confirm('Desconectar o WhatsApp? O bot ficará offline até reconectar.')) return
+      try { await this.api('/whatsapp/logout', { method:'DELETE' }); this.waStatus = 'close'; this.loadQR() }
+      catch (e) { alert(e.message) }
+    },
+
+    async reiniciarWhatsApp() {
+      if (!confirm('Reiniciar a conexão WhatsApp?')) return
+      try { await this.api('/whatsapp/restart', { method:'PUT' }); await this.loadWAStatus() }
+      catch (e) { alert(e.message) }
+    },
+
     async loadWAStatus() {
       try { const d = await this.api('/whatsapp/status'); this.waStatus = d.instance?.state || d.instance?.connectionStatus || d.state || d.status || null } catch (e) { console.error(e) }
       if (this.waStatus !== 'open') this.loadQR()
@@ -1588,7 +1720,11 @@ function painel() {
 
     // Conhecimento
     async loadConhecimento() {
-      try { const d = await this.api('/conhecimento'); this.conhecimentos = d.data || d } catch (e) { console.error(e) }
+      try {
+        const d = await this.api('/knowledge')
+        this.conhecimentos = d.documents || d.data || d
+        if (d.stats) this.conhecimentoStats = d.stats
+      } catch (e) { console.error(e) }
     },
 
     async salvarConhecimento() {
@@ -1608,9 +1744,12 @@ function painel() {
     // Satisfação
     async loadSatisfacao() {
       try {
-        const d = await this.api('/satisfacao')
+        const d = await this.api('/satisfaction')
         this.satisfacoes = d.data || d
-        if (this.satisfacoes.length) {
+        if (d.stats) {
+          this.mediaNotas = d.stats.media?.toFixed(1) ?? null
+          this.satisfacaoStats = { excelente: d.stats.excelente||0, bom: d.stats.bom||0, regular: d.stats.regular||0, ruim: d.stats.ruim||0 }
+        } else if (this.satisfacoes.length) {
           const sum = this.satisfacoes.reduce((a, s) => a + (s.nota||0), 0)
           this.mediaNotas = (sum / this.satisfacoes.length).toFixed(1)
         }
