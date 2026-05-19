@@ -20,9 +20,14 @@ import {
   transcribeWithChunking,
 } from '../scriba.ts'
 import { getPresignedUrl } from '../storage.ts'
-import { logAudit } from '../_core/audit.ts'
+import { logAudit, type AuditEntry } from '../_core/audit.ts'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function makeAudit(medicoId: number, role: string) {
+  return (fields: Omit<AuditEntry, 'actorId' | 'actorRole'>) =>
+    logAudit({ actorId: medicoId, actorRole: role, ...fields })
+}
 
 function assertOwnership(
   entity: { medicoId: number } | undefined,
@@ -43,8 +48,9 @@ export const scribaRouter = router({
   abrirSessao: medicoProcedure
     .mutation(async ({ ctx }) => {
       const medicoId = ctx.session.id
+      const audit = makeAudit(medicoId, ctx.session.role)
       const sessao = await abrirSessao(medicoId)
-      logAudit({ actorId: medicoId, actorRole: ctx.session.role, action: 'session.open', resourceType: 'clinical_session', resourceId: sessao.sessionId })
+      audit({ action: 'session.open', resourceType: 'clinical_session', resourceId: sessao.sessionId })
       return sessao
     }),
 
@@ -53,6 +59,7 @@ export const scribaRouter = router({
     .input(z.object({ sessionId: z.number().int().positive() }))
     .mutation(async ({ input, ctx }) => {
       const medicoId = ctx.session.id
+      const audit = makeAudit(medicoId, ctx.session.role)
 
       const [sessao] = await db
         .select({ id: clinicalSessions.id, medicoId: clinicalSessions.medicoId })
@@ -63,7 +70,7 @@ export const scribaRouter = router({
       assertOwnership(sessao, medicoId, 'Sessão não encontrada')
 
       await encerrarSessao(input.sessionId, medicoId)
-      logAudit({ actorId: medicoId, actorRole: ctx.session.role, action: 'session.close', resourceType: 'clinical_session', resourceId: input.sessionId })
+      audit({ action: 'session.close', resourceType: 'clinical_session', resourceId: input.sessionId })
       return { ok: true }
     }),
 
@@ -126,6 +133,7 @@ export const scribaRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const medicoId = ctx.session.id
+      const audit = makeAudit(medicoId, ctx.session.role)
 
       const [sessao] = await db
         .select({ id: clinicalSessions.id, medicoId: clinicalSessions.medicoId, encerradaEm: clinicalSessions.encerradaEm })
@@ -151,7 +159,7 @@ export const scribaRouter = router({
         examesTexto: input.examesTexto,
       })
 
-      logAudit({ actorId: medicoId, actorRole: ctx.session.role, action: 'soap.create', resourceType: 'soap_note', resourceId: resultado.soapNoteId, detalhes: { template: input.template, sessionId: input.sessionId } })
+      audit({ action: 'soap.create', resourceType: 'soap_note', resourceId: resultado.soapNoteId, detalhes: { template: input.template, sessionId: input.sessionId } })
       return resultado
     }),
 
@@ -287,6 +295,7 @@ export const scribaRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const medicoId = ctx.session.id
+      const audit = makeAudit(medicoId, ctx.session.role)
 
       const [alerta] = await db
         .select({ id: conductAlerts.id, medicoId: conductAlerts.medicoId })
@@ -308,7 +317,7 @@ export const scribaRouter = router({
         })
         .where(eq(conductAlerts.id, input.alertaId))
 
-      logAudit({ actorId: medicoId, actorRole: ctx.session.role, action: 'alert.feedback', resourceType: 'conduct_alert', resourceId: input.alertaId, detalhes: { feedback: input.feedback } })
+      audit({ action: 'alert.feedback', resourceType: 'conduct_alert', resourceId: input.alertaId, detalhes: { feedback: input.feedback } })
       return { ok: true }
     }),
 
@@ -323,6 +332,7 @@ export const scribaRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const medicoId = ctx.session.id
+      const audit = makeAudit(medicoId, ctx.session.role)
 
       const [alerta] = await db
         .select({
@@ -346,7 +356,7 @@ export const scribaRouter = router({
         .set({ supressaoAte, vistoPorId: medicoId, vistoEm: new Date() })
         .where(eq(conductAlerts.id, input.alertaId))
 
-      logAudit({ actorId: medicoId, actorRole: ctx.session.role, action: 'alert.suppress', resourceType: 'conduct_alert', resourceId: input.alertaId, detalhes: { dias, supressaoAte } })
+      audit({ action: 'alert.suppress', resourceType: 'conduct_alert', resourceId: input.alertaId, detalhes: { dias, supressaoAte } })
       return { ok: true, supressaoAte, dias }
     }),
 
@@ -355,6 +365,7 @@ export const scribaRouter = router({
     .input(z.object({ alertaId: z.number().int().positive() }))
     .mutation(async ({ input, ctx }) => {
       const medicoId = ctx.session.id
+      const audit = makeAudit(medicoId, ctx.session.role)
 
       const [alerta] = await db
         .select({ id: conductAlerts.id, medicoId: conductAlerts.medicoId })
@@ -369,7 +380,7 @@ export const scribaRouter = router({
         .set({ vistoPorId: medicoId, vistoEm: new Date() })
         .where(eq(conductAlerts.id, input.alertaId))
 
-      logAudit({ actorId: medicoId, actorRole: ctx.session.role, action: 'alert.view', resourceType: 'conduct_alert', resourceId: input.alertaId })
+      audit({ action: 'alert.view', resourceType: 'conduct_alert', resourceId: input.alertaId })
       return { ok: true }
     }),
 

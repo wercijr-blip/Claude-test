@@ -19,7 +19,7 @@ export type AuditAction =
   | 'admin.user_delete'
   | 'data.portability_request'
 
-interface AuditEntry {
+export interface AuditEntry {
   actorId?: number
   actorRole?: string
   action: AuditAction

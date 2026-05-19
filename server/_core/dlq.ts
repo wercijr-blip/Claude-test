@@ -6,16 +6,21 @@ import { Sentry } from './instrument.ts'
 
 // Dead Letter Queue — receives jobs that have exhausted all retry attempts.
 // Failed jobs are stored here for inspection and potential manual replay.
-const dlq = new Queue('dlq', {
-  connection: redis,
-  prefix: QUEUE_PREFIX,
-  defaultJobOptions: {
-    removeOnComplete: false,
-    removeOnFail: false,
-  },
-})
+// Lazily initialized so importing this module doesn't open a Redis connection
+// at startup (e.g., in test environments that mock bullmq).
+let dlq: Queue | null = null
+function getDlq(): Queue {
+  if (!dlq) {
+    dlq = new Queue('dlq', {
+      connection: redis,
+      prefix: QUEUE_PREFIX,
+      defaultJobOptions: { removeOnComplete: false, removeOnFail: false },
+    })
+  }
+  return dlq
+}
 
-export interface DlqEntry {
+interface DlqEntry {
   sourceQueue: string
   jobId: string | undefined
   jobName: string | undefined
@@ -40,7 +45,7 @@ export async function sendToDlq(sourceQueue: string, job: Job | undefined, err: 
   Sentry.captureException(err, { tags: { queue: sourceQueue, jobId: job?.id } })
 
   try {
-    await dlq.add(`${sourceQueue}:failed`, entry, { removeOnComplete: false, removeOnFail: false })
+    await getDlq().add(`${sourceQueue}:failed`, entry)
   } catch (dlqErr) {
     // DLQ write failure must not propagate — log only
     logger.error('[dlq] Falha ao gravar na DLQ (Redis indisponível?)', {
