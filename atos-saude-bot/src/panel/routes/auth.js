@@ -1,11 +1,20 @@
 import { Router } from 'express'
+import rateLimit from 'express-rate-limit'
 import { getUserByUsername, insertUser, getAllUsers, toggleUserActive, updateUserPassword } from '../../services/db.js'
 import { checkPassword, hashPassword, generateToken, requireAuth, PERMISSIONS } from '../../services/auth.js'
 
 const authRouter = Router()
 
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Muitas tentativas de login. Tente novamente em 15 minutos.' }
+})
+
 // POST /auth/login
-authRouter.post('/login', (req, res) => {
+authRouter.post('/login', loginLimiter, (req, res) => {
   const { username, password } = req.body
   if (!username || !password) return res.status(400).json({ error: 'Usuário e senha obrigatórios.' })
 

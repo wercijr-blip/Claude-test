@@ -1,5 +1,7 @@
 import 'dotenv/config'
 import express from 'express'
+import helmet from 'helmet'
+import cors from 'cors'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 import { mkdirSync, existsSync } from 'fs'
@@ -46,7 +48,28 @@ seedDefaultUsers()
 initScheduler()
 
 const app = express()
-app.use(express.json())
+
+app.set('trust proxy', 1)
+
+app.use(helmet({
+  contentSecurityPolicy: false // painel usa CDN inline — ajustar CSP por fase se necessário
+}))
+
+app.use(cors({
+  origin: process.env.PANEL_ORIGIN || `http://localhost:${process.env.PORT || 3000}`,
+  credentials: true
+}))
+
+if (process.env.NODE_ENV === 'production') {
+  app.use((req, res, next) => {
+    if (req.protocol !== 'https') {
+      return res.redirect(301, 'https://' + req.headers.host + req.url)
+    }
+    next()
+  })
+}
+
+app.use(express.json({ limit: '1mb' }))
 
 // Webhook WhatsApp
 app.use('/webhook', webhookRouter)

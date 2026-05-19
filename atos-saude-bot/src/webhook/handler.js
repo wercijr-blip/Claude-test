@@ -6,7 +6,12 @@ import { router } from '../handlers/router.js'
 
 const MEDIA_TYPES = new Set(['imageMessage','documentMessage','audioMessage','videoMessage','stickerMessage','documentWithCaptionMessage'])
 
+const WEBHOOK_SECRET = process.env.EVOLUTION_WEBHOOK_SECRET
+
 export async function handleWebhook(req, res) {
+  if (WEBHOOK_SECRET && req.headers['apikey'] !== WEBHOOK_SECRET) {
+    return res.sendStatus(401)
+  }
   res.sendStatus(200)
 
   try {

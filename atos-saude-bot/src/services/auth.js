@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcryptjs'
+import { getUserById } from './db.js'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'atos-saude-secret-TROQUE-EM-PRODUCAO'
 const JWT_EXPIRES = '12h'
@@ -37,6 +38,8 @@ export function requireAuth(roles = []) {
     }
     const user = verifyToken(header.slice(7))
     if (!user) return res.status(401).json({ error: 'Token inválido ou expirado. Faça login novamente.' })
+    const dbUser = getUserById(user.id)
+    if (!dbUser) return res.status(401).json({ error: 'Conta desativada. Faça login novamente.' })
     if (roles.length > 0 && !roles.includes(user.role)) {
       return res.status(403).json({ error: 'Sem permissão para esta ação.' })
     }

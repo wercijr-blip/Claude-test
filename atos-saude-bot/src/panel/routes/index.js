@@ -394,7 +394,7 @@ apiRouter.get('/knowledge', (req, res) => {
 })
 
 // POST /api/knowledge/upload
-apiRouter.post('/knowledge/upload', upload.single('file'), async (req, res) => {
+apiRouter.post('/knowledge/upload', requireAuth(['admin']), upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Arquivo inválido ou não enviado.' })
   try {
     const originalName = req.file.originalname
@@ -410,7 +410,7 @@ apiRouter.post('/knowledge/upload', upload.single('file'), async (req, res) => {
 })
 
 // DELETE /api/knowledge/:id
-apiRouter.delete('/knowledge/:id', (req, res) => {
+apiRouter.delete('/knowledge/:id', requireAuth(['admin']), (req, res) => {
   deactivateKnowledge(Number(req.params.id))
   res.json({ ok: true })
 })
@@ -423,7 +423,7 @@ apiRouter.get('/encaixe', (req, res) => {
 })
 
 // POST /api/encaixe  (inscrever paciente na fila)
-apiRouter.post('/encaixe', (req, res) => {
+apiRouter.post('/encaixe', requireAuth(['admin', 'secretaria']), (req, res) => {
   const { phone, nome, especialidade, medico_id } = req.body
   if (!phone) return res.status(400).json({ error: 'phone é obrigatório.' })
   const id = insertEncaixe({ phone, nome, especialidade, medico_id })
@@ -431,7 +431,7 @@ apiRouter.post('/encaixe', (req, res) => {
 })
 
 // DELETE /api/encaixe/:id
-apiRouter.delete('/encaixe/:id', (req, res) => {
+apiRouter.delete('/encaixe/:id', requireAuth(['admin', 'secretaria']), (req, res) => {
   removeEncaixe(Number(req.params.id))
   res.json({ ok: true })
 })

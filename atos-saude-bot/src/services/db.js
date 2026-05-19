@@ -323,6 +323,10 @@ export function toggleUserActive(id, active) {
   db.prepare('UPDATE users SET active = ? WHERE id = ?').run(active ? 1 : 0, id)
 }
 
+export function getUserById(id) {
+  return db.prepare('SELECT id, username, name, role, active FROM users WHERE id = ? AND active = 1').get(id) || null
+}
+
 export function userCount() {
   return db.prepare('SELECT COUNT(*) as c FROM users').get()?.c || 0
 }
@@ -361,12 +365,18 @@ export function markEncaixeNotificado(id) {
 }
 
 // Reschedule tokens
+try { db.exec('ALTER TABLE reschedule_tokens ADD COLUMN expires_at DATETIME') } catch {}
+
 export function insertRescheduleToken(token, agendamentoId) {
-  db.prepare('INSERT INTO reschedule_tokens (token, agendamento_id) VALUES (?, ?)').run(token, agendamentoId)
+  db.prepare(
+    "INSERT INTO reschedule_tokens (token, agendamento_id, expires_at) VALUES (?, ?, datetime('now', '+48 hours'))"
+  ).run(token, agendamentoId)
 }
 
 export function getRescheduleToken(token) {
-  return db.prepare('SELECT * FROM reschedule_tokens WHERE token = ? AND used = 0').get(token) || null
+  return db.prepare(
+    "SELECT * FROM reschedule_tokens WHERE token = ? AND used = 0 AND (expires_at IS NULL OR expires_at > datetime('now'))"
+  ).get(token) || null
 }
 
 export function markRescheduleTokenUsed(token) {
