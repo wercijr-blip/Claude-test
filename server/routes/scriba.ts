@@ -9,7 +9,7 @@ import {
   clinicalDigests,
   publicationDrafts,
 } from '../../drizzle/schema.ts'
-import { eq, and, isNull, desc, isNotNull, sql } from 'drizzle-orm'
+import { eq, and, isNull, desc, isNotNull, sql, inArray } from 'drizzle-orm'
 import { randomUUID } from 'crypto'
 import { encrypt } from '../_core/encryption.ts'
 import { getPresignedUploadUrl } from '../storage.ts'
@@ -449,7 +449,7 @@ export const scribaRouter = router({
         .from(soapNotes)
         .where(and(
           eq(soapNotes.medicoId, medicoId),
-          sql`${soapNotes.id} IN ${input.soapNoteIds}`,
+          inArray(soapNotes.id, input.soapNoteIds),
         ))
 
       if (notas.length < 3) {

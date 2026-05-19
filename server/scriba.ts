@@ -59,7 +59,7 @@ export async function transcribeAudio(audioBuffer: Buffer, filename = 'audio.web
 }
 
 export async function transcribeWithChunking(audioUrl: string): Promise<string> {
-  const response = await fetch(audioUrl)
+  const response = await fetch(audioUrl, { signal: AbortSignal.timeout(30_000) })
   const buffer = Buffer.from(await response.arrayBuffer())
 
   if (buffer.length <= WHISPER_CHUNK_BYTES) {
@@ -116,6 +116,7 @@ export async function abrirSessao(medicoId: number): Promise<{ sessionId: number
     ))
     .limit(1)
 
+  if (!nova) throw new Error('[scriba] Sessão não encontrada após insert — inconsistência no banco')
   return { sessionId: nova.id, nova: true }
 }
 
@@ -193,6 +194,7 @@ export async function processarConsulta(params: {
     .orderBy(sql`${soapNotes.createdAt} DESC`)
     .limit(1)
 
+  if (!inserted) throw new Error('[scriba] SOAP note não encontrada após insert — inconsistência no banco')
   const soapNoteId = inserted.id
 
   // ── Incrementa contador da sessão ───────────────────────────────────────────
@@ -342,6 +344,7 @@ export async function processarConsulta(params: {
             .where(eq(conductAlerts.soapNoteId, soapNoteId))
             .limit(1)
 
+          if (!alertaInserido) throw new Error('[scriba] Alerta não encontrado após insert — inconsistência no banco')
           alerta = {
             id: alertaInserido.id,
             nivelUrgencia: divergencia.nivel_urgencia,
