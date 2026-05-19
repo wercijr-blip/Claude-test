@@ -1,4 +1,5 @@
 import { Worker } from 'bullmq'
+import { sql } from 'drizzle-orm'
 import { env } from '../_core/env.ts'
 import { db } from '../db.ts'
 import { consultasInicio, accessTokens, precadastros } from '../../drizzle/schema.ts'
@@ -8,6 +9,8 @@ import { enviarLinkAcessoIntake } from '../email.ts'
 import { enviarWhatsApp } from '../whatsapp.ts'
 import { generateToken, hashToken } from '../_core/tokenUtils.ts'
 import { logger } from '../_core/logger.ts'
+import { redis } from '../_core/redis.ts'
+import * as Sentry from '@sentry/node'
 import { LEMBRETE_QUEUE_NAME, QUEUE_PREFIX, connection, LEMBRETE_WORKER_OPTS, lembreteQueue, persistDlq } from './queues.ts'
 
 export async function agendarLembreteDiario() {
@@ -17,10 +20,56 @@ export async function agendarLembreteDiario() {
   })
 }
 
+// Agendado todo dia 1 às 9h — valida conectividade dos recursos críticos
+// e alerta via Sentry se qualquer serviço estiver degradado.
+export async function agendarDrMensal() {
+  await lembreteQueue.add('dr-mensal', {}, {
+    repeat: { pattern: '0 9 1 * *' },
+    jobId: 'dr-mensal-fixo',
+  })
+}
+
+async function executarDrMensal() {
+  const checks: Record<string, boolean> = {}
+
+  try {
+    await db.execute(sql`SELECT 1`)
+    checks.db = true
+  } catch (err) {
+    checks.db = false
+    logger.error('[dr-mensal] DB inacessível', { error: String(err) })
+    Sentry.captureException(err, { tags: { dr: 'db' } })
+  }
+
+  try {
+    await redis.ping()
+    checks.redis = true
+  } catch (err) {
+    checks.redis = false
+    logger.error('[dr-mensal] Redis inacessível', { error: String(err) })
+    Sentry.captureException(err, { tags: { dr: 'redis' } })
+  }
+
+  const allOk = Object.values(checks).every(Boolean)
+  const level = allOk ? 'info' : 'error'
+  logger[level]('[dr-mensal] resultado', { checks, allOk, timestamp: new Date().toISOString() })
+
+  if (!allOk) {
+    Sentry.captureMessage('[FacilitaPrEP] DR check mensal falhou', {
+      level: 'error',
+      extra: { checks, appUrl: env.APP_URL },
+    })
+  }
+
+  return { checks, allOk }
+}
+
 export function startLembreteWorker() {
   const worker = new Worker(
     LEMBRETE_QUEUE_NAME,
-    async () => {
+    async (job) => {
+      if (job.name === 'dr-mensal') return executarDrMensal()
+
       const agora = new Date()
       const tresDiasDepois = new Date(agora.getTime() + 3 * 24 * 60 * 60 * 1000)
 

@@ -393,7 +393,7 @@ const server = app.listen(env.PORT, async () => {
   // Workers run in-process by default (single-service deploy).
   // Set WORKERS_ENABLED=false when running a dedicated worker service via server/workers.ts.
   if (env.WORKERS_ENABLED !== false) {
-    const { startPdfWorker, startLembreteWorker, startPesquisaWorker, startLinkAcessoWorker, agendarLembreteDiario } = await import('../pdfQueue.ts')
+    const { startPdfWorker, startLembreteWorker, startPesquisaWorker, startLinkAcessoWorker, agendarLembreteDiario, agendarDrMensal } = await import('../pdfQueue.ts')
     const { startExamWorker } = await import('../examQueue.ts')
     startPdfWorker()
     startLembreteWorker()
@@ -401,6 +401,7 @@ const server = app.listen(env.PORT, async () => {
     startLinkAcessoWorker()
     startExamWorker()
     await agendarLembreteDiario()
+    await agendarDrMensal()
     logger.info('[server] Workers BullMQ iniciados em-processo.')
   } else {
     logger.info('[server] WORKERS_ENABLED=false — aguardando worker service separado.')

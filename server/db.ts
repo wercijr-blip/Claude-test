@@ -9,7 +9,12 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: env.NODE_ENV === 'production' ? 10 : 3,
   queueLimit: 50,
+  // Time to establish a new TCP connection to TiDB.
   connectTimeout: 10_000,
+  // TCP keep-alive: detects dead/stale connections before the pool
+  // tries to reuse them, avoiding silent ECONNRESET errors under low traffic.
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 30_000,
   // Close idle connections after 5 minutes so TiDB Cloud doesn't hit its
   // concurrent-connection limit on the free tier (max 25 connections).
   idleTimeout: 300_000,

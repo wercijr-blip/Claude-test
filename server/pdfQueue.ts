@@ -6,5 +6,5 @@ export {
 } from './workers/queues.ts'
 export { enqueueGerarPdf, startPdfWorker } from './workers/pdfWorker.ts'
 export { startPesquisaWorker } from './workers/pesquisaWorker.ts'
-export { startLembreteWorker, agendarLembreteDiario } from './workers/lembreteWorker.ts'
+export { startLembreteWorker, agendarLembreteDiario, agendarDrMensal } from './workers/lembreteWorker.ts'
 export { startLinkAcessoWorker, enqueueEnviarLinkAcesso } from './workers/linkAcessoWorker.ts'
