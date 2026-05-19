@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import rateLimit from 'express-rate-limit'
 import multer from 'multer'
 import axios from 'axios'
 import { mkdirSync, existsSync } from 'fs'
@@ -13,7 +14,7 @@ import {
   getExamSubmissions, insertMessageLog, upsertSession,
   getAllUsers, insertUser, updateUserPassword, toggleUserActive, getUserAnyStatus,
   invalidateUserCache, getMedicationRequests, getAgendamentosComSlot,
-  deletePatientData
+  deletePatientData, getPatientData
 } from '../../services/db.js'
 import db from '../../services/db.js'
 import { generateExcel } from '../../services/export.js'
@@ -39,6 +40,34 @@ function saveDoctorsConfig(config) {
 }
 if (!existsSync(UPLOADS_DIR)) mkdirSync(UPLOADS_DIR, { recursive: true })
 
+const uploadLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 20,
+  standardHeaders: true, legacyHeaders: false,
+  message: { error: 'Muitos uploads. Tente novamente em 1 hora.' }
+})
+
+const deletePatientLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  standardHeaders: true, legacyHeaders: false,
+  message: { error: 'Limite de exclusões atingido. Tente novamente em 1 hora.' }
+})
+
+const exportLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  standardHeaders: true, legacyHeaders: false,
+  message: { error: 'Limite de exportações atingido. Tente novamente em 1 hora.' }
+})
+
+const manualBookingLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 30,
+  standardHeaders: true, legacyHeaders: false,
+  message: { error: 'Muitos agendamentos manuais. Tente novamente em 1 hora.' }
+})
+
 const upload = multer({
   dest: UPLOADS_DIR,
   limits: { fileSize: 10 * 1024 * 1024 },
@@ -63,16 +92,23 @@ apiRouter.get('/events', (req, res) => {
 // Todas as rotas da API exigem autenticação
 apiRouter.use(requireAuth())
 
-// GET /api/agendamentos
+// GET /api/agendamentos  (suporta ?limit=&offset= para paginação)
 apiRouter.get('/agendamentos', (req, res) => {
-  const { status, tipo, especialidade, data } = req.query
+  const { status, tipo, especialidade, data, limit, offset } = req.query
   const filters = {}
   if (status) filters.status = status
   if (tipo) filters.tipo = tipo
   if (especialidade) filters.especialidade = especialidade
   if (data) filters.data = data
-  const rows = getAgendamentos(filters)
-  res.json({ total: rows.length, data: rows })
+  if (limit) filters.limit = Number(limit)
+  if (offset) filters.offset = Number(offset)
+
+  const result = getAgendamentos(filters)
+  if (Array.isArray(result)) {
+    res.json({ total: result.length, data: result })
+  } else {
+    res.json({ total: result.total, data: result.rows, limit: result.limit, offset: result.offset })
+  }
 })
 
 // GET /api/stats
@@ -209,7 +245,7 @@ apiRouter.get('/slots', async (req, res) => {
 })
 
 // POST /api/agendamentos/manual  (marcação manual pela secretária)
-apiRouter.post('/agendamentos/manual', requireAuth(['admin', 'secretaria']), async (req, res) => {
+apiRouter.post('/agendamentos/manual', manualBookingLimiter, requireAuth(['admin', 'secretaria']), async (req, res) => {
   const { doctorId, slotISO, nome, nascimento, telefone, tipoAtendimento, convenio, phone } = req.body
   if (!doctorId || !slotISO || !nome || !nascimento || !telefone) {
     return res.status(400).json({ error: 'Campos obrigatórios: doctorId, slotISO, nome, nascimento, telefone.' })
@@ -365,7 +401,7 @@ apiRouter.get('/satisfaction', (req, res) => {
 })
 
 // POST /api/export  (admin + faturamento)
-apiRouter.post('/export', requireAuth(['admin','faturamento']), async (req, res) => {
+apiRouter.post('/export', exportLimiter, requireAuth(['admin','faturamento']), async (req, res) => {
   try {
     const exportAll = req.query.all === 'true'
     const filePath = await generateExcel(exportAll)
@@ -397,7 +433,7 @@ apiRouter.get('/knowledge', (req, res) => {
 })
 
 // POST /api/knowledge/upload
-apiRouter.post('/knowledge/upload', requireAuth(['admin']), upload.single('file'), async (req, res) => {
+apiRouter.post('/knowledge/upload', uploadLimiter, requireAuth(['admin']), upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Arquivo inválido ou não enviado.' })
   try {
     const originalName = req.file.originalname
@@ -824,9 +860,25 @@ apiRouter.put('/textos', requireAuth(['admin']), async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
+// GET /api/pacientes/:phone — direito de acesso (LGPD art. 18 I)
+apiRouter.get('/pacientes/:phone', requireAuth(['admin']), (req, res) => {
+  const { phone } = req.params
+  if (!phone || !/^\d{10,15}$/.test(phone)) {
+    return res.status(400).json({ error: 'Número de telefone inválido.' })
+  }
+  try {
+    const data = getPatientData(phone)
+    logger.info({ phone, operator: req.user?.username }, 'Dados do paciente consultados — LGPD art. 18 I')
+    res.json({ phone, data })
+  } catch (err) {
+    logger.error({ phone, err: err.message }, 'Erro ao consultar dados do paciente')
+    res.status(500).json({ error: err.message })
+  }
+})
+
 // DELETE /api/pacientes/:phone — direito ao esquecimento (LGPD art. 18 III)
 // Agendamentos são anonimizados (não deletados — CFM exige 20 anos de retenção)
-apiRouter.delete('/pacientes/:phone', requireAuth(['admin']), (req, res) => {
+apiRouter.delete('/pacientes/:phone', deletePatientLimiter, requireAuth(['admin']), (req, res) => {
   const { phone } = req.params
   if (!phone || !/^\d{10,15}$/.test(phone)) {
     return res.status(400).json({ error: 'Número de telefone inválido.' })

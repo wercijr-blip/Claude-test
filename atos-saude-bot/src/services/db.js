@@ -153,6 +153,11 @@ db.exec(`
     media_type  TEXT,
     created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
   );
+
+  CREATE TABLE IF NOT EXISTS revoked_tokens (
+    jti        TEXT PRIMARY KEY,
+    expires_at DATETIME NOT NULL
+  );
 `)
 
 try { db.exec('CREATE INDEX IF NOT EXISTS idx_messages_log_phone    ON messages_log(phone)') } catch {}
@@ -245,7 +250,27 @@ export function getAgendamentos(filters = {}) {
   if (filters.especialidade) { query += ' AND especialidade = @especialidade'; params.especialidade = filters.especialidade }
   if (filters.data) { query += ' AND DATE(created_at) = @data'; params.data = filters.data }
   query += ' ORDER BY created_at DESC'
-  return db.prepare(query).all(params).map(_decryptRow)
+
+  const limit = filters.limit ? Number(filters.limit) : null
+  const offset = filters.offset ? Number(filters.offset) : 0
+  if (limit) {
+    query += ' LIMIT @limit OFFSET @offset'
+    params.limit = limit
+    params.offset = offset
+  }
+
+  const rows = db.prepare(query).all(params).map(_decryptRow)
+
+  if (limit) {
+    const countQuery = query.replace(/SELECT \*/, 'SELECT COUNT(*) as total').replace(/ LIMIT.*$/, '')
+    const countParams = { ...params }
+    delete countParams.limit
+    delete countParams.offset
+    const total = db.prepare(countQuery).get(countParams)?.total || 0
+    return { rows, total, limit, offset }
+  }
+
+  return rows
 }
 
 // Medication requests
@@ -516,6 +541,31 @@ export function deletePatientData(phone) {
 
 export function runTransaction(fn, ...args) {
   return db.transaction(fn)(...args)
+}
+
+// Revoked tokens — JWT blacklist (D02 logout)
+export function revokeToken(jti, expiresAt) {
+  db.prepare('INSERT OR IGNORE INTO revoked_tokens (jti, expires_at) VALUES (?, ?)').run(jti, expiresAt)
+}
+
+export function isTokenRevoked(jti) {
+  const row = db.prepare("SELECT 1 FROM revoked_tokens WHERE jti = ? AND expires_at > datetime('now')").get(jti)
+  return !!row
+}
+
+export function cleanupExpiredTokens() {
+  db.prepare("DELETE FROM revoked_tokens WHERE expires_at <= datetime('now')").run()
+}
+
+// DSAR — acesso a dados pessoais (LGPD art. 18 I)
+export function getPatientData(phone) {
+  return {
+    agendamentos: db.prepare('SELECT * FROM agendamentos WHERE phone = ? ORDER BY created_at DESC').all(phone).map(_decryptRow),
+    messages_log: db.prepare('SELECT id, direction, flow, step, timestamp FROM messages_log WHERE phone = ? ORDER BY timestamp ASC').all(phone),
+    satisfaction_responses: db.prepare('SELECT * FROM satisfaction_responses WHERE phone = ? ORDER BY created_at DESC').all(phone),
+    authorization_queries: db.prepare('SELECT id, question, answer, confidence, created_at FROM authorization_queries WHERE phone = ? ORDER BY created_at DESC').all(phone),
+    exam_submissions: db.prepare('SELECT id, nome, medico_nome, media_type, created_at FROM exam_submissions WHERE phone = ? ORDER BY created_at DESC').all(phone),
+  }
 }
 
 export default db

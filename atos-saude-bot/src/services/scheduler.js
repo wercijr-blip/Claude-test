@@ -7,7 +7,7 @@ import { sendText } from './whatsapp.js'
 import {
   upsertSession, getAgendamentosComSlot, wasReminderSent, markReminderSent,
   insertRescheduleToken, getEncaixeByEspecialidade, markEncaixeNotificado,
-  deleteOldMessageLogs, cleanOldSessions
+  deleteOldMessageLogs, cleanOldSessions, cleanupExpiredTokens
 } from './db.js'
 import { logger } from '../utils/logger.js'
 import { msg, hasMsg } from '../utils/messages.js'
@@ -234,11 +234,12 @@ export function initScheduler() {
     timezone: 'America/Sao_Paulo'
   })
 
-  // Limpeza LGPD — sessões inativas >30min + mensagens >90 dias — 3h Brasília
+  // Limpeza LGPD — sessões inativas >30min + mensagens >90 dias + tokens revogados — 3h Brasília
   cron.schedule('0 3 * * *', () => runJob('limpeza', () => {
     cleanOldSessions(30)
     deleteOldMessageLogs(90)
-    logger.info('Scheduler: limpeza — sessões expiradas e mensagens >90 dias')
+    cleanupExpiredTokens()
+    logger.info('Scheduler: limpeza — sessões expiradas, mensagens >90 dias e tokens revogados expirados')
   }), { timezone: 'America/Sao_Paulo' })
 
   // Backup diário do banco — 2h Brasília

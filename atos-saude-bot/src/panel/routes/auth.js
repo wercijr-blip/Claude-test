@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import rateLimit from 'express-rate-limit'
-import { getUserByUsername, insertUser, getAllUsers, toggleUserActive, updateUserPassword } from '../../services/db.js'
-import { checkPassword, hashPassword, generateToken, requireAuth, PERMISSIONS } from '../../services/auth.js'
+import { getUserByUsername, insertUser, getAllUsers, toggleUserActive, updateUserPassword, revokeToken } from '../../services/db.js'
+import { checkPassword, hashPassword, generateToken, requireAuth, verifyToken, PERMISSIONS } from '../../services/auth.js'
 import { logger } from '../../utils/logger.js'
 
 const authRouter = Router()
@@ -93,6 +93,18 @@ authRouter.post('/users/:id/reset-password', requireAuth(['admin']), (req, res) 
     return res.status(400).json({ error: 'Senha deve ter pelo menos 6 caracteres.' })
   }
   updateUserPassword(Number(req.params.id), hashPassword(newPassword))
+  res.json({ ok: true })
+})
+
+// POST /auth/logout  (invalida token imediatamente via blacklist)
+authRouter.post('/logout', requireAuth(), (req, res) => {
+  const header = req.headers.authorization
+  const decoded = verifyToken(header.slice(7))
+  if (decoded?.jti) {
+    const expiresAt = new Date(decoded.exp * 1000).toISOString().replace('T', ' ').slice(0, 19)
+    revokeToken(decoded.jti, expiresAt)
+  }
+  logger.info({ username: req.user.username, ip: req.ip }, 'Logout — token revogado')
   res.json({ ok: true })
 })
 

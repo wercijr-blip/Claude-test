@@ -42,6 +42,37 @@ const MIGRATIONS = [
         db.exec('CREATE INDEX IF NOT EXISTS idx_audit_log_action   ON audit_log(action)')
       } catch {}
     }
+  },
+  {
+    version: 4,
+    name: 'revoked_tokens',
+    up: () => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS revoked_tokens (
+          jti        TEXT PRIMARY KEY,
+          expires_at DATETIME NOT NULL
+        )
+      `)
+      try {
+        db.exec('CREATE INDEX IF NOT EXISTS idx_revoked_tokens_exp ON revoked_tokens(expires_at)')
+      } catch {}
+    }
+  },
+  {
+    version: 5,
+    name: 'performance_indexes',
+    up: () => {
+      const indexes = [
+        'CREATE INDEX IF NOT EXISTS idx_agendamentos_status    ON agendamentos(status)',
+        'CREATE INDEX IF NOT EXISTS idx_agendamentos_phone     ON agendamentos(phone)',
+        'CREATE INDEX IF NOT EXISTS idx_agendamentos_medico    ON agendamentos(medico_id)',
+        'CREATE INDEX IF NOT EXISTS idx_authq_phone_ts         ON authorization_queries(phone, created_at)',
+        'CREATE INDEX IF NOT EXISTS idx_satisfaction_phone_ts  ON satisfaction_responses(phone, created_at)',
+      ]
+      for (const sql of indexes) {
+        try { db.exec(sql) } catch {}
+      }
+    }
   }
 ]
 

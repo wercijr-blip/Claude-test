@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcryptjs'
-import { getUserById } from './db.js'
+import { randomUUID } from 'crypto'
+import { getUserById, isTokenRevoked } from './db.js'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'atos-saude-secret-TROQUE-EM-PRODUCAO'
 const JWT_EXPIRES = '12h'
@@ -14,11 +15,13 @@ export function checkPassword(password, hash) {
 }
 
 export function generateToken(user) {
-  return jwt.sign(
-    { id: user.id, username: user.username, role: user.role, name: user.name },
+  const jti = randomUUID()
+  const token = jwt.sign(
+    { id: user.id, username: user.username, role: user.role, name: user.name, jti },
     JWT_SECRET,
     { expiresIn: JWT_EXPIRES }
   )
+  return token
 }
 
 export function verifyToken(token) {
@@ -38,6 +41,9 @@ export function requireAuth(roles = []) {
     }
     const user = verifyToken(header.slice(7))
     if (!user) return res.status(401).json({ error: 'Token inválido ou expirado. Faça login novamente.' })
+    if (user.jti && isTokenRevoked(user.jti)) {
+      return res.status(401).json({ error: 'Sessão encerrada. Faça login novamente.' })
+    }
     const dbUser = getUserById(user.id)
     if (!dbUser) return res.status(401).json({ error: 'Conta desativada. Faça login novamente.' })
     if (roles.length > 0 && !roles.includes(dbUser.role)) {

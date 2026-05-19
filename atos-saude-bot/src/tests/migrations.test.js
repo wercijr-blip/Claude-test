@@ -27,9 +27,10 @@ describe('runMigrations', () => {
 
   it('é idempotente — segunda chamada não duplica registros', () => {
     runMigrations()
+    const before = db.prepare('SELECT COUNT(*) as c FROM schema_migrations').get().c
     runMigrations()
-    const { c } = db.prepare('SELECT COUNT(*) as c FROM schema_migrations').get()
-    expect(c).toBe(3)
+    const after = db.prepare('SELECT COUNT(*) as c FROM schema_migrations').get().c
+    expect(after).toBe(before)
   })
 
   it('migration v3 cria a tabela audit_log com índices', () => {
