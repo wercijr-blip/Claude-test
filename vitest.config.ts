@@ -12,5 +12,22 @@ export default defineConfig({
     alias: {
       '@shared': path.resolve(__dirname, 'shared'),
     },
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'lcov', 'html'],
+      include: ['server/**/*.ts'],
+      exclude: [
+        'server/**/*.test.ts',
+        'server/_core/instrument.ts',
+        'server/_core/index.ts',
+        'server/workers.ts',
+        'server/seed.ts',
+      ],
+      thresholds: {
+        lines: 30,
+        functions: 30,
+        branches: 20,
+      },
+    },
   },
 })

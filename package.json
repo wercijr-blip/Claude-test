@@ -16,7 +16,8 @@
     "test:coverage": "vitest run --coverage",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "seed": "tsx server/seed.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.540.0",
@@ -88,6 +89,7 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.2.1",
+    "@vitest/coverage-v8": "^4.1.6",
     "concurrently": "^8.2.2",
     "dotenv": "^17.4.2",
     "drizzle-kit": "^0.30.0",

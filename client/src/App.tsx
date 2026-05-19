@@ -259,6 +259,12 @@ function PagamentoSucesso() {
   const { setToken } = useAuth()
   const hasAttempted = useRef(false)
   const [erro, setErro] = useState<string | null>(null)
+  const [pollingTimedOut, setPollingTimedOut] = useState(false)
+
+  useEffect(() => {
+    const t = setTimeout(() => setPollingTimedOut(true), 60_000)
+    return () => clearTimeout(t)
+  }, [])
 
   const acesso = trpc.intake.acessoPosPagamento.useMutation({
     onSuccess: (data: { sessionToken: string }) => {
@@ -277,7 +283,7 @@ function PagamentoSucesso() {
   // Flow B: poll by precadastroId (card checkout — Asaas autoRedirect)
   const { data: statusPrecad } = trpc.intake.consultarStatusPorPrecadastro.useQuery(
     { precadastroId: precadastroId ?? 0 },
-    { refetchInterval: 3000, enabled: !!precadastroId && !hasAttempted.current },
+    { refetchInterval: pollingTimedOut ? false : 3000, enabled: !!precadastroId && !hasAttempted.current },
   )
 
   useEffect(() => {
@@ -337,7 +343,9 @@ function PagamentoSucesso() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           ) : (
-            <div className="w-8 h-8 border-4 border-blue-100 border-t-blue-500 rounded-full animate-spin" />
+            <div className="w-8 h-8 border-4 border-blue-100 border-t-blue-500 rounded-full animate-spin" role="status" aria-label="Verificando pagamento">
+              <span className="sr-only">Verificando pagamento...</span>
+            </div>
           )}
         </div>
         {erro ? (
@@ -358,6 +366,11 @@ function PagamentoSucesso() {
           <>
             <h2 className="text-xl font-bold text-slate-800 mb-2">Confirmando pagamento…</h2>
             <p className="text-slate-500 text-sm">Aguarde um instante. Não feche esta página.</p>
+            {pollingTimedOut && !confirmed && (
+              <p className="mt-3 text-sm text-amber-600 text-center">
+                Aguardando confirmação do pagamento. Se já pagou, pode fechar esta tela — enviaremos o acesso por e-mail.
+              </p>
+            )}
           </>
         )}
       </div>

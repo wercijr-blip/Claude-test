@@ -3,7 +3,7 @@ import { randomBytes } from 'crypto'
 import { env } from './_core/env.ts'
 import { redis } from './_core/redis.ts'
 import { db } from './db.ts'
-import { pacientes, pdfs, consultasInicio, accessTokens, precadastros, pesquisaTokens } from '../drizzle/schema.ts'
+import { pacientes, pdfs, consultasInicio, accessTokens, precadastros, pesquisaTokens, dlqJobs } from '../drizzle/schema.ts'
 import { eq, and, gt } from 'drizzle-orm'
 import { decrypt } from './_core/encryption.ts'
 import { gerarPrescricaoPdf, assinarPdf } from './pdfSigner.ts'
@@ -52,6 +52,18 @@ export const pdfQueue = new Queue(PDF_QUEUE_NAME, { connection, prefix: QUEUE_PR
 export const lembreteQueue = new Queue(LEMBRETE_QUEUE_NAME, { connection, prefix: QUEUE_PREFIX })
 export const pesquisaQueue = new Queue(PESQUISA_QUEUE_NAME, { connection, prefix: QUEUE_PREFIX })
 export const linkAcessoQueue = new Queue(LINK_ACESSO_QUEUE_NAME, { connection, prefix: QUEUE_PREFIX })
+
+async function persistDlq(queue: string, job: { id?: string; name: string; data?: unknown; attemptsMade?: number } | undefined, err: Error) {
+  if (!job) return
+  await db.insert(dlqJobs).values({
+    queue,
+    jobId: job.id ? String(job.id) : null,
+    jobName: job.name,
+    data: job.data ?? null,
+    failReason: err.message,
+    attempts: job.attemptsMade ?? 0,
+  }).catch((e: unknown) => logger.error('[dlq] falha ao persistir job', { error: String(e) }))
+}
 
 export function startPdfWorker() {
   const worker = new Worker(
@@ -314,7 +326,10 @@ export function startPdfWorker() {
   )
 
   worker.on('failed', (job, err) => {
-    logger.error(`[pdfQueue] Job ${job?.id} falhou`, { message: err.message })
+    logger.error(`[pdfQueue] Job ${job?.id} falhou (${job?.attemptsMade} tentativas)`, { message: err.message })
+    if ((job?.attemptsMade ?? 0) >= (job?.opts?.attempts ?? 3)) {
+      void persistDlq(PDF_QUEUE_NAME, job, err)
+    }
   })
 
   return worker
@@ -356,6 +371,9 @@ export function startPesquisaWorker() {
 
   worker.on('failed', (job, err) => {
     logger.error(`[pesquisaQueue] Job ${job?.id} falhou`, { message: err.message })
+    if ((job?.attemptsMade ?? 0) >= (job?.opts?.attempts ?? 3)) {
+      void persistDlq(PESQUISA_QUEUE_NAME, job, err)
+    }
   })
 
   return worker
@@ -430,6 +448,9 @@ export function startLembreteWorker() {
 
   worker.on('failed', (job, err) => {
     logger.error(`[lembreteQueue] Job ${job?.id} falhou`, { message: err.message })
+    if ((job?.attemptsMade ?? 0) >= (job?.opts?.attempts ?? 3)) {
+      void persistDlq(LEMBRETE_QUEUE_NAME, job, err)
+    }
   })
 
   return worker
@@ -522,6 +543,9 @@ export function startLinkAcessoWorker() {
 
   worker.on('failed', (job, err) => {
     logger.error(`[linkAcessoQueue] Job ${job?.id} falhou (${job?.attemptsMade} tentativas)`, { message: err.message })
+    if ((job?.attemptsMade ?? 0) >= (job?.opts?.attempts ?? 5)) {
+      void persistDlq(LINK_ACESSO_QUEUE_NAME, job, err)
+    }
   })
 
   return worker

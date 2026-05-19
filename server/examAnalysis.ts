@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { env } from './_core/env.ts'
+import { logger } from './_core/logger.ts'
 import { db } from './db.ts'
 import { exames } from '../drizzle/schema.ts'
 import { eq } from 'drizzle-orm'
@@ -54,7 +55,20 @@ export async function analisarExame(exameId: number): Promise<ResultadoIa> {
     throw new Error(`Erro na análise por IA (HTTP ${response.status}): ${body}`)
   }
 
-  const data = (await response.json()) as { content: Array<{ text: string }> }
+  const data = (await response.json()) as {
+    content: Array<{ text: string }>
+    usage?: { input_tokens?: number; output_tokens?: number }
+  }
+  const inputTokens = data.usage?.input_tokens ?? 0
+  const outputTokens = data.usage?.output_tokens ?? 0
+  // Claude Haiku pricing: $0.80/1M input, $4.00/1M output
+  const estimatedCostUSD = (inputTokens / 1_000_000 * 0.80) + (outputTokens / 1_000_000 * 4.00)
+  logger.info('[llm] análise de exame concluída', {
+    exameId,
+    inputTokens,
+    outputTokens,
+    estimatedCostUSD: estimatedCostUSD.toFixed(5),
+  })
   const text = data.content[0]?.text ?? '{}'
 
   let resultado: ResultadoIa

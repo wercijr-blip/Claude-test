@@ -246,6 +246,28 @@ app.get('/api/health/version', (_req, res) => {
   })
 })
 
+// Metrics — queue depth, memory, circuit breaker state
+app.get('/api/metrics', async (_req, res) => {
+  const { getCircuitStatus } = await import('./circuitBreaker.ts')
+  let pdfWaiting = -1
+  let linkWaiting = -1
+  try {
+    const { pdfQueue, linkAcessoQueue } = await import('../pdfQueue.ts')
+    ;[pdfWaiting, linkWaiting] = await Promise.all([
+      pdfQueue.getWaitingCount(),
+      linkAcessoQueue.getWaitingCount(),
+    ])
+  } catch { /* workers may not be started */ }
+
+  res.json({
+    uptime: Math.floor(process.uptime()),
+    memory: { heapUsedMB: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) },
+    queues: { pdf: pdfWaiting, linkAcesso: linkWaiting },
+    circuits: { asaas: getCircuitStatus('asaas') },
+    timestamp: new Date().toISOString(),
+  })
+})
+
 // Observability — confirma que Sentry está configurado no servidor
 app.get('/api/health/observability', (_req, res) => {
   res.json({

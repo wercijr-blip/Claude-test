@@ -360,3 +360,21 @@ export const pesquisaTokens = mysqlTable('pesquisa_tokens', {
 }, (t) => ({
   tokenIdx: uniqueIndex('idx_pesquisa_token').on(t.token),
 }))
+
+// ── Dead Letter Queue (jobs que esgotaram retries) ────────────
+// Jobs críticos que falharam todas as tentativas são persistidos aqui
+// para reprocessamento manual via painel admin.
+
+export const dlqJobs = mysqlTable('dlq_jobs', {
+  id: int('id').primaryKey().autoincrement(),
+  queue: varchar('queue', { length: 100 }).notNull(),
+  jobId: varchar('job_id', { length: 200 }),
+  jobName: varchar('job_name', { length: 100 }).notNull(),
+  data: json('data'),
+  failReason: text('fail_reason'),
+  attempts: int('attempts').default(0),
+  createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (t) => ({
+  queueIdx: index('idx_dlq_queue').on(t.queue),
+  createdIdx: index('idx_dlq_created').on(t.createdAt),
+}))

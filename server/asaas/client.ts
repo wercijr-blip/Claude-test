@@ -1,11 +1,16 @@
 import { env } from '../_core/env.ts'
 import { logger } from '../_core/logger.ts'
+import { withCircuitBreaker } from '../_core/circuitBreaker.ts'
 
 const BASE_URL = env.ASAAS_ENV === 'production'
   ? 'https://api.asaas.com/v3'
   : 'https://sandbox.asaas.com/api/v3'
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  return withCircuitBreaker('asaas', async () => _rawRequest<T>(method, path, body))
+}
+
+async function _rawRequest<T>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     method,
     headers: {

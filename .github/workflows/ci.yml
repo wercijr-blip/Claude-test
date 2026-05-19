@@ -1,0 +1,51 @@
+name: CI
+on:
+  push:
+    branches: [main, 'claude/**']
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 10.4.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: TypeScript check
+        run: pnpm check
+
+      - name: Tests
+        run: pnpm test
+        env:
+          NODE_ENV: test
+          DATABASE_URL: mysql://root:root@localhost:3306/test
+          JWT_SECRET: test-secret-minimum-32-characters-long-xx
+          ENCRYPTION_KEY: 0000000000000000000000000000000000000000000000000000000000000000
+          CPF_HASH_SALT: test-cpf-hash-salt-minimum-32-characters
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_S3_BUCKET: test
+          GOOGLE_CLIENT_ID: test
+          GOOGLE_CLIENT_SECRET: test
+          OWNER_OPEN_ID: test
+
+      - name: Dependency audit
+        run: pnpm audit --audit-level=high
+        continue-on-error: true
+
+      - name: Build
+        run: pnpm build
+        env:
+          VITE_APP_ID: facilita-prep
+          NODE_ENV: production
