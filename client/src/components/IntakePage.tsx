@@ -114,7 +114,7 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
     return () => clearInterval(interval)
   }, [])
 
-  const { register, handleSubmit, control, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, control, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
   })
 
@@ -512,7 +512,23 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
 
             <div>
               <label className={labelCls}>CPF</label>
-              <input {...register('cpf')} className={inputCls} placeholder="000.000.000-00" />
+              <input
+                {...register('cpf', {
+                  onChange: (e) => {
+                    const digits = e.target.value.replace(/\D/g, '').slice(0, 11)
+                    const fmt = digits
+                      .replace(/(\d{3})(\d)/, '$1.$2')
+                      .replace(/(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+                      .replace(/(\d{3})\.(\d{3})\.(\d{3})(\d)/, '$1.$2.$3-$4')
+                    e.target.value = fmt
+                    setValue('cpf', fmt, { shouldValidate: digits.length === 11 })
+                  },
+                })}
+                className={inputCls}
+                placeholder="000.000.000-00"
+                inputMode="numeric"
+                maxLength={14}
+              />
               {errors.cpf && <p className={errCls}>{errors.cpf.message}</p>}
             </div>
 
