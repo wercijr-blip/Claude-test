@@ -52,6 +52,21 @@ export function useAuth() {
     return () => clearInterval(id)
   }, [token])
 
+  useEffect(() => {
+    const handler = (e: StorageEvent) => {
+      if (e.key !== TOKEN_KEY) return
+      const newToken = e.newValue
+      if (!newToken || isJwtExpired(newToken)) {
+        setTokenState(null)
+        if (window.location.pathname !== '/') window.location.href = '/'
+      } else {
+        setTokenState(newToken)
+      }
+    }
+    window.addEventListener('storage', handler)
+    return () => window.removeEventListener('storage', handler)
+  }, [])
+
   return { token, setToken, logout, getToken, isAuthenticated: !!token }
 }
 

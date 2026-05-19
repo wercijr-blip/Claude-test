@@ -24,9 +24,9 @@ export default defineConfig({
         'server/seed.ts',
       ],
       thresholds: {
-        lines: 30,
-        functions: 30,
-        branches: 20,
+        lines: 60,
+        functions: 60,
+        branches: 40,
       },
     },
   },

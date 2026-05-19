@@ -13,12 +13,13 @@ export function Toaster() {
 
   return (
     <ToastPrimitive.Provider swipeDirection="right">
-      {toasts.map(t => (
+      {toasts.map((t, idx) => (
         <ToastPrimitive.Root
           key={t.id}
           open
           onOpenChange={(open) => { if (!open) dismiss(t.id) }}
-          className={`fixed bottom-4 right-4 z-50 flex w-80 items-start gap-3 rounded-xl border p-4 shadow-lg transition-all ${variantCls[t.variant ?? 'default']}`}
+          className={`fixed right-4 z-50 flex w-80 items-start gap-3 rounded-xl border p-4 shadow-lg transition-all ${variantCls[t.variant ?? 'default']}`}
+          style={{ bottom: `${idx * 84 + 16}px` }}
         >
           <div className="flex-1">
             <ToastPrimitive.Title className="text-sm font-semibold">{t.title}</ToastPrimitive.Title>

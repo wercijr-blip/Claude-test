@@ -25,6 +25,9 @@ jobs:
       - name: TypeScript check
         run: pnpm check
 
+      - name: Format check
+        run: pnpm prettier --check .
+
       - name: Tests
         run: pnpm test
         env:
@@ -42,7 +45,6 @@ jobs:
 
       - name: Dependency audit
         run: pnpm audit --audit-level=high
-        continue-on-error: true
 
       - name: Build
         run: pnpm build

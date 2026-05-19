@@ -6,6 +6,7 @@ import { useAuth } from '../../_core/hooks/useAuth.ts'
 import { validarCpf } from '../../../../server/_core/cpfValidator.ts'
 import { ERROR_MESSAGES } from '@shared/const.ts'
 import { useFormDraft } from '../../hooks/useFormDraft.ts'
+import { toast } from '../../lib/use-toast.ts'
 
 const schema = z.object({
   cpf: z.string().refine(validarCpf, ERROR_MESSAGES.CPF_INVALID),
@@ -41,6 +42,9 @@ export default function StepPaciente({ pacienteId, onNext, defaultValues }: Prop
       clearDraft()
       if (data.newSessionToken) setToken(data.newSessionToken)
       onNext(data.pacienteId)
+    },
+    onError: (err) => {
+      toast({ title: 'Erro ao salvar', description: err.message, variant: 'error' })
     },
   })
 

@@ -3,6 +3,8 @@ import { trpc } from '../lib/trpc.ts'
 import { useAuth } from '../_core/hooks/useAuth.ts'
 import { Download } from 'lucide-react'
 import { fmt } from '../lib/format.ts'
+import { useQueryClient } from '@tanstack/react-query'
+import { toast } from '../lib/use-toast.ts'
 
 type ConfirmDeleteTarget = { id: number; nome: string | null; email: string | null }
 
@@ -11,12 +13,34 @@ type Tab = 'equipe' | 'pacientes' | 'auditoria' | 'certificado'
 export default function AuditDashboard() {
   const { logout } = useAuth()
   const [tab, setTab] = useState<Tab>('equipe')
+  const queryClient = useQueryClient()
 
   // Equipe
   const { data: usuarios, refetch: refetchUsuarios } = trpc.admin.listarUsuarios.useQuery()
-  const alterarRole = trpc.admin.alterarRole.useMutation({ onSuccess: () => refetchUsuarios() })
-  const toggleAtivo = trpc.admin.toggleAtivo.useMutation({ onSuccess: () => refetchUsuarios() })
-  const cadastrarUsuario = trpc.admin.cadastrarUsuario.useMutation({ onSuccess: () => { refetchUsuarios(); setNovoEmail(''); setNovoNome(''); setNovoRole('secretaria') } })
+  const alterarRole = trpc.admin.alterarRole.useMutation({
+    onSuccess: () => {
+      void queryClient.invalidateQueries()
+      toast({ title: 'Role atualizado', variant: 'success' })
+    },
+    onError: (err) => toast({ title: 'Erro', description: err.message, variant: 'error' }),
+  })
+  const toggleAtivo = trpc.admin.toggleAtivo.useMutation({
+    onSuccess: () => {
+      void queryClient.invalidateQueries()
+      toast({ title: 'Status atualizado', variant: 'success' })
+    },
+    onError: (err) => toast({ title: 'Erro', description: err.message, variant: 'error' }),
+  })
+  const cadastrarUsuario = trpc.admin.cadastrarUsuario.useMutation({
+    onSuccess: () => {
+      void queryClient.invalidateQueries()
+      setNovoEmail('')
+      setNovoNome('')
+      setNovoRole('secretaria')
+      toast({ title: 'Usuário cadastrado', variant: 'success' })
+    },
+    onError: (err) => toast({ title: 'Erro ao cadastrar', description: err.message, variant: 'error' }),
+  })
   const deletarStaff = trpc.admin.deletarStaff.useMutation({ onSuccess: () => { refetchUsuarios(); setDeleteTarget(null); setDeleteConfirmText('') } })
 
   // Confirmação dupla para delete

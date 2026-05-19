@@ -150,3 +150,58 @@ Criar arquivo `docs/post-mortems/YYYY-MM-DD-titulo.md` após cada incidente P0/P
 ### Prevenção futura
 - [ ] [ação]
 ```
+
+---
+
+## DR Drills — Simulações de Recuperação
+
+### Frequência recomendada: Trimestral
+
+#### DR Drill 1 — Falha de banco de dados
+
+**Objetivo:** Validar que a aplicação degrada gracefully e se recupera sem perda de dados.
+
+| Campo | Valor |
+|-------|-------|
+| Data de execução | _______________ |
+| Executado por | _______________ |
+| Duração | _______________ |
+| RTO medido | _______________ |
+
+**Passos:**
+1. No Railway, alterar `DATABASE_URL` para uma URL inválida (staging apenas)
+2. Aguardar 30s — verificar que `/api/health` retorna 503 e não 500 (sem stack trace exposto)
+3. Verificar que workers BullMQ pausam sem perder jobs (DLQ deve estar intacta)
+4. Restaurar `DATABASE_URL` original
+5. Verificar que `/api/health` volta a 200 em até 30s
+6. Executar `pnpm test` para confirmar integridade
+
+**Resultado esperado:** Zero jobs perdidos na DLQ, zero dados corrompidos, RTO < 60s
+
+---
+
+#### DR Drill 2 — Falha de Redis
+
+| Campo | Valor |
+|-------|-------|
+| Data de execução | _______________ |
+| Executado por | _______________ |
+
+**Passos:**
+1. Alterar `REDIS_URL` para URL inválida (staging)
+2. Verificar que rate limiting falha aberto (não bloqueia requisições legítimas)
+3. Verificar que workers BullMQ reportam erro e param (não crasham o servidor)
+4. Restaurar `REDIS_URL`
+5. Verificar que workers retomam o processamento da fila
+
+**Resultado esperado:** Servidor web continua respondendo durante falha de Redis
+
+---
+
+#### Checklist de validação pós-drill
+
+- [ ] Nenhum dado de paciente foi corrompido
+- [ ] DLQ não tem jobs novos após o drill (jobs suspenderam, não falharam)
+- [ ] Logs do período mostram degradação controlada (sem panic/crash loops)
+- [ ] Alertas Sentry foram disparados durante o drill (confirma que alertas funcionam)
+- [ ] RTO medido está dentro do SLA declarado no runbook
