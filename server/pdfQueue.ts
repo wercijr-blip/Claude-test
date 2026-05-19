@@ -9,7 +9,7 @@ import { decrypt } from './_core/encryption.ts'
 import { gerarPrescricaoPdf, assinarPdf } from './pdfSigner.ts'
 import { gerarPedidosExames } from './pdfExameRequest.ts'
 import { preencherCadastroSUS } from './sus/preencherCadastro.ts'
-import { preencherFichaAtendimento } from './sus/preencherFichaAtendimento.ts'
+import { preencherFichaAtendimento, buildConfigClinica, mapPrepAdesaoLabel } from './sus/preencherFichaAtendimento.ts'
 import { gerarOrientacaoPdf } from './pdfOrientacao.ts'
 import { uploadBuffer } from './storage.ts'
 import { enviarLinkAcessoIntake, enviarCadastroRecebidoExames, enviarPrescricaoPronta, enviarPesquisaSatisfacao, type PagamentoMeta } from './email.ts'
@@ -113,13 +113,7 @@ export function startPdfWorker() {
         prescricaoJson: p.prescricaoJson,
       }
 
-      // Config da clínica para os formulários SUS oficiais
-      const configClinica = {
-        cnes: env.SUS_CNES,
-        crmTipo: env.MEDICO_CRM_TIPO,
-        crmUf: env.MEDICO_CRM_UF,
-        crmNumero: env.MEDICO_CRM,
-      }
+      const configClinica = buildConfigClinica()
 
       const gerados: { filename: string; buffer: Buffer }[] = []
 
@@ -177,12 +171,7 @@ export function startPdfWorker() {
         usoDrogas?: boolean
         prepAdesao?: 'diaria' | 'sob_demanda'
       }
-      // Tradução do enum interno para o label exato esperado pelo dropdown
-      // do PDF SUS (item 20).
-      const prepAdesaoLabel: 'Esquema diário' | 'Esquema sob demanda' | undefined =
-        cond.prepAdesao === 'diaria' ? 'Esquema diário' :
-        cond.prepAdesao === 'sob_demanda' ? 'Esquema sob demanda' :
-        undefined
+      const prepAdesaoLabel = mapPrepAdesaoLabel(cond.prepAdesao)
 
       const fichaBuf = Buffer.from(await preencherFichaAtendimento({
         pacienteId,

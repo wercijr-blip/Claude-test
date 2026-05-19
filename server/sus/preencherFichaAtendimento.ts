@@ -19,6 +19,7 @@ import { fileURLToPath } from 'url'
 import { readFileSync } from 'fs'
 import { PDFDocument } from 'pdf-lib'
 import { desenharCarimboDigital, carimboFromEnv, type CarimboInfo } from './carimboDigital.ts'
+import { env } from '../_core/env.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const TEMPLATE_PATH = path.join(__dirname, 'templates', 'ficha_atendimento.pdf')
@@ -48,6 +49,23 @@ export interface ConfigClinica {
   crmTipo: string                                  // 'CRM'
   crmUf: string                                    // 'DF'
   crmNumero: string                                // '16381'
+}
+
+export function buildConfigClinica(): ConfigClinica {
+  return {
+    cnes: env.SUS_CNES,
+    crmTipo: env.MEDICO_CRM_TIPO,
+    crmUf: env.MEDICO_CRM_UF,
+    crmNumero: env.MEDICO_CRM,
+  }
+}
+
+export function mapPrepAdesaoLabel(
+  prepAdesao?: 'diaria' | 'sob_demanda',
+): 'Esquema diário' | 'Esquema sob demanda' | undefined {
+  if (prepAdesao === 'diaria') return 'Esquema diário'
+  if (prepAdesao === 'sob_demanda') return 'Esquema sob demanda'
+  return undefined
 }
 
 /**

@@ -185,17 +185,19 @@ export const pacienteRouter = router({
             .limit(1)
           if (!precad) return
           const { link, expiresAt, raw } = await gerarLinkDeAcesso(precad.id)
-          await enviarCadastroRecebidoExames(decrypt(precad.emailEncrypted), input.nome, link, expiresAt, raw)
           const telefone = decrypt(precad.telefoneEncrypted)
-          if (telefone) {
-            const primeiroNome = input.nome.split(' ')[0]
-            await enviarWhatsApp(
-              telefone,
-              `Olá ${primeiroNome}! Recebemos seu cadastro.\n\n` +
-              `📋 *Próximo passo:* envie os exames laboratoriais (HIV ≤7 dias, Creatinina, HBsAg, Anti-HCV, Sífilis).\n\n` +
-              `Acesse:\n${link}\n\n_Facilita PrEP_`,
-            ).catch(() => {})
-          }
+          const primeiroNome = input.nome.split(' ')[0]
+          await Promise.all([
+            enviarCadastroRecebidoExames(decrypt(precad.emailEncrypted), input.nome, link, expiresAt, raw),
+            telefone
+              ? enviarWhatsApp(
+                  telefone,
+                  `Olá ${primeiroNome}! Recebemos seu cadastro.\n\n` +
+                  `📋 *Próximo passo:* envie os exames laboratoriais (HIV ≤7 dias, Creatinina, HBsAg, Anti-HCV, Sífilis).\n\n` +
+                  `Acesse:\n${link}\n\n_Facilita PrEP_`,
+                ).catch(() => {})
+              : undefined,
+          ])
         } catch (err) {
           Sentry.captureException(err, { tags: { route: 'salvarStep1', stage: 'email2' } })
         }

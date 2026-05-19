@@ -13,7 +13,7 @@ import { env } from '../_core/env.ts'
 import { linkAcessoQueue } from '../pdfQueue.ts'
 import { logAudit } from '../_core/audit.ts'
 import { uploadBuffer, deleteObject, getPresignedUrl } from '../storage.ts'
-import { preencherFichaAtendimento } from '../sus/preencherFichaAtendimento.ts'
+import { preencherFichaAtendimento, buildConfigClinica, mapPrepAdesaoLabel } from '../sus/preencherFichaAtendimento.ts'
 
 type ResultadoIaJson = {
   status?: string
@@ -400,17 +400,8 @@ export const adminRouter = router({
         usoDrogas?: boolean
         prepAdesao?: 'diaria' | 'sob_demanda'
       }
-      const prepAdesaoLabel: 'Esquema diário' | 'Esquema sob demanda' | undefined =
-        cond.prepAdesao === 'diaria' ? 'Esquema diário' :
-        cond.prepAdesao === 'sob_demanda' ? 'Esquema sob demanda' :
-        undefined
-
-      const configClinica = {
-        cnes: env.SUS_CNES,
-        crmTipo: env.MEDICO_CRM_TIPO,
-        crmUf: env.MEDICO_CRM_UF,
-        crmNumero: env.MEDICO_CRM,
-      }
+      const prepAdesaoLabel = mapPrepAdesaoLabel(cond.prepAdesao)
+      const configClinica = buildConfigClinica()
 
       const fichaBuf = Buffer.from(await preencherFichaAtendimento({
         pacienteId,
@@ -429,9 +420,10 @@ export const adminRouter = router({
       await uploadBuffer(fichaKey, signedFicha, 'application/pdf')
       await db.insert(pdfs).values({ pacienteId, s3Key: fichaKey, tipo: 'ficha_atendimento', certificadoSerial, assinadoEm })
 
-      await logAudit({ actorId: ctx.session.id, actorRole: ctx.session.role, action: 'pdf.generate', resourceType: 'ficha_atendimento', resourceId: pacienteId, detalhes: { fichasRemovidas: fichasExistentes.length } })
-
-      const url = await getPresignedUrl(fichaKey, 3600)
+      const [url] = await Promise.all([
+        getPresignedUrl(fichaKey, 3600),
+        logAudit({ actorId: ctx.session.id, actorRole: ctx.session.role, action: 'pdf.generate', resourceType: 'ficha_atendimento', resourceId: pacienteId, detalhes: { fichasRemovidas: fichasExistentes.length } }),
+      ])
       return { ok: true, url, fichasRemovidas: fichasExistentes.length }
     }),
 

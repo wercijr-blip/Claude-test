@@ -30,17 +30,11 @@ function log(level: 'INFO' | 'WARN' | 'ERROR', message: string, context?: unknow
 
 export async function handleAsaasWebhook(req: Request, res: Response): Promise<void> {
   // Asaas sends the token in 'asaas-access-token'; fall back to 'access_token' for older versions
-  const token = (
-    req.headers['asaas-access-token'] ??
-    req.headers['access_token']
-  ) as string | undefined
-  log('INFO', 'Webhook Asaas recebido', {
-    headerUsado: req.headers['asaas-access-token']
-      ? 'asaas-access-token'
-      : req.headers['access_token']
-      ? 'access_token'
-      : 'NENHUM',
-  })
+  const asaasHeader = req.headers['asaas-access-token'] as string | undefined
+  const legacyHeader = req.headers['access_token'] as string | undefined
+  const token = asaasHeader ?? legacyHeader
+  const headerUsado = asaasHeader ? 'asaas-access-token' : legacyHeader ? 'access_token' : 'NENHUM'
+  log('INFO', 'Webhook Asaas recebido', { headerUsado })
   if (env.ASAAS_WEBHOOK_TOKEN && token !== env.ASAAS_WEBHOOK_TOKEN) {
     log('ERROR', 'Invalid ASAAS_WEBHOOK_TOKEN — returning 401')
     res.status(401).json({ error: 'Unauthorized' })
