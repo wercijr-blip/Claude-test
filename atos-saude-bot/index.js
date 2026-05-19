@@ -27,6 +27,7 @@ import { notificarEncaixe } from './src/services/scheduler.js'
 import webhookRouter from './src/webhook/index.js'
 import apiRouter from './src/panel/routes/index.js'
 import authRouter from './src/panel/routes/auth.js'
+import { openApiSpec } from './src/docs/openapi.js'
 
 // ─── Tratamento de erros não capturados ──────────────────────────────────────
 process.on('uncaughtException', (err) => {
@@ -84,7 +85,7 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-eval'", 'cdn.tailwindcss.com', 'cdn.jsdelivr.net'],
-      styleSrc: ["'self'", "'unsafe-inline'", 'cdn.tailwindcss.com'],
+      styleSrc: ["'self'", "'unsafe-inline'", 'cdn.tailwindcss.com', 'cdn.jsdelivr.net'],
       imgSrc: ["'self'", 'data:', 'https:'],
       connectSrc: ["'self'"],
       fontSrc: ["'self'", 'data:', 'cdn.jsdelivr.net'],
@@ -157,6 +158,38 @@ app.use('/api', apiRouter)
 // Painel web
 app.get('/painel', (req, res) => {
   res.sendFile(join(__dirname, 'src/panel/index.html'))
+})
+
+// Documentação OpenAPI — Swagger UI
+app.get('/docs/spec.json', (req, res) => {
+  res.json(openApiSpec)
+})
+app.get('/docs', (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8')
+  res.send(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Atos Saúde Bot — API Docs</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css">
+</head>
+<body>
+<div id="swagger-ui"></div>
+<script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+<script>
+  SwaggerUIBundle({
+    url: '/docs/spec.json',
+    dom_id: '#swagger-ui',
+    presets: [SwaggerUIBundle.presets.apis, SwaggerUIBundle.SwaggerUIStandalonePreset],
+    layout: 'BaseLayout',
+    deepLinking: true,
+    persistAuthorization: true,
+    tryItOutEnabled: true
+  })
+</script>
+</body>
+</html>`)
 })
 
 // Link de remarcação — GET /remarcar/:token

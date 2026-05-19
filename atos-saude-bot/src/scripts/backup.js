@@ -6,10 +6,49 @@ import { fileURLToPath } from 'url'
 import { logger } from '../utils/logger.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const DATA_DIR = process.env.DATA_DIR || join(__dirname, '../..')
-const DB_PATH   = process.env.DB_PATH  || join(DATA_DIR, 'atos-saude.db')
+const DATA_DIR   = process.env.DATA_DIR || join(__dirname, '../..')
+const DB_PATH    = process.env.DB_PATH  || join(DATA_DIR, 'atos-saude.db')
 const BACKUP_DIR = join(DATA_DIR, 'backups')
 const MAX_BACKUPS = 7
+
+async function uploadToS3(filePath, key) {
+  const bucket = process.env.AWS_BACKUP_BUCKET
+  if (!bucket) return false
+
+  try {
+    const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3')
+    const { createReadStream: crs } = await import('fs')
+    const { statSync: ss } = await import('fs')
+
+    const client = new S3Client({
+      region: process.env.AWS_REGION || 'us-east-1',
+      ...(process.env.AWS_ACCESS_KEY_ID && {
+        credentials: {
+          accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+          secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+        }
+      })
+    })
+
+    const fileSize = ss(filePath).size
+    await client.send(new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: crs(filePath),
+      ContentType: 'application/gzip',
+      ContentLength: fileSize,
+      ServerSideEncryption: 'AES256',
+      Metadata: {
+        'backup-date': new Date().toISOString(),
+        'source': 'atos-saude-bot'
+      }
+    }))
+    return true
+  } catch (err) {
+    logger.warn({ err: err.message, key }, 'Upload S3 falhou — backup local disponível')
+    return false
+  }
+}
 
 export async function runBackup() {
   if (!existsSync(DB_PATH)) {
@@ -19,7 +58,8 @@ export async function runBackup() {
   if (!existsSync(BACKUP_DIR)) mkdirSync(BACKUP_DIR, { recursive: true })
 
   const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
-  const dest = join(BACKUP_DIR, `atos-saude-${ts}.db.gz`)
+  const filename = `atos-saude-${ts}.db.gz`
+  const dest = join(BACKUP_DIR, filename)
 
   await pipeline(
     createReadStream(DB_PATH),
@@ -28,7 +68,16 @@ export async function runBackup() {
   )
   logger.info({ dest }, 'Backup diário concluído')
 
-  // Mantém apenas os últimos MAX_BACKUPS arquivos
+  // Upload offsite para S3 (opcional — requer AWS_BACKUP_BUCKET)
+  if (process.env.AWS_BACKUP_BUCKET) {
+    const s3Key = `backups/${filename}`
+    const uploaded = await uploadToS3(dest, s3Key)
+    if (uploaded) {
+      logger.info({ bucket: process.env.AWS_BACKUP_BUCKET, key: s3Key }, 'Backup enviado ao S3')
+    }
+  }
+
+  // Mantém apenas os últimos MAX_BACKUPS arquivos locais
   const files = readdirSync(BACKUP_DIR)
     .filter(f => f.endsWith('.db.gz'))
     .map(f => ({ name: f, mtime: statSync(join(BACKUP_DIR, f)).mtimeMs }))
