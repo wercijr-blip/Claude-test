@@ -290,11 +290,11 @@ function PagamentoSucesso() {
   }, [statusData?.status])
 
   useEffect(() => {
-    const { confirmado, paymentId: pid } = statusPrecad ?? {}
-    if (confirmado && pid && !hasAttempted.current) {
+    const { confirmado } = statusPrecad ?? {}
+    if (confirmado && precadastroId && !hasAttempted.current) {
       hasAttempted.current = true
-      trackPurchase(pid, 250)
-      acesso.mutate({ paymentId: pid })
+      trackPurchase(`precad-${precadastroId}`, 250)
+      acesso.mutate({ precadastroId })
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusPrecad?.confirmado])

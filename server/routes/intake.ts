@@ -215,27 +215,37 @@ export const intakeRouter = router({
   // pelo raw access token. O webhook PAYMENT_RECEIVED/CONFIRMED também processa
   // em paralelo — idempotência via precad.status === 'link_enviado'.
   acessoPosPagamento: publicProcedure
-    .input(z.object({ paymentId: z.string().min(1) }))
+    .input(z.union([
+      z.object({ paymentId: z.string().min(1) }),
+      z.object({ precadastroId: z.number().int().positive() }),
+    ]))
     .mutation(async ({ input }) => {
-      let payment
-      try {
-        payment = await obterPagamento(input.paymentId)
-      } catch {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Pagamento não encontrado no Asaas.' })
-      }
+      let precadastroId: number
 
-      if (payment.status !== 'RECEIVED' && payment.status !== 'CONFIRMED') {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Pagamento ainda não confirmado. Tente novamente em instantes.',
-        })
+      if ('paymentId' in input) {
+        let payment
+        try {
+          payment = await obterPagamento(input.paymentId)
+        } catch {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Pagamento não encontrado no Asaas.' })
+        }
+        if (payment.status !== 'RECEIVED' && payment.status !== 'CONFIRMED') {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'Pagamento ainda não confirmado. Tente novamente em instantes.' })
+        }
+        const precadMatch = (payment.externalReference ?? '').match(/^precad-(\d+)$/)
+        if (!precadMatch) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'Referência de pagamento inválida.' })
+        }
+        precadastroId = parseInt(precadMatch[1]!, 10)
+      } else {
+        // Card autoRedirect path: verify payment is confirmed via Asaas before issuing JWT
+        const payments = await listarPagamentosPorReferencia(`precad-${input.precadastroId}`)
+        const confirmed = payments.find(p => p.status === 'RECEIVED' || p.status === 'CONFIRMED')
+        if (!confirmed) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'Pagamento ainda não confirmado. Tente novamente em instantes.' })
+        }
+        precadastroId = input.precadastroId
       }
-
-      const precadMatch = (payment.externalReference ?? '').match(/^precad-(\d+)$/)
-      if (!precadMatch) {
-        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Referência de pagamento inválida.' })
-      }
-      const precadastroId = parseInt(precadMatch[1]!, 10)
 
       const { raw } = await gerarEEnviarLinkAcesso(precadastroId)
 
@@ -349,7 +359,6 @@ export const intakeRouter = router({
       return {
         confirmado: !!confirmed,
         status: latest?.status ?? 'NOT_FOUND',
-        paymentId: latest?.id ?? null,
       }
     }),
 

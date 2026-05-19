@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'crypto'
 import type { Request, Response } from 'express'
 import { env } from '../_core/env.ts'
 import { db } from '../db.ts'
@@ -35,10 +36,15 @@ export async function handleAsaasWebhook(req: Request, res: Response): Promise<v
   const token = asaasHeader ?? legacyHeader
   const headerUsado = asaasHeader ? 'asaas-access-token' : legacyHeader ? 'access_token' : 'NENHUM'
   log('INFO', 'Webhook Asaas recebido', { headerUsado })
-  if (env.ASAAS_WEBHOOK_TOKEN && token !== env.ASAAS_WEBHOOK_TOKEN) {
-    log('ERROR', 'Invalid ASAAS_WEBHOOK_TOKEN — returning 401')
-    res.status(401).json({ error: 'Unauthorized' })
-    return
+  if (env.ASAAS_WEBHOOK_TOKEN) {
+    const expected = Buffer.from(env.ASAAS_WEBHOOK_TOKEN)
+    const provided = Buffer.from(token ?? '')
+    const valid = expected.length === provided.length && timingSafeEqual(expected, provided)
+    if (!valid) {
+      log('ERROR', 'Invalid ASAAS_WEBHOOK_TOKEN — returning 401')
+      res.status(401).json({ error: 'Unauthorized' })
+      return
+    }
   }
 
   const body = req.body as AsaasWebhookEvent
