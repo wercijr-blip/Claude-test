@@ -5,7 +5,7 @@ type LogoProps = {
 }
 
 export function Logo({ size = 120, mode = 'light', className }: LogoProps) {
-  const uid = `fp-${size}-${mode}`
+  const uid = `cis-${size}-${mode}`
   const c1 = mode === 'light' ? '#B890D0' : '#C4A8D8'
   const c2 = mode === 'light' ? '#88AACE' : '#A8C4D8'
   const glow = mode === 'light' ? '#E0D0F8' : '#EDE0F5'
@@ -84,15 +84,15 @@ type WordmarkProps = LogoProps & {
 
 export function LogoWordmark({ size = 48, mode = 'light', layout = 'horizontal', className }: WordmarkProps) {
   const isDark = mode === 'dark'
-  const wordColor = isDark ? 'text-fp-lilac-soft' : 'text-fp-accent'
-  const subColor = isDark ? 'text-fp-dark-soft' : 'text-fp-lilac-soft'
+  const wordColor = isDark ? 'text-slate-200' : 'text-slate-700'
+  const subColor = isDark ? 'text-slate-400' : 'text-slate-500'
 
   if (layout === 'stacked') {
     return (
       <div className={`flex flex-col items-center ${className ?? ''}`}>
         <Logo size={size} mode={mode} />
-        <div className={`font-display text-base ${wordColor}`} style={{ letterSpacing: '0.04em' }}>facilita</div>
-        <div className={`text-[9px] font-bold ${subColor}`} style={{ letterSpacing: '0.28em' }}>PrEP</div>
+        <div className={`font-display text-base ${wordColor}`} style={{ letterSpacing: '0.04em' }}>CIS</div>
+        <div className={`text-[9px] font-bold ${subColor}`} style={{ letterSpacing: '0.28em' }}>CLÍNICA</div>
       </div>
     )
   }
@@ -101,8 +101,8 @@ export function LogoWordmark({ size = 48, mode = 'light', layout = 'horizontal',
     <div className={`flex items-center gap-2 ${className ?? ''}`}>
       <Logo size={size} mode={mode} />
       <div>
-        <div className={`font-display text-lg leading-none ${wordColor}`} style={{ letterSpacing: '0.04em' }}>facilita</div>
-        <div className={`text-[9px] font-bold mt-0.5 ${subColor}`} style={{ letterSpacing: '0.28em' }}>PrEP</div>
+        <div className={`font-display text-lg leading-none ${wordColor}`} style={{ letterSpacing: '0.04em' }}>CIS</div>
+        <div className={`text-[9px] font-bold mt-0.5 ${subColor}`} style={{ letterSpacing: '0.28em' }}>CLÍNICA</div>
       </div>
     </div>
   )

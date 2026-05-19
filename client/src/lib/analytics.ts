@@ -1,5 +1,5 @@
 /**
- * Analytics for Facilita PrEP (Vite SPA — client/)
+ * Analytics (Vite SPA — client/)
  *
  * GTM loads immediately via client/index.html.
  * This module provides typed helpers for dataLayer events and
@@ -18,7 +18,7 @@ declare global {
     dataLayer: DataLayerEvent[]
     fbq?: (action: string, event: string, params?: Record<string, unknown>) => void
     gtag?: (...args: unknown[]) => void
-    __fp_click_listener_attached__?: boolean
+    __cis_click_listener_attached__?: boolean
   }
 }
 
@@ -52,8 +52,8 @@ export function initGA4(id: string): void {
  */
 export function initClickListener(): void {
   if (typeof window === 'undefined') return
-  if (window.__fp_click_listener_attached__) return
-  window.__fp_click_listener_attached__ = true
+  if (window.__cis_click_listener_attached__) return
+  window.__cis_click_listener_attached__ = true
   document.addEventListener('click', (e) => {
     const el = (e.target as Element).closest('[data-event]')
     if (!el) return

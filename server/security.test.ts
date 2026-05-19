@@ -8,17 +8,14 @@ vi.mock('./_core/env.ts', () => ({
     JWT_SECRET: 'test-secret-with-at-least-32-chars-here',
     ENCRYPTION_KEY: 'a'.repeat(64),
     CPF_HASH_SALT: 'test-salt-with-at-least-32-chars-here',
-    OAUTH_SERVER_URL: 'https://oauth.example.com',
     OWNER_OPEN_ID: 'owner-id',
-    VITE_APP_ID: 'facilita-prep',
     AWS_ACCESS_KEY_ID: 'key',
     AWS_SECRET_ACCESS_KEY: 'secret',
     AWS_REGION: 'sa-east-1',
     AWS_S3_BUCKET: 'bucket',
     REDIS_URL: 'redis://localhost:6379',
-    ASAAS_ENV: 'sandbox',
     BUILT_IN_FORGE_API_URL: 'https://api.anthropic.com',
-    APP_URL: 'https://facilitaprep.com.br',
+    APP_URL: 'https://cis.atos.med.br',
     PORT: 3000,
   },
 }))
@@ -57,13 +54,13 @@ describe('CPF Validator', () => {
 
 describe('Open Redirect Validator', () => {
   it('permite origens da whitelist', () => {
-    expect(isAllowedRedirectUri('https://facilitaprep.com.br/callback')).toBe(true)
+    expect(isAllowedRedirectUri('https://cis.atos.med.br/callback')).toBe(true)
     expect(isAllowedRedirectUri('http://localhost:5173/callback')).toBe(true)
   })
 
   it('bloqueia redirecionamento para domínios externos', () => {
     expect(isAllowedRedirectUri('https://malicioso.com/phishing')).toBe(false)
-    expect(isAllowedRedirectUri('https://facilitaprep.com.br.evil.com/')).toBe(false)
+    expect(isAllowedRedirectUri('https://cis.atos.med.br.evil.com/')).toBe(false)
     expect(isAllowedRedirectUri('javascript:alert(1)')).toBe(false)
   })
 
