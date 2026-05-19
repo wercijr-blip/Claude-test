@@ -1270,7 +1270,7 @@ function painel() {
     exames: [],
 
     // WhatsApp
-    waStatus: null, qrCode: '', qrTimer: null, pollTimer: null,
+    waStatus: null, qrCode: '', qrTimer: null, sseSource: null, sseRetryTimer: null,
 
     // Medicações
     medicacoes: [],
@@ -1299,17 +1299,27 @@ function painel() {
       setInterval(() => this.tickClock(), 1000)
       if (this.autenticado) {
         this.loadAll()
-        this._startPoll()
+        this._startSSE()
       }
     },
 
-    _startPoll() {
-      if (this.pollTimer) return
-      this.pollTimer = setInterval(() => {
-        if (document.hidden) return
-        this.loadSessoesHumanas()
-        this.loadEncaixe()
-      }, 30000)
+    _startSSE() {
+      if (this.sseSource) return
+      const src = new EventSource('/api/events?token=' + encodeURIComponent(this.token))
+      src.addEventListener('session_update', () => this.loadSessoesHumanas())
+      src.addEventListener('encaixe_update', () => this.loadEncaixe())
+      src.onerror = () => {
+        src.close(); this.sseSource = null
+        if (!this.sseRetryTimer) {
+          this.sseRetryTimer = setTimeout(() => { this.sseRetryTimer = null; this._startSSE() }, 15000)
+        }
+      }
+      this.sseSource = src
+    },
+
+    _stopSSE() {
+      if (this.sseSource) { this.sseSource.close(); this.sseSource = null }
+      clearTimeout(this.sseRetryTimer); this.sseRetryTimer = null
     },
 
     tickClock() {
@@ -1343,7 +1353,7 @@ function painel() {
         this.autenticado = true
         if (d.user?.first_login) { this.showChangePwd = true; return }
         this.loadAll()
-        this._startPoll()
+        this._startSSE()
       } catch (e) { this.loginErr = e.message }
       finally { this.loginLoading = false }
     },
@@ -1352,7 +1362,7 @@ function painel() {
       this.token = ''; this.user = null; this.autenticado = false
       localStorage.removeItem('token'); localStorage.removeItem('user')
       clearInterval(this.qrTimer)
-      clearInterval(this.pollTimer); this.pollTimer = null
+      this._stopSSE()
     },
 
     async salvarNovaSenha() {
@@ -1364,7 +1374,7 @@ function painel() {
         await this.api('/auth/change-password', { method:'POST', body: JSON.stringify({ currentPassword: this.currentPwd, newPassword: this.newPwd }) })
         this.showChangePwd = false; this.newPwd = ''; this.newPwd2 = ''; this.currentPwd = ''
         this.loadAll()
-        this._startPoll()
+        this._startSSE()
       } catch (e) { this.changePwdErr = e.message }
     },
 

@@ -3,7 +3,7 @@ import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const DB_PATH = join(__dirname, '../../atos-saude.db')
+const DB_PATH = process.env.DB_PATH || join(__dirname, '../../atos-saude.db')
 
 const db = new Database(DB_PATH)
 db.pragma('journal_mode = WAL')
@@ -148,10 +148,11 @@ db.exec(`
   );
 `)
 
-try { db.exec('CREATE INDEX IF NOT EXISTS idx_messages_log_phone   ON messages_log(phone)') } catch {}
-try { db.exec('CREATE INDEX IF NOT EXISTS idx_messages_log_ts      ON messages_log(timestamp)') } catch {}
-try { db.exec('CREATE INDEX IF NOT EXISTS idx_agendamentos_created ON agendamentos(created_at)') } catch {}
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_messages_log_phone    ON messages_log(phone)') } catch {}
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_messages_log_ts       ON messages_log(timestamp)') } catch {}
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_agendamentos_created  ON agendamentos(created_at)') } catch {}
 try { db.exec('CREATE INDEX IF NOT EXISTS idx_agendamentos_exported ON agendamentos(exported)') } catch {}
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_messages_log_covering ON messages_log(phone, id)') } catch {}
 
 // Adiciona coluna agendamento_id à tabela sessions se ainda não existir
 try { db.exec('ALTER TABLE sessions ADD COLUMN agendamento_id TEXT') } catch {}
@@ -325,8 +326,20 @@ export function toggleUserActive(id, active) {
   db.prepare('UPDATE users SET active = ? WHERE id = ?').run(active ? 1 : 0, id)
 }
 
+const _userCache = new Map()
+const USER_CACHE_TTL = 30_000
+
 export function getUserById(id) {
-  return db.prepare('SELECT id, username, name, role, active FROM users WHERE id = ? AND active = 1').get(id) || null
+  const hit = _userCache.get(id)
+  if (hit && hit.exp > Date.now()) return hit.user
+  const user = db.prepare('SELECT id, username, name, role, active FROM users WHERE id = ? AND active = 1').get(id) || null
+  if (user) _userCache.set(id, { user, exp: Date.now() + USER_CACHE_TTL })
+  else _userCache.delete(id)
+  return user
+}
+
+export function invalidateUserCache(id) {
+  _userCache.delete(id)
 }
 
 export function getUserAnyStatus(id) {

@@ -3,6 +3,7 @@ import { readFileSync, existsSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 import { logger } from '../utils/logger.js'
+import { withRetry } from '../utils/retry.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const DOCTORS_PATH = join(__dirname, '../config/doctors.json')
@@ -63,13 +64,13 @@ export async function getAvailableSlots(doctorId, daysAhead = 14, count = 3) {
   let busyPeriods = []
   if (cal && doctor.calendarId !== 'PREENCHER') {
     try {
-      const fb = await cal.freebusy.query({
+      const fb = await withRetry(() => cal.freebusy.query({
         requestBody: {
           timeMin: now.toISOString(),
           timeMax: timeMax.toISOString(),
           items: [{ id: doctor.calendarId }]
         }
-      })
+      }))
       busyPeriods = fb.data.calendars?.[doctor.calendarId]?.busy || []
     } catch (err) {
       logger.warn({ doctorId, err: err.message }, 'Erro ao buscar freebusy')
@@ -160,7 +161,7 @@ export async function createEvent(doctorId, slotDatetime, patientData) {
   try {
     const start = new Date(slotDatetime)
     const end = new Date(start.getTime() + doctor.slotDurationMinutes * 60 * 1000)
-    const event = await cal.events.insert({
+    const event = await withRetry(() => cal.events.insert({
       calendarId: doctor.calendarId,
       requestBody: {
         summary: `Consulta — ${patientData.nome}`,
@@ -169,7 +170,7 @@ export async function createEvent(doctorId, slotDatetime, patientData) {
         end: { dateTime: end.toISOString() },
         colorId: '5'
       }
-    })
+    }))
     return event.data.id
   } catch (err) {
     logger.error({ doctorId, err: err.message }, 'Erro ao criar evento no Google Calendar')
@@ -184,11 +185,11 @@ export async function deleteEvent(doctorId, eventId) {
   if (!cal || !doctor || doctor.calendarId === 'PREENCHER' || !eventId) return false
 
   try {
-    await cal.events.delete({ calendarId: doctor.calendarId, eventId })
+    await withRetry(() => cal.events.delete({ calendarId: doctor.calendarId, eventId }),
+      { attempts: 3, baseDelayMs: 1000 })
     logger.info({ doctorId, eventId }, 'Evento removido do Google Calendar')
     return true
   } catch (err) {
-    // 410 = já deletado
     if (err.code === 410) return true
     logger.error({ doctorId, eventId, err: err.message }, 'Erro ao deletar evento do Google Calendar')
     return false
@@ -202,7 +203,7 @@ export async function createBlockEvent(doctorId, startISO, endISO, motivo = 'BLO
   if (!cal || !doctor || doctor.calendarId === 'PREENCHER') return null
 
   try {
-    const event = await cal.events.insert({
+    const event = await withRetry(() => cal.events.insert({
       calendarId: doctor.calendarId,
       requestBody: {
         summary: `🚫 ${motivo}`,
@@ -212,7 +213,7 @@ export async function createBlockEvent(doctorId, startISO, endISO, motivo = 'BLO
         colorId: '11',
         transparency: 'opaque'
       }
-    })
+    }))
     logger.info({ doctorId, start: startISO, end: endISO, motivo }, 'Bloqueio criado no Google Calendar')
     return event.data.id
   } catch (err) {

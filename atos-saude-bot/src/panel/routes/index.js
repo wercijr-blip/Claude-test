@@ -11,7 +11,8 @@ import {
   getHumanWaitingSessions, clearSession,
   getConversations, getConversationByPhone,
   getExamSubmissions, insertMessageLog, upsertSession,
-  getAllUsers, insertUser, updateUserPassword, toggleUserActive, getUserAnyStatus
+  getAllUsers, insertUser, updateUserPassword, toggleUserActive, getUserAnyStatus,
+  invalidateUserCache
 } from '../../services/db.js'
 import db from '../../services/db.js'
 import { generateExcel } from '../../services/export.js'
@@ -20,8 +21,9 @@ import { deleteEvent, createBlockEvent, createEvent, getDoctorSlots, createDocto
 import { sendText } from '../../services/whatsapp.js'
 import { msg, invalidateCache } from '../../utils/messages.js'
 import { fmtHora, fmtData, notificarEncaixe } from '../../services/scheduler.js'
-import { requireAuth, hashPassword } from '../../services/auth.js'
+import { requireAuth, hashPassword, verifyToken } from '../../services/auth.js'
 import { readFileSync, writeFileSync } from 'fs'
+import { addSSEClient, broadcastSSE } from '../../utils/sse.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const UPLOADS_DIR = join(__dirname, '../../../uploads')
@@ -46,6 +48,15 @@ const upload = multer({
 })
 
 const apiRouter = Router()
+
+// GET /api/events — SSE stream para atualizações em tempo real
+// EventSource não suporta headers customizados — token via query string
+apiRouter.get('/events', (req, res) => {
+  const user = verifyToken(req.query.token || '')
+  if (!user) return res.status(401).end()
+  if (!['admin', 'secretaria'].includes(user.role)) return res.status(403).end()
+  addSSEClient(req, res)
+})
 
 // Todas as rotas da API exigem autenticação
 apiRouter.use(requireAuth())
@@ -427,12 +438,14 @@ apiRouter.post('/encaixe', requireAuth(['admin', 'secretaria']), (req, res) => {
   const { phone, nome, especialidade, medico_id } = req.body
   if (!phone) return res.status(400).json({ error: 'phone é obrigatório.' })
   const id = insertEncaixe({ phone, nome, especialidade, medico_id })
+  broadcastSSE('encaixe_update')
   res.json({ ok: true, id })
 })
 
 // DELETE /api/encaixe/:id
 apiRouter.delete('/encaixe/:id', requireAuth(['admin', 'secretaria']), (req, res) => {
   removeEncaixe(Number(req.params.id))
+  broadcastSSE('encaixe_update')
   res.json({ ok: true })
 })
 
@@ -456,6 +469,7 @@ apiRouter.post('/agendamentos/:id/cancelar-encaixe', async (req, res) => {
 // POST /api/sessions/:phone/encerrar  (secretaria/admin marca atendimento humano como assumido)
 apiRouter.post('/sessions/:phone/encerrar', requireAuth(['admin','secretaria']), (req, res) => {
   clearSession(req.params.phone)
+  broadcastSSE('session_update')
   res.json({ ok: true })
 })
 
@@ -583,6 +597,7 @@ apiRouter.post('/sessions/:phone/assume', requireAuth(['admin','secretaria']), (
     flow: 'HUMANO', step: 'HUMANO',
     human_transfer_at: new Date().toISOString()
   })
+  broadcastSSE('session_update')
   res.json({ ok: true })
 })
 
@@ -723,6 +738,7 @@ apiRouter.patch('/usuarios/:id/toggle', requireAuth(['admin']), (req, res) => {
   const user = getUserAnyStatus(Number(req.params.id))
   if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' })
   toggleUserActive(user.id, !user.active)
+  invalidateUserCache(user.id)
   res.json({ ok: true, active: !user.active })
 })
 
@@ -730,7 +746,9 @@ apiRouter.patch('/usuarios/:id/toggle', requireAuth(['admin']), (req, res) => {
 apiRouter.patch('/usuarios/:id/reset-senha', requireAuth(['admin']), (req, res) => {
   const { password } = req.body
   if (!password || password.length < 6) return res.status(400).json({ error: 'Senha mínimo 6 caracteres.' })
-  updateUserPassword(req.params.id, hashPassword(password))
+  const id = Number(req.params.id)
+  updateUserPassword(id, hashPassword(password))
+  invalidateUserCache(id)
   res.json({ ok: true })
 })
 

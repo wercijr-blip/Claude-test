@@ -4,18 +4,17 @@ import { checkLimit } from '../utils/rate-limiter.js'
 import { getSession, insertMessageLog } from '../services/db.js'
 import { logger } from '../utils/logger.js'
 import { router } from '../handlers/router.js'
+import { broadcastSSE } from '../utils/sse.js'
 
 const MEDIA_TYPES = new Set(['imageMessage','documentMessage','audioMessage','videoMessage','stickerMessage','documentWithCaptionMessage'])
 
-const WEBHOOK_SECRET = process.env.EVOLUTION_WEBHOOK_SECRET
-const WEBHOOK_SECRET_BUF = WEBHOOK_SECRET ? Buffer.from(WEBHOOK_SECRET) : null
-
 export async function handleWebhook(req, res) {
-  if (WEBHOOK_SECRET_BUF) {
+  const secret = process.env.EVOLUTION_WEBHOOK_SECRET
+  if (secret) {
     const incoming = req.headers['apikey'] || ''
+    const secretBuf = Buffer.from(secret)
     const incomingBuf = Buffer.from(incoming)
-    if (incomingBuf.length !== WEBHOOK_SECRET_BUF.length ||
-        !timingSafeEqual(incomingBuf, WEBHOOK_SECRET_BUF)) {
+    if (incomingBuf.length !== secretBuf.length || !timingSafeEqual(incomingBuf, secretBuf)) {
       return res.sendStatus(401)
     }
   }
@@ -71,7 +70,12 @@ export async function handleWebhook(req, res) {
     try { insertMessageLog({ phone, direction: 'IN', text, flow: session?.flow || null, step: session?.step || null }) } catch {}
 
     logger.info({ phone, text }, 'Mensagem recebida')
+    const flowAntes = session?.flow
     await router(phone, text, pushName)
+    if (flowAntes !== 'HUMANO') {
+      const sessaoAtual = await getSession(phone)
+      if (sessaoAtual?.flow === 'HUMANO') broadcastSSE('session_update')
+    }
   } catch (err) {
     logger.error({ err: err.message }, 'Erro no webhook')
     const rawPhone = req.body?.data?.messages?.[0]?.key?.remoteJid || ''
