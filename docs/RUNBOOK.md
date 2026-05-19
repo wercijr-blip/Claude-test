@@ -206,3 +206,56 @@ AWS_S3_BUCKET         # S3 bucket name
 AWS_REGION            # sa-east-1
 APP_URL               # URL pública — https://cis.atos.med.br
 ```
+
+---
+
+## 9. Template de Post-Mortem
+
+Usar após qualquer incidente SEV-1 (dados inacessíveis, falha de auth, DLQ acumulando) ou SEV-2 (degradação >15min).
+
+```markdown
+# Post-Mortem: [Título Breve do Incidente]
+
+**Data:** YYYY-MM-DD  
+**Duração:** HH:MM – HH:MM BRT  
+**Severidade:** SEV-1 / SEV-2  
+**Sistemas afetados:** CIS API / BullMQ / Redis / TiDB / S3 / Anthropic  
+
+## Resumo
+
+Uma frase descrevendo o que aconteceu e o impacto clínico (se houver).
+
+## Linha do tempo
+
+| Hora BRT | Evento |
+|---|---|
+| HH:MM | Incidente detectado via alerta / usuário |
+| HH:MM | Início da investigação |
+| HH:MM | Causa-raiz identificada |
+| HH:MM | Mitigação aplicada |
+| HH:MM | Serviço restaurado |
+
+## Causa-raiz
+
+Descrever a causa técnica precisa (código, configuração, infraestrutura).
+
+## Impacto
+
+- Consultas afetadas: N
+- SOAPs perdidos: N (se houver)
+- Tempo de indisponibilidade: HH:MM
+
+## O que funcionou bem
+
+- …
+
+## O que poderia ter sido melhor
+
+- …
+
+## Ações corretivas
+
+| Ação | Responsável | Prazo |
+|---|---|---|
+| … | Werciley | YYYY-MM-DD |
+```

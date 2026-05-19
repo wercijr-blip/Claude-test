@@ -13,6 +13,7 @@
 import { Queue, Worker } from 'bullmq'
 import { env } from './_core/env.ts'
 import { redis, QUEUE_PREFIX } from './_core/redis.ts'
+import { sendToDlq } from './_core/dlq.ts'
 import { db } from './db.ts'
 import { soapNotes, publicationDrafts } from '../drizzle/cis-schema.ts'
 import { eq, and, inArray, gte, desc } from 'drizzle-orm'
@@ -193,10 +194,7 @@ export function startCaseSeriesWorker() {
   )
 
   worker.on('failed', (job, err) => {
-    logger.error(`[caseSeriesQueue] Job ${job?.id} falhou`, {
-      cid10: job?.data?.cid10,
-      err: err.message,
-    })
+    sendToDlq('case-series', job, err).catch(() => null)
   })
 
   worker.on('completed', (job, result) => {

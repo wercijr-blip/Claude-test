@@ -8,6 +8,7 @@
  */
 
 import { Queue, Worker } from 'bullmq'
+import { sendToDlq } from './_core/dlq.ts'
 import { env } from './_core/env.ts'
 import { redis, QUEUE_PREFIX } from './_core/redis.ts'
 import { db } from './db.ts'
@@ -310,13 +311,7 @@ export function startPubmedWorker() {
   )
 
   worker.on('failed', (job, err) => {
-    logger.error('[pubmedQueue] Job falhou definitivamente (DLQ)', {
-      jobId: job?.id,
-      soapNoteId: job?.data?.soapNoteId,
-      requestId: job?.data?.requestId,
-      attempts: job?.attemptsMade,
-      error: err.message,
-    })
+    sendToDlq('pubmed-synthesis', job, err).catch(() => null)
   })
 
   worker.on('completed', (job, result) => {

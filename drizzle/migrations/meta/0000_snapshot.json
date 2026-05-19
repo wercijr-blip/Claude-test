@@ -1,0 +1,939 @@
+{
+  "version": "5",
+  "dialect": "mysql",
+  "id": "7a763019-bc38-4baa-9ff9-6b4f2008dade",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "tables": {
+    "clinical_digests": {
+      "name": "clinical_digests",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "medico_id": {
+          "name": "medico_id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tipo": {
+          "name": "tipo",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "periodo_ref": {
+          "name": "periodo_ref",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "texto": {
+          "name": "texto",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "total_consultas": {
+          "name": "total_consultas",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "total_alertas": {
+          "name": "total_alertas",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "gerado_em": {
+          "name": "gerado_em",
+          "type": "datetime",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "batch_id": {
+          "name": "batch_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "obsidian_path": {
+          "name": "obsidian_path",
+          "type": "varchar(500)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "idx_cdigests_medico": {
+          "name": "idx_cdigests_medico",
+          "columns": [
+            "medico_id"
+          ],
+          "isUnique": false
+        },
+        "idx_cdigests_tipo": {
+          "name": "idx_cdigests_tipo",
+          "columns": [
+            "tipo"
+          ],
+          "isUnique": false
+        },
+        "idx_cdigests_periodo": {
+          "name": "idx_cdigests_periodo",
+          "columns": [
+            "medico_id",
+            "tipo",
+            "periodo_ref"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "clinical_digests_medico_id_users_id_fk": {
+          "name": "clinical_digests_medico_id_users_id_fk",
+          "tableFrom": "clinical_digests",
+          "tableTo": "users",
+          "columnsFrom": [
+            "medico_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "clinical_digests_id": {
+          "name": "clinical_digests_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
+    "clinical_sessions": {
+      "name": "clinical_sessions",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "medico_id": {
+          "name": "medico_id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "aberta_em": {
+          "name": "aberta_em",
+          "type": "datetime",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "encerrada_em": {
+          "name": "encerrada_em",
+          "type": "datetime",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "total_consultas": {
+          "name": "total_consultas",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "datetime",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {
+        "idx_csessions_medico": {
+          "name": "idx_csessions_medico",
+          "columns": [
+            "medico_id"
+          ],
+          "isUnique": false
+        },
+        "idx_csessions_aberta": {
+          "name": "idx_csessions_aberta",
+          "columns": [
+            "aberta_em"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "clinical_sessions_medico_id_users_id_fk": {
+          "name": "clinical_sessions_medico_id_users_id_fk",
+          "tableFrom": "clinical_sessions",
+          "tableTo": "users",
+          "columnsFrom": [
+            "medico_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "clinical_sessions_id": {
+          "name": "clinical_sessions_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
+    "conduct_alerts": {
+      "name": "conduct_alerts",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "soap_note_id": {
+          "name": "soap_note_id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "medico_id": {
+          "name": "medico_id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "diagnostico": {
+          "name": "diagnostico",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "cid10": {
+          "name": "cid10",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "nivel_urgencia": {
+          "name": "nivel_urgencia",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "hash_alerta": {
+          "name": "hash_alerta",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "alerta_json": {
+          "name": "alerta_json",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "mensagem_medico": {
+          "name": "mensagem_medico",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "visto_por_id": {
+          "name": "visto_por_id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "visto_em": {
+          "name": "visto_em",
+          "type": "datetime",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "supressao_ate": {
+          "name": "supressao_ate",
+          "type": "datetime",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "feedback_medico": {
+          "name": "feedback_medico",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "feedback_motivo": {
+          "name": "feedback_motivo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "feedback_em": {
+          "name": "feedback_em",
+          "type": "datetime",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "datetime",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {
+        "idx_calerts_soap": {
+          "name": "idx_calerts_soap",
+          "columns": [
+            "soap_note_id"
+          ],
+          "isUnique": false
+        },
+        "idx_calerts_medico": {
+          "name": "idx_calerts_medico",
+          "columns": [
+            "medico_id"
+          ],
+          "isUnique": false
+        },
+        "idx_calerts_urgencia": {
+          "name": "idx_calerts_urgencia",
+          "columns": [
+            "nivel_urgencia"
+          ],
+          "isUnique": false
+        },
+        "idx_calerts_visto": {
+          "name": "idx_calerts_visto",
+          "columns": [
+            "visto_em"
+          ],
+          "isUnique": false
+        },
+        "idx_calerts_hash": {
+          "name": "idx_calerts_hash",
+          "columns": [
+            "hash_alerta"
+          ],
+          "isUnique": false
+        },
+        "idx_calerts_feedback": {
+          "name": "idx_calerts_feedback",
+          "columns": [
+            "feedback_medico"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "conduct_alerts_soap_note_id_soap_notes_id_fk": {
+          "name": "conduct_alerts_soap_note_id_soap_notes_id_fk",
+          "tableFrom": "conduct_alerts",
+          "tableTo": "soap_notes",
+          "columnsFrom": [
+            "soap_note_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "conduct_alerts_medico_id_users_id_fk": {
+          "name": "conduct_alerts_medico_id_users_id_fk",
+          "tableFrom": "conduct_alerts",
+          "tableTo": "users",
+          "columnsFrom": [
+            "medico_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "conduct_alerts_visto_por_id_users_id_fk": {
+          "name": "conduct_alerts_visto_por_id_users_id_fk",
+          "tableFrom": "conduct_alerts",
+          "tableTo": "users",
+          "columnsFrom": [
+            "visto_por_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "conduct_alerts_id": {
+          "name": "conduct_alerts_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
+    "publication_drafts": {
+      "name": "publication_drafts",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "medico_id": {
+          "name": "medico_id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tipo": {
+          "name": "tipo",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'rascunho'"
+        },
+        "titulo": {
+          "name": "titulo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "diagnostico": {
+          "name": "diagnostico",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "cid10": {
+          "name": "cid10",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "n_casos": {
+          "name": "n_casos",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 0
+        },
+        "soap_note_ids": {
+          "name": "soap_note_ids",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "tema": {
+          "name": "tema",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "n_artigos": {
+          "name": "n_artigos",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 0
+        },
+        "jornal": {
+          "name": "jornal",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "doi": {
+          "name": "doi",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "data_submissao": {
+          "name": "data_submissao",
+          "type": "datetime",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "data_publicacao": {
+          "name": "data_publicacao",
+          "type": "datetime",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "texto_gerado": {
+          "name": "texto_gerado",
+          "type": "longtext",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "datetime",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "datetime",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {
+        "idx_pdrafts_medico": {
+          "name": "idx_pdrafts_medico",
+          "columns": [
+            "medico_id"
+          ],
+          "isUnique": false
+        },
+        "idx_pdrafts_status": {
+          "name": "idx_pdrafts_status",
+          "columns": [
+            "status"
+          ],
+          "isUnique": false
+        },
+        "idx_pdrafts_cid10": {
+          "name": "idx_pdrafts_cid10",
+          "columns": [
+            "cid10"
+          ],
+          "isUnique": false
+        },
+        "idx_pdrafts_uniq_cid10": {
+          "name": "idx_pdrafts_uniq_cid10",
+          "columns": [
+            "medico_id",
+            "tipo",
+            "cid10",
+            "status"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "publication_drafts_medico_id_users_id_fk": {
+          "name": "publication_drafts_medico_id_users_id_fk",
+          "tableFrom": "publication_drafts",
+          "tableTo": "users",
+          "columnsFrom": [
+            "medico_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "publication_drafts_id": {
+          "name": "publication_drafts_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
+    "soap_notes": {
+      "name": "soap_notes",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "session_id": {
+          "name": "session_id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "medico_id": {
+          "name": "medico_id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "paciente_nome_encrypted": {
+          "name": "paciente_nome_encrypted",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "template": {
+          "name": "template",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'infectologia_geral'"
+        },
+        "soap_texto": {
+          "name": "soap_texto",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "knowledge_metadata": {
+          "name": "knowledge_metadata",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "diagnostico_principal": {
+          "name": "diagnostico_principal",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "cid10": {
+          "name": "cid10",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "certeza": {
+          "name": "certeza",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "pubmed_query": {
+          "name": "pubmed_query",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sintese_evidencias": {
+          "name": "sintese_evidencias",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "evidence_metadata": {
+          "name": "evidence_metadata",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "retencao_ate": {
+          "name": "retencao_ate",
+          "type": "datetime",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 20 YEAR)"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "datetime",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "datetime",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {
+        "idx_soap_session": {
+          "name": "idx_soap_session",
+          "columns": [
+            "session_id"
+          ],
+          "isUnique": false
+        },
+        "idx_soap_medico": {
+          "name": "idx_soap_medico",
+          "columns": [
+            "medico_id"
+          ],
+          "isUnique": false
+        },
+        "idx_soap_cid10": {
+          "name": "idx_soap_cid10",
+          "columns": [
+            "cid10"
+          ],
+          "isUnique": false
+        },
+        "idx_soap_created": {
+          "name": "idx_soap_created",
+          "columns": [
+            "created_at"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "soap_notes_session_id_clinical_sessions_id_fk": {
+          "name": "soap_notes_session_id_clinical_sessions_id_fk",
+          "tableFrom": "soap_notes",
+          "tableTo": "clinical_sessions",
+          "columnsFrom": [
+            "session_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "soap_notes_medico_id_users_id_fk": {
+          "name": "soap_notes_medico_id_users_id_fk",
+          "tableFrom": "soap_notes",
+          "tableTo": "users",
+          "columnsFrom": [
+            "medico_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "soap_notes_id": {
+          "name": "soap_notes_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
+    "users": {
+      "name": "users",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "open_id": {
+          "name": "open_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "nome": {
+          "name": "nome",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "role": {
+          "name": "role",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'medico'"
+        },
+        "ativo": {
+          "name": "ativo",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "totp_enabled": {
+          "name": "totp_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "datetime",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "datetime",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "datetime",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {
+        "idx_users_open_id": {
+          "name": "idx_users_open_id",
+          "columns": [
+            "open_id"
+          ],
+          "isUnique": true
+        },
+        "idx_users_role": {
+          "name": "idx_users_role",
+          "columns": [
+            "role"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "users_id": {
+          "name": "users_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    }
+  },
+  "views": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "tables": {},
+    "indexes": {}
+  }
+}

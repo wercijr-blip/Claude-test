@@ -20,6 +20,7 @@ import {
   transcribeWithChunking,
 } from '../scriba.ts'
 import { getPresignedUrl } from '../storage.ts'
+import { logAudit } from '../_core/audit.ts'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -42,7 +43,9 @@ export const scribaRouter = router({
   abrirSessao: medicoProcedure
     .mutation(async ({ ctx }) => {
       const medicoId = ctx.session.id
-      return abrirSessao(medicoId)
+      const sessao = await abrirSessao(medicoId)
+      logAudit({ actorId: medicoId, actorRole: ctx.session.role, action: 'session.open', resourceType: 'clinical_session', resourceId: sessao.sessionId })
+      return sessao
     }),
 
   /** Encerra a sessão e enfileira o digest diário. */
@@ -60,6 +63,7 @@ export const scribaRouter = router({
       assertOwnership(sessao, medicoId, 'Sessão não encontrada')
 
       await encerrarSessao(input.sessionId, medicoId)
+      logAudit({ actorId: medicoId, actorRole: ctx.session.role, action: 'session.close', resourceType: 'clinical_session', resourceId: input.sessionId })
       return { ok: true }
     }),
 
@@ -147,6 +151,7 @@ export const scribaRouter = router({
         examesTexto: input.examesTexto,
       })
 
+      logAudit({ actorId: medicoId, actorRole: ctx.session.role, action: 'soap.create', resourceType: 'soap_note', resourceId: resultado.soapNoteId, detalhes: { template: input.template, sessionId: input.sessionId } })
       return resultado
     }),
 
@@ -303,6 +308,7 @@ export const scribaRouter = router({
         })
         .where(eq(conductAlerts.id, input.alertaId))
 
+      logAudit({ actorId: medicoId, actorRole: ctx.session.role, action: 'alert.feedback', resourceType: 'conduct_alert', resourceId: input.alertaId, detalhes: { feedback: input.feedback } })
       return { ok: true }
     }),
 
@@ -340,6 +346,7 @@ export const scribaRouter = router({
         .set({ supressaoAte, vistoPorId: medicoId, vistoEm: new Date() })
         .where(eq(conductAlerts.id, input.alertaId))
 
+      logAudit({ actorId: medicoId, actorRole: ctx.session.role, action: 'alert.suppress', resourceType: 'conduct_alert', resourceId: input.alertaId, detalhes: { dias, supressaoAte } })
       return { ok: true, supressaoAte, dias }
     }),
 
@@ -362,6 +369,7 @@ export const scribaRouter = router({
         .set({ vistoPorId: medicoId, vistoEm: new Date() })
         .where(eq(conductAlerts.id, input.alertaId))
 
+      logAudit({ actorId: medicoId, actorRole: ctx.session.role, action: 'alert.view', resourceType: 'conduct_alert', resourceId: input.alertaId })
       return { ok: true }
     }),
 

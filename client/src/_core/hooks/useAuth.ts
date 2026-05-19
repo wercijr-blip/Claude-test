@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import type { AuthUser, PatientSession } from '@shared/types.ts'
+import type { AuthUser } from '@shared/types.ts'
 
 const TOKEN_KEY = 'cis_token'
 
@@ -55,11 +55,11 @@ export function useAuth() {
   return { token, setToken, logout, getToken, isAuthenticated: !!token }
 }
 
-export function parseJwtPayload(token: string): AuthUser | PatientSession | null {
+export function parseJwtPayload(token: string): AuthUser | null {
   try {
     const [, payload] = token.split('.')
     const decoded = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')))
-    return decoded as AuthUser | PatientSession
+    return decoded as AuthUser
   } catch {
     return null
   }

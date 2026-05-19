@@ -1,166 +1,5 @@
-// O step "Serviço" foi removido do fluxo — não tinha campo útil pro
-// paciente (tipo de atendimento e convênio já vêm do intake/Stripe).
-// Pacientes existentes com currentStep=6 (estavam no Serviço antigo)
-// passam direto pro TCLE — comportamento idempotente.
-export const FORM_STEPS = [
-  { step: 1, titulo: 'Dados Pessoais', rota: 'paciente' },
-  { step: 2, titulo: 'Dados Demográficos', rota: 'demografico' },
-  { step: 3, titulo: 'Contato', rota: 'contato' },
-  { step: 4, titulo: 'Conduta', rota: 'conduta' },
-  { step: 5, titulo: 'Prescrição', rota: 'prescricao' },
-  { step: 6, titulo: 'TCLE', rota: 'tcle' },
-] as const
-
-export const TOTAL_FORM_STEPS = 6
-
-export const ERROR_MESSAGES = {
-  UNAUTHORIZED: 'Não autorizado. Faça login para continuar.',
-  FORBIDDEN: 'Acesso negado. Você não tem permissão para esta ação.',
-  TOKEN_INVALID: 'Link inválido ou expirado.',
-  TOKEN_EXPIRED: 'LINK_EXPIRED',
-  TOKEN_USED: 'Este link já foi utilizado.',
-  TOKEN_REVOKED: 'Este link foi revogado.',
-  CPF_INVALID: 'CPF inválido.',
-  NOT_FOUND: 'Registro não encontrado.',
-  INTERNAL_ERROR: 'Erro interno. Tente novamente.',
-  UPLOAD_SIZE: 'Arquivo muito grande. Máximo 10MB.',
-  UPLOAD_TYPE: 'Tipo de arquivo não permitido.',
-  RATE_LIMIT: 'Muitas tentativas. Aguarde e tente novamente.',
-} as const
-
-export const ROLES = {
-  USER: 'user',
-  SECRETARIA: 'secretaria',
-  MEDICO: 'medico',
-  ADMIN: 'admin',
-} as const
-
-export const PACIENTE_STATUS = {
-  RASCUNHO: 'rascunho',
-  PENDENTE: 'pendente',
-  EM_REVISAO: 'em_revisao',
-  APROVADO: 'aprovado',
-  REJEITADO: 'rejeitado',
-} as const
-
-export const COR_RACA_OPTIONS = [
-  { value: 'branca', label: 'Branca' },
-  { value: 'preta', label: 'Preta' },
-  { value: 'parda', label: 'Parda' },
-  { value: 'amarela', label: 'Amarela' },
-  { value: 'indigena', label: 'Indígena' },
-  { value: 'nao_informado', label: 'Prefiro não informar' },
-] as const
-
-export const IDENTIDADE_GENERO_OPTIONS = [
-  { value: 'cisgênero_fem', label: 'Mulher cisgênero' },
-  { value: 'cisgênero_masc', label: 'Homem cisgênero' },
-  { value: 'transgênero_fem', label: 'Mulher transgênero / Travesti' },
-  { value: 'transgênero_masc', label: 'Homem transgênero' },
-  { value: 'nao_binario', label: 'Não-binário(a)' },
-  { value: 'nao_informado', label: 'Prefiro não informar' },
-] as const
-
-export const ORIENTACAO_SEXUAL_OPTIONS = [
-  { value: 'heterossexual', label: 'Heterossexual' },
-  { value: 'homossexual', label: 'Gay / Lésbica' },
-  { value: 'bissexual', label: 'Bissexual' },
-  { value: 'nao_informado', label: 'Prefiro não informar' },
-] as const
-
-export const ESCOLARIDADE_OPTIONS = [
-  { value: 'sem_escolaridade', label: 'Sem escolaridade' },
-  { value: 'fundamental_incompleto', label: 'Fundamental incompleto' },
-  { value: 'fundamental_completo', label: 'Fundamental completo' },
-  { value: 'medio_incompleto', label: 'Médio incompleto' },
-  { value: 'medio_completo', label: 'Médio completo' },
-  { value: 'superior_incompleto', label: 'Superior incompleto' },
-  { value: 'superior_completo', label: 'Superior completo' },
-  { value: 'pos_graduacao', label: 'Pós-graduação' },
-] as const
-
-export const ESTADOS_BR = [
-  'AC','AL','AP','AM','BA','CE','DF','ES','GO',
-  'MA','MT','MS','MG','PA','PB','PR','PE','PI',
-  'RJ','RN','RS','RO','RR','SC','SP','SE','TO',
-] as const
-
-export const PLANOS_VALIDOS = [
-  'AFEB BRASAL',
-  'AFFEGO',
-  'ASTE (ASETE)',
-  'ASSEDF / VIDA CARD',
-  'BACEN',
-  'BOMBEIROS DF',
-  'BRB SAÚDE',
-  'CAEME-GO',
-  'CAESAN',
-  'CAIXA SAÚDE',
-  'CAMED',
-  'CARE PLUS',
-  'CASEC (CODEVASF)',
-  'CNTI',
-  'CONAB',
-  'E-VIDA (ELETRONORTE)',
-  'EMB. DA AUSTRÁLIA',
-  'EMB. COTE D\'IVOIRE',
-  'EMB. DA DINAMARCA',
-  'EMB. DA QUÊNIA',
-  'EMBRATEL — DEMAIS PLANOS',
-  'FACEB',
-  'FAPES (BNDES)',
-  'FASCAL',
-  'FUSEX',
-  'GAMA SAÚDE',
-  'GRAVIA',
-  'INFRAERO',
-  'LIFE EMPRESARIAL',
-  'MEDSENIOR',
-  'NOTRE DAME',
-  'OMINT SAÚDE',
-  'PETROBRÁS DISTRIBUIDORA',
-  'PETROBRÁS PETRÓLEO',
-  'PLAN ASSISTE (MPF)',
-  'PLAN ASSISTE (MPM)',
-  'PLAN ASSISTE (MPT)',
-  'PLAS/JMU (STM)',
-  'PMDF',
-  'POSTAL SAÚDE (ECT)',
-  'PROASA',
-  'PRÓ-SAÚDE (TJDFT)',
-  'PRÓ-SOCIAL (TRF)',
-  'REAL GRANDEZA',
-  'SERPRO',
-  'STF-MED (STF)',
-  'SULAMÉRICA',
-  'TRE SAÚDE',
-  'TRT SAÚDE',
-  'TST SAÚDE',
-  'UNAFISCO (SINDIFISCO)',
-  'Outro',
-] as const
-
-export const HORARIO_ATENDIMENTO = {
-  ABERTURA_HORA: 8,
-  FECHAMENTO_HORA: 18,
-} as const
-
-export const PRECADASTRO_STATUS = {
-  AGUARDANDO_VALIDACAO: 'aguardando_validacao',
-  AGUARDANDO_PAGAMENTO: 'aguardando_pagamento',
-  LINK_ENVIADO: 'link_enviado',
-  REJEITADO: 'rejeitado',
-} as const
-
-export const VALOR_CONSULTA_CENTAVOS = 25000 // R$ 250,00
-
-export const TIPO_CONSULTA = {
-  PRIMEIRO_ATENDIMENTO: 'primeiro_atendimento',
-  JA_FACO_PREP: 'ja_faco_prep',
-} as const
-
 // ── Dados institucionais da clínica ──────────────────────────
-// Usados nos cabeçalhos dos PDFs custom (Receita, Formulário, Pedidos de Exame).
+// Usados nos cabeçalhos dos documentos clínicos (receitas, pedidos de exame).
 // Fonte de verdade — alterando aqui propaga para todos os documentos.
 export const CLINICA_INFO = {
   nomeFantasia: 'Iaso Saúde Hospital Dia',
@@ -176,45 +15,6 @@ export const CLINICA_INFO = {
   crmRt: 'CRM/DF 16381',
   appNome: 'CIS',
   appTagline: 'Clinical Intelligence System',
-} as const
-
-// ── Modalidades de PrEP ──────────────────────────────────────
-// PrEP diária é o esquema preferencial (recomendação oficial AZT/MS).
-// Sob demanda (2-1-1) restrito a homens cis HSH adultos com contato
-// sexual programado e baixa frequência.
-export const PREP_MODALIDADE = {
-  DIARIA: 'PrEP diária',
-  SOB_DEMANDA: 'PrEP sob demanda',
-} as const
-
-export type PrepModalidade = typeof PREP_MODALIDADE[keyof typeof PREP_MODALIDADE]
-
-/** Posologia e duração padrão por modalidade (preenche prescricaoJson). */
-export const PREP_POSOLOGIA: Record<PrepModalidade, { posologia: string; duracao: string }> = {
-  'PrEP diária': {
-    posologia: '1 comprimido por via oral, uma vez ao dia, em horário fixo',
-    duracao: 'Uso contínuo — reavaliar a cada 90 dias com o médico',
-  },
-  'PrEP sob demanda': {
-    posologia: 'Esquema 2-1-1: 2 comp 2-24h antes da relação sexual, 1 comp 24h após a 1ª dose, 1 comp 48h após a 1ª dose',
-    duracao: 'Conforme exposição — reavaliar elegibilidade a cada 90 dias',
-  },
-}
-
-export const STATUS_EXAME = {
-  AGUARDANDO_ESCOLHA: 'aguardando_escolha',
-  AGUARDANDO_UPLOAD: 'aguardando_upload',
-  EM_VALIDACAO_IA: 'em_validacao_ia',
-  EM_VALIDACAO_MEDICA: 'em_validacao_medica',
-  APROVADO: 'aprovado',
-  REJEITADO: 'rejeitado',
-} as const
-
-export const MOTIVO_REJEICAO_EXAME = {
-  ILEGIVEL: 'ilegivel',
-  DATA_INVALIDA: 'data_invalida',
-  NOME_DIVERGENTE: 'nome_divergente',
-  RESULTADO_POSITIVO: 'resultado_positivo',
 } as const
 
 // ── Estrutura de exame com código TUSS ───────────────────────
@@ -309,9 +109,7 @@ export const CATALOGO_EXAMES = {
 
 // ── PDF 1 — Pedido Completo: Primeiro Atendimento ─────────────
 export const EXAMES_PRIMEIRO_ATENDIMENTO: readonly Exame[] = [
-  // Hematologia
   CATALOGO_EXAMES.HEMOGRAMA,
-  // Bioquímica / Função renal
   CATALOGO_EXAMES.UREIA,
   CATALOGO_EXAMES.CREATININA,
   CATALOGO_EXAMES.SODIO,
@@ -323,7 +121,6 @@ export const EXAMES_PRIMEIRO_ATENDIMENTO: readonly Exame[] = [
   CATALOGO_EXAMES.EAS,
   CATALOGO_EXAMES.PROTEINURIA,
   CATALOGO_EXAMES.CREATININA_PROTEINA,
-  // Função hepática
   CATALOGO_EXAMES.TGO,
   CATALOGO_EXAMES.TGP,
   CATALOGO_EXAMES.FOSFATASE_ALC,
@@ -331,149 +128,70 @@ export const EXAMES_PRIMEIRO_ATENDIMENTO: readonly Exame[] = [
   CATALOGO_EXAMES.PROTEINAS_TOTAIS,
   CATALOGO_EXAMES.BILIRRUBINAS,
   CATALOGO_EXAMES.DHL,
-  // Inflamação
   CATALOGO_EXAMES.PCR,
   CATALOGO_EXAMES.VHS,
-  // Sífilis
   CATALOGO_EXAMES.SIFILIS_ECMIA,
   CATALOGO_EXAMES.SIFILIS_VDRL,
   CATALOGO_EXAMES.SIFILIS_FTA_IGM,
   CATALOGO_EXAMES.SIFILIS_FTA_IGG,
   CATALOGO_EXAMES.SIFILIS_TPHA,
   CATALOGO_EXAMES.SIFILIS_TP_TOTAL,
-  // HIV / HTLV
   CATALOGO_EXAMES.HIV,
   CATALOGO_EXAMES.HTLV,
-  // Hepatite A
   CATALOGO_EXAMES.HAV_TOTAL,
   CATALOGO_EXAMES.HAV_IGM,
-  // Hepatite B
   CATALOGO_EXAMES.HBSAG,
   CATALOGO_EXAMES.ANTI_HBS,
   CATALOGO_EXAMES.ANTI_HBC_TOTAL,
   CATALOGO_EXAMES.ANTI_HBC_IGM,
   CATALOGO_EXAMES.HBEAG,
   CATALOGO_EXAMES.ANTI_HBE,
-  // Hepatite C
   CATALOGO_EXAMES.ANTI_HCV,
-  // Clamídia
   CATALOGO_EXAMES.CLAMÍDIA_IGG,
   CATALOGO_EXAMES.CLAMÍDIA_IGM,
   CATALOGO_EXAMES.CLAMÍDIA_PCR,
   CATALOGO_EXAMES.CLAMÍDIA_CULTURA,
-  // Gonorreia
   CATALOGO_EXAMES.GONORREIA_PCR,
   CATALOGO_EXAMES.GONORREIA_CULTURA,
-  // Mycoplasma / Ureaplasma
   CATALOGO_EXAMES.MYCOPLASMA,
   CATALOGO_EXAMES.UREAPLASMA,
-  // Painel molecular
   CATALOGO_EXAMES.PAINEL_IST_MOLECULAR,
 ]
 
-// ── PDF 1 — Pedido Completo: Acompanhamento (já faz PrEP) ─────
+// ── PDF 1 — Pedido Completo: Acompanhamento ───────────────────
 export const EXAMES_FOLLOWUP_PREP: readonly Exame[] = [
-  // Hematologia
-  CATALOGO_EXAMES.HEMOGRAMA,
-  // Bioquímica / Função renal
-  CATALOGO_EXAMES.UREIA,
-  CATALOGO_EXAMES.CREATININA,
-  CATALOGO_EXAMES.SODIO,
-  CATALOGO_EXAMES.POTASSIO,
-  CATALOGO_EXAMES.CALCIO_TOTAL,
-  CATALOGO_EXAMES.CALCIO_IONICO,
-  CATALOGO_EXAMES.MAGNESIO,
-  CATALOGO_EXAMES.FOSFORO,
-  CATALOGO_EXAMES.EAS,
-  CATALOGO_EXAMES.PROTEINURIA,
-  CATALOGO_EXAMES.CREATININA_PROTEINA,
-  // Função hepática
-  CATALOGO_EXAMES.TGO,
-  CATALOGO_EXAMES.TGP,
-  CATALOGO_EXAMES.FOSFATASE_ALC,
-  CATALOGO_EXAMES.GAMA_GT,
-  CATALOGO_EXAMES.PROTEINAS_TOTAIS,
-  CATALOGO_EXAMES.BILIRRUBINAS,
-  CATALOGO_EXAMES.DHL,
-  // Inflamação
-  CATALOGO_EXAMES.PCR,
-  CATALOGO_EXAMES.VHS,
-  // Sífilis
-  CATALOGO_EXAMES.SIFILIS_ECMIA,
-  CATALOGO_EXAMES.SIFILIS_VDRL,
-  CATALOGO_EXAMES.SIFILIS_FTA_IGM,
-  CATALOGO_EXAMES.SIFILIS_FTA_IGG,
-  CATALOGO_EXAMES.SIFILIS_TPHA,
-  CATALOGO_EXAMES.SIFILIS_TP_TOTAL,
-  // HIV / HTLV
-  CATALOGO_EXAMES.HIV,
-  CATALOGO_EXAMES.HTLV,
-  // Hepatite A
-  CATALOGO_EXAMES.HAV_TOTAL,
-  CATALOGO_EXAMES.HAV_IGM,
-  // Hepatite B
-  CATALOGO_EXAMES.HBSAG,
-  CATALOGO_EXAMES.ANTI_HBS,
-  CATALOGO_EXAMES.ANTI_HBC_TOTAL,
-  CATALOGO_EXAMES.ANTI_HBC_IGM,
-  CATALOGO_EXAMES.HBEAG,
-  CATALOGO_EXAMES.ANTI_HBE,
-  // Hepatite C
-  CATALOGO_EXAMES.ANTI_HCV,
-  // Herpes
+  ...EXAMES_PRIMEIRO_ATENDIMENTO,
   CATALOGO_EXAMES.HSV_IGG,
   CATALOGO_EXAMES.HSV_IGM,
-  // Clamídia
-  CATALOGO_EXAMES.CLAMÍDIA_IGG,
-  CATALOGO_EXAMES.CLAMÍDIA_IGM,
-  CATALOGO_EXAMES.CLAMÍDIA_PCR,
-  CATALOGO_EXAMES.CLAMÍDIA_CULTURA,
-  // Gonorreia
-  CATALOGO_EXAMES.GONORREIA_PCR,
-  CATALOGO_EXAMES.GONORREIA_CULTURA,
-  // Mycoplasma / Ureaplasma
-  CATALOGO_EXAMES.MYCOPLASMA,
-  CATALOGO_EXAMES.UREAPLASMA,
-  // Painel molecular
-  CATALOGO_EXAMES.PAINEL_IST_MOLECULAR,
 ]
 
 // ── PDF 2 — Sorológicos de IST ────────────────────────────────
 export const EXAMES_SOROLOGICOS_IST: readonly Exame[] = [
-  // Sífilis
   CATALOGO_EXAMES.SIFILIS_ECMIA,
   CATALOGO_EXAMES.SIFILIS_VDRL,
   CATALOGO_EXAMES.SIFILIS_FTA_IGM,
   CATALOGO_EXAMES.SIFILIS_FTA_IGG,
   CATALOGO_EXAMES.SIFILIS_TPHA,
   CATALOGO_EXAMES.SIFILIS_TP_TOTAL,
-  // Hepatite A
   CATALOGO_EXAMES.HAV_TOTAL,
   CATALOGO_EXAMES.HAV_IGM,
-  // Clamídia
   CATALOGO_EXAMES.CLAMÍDIA_IGG,
   CATALOGO_EXAMES.CLAMÍDIA_IGM,
   CATALOGO_EXAMES.CLAMÍDIA_PCR,
   CATALOGO_EXAMES.CLAMÍDIA_CULTURA,
-  // Gonorreia
   CATALOGO_EXAMES.GONORREIA_PCR,
   CATALOGO_EXAMES.GONORREIA_CULTURA,
-  // HIV / HTLV
   CATALOGO_EXAMES.HIV,
   CATALOGO_EXAMES.HTLV,
-  // Hepatite B
   CATALOGO_EXAMES.HBSAG,
   CATALOGO_EXAMES.ANTI_HBS,
   CATALOGO_EXAMES.ANTI_HBC_TOTAL,
   CATALOGO_EXAMES.ANTI_HBC_IGM,
   CATALOGO_EXAMES.HBEAG,
   CATALOGO_EXAMES.ANTI_HBE,
-  // Hepatite C
   CATALOGO_EXAMES.ANTI_HCV,
-  // Mycoplasma / Ureaplasma
   CATALOGO_EXAMES.MYCOPLASMA,
   CATALOGO_EXAMES.UREAPLASMA,
-  // Painel molecular
   CATALOGO_EXAMES.PAINEL_IST_MOLECULAR,
 ]
 
@@ -487,6 +205,3 @@ export const EXAMES_DENSITOMETRIA: readonly Exame[] = [
   CATALOGO_EXAMES.DENSITOMETRIA_LOMBAR,
   CATALOGO_EXAMES.DENSITOMETRIA_FEMUR,
 ]
-
-export const DIAS_VALIDADE_EXAME = 7
-export const DIAS_VALIDADE_LINK_UPLOAD = 7

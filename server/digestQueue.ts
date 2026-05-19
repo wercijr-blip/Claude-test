@@ -10,6 +10,7 @@
 import { Queue, Worker } from 'bullmq'
 import { env } from './_core/env.ts'
 import { redis, QUEUE_PREFIX } from './_core/redis.ts'
+import { sendToDlq } from './_core/dlq.ts'
 import { db } from './db.ts'
 import {
   clinicalSessions,
@@ -455,14 +456,7 @@ export function startDigestWorker() {
   )
 
   worker.on('failed', (job, err) => {
-    logger.error('[digestQueue] Job falhou definitivamente (DLQ)', {
-      jobId: job?.id,
-      tipo: job?.data?.tipo,
-      medicoId: (job?.data as { medicoId?: number })?.medicoId,
-      requestId: (job?.data as { requestId?: string })?.requestId,
-      attempts: job?.attemptsMade,
-      error: err.message,
-    })
+    sendToDlq('clinical-digest', job, err).catch(() => null)
   })
 
   worker.on('completed', (job) => {

@@ -10,6 +10,7 @@ import { users } from '../../drizzle/cis-schema.ts'
 import { eq, isNull, and } from 'drizzle-orm'
 import { JWT_EXPIRY_STAFF } from '../../shared/security-constants.ts'
 import { isAllowedRedirectUri } from '../_core/originValidator.ts'
+import { logAudit } from '../_core/audit.ts'
 import type { Role } from '../../shared/types.ts'
 import type { ResultSetHeader } from 'mysql2'
 
@@ -161,6 +162,7 @@ export const authRouter = router({
         .setExpirationTime(JWT_EXPIRY_STAFF)
         .sign(secret)
 
+      logAudit({ actorId: userId, actorRole: role, action: 'user.login', resourceType: 'user', resourceId: userId })
       logger.info('[auth.callback] sucesso', { userId, role, openId: data.openId, requires2fa })
       return { token, role, requiresTwoFactor: false }
 
