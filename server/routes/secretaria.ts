@@ -54,6 +54,7 @@ export const secretariaRouter = router({
         .from(exames)
         .leftJoin(pacientes, eq(pacientes.id, exames.pacienteId))
         .orderBy(exames.createdAt)
+        .limit(500)
 
       const statusFiltro = input?.status ?? 'todos'
 

@@ -564,9 +564,15 @@ export default function SegundaParteInicio() {
         icon={<svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
         iconBg="bg-slate-100" iconColor="text-slate-400"
         title="Seu link de acesso expirou"
-        subtitle="O prazo para envio do exame foi encerrado. Entre em contato e renovaremos seu acesso rapidamente — estamos aqui para ajudar."
+        subtitle="O prazo para envio do exame foi encerrado. Se você realizou o exame recentemente, solicite um novo link abaixo."
       >
-        <a href="tel:+556140427188" className="inline-flex items-center gap-2 text-brand text-sm font-medium hover:underline">
+        <a
+          href="/reenviar-acesso"
+          className="inline-block w-full bg-brand text-white py-3 rounded-2xl font-semibold hover:bg-brand-dark transition-all text-sm mb-3 text-center"
+        >
+          Solicitar novo link de acesso
+        </a>
+        <a href="tel:+556140427188" className="inline-flex items-center justify-center gap-2 text-slate-500 text-sm font-medium hover:underline w-full">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
           </svg>
