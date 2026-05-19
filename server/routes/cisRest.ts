@@ -10,13 +10,20 @@
  *   GET /api/cis/notas/:id/sintese — síntese PubMed de uma nota
  */
 
-import { Router, type Request, type Response } from 'express'
+import { Router, type Request, type Response, type NextFunction } from 'express'
 import { db } from '../db.ts'
 import { soapNotes, conductAlerts } from '../../drizzle/schema.ts'
 import { eq, and, desc, gte, lte, sql } from 'drizzle-orm'
 import { env } from '../_core/env.ts'
 import { logger } from '../_core/logger.ts'
 import { getOpusBudgetStatus } from '../clinicalIntelligence.ts'
+
+// Express 4 não propaga rejeições de async handlers automaticamente.
+// Este wrapper encaminha qualquer erro ao error handler do Express via next().
+function ar(fn: (req: Request, res: Response) => Promise<void>) {
+  return (req: Request, res: Response, next: NextFunction) =>
+    fn(req, res).catch(next)
+}
 
 export const cisRestRouter = Router()
 
@@ -40,17 +47,17 @@ function autenticar(req: Request, res: Response): number | null {
 
 // ─── GET /api/cis/budget ─────────────────────────────────────────────────────
 
-cisRestRouter.get('/budget', async (req, res) => {
+cisRestRouter.get('/budget', ar(async (req, res) => {
   const medicoId = autenticar(req, res)
   if (!medicoId) return
 
   const status = await getOpusBudgetStatus()
   res.json(status)
-})
+}))
 
 // ─── GET /api/cis/notas ───────────────────────────────────────────────────────
 
-cisRestRouter.get('/notas', async (req, res) => {
+cisRestRouter.get('/notas', ar(async (req, res) => {
   const medicoId = autenticar(req, res)
   if (!medicoId) return
 
@@ -93,11 +100,11 @@ cisRestRouter.get('/notas', async (req, res) => {
   ])
 
   res.json({ notas, total: Number(total), limit, offset })
-})
+}))
 
 // ─── GET /api/cis/notas/:id ───────────────────────────────────────────────────
 
-cisRestRouter.get('/notas/:id', async (req, res) => {
+cisRestRouter.get('/notas/:id', ar(async (req, res) => {
   const medicoId = autenticar(req, res)
   if (!medicoId) return
 
@@ -130,11 +137,11 @@ cisRestRouter.get('/notas/:id', async (req, res) => {
   }
 
   res.json(nota)
-})
+}))
 
 // ─── GET /api/cis/notas/:id/sintese ──────────────────────────────────────────
 
-cisRestRouter.get('/notas/:id/sintese', async (req, res) => {
+cisRestRouter.get('/notas/:id/sintese', ar(async (req, res) => {
   const medicoId = autenticar(req, res)
   if (!medicoId) return
 
@@ -178,4 +185,11 @@ cisRestRouter.get('/notas/:id/sintese', async (req, res) => {
     pronta:            nota.sinteseEvidencias !== null,
     alertas,
   })
+}))
+
+// ─── Error handler ────────────────────────────────────────────────────────────
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+cisRestRouter.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  logger.error('[cisRest] Erro inesperado', { error: err instanceof Error ? err.message : String(err) })
+  res.status(500).json({ erro: 'Erro interno do servidor' })
 })
