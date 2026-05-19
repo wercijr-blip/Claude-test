@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { trpc } from '../../lib/trpc.ts'
 import { useFormDraft } from '../../hooks/useFormDraft.ts'
+import { traduzirErroTrpc } from '../../lib/errorMessages.ts'
 import { SubmitButton } from '../SubmitButton.tsx'
 import { PhoneInput } from '../PhoneInput.tsx'
 import { ESTADOS_BR } from '@shared/const.ts'
@@ -35,6 +36,8 @@ export default function StepContato({ pacienteId, onNext, onBack, defaultValues 
   const hasIntakeTelefone = !!defaultValues?.telefone
   const [cepLoading, setCepLoading] = useState(false)
   const [cepErro, setCepErro] = useState<string | null>(null)
+  const cepCache = useRef<Record<string, { logradouro?: string; bairro?: string; localidade?: string; uf?: string }>>({})
+  const cepAbortRef = useRef<AbortController | null>(null)
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -52,21 +55,40 @@ export default function StepContato({ pacienteId, onNext, onBack, defaultValues 
   const buscarCep = async (digits: string) => {
     if (digits.length !== 8) return
     setCepErro(null)
+
+    const cached = cepCache.current[digits]
+    if (cached) {
+      if (cached.logradouro) setValue('logradouro', cached.logradouro, { shouldValidate: true })
+      if (cached.bairro) setValue('bairro', cached.bairro, { shouldValidate: true })
+      if (cached.localidade) setValue('cidade', cached.localidade, { shouldValidate: true })
+      if (cached.uf) setValue('estado', cached.uf, { shouldValidate: true })
+      return
+    }
+
+    cepAbortRef.current?.abort()
+    const controller = new AbortController()
+    cepAbortRef.current = controller
+    const timeoutId = setTimeout(() => controller.abort(), 5_000)
+
     setCepLoading(true)
     try {
-      const r = await fetch(`https://viacep.com.br/ws/${digits}/json/`)
+      const r = await fetch(`https://viacep.com.br/ws/${digits}/json/`, { signal: controller.signal })
       const d = await r.json() as { erro?: boolean; logradouro?: string; bairro?: string; localidade?: string; uf?: string }
       if (d.erro) {
         setCepErro('CEP não encontrado.')
         return
       }
+      cepCache.current[digits] = d
       if (d.logradouro) setValue('logradouro', d.logradouro, { shouldValidate: true })
       if (d.bairro) setValue('bairro', d.bairro, { shouldValidate: true })
       if (d.localidade) setValue('cidade', d.localidade, { shouldValidate: true })
       if (d.uf) setValue('estado', d.uf, { shouldValidate: true })
-    } catch {
-      setCepErro('Não foi possível consultar o CEP. Preencha manualmente.')
+    } catch (err) {
+      if ((err as Error).name !== 'AbortError') {
+        setCepErro('Não foi possível consultar o CEP. Preencha manualmente.')
+      }
     } finally {
+      clearTimeout(timeoutId)
       setCepLoading(false)
     }
   }
@@ -177,7 +199,7 @@ export default function StepContato({ pacienteId, onNext, onBack, defaultValues 
           </Field>
         </div>
 
-        {salvar.error && <p role="alert" className="text-red-500 text-sm">{salvar.error.message}</p>}
+        {salvar.error && <p role="alert" className="text-red-500 text-sm">{traduzirErroTrpc(salvar.error)}</p>}
 
         <div className="flex justify-between pt-2">
           <button type="button" onClick={onBack} className={btnSecondary}>← Anterior</button>

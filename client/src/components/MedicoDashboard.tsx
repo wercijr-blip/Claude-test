@@ -5,6 +5,7 @@ import { useAuth } from '../_core/hooks/useAuth.ts'
 import { PACIENTE_STATUS } from '@shared/const.ts'
 import { fmt } from '../lib/format.ts'
 import { EmptyState } from './EmptyState.tsx'
+import { traduzirErroTrpc } from '../lib/errorMessages.ts'
 
 type Tab = 'pacientes' | 'exames_inicio' | 'exames_rejeitados'
 type Acao = 'aprovar' | 'recusar' | 'solicitar_reenvio' | 'recomendar_consulta' | 'encaminhar_especialista' | 'solicitar_confirmacao'
@@ -499,7 +500,7 @@ function ExamesInicioTab({ revisoes }: { revisoes: Array<any> | undefined }) {
                 <p className="text-xs text-slate-400 mt-1">{comentario.length}/10 mínimo</p>
               </div>
 
-              {validarMut.error && <p className="text-red-600 text-sm">{validarMut.error.message}</p>}
+              {validarMut.error && <p className="text-red-600 text-sm" role="alert">{traduzirErroTrpc(validarMut.error)}</p>}
 
               <button
                 onClick={submeter}

@@ -251,11 +251,15 @@ app.get('/api/metrics', async (_req, res) => {
   const { getCircuitStatus } = await import('./circuitBreaker.ts')
   let pdfWaiting = -1
   let linkWaiting = -1
+  let pesquisaWaiting = -1
+  let lembreteWaiting = -1
   try {
-    const { pdfQueue, linkAcessoQueue } = await import('../pdfQueue.ts')
-    ;[pdfWaiting, linkWaiting] = await Promise.all([
+    const { pdfQueue, linkAcessoQueue, pesquisaQueue, lembreteQueue } = await import('../pdfQueue.ts')
+    ;[pdfWaiting, linkWaiting, pesquisaWaiting, lembreteWaiting] = await Promise.all([
       pdfQueue.getWaitingCount(),
       linkAcessoQueue.getWaitingCount(),
+      pesquisaQueue.getWaitingCount(),
+      lembreteQueue.getWaitingCount(),
     ])
   } catch { /* workers may not be started */ }
 
@@ -268,7 +272,7 @@ app.get('/api/metrics', async (_req, res) => {
   res.json({
     uptime: Math.floor(process.uptime()),
     memory: { heapUsedMB: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) },
-    queues: { pdf: pdfWaiting, linkAcesso: linkWaiting },
+    queues: { pdf: pdfWaiting, linkAcesso: linkWaiting, pesquisa: pesquisaWaiting, lembrete: lembreteWaiting },
     circuits: { asaas: getCircuitStatus('asaas') },
     staffWhatsappActiveDebounces,
     timestamp: new Date().toISOString(),

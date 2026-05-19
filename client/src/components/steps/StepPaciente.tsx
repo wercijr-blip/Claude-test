@@ -7,6 +7,7 @@ import { validarCpf } from '@shared/validators.ts'
 import { ERROR_MESSAGES } from '@shared/const.ts'
 import { useFormDraft } from '../../hooks/useFormDraft.ts'
 import { toast } from '../../lib/use-toast.ts'
+import { traduzirErroTrpc } from '../../lib/errorMessages.ts'
 
 const schema = z.object({
   cpf: z.string().refine(validarCpf, ERROR_MESSAGES.CPF_INVALID),
@@ -35,7 +36,7 @@ export default function StepPaciente({ pacienteId: _pacienteId, onNext, defaultV
     defaultValues: { nome: defaultValues?.nome ?? '', cpf: defaultValues?.cpf ?? '' },
   })
   const { register, handleSubmit, formState: { errors } } = form
-  const { clearDraft } = useFormDraft(form, 'step-paciente-draft')
+  const { clearDraft } = useFormDraft(form, 'step-paciente-draft', { omitFields: ['cpf', 'dataNascimento', 'nomeMae'] })
 
   const salvar = trpc.paciente.salvarStep1.useMutation({
     onSuccess: (data) => {
@@ -113,7 +114,7 @@ export default function StepPaciente({ pacienteId: _pacienteId, onNext, defaultV
           </select>
         </Field>
 
-        {salvar.error && <p className="text-red-500 text-sm">{salvar.error.message}</p>}
+        {salvar.error && <p className="text-red-500 text-sm">{traduzirErroTrpc(salvar.error)}</p>}
 
         <div className="flex justify-end pt-2">
           <button type="submit" disabled={salvar.isPending} className={btnPrimary}>

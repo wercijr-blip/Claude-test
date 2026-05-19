@@ -3,6 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { trpc } from '../../lib/trpc.ts'
 import { useFormDraft } from '../../hooks/useFormDraft.ts'
+import { traduzirErroTrpc } from '../../lib/errorMessages.ts'
 import { SubmitButton } from '../SubmitButton.tsx'
 import {
   COR_RACA_OPTIONS,
@@ -84,7 +85,7 @@ export default function StepDemografico({ pacienteId, onNext, onBack }: Props) {
           </Field>
         </div>
 
-        {salvar.error && <p role="alert" className="text-red-500 text-sm">{salvar.error.message}</p>}
+        {salvar.error && <p role="alert" className="text-red-500 text-sm">{traduzirErroTrpc(salvar.error)}</p>}
 
         <div className="flex justify-between pt-2">
           <button type="button" onClick={onBack} className={btnSecondary}>← Anterior</button>
