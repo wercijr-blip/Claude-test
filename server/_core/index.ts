@@ -259,11 +259,18 @@ app.get('/api/metrics', async (_req, res) => {
     ])
   } catch { /* workers may not be started */ }
 
+  let staffWhatsappActiveDebounces = -1
+  try {
+    const keys = await redis.keys('wpp:staff:*')
+    staffWhatsappActiveDebounces = keys.length
+  } catch { /* Redis may be unavailable */ }
+
   res.json({
     uptime: Math.floor(process.uptime()),
     memory: { heapUsedMB: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) },
     queues: { pdf: pdfWaiting, linkAcesso: linkWaiting },
     circuits: { asaas: getCircuitStatus('asaas') },
+    staffWhatsappActiveDebounces,
     timestamp: new Date().toISOString(),
   })
 })

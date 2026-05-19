@@ -97,12 +97,12 @@ export default function StepConduta({ pacienteId, onNext, onBack, examData, tipo
               <option value="sob_demanda">Sob demanda (antes/depois da exposição)</option>
             </select>
             {errors.conduta?.prepAdesao && (
-              <p className="mt-1 text-xs text-red-500">{errors.conduta.prepAdesao.message}</p>
+              <p role="alert" className="mt-1 text-xs text-red-500">{errors.conduta.prepAdesao.message}</p>
             )}
           </div>
         )}
 
-        {salvar.error && <p className="text-red-500 text-sm">{salvar.error.message}</p>}
+        {salvar.error && <p role="alert" className="text-red-500 text-sm">{salvar.error.message}</p>}
 
         <div className="flex justify-between pt-2">
           <button type="button" onClick={onBack} className={btnSecondary}>← Anterior</button>

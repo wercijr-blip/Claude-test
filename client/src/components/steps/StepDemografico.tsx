@@ -44,14 +44,14 @@ export default function StepDemografico({ pacienteId, onNext, onBack }: Props) {
 
       <form onSubmit={handleSubmit((d) => salvar.mutate(d))} className="space-y-4">
         <Field label="Cor/Raça" error={errors.corRaca?.message}>
-          <select {...register('corRaca')} className={inputCls(!!errors.corRaca)}>
+          <select {...register('corRaca')} className={inputCls(!!errors.corRaca)} aria-invalid={errors.corRaca ? true : undefined}>
             <option value="">Selecione</option>
             {COR_RACA_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </Field>
 
         <Field label="Escolaridade" error={errors.escolaridade?.message}>
-          <select {...register('escolaridade')} className={inputCls(!!errors.escolaridade)}>
+          <select {...register('escolaridade')} className={inputCls(!!errors.escolaridade)} aria-invalid={errors.escolaridade ? true : undefined}>
             <option value="">Selecione</option>
             {ESCOLARIDADE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
@@ -84,7 +84,7 @@ export default function StepDemografico({ pacienteId, onNext, onBack }: Props) {
           </Field>
         </div>
 
-        {salvar.error && <p className="text-red-500 text-sm">{salvar.error.message}</p>}
+        {salvar.error && <p role="alert" className="text-red-500 text-sm">{salvar.error.message}</p>}
 
         <div className="flex justify-between pt-2">
           <button type="button" onClick={onBack} className={btnSecondary}>← Anterior</button>

@@ -105,6 +105,25 @@
 
 ---
 
+## Rollback Railway (Deploy anterior)
+
+Use quando um deploy introduz regressão crítica em produção.
+
+**Passos:**
+1. Acessar Railway Dashboard → serviço `claude-test` → aba **Deployments**
+2. Identificar o deployment anterior (status `SUCCESS`) — normalmente o segundo da lista
+3. Clicar nos três pontos (`…`) → **Rollback to this deploy**
+4. Railway reutiliza a imagem Docker já buildada — rollback leva ~30s
+5. Confirmar: `GET /api/health` e `GET /api/health/version` devem retornar a versão anterior
+
+**Validação pós-rollback:**
+- Executar smoke test: criar pré-cadastro de teste, verificar que fluxo completo funciona
+- Abrir issue no repositório descrevendo o problema antes de tentar novo deploy
+
+**Nota:** Rollback não reverte migrations de banco. Se o deploy problemático rodou migrations, trate como P0 e ative o processo de restore de backup.
+
+---
+
 ## Restore de Backup TiDB
 
 1. Acessar TiDB Cloud → Cluster → Backup → selecionar backup (automático diário)

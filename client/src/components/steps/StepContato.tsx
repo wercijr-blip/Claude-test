@@ -91,6 +91,7 @@ export default function StepContato({ pacienteId, onNext, onBack, defaultValues 
               {...register('email')}
               type="email"
               className={inputCls(!!errors.email)}
+              aria-invalid={errors.email ? true : undefined}
               placeholder="seu@email.com"
             />
           </Field>
@@ -132,6 +133,7 @@ export default function StepContato({ pacienteId, onNext, onBack, defaultValues 
                   },
                 })}
                 className={inputCls(!!errors.cep || !!cepErro)}
+                aria-invalid={errors.cep || cepErro ? true : undefined}
                 placeholder="00000000"
                 inputMode="numeric"
                 maxLength={8}
@@ -144,7 +146,7 @@ export default function StepContato({ pacienteId, onNext, onBack, defaultValues 
             </div>
           </Field>
           <Field label="Estado" error={errors.estado?.message}>
-            <select {...register('estado')} className={inputCls(!!errors.estado)}>
+            <select {...register('estado')} className={inputCls(!!errors.estado)} aria-invalid={errors.estado ? true : undefined}>
               <option value="">UF</option>
               {ESTADOS_BR.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
             </select>
@@ -152,12 +154,12 @@ export default function StepContato({ pacienteId, onNext, onBack, defaultValues 
         </div>
 
         <Field label="Logradouro" error={errors.logradouro?.message}>
-          <input {...register('logradouro')} className={inputCls(!!errors.logradouro)} placeholder="Rua, Av, etc." />
+          <input {...register('logradouro')} className={inputCls(!!errors.logradouro)} aria-invalid={errors.logradouro ? true : undefined} placeholder="Rua, Av, etc." />
         </Field>
 
         <div className="grid grid-cols-3 gap-4">
           <Field label="Número" error={errors.numero?.message}>
-            <input {...register('numero')} className={inputCls(!!errors.numero)} />
+            <input {...register('numero')} className={inputCls(!!errors.numero)} aria-invalid={errors.numero ? true : undefined} />
           </Field>
           <div className="col-span-2">
             <Field label="Complemento" error={undefined}>
@@ -168,14 +170,14 @@ export default function StepContato({ pacienteId, onNext, onBack, defaultValues 
 
         <div className="grid grid-cols-2 gap-4">
           <Field label="Bairro" error={errors.bairro?.message}>
-            <input {...register('bairro')} className={inputCls(!!errors.bairro)} />
+            <input {...register('bairro')} className={inputCls(!!errors.bairro)} aria-invalid={errors.bairro ? true : undefined} />
           </Field>
           <Field label="Cidade" error={errors.cidade?.message}>
-            <input {...register('cidade')} className={inputCls(!!errors.cidade)} />
+            <input {...register('cidade')} className={inputCls(!!errors.cidade)} aria-invalid={errors.cidade ? true : undefined} />
           </Field>
         </div>
 
-        {salvar.error && <p className="text-red-500 text-sm">{salvar.error.message}</p>}
+        {salvar.error && <p role="alert" className="text-red-500 text-sm">{salvar.error.message}</p>}
 
         <div className="flex justify-between pt-2">
           <button type="button" onClick={onBack} className={btnSecondary}>← Anterior</button>

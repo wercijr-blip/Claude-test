@@ -5,6 +5,7 @@ import { Download } from 'lucide-react'
 import { fmt } from '../lib/format.ts'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from '../lib/use-toast.ts'
+import { EmptyState } from './EmptyState.tsx'
 
 type ConfirmDeleteTarget = { id: number; nome: string | null; email: string | null }
 
@@ -294,7 +295,7 @@ export default function AuditDashboard() {
                 <tbody>
                   {!pacientes?.length && (
                     <tr>
-                      <td colSpan={6} className="py-8 text-center text-slate-400">Nenhum paciente encontrado.</td>
+                      <td colSpan={6}><EmptyState message="Nenhum paciente encontrado." className="py-8" /></td>
                     </tr>
                   )}
                   {pacientes?.map((p) => (
@@ -378,7 +379,7 @@ export default function AuditDashboard() {
                 </div>
               ))}
               {!eventos?.length && (
-                <p className="text-sm text-slate-400 py-4 text-center">Nenhum evento registrado.</p>
+                <EmptyState message="Nenhum evento registrado." className="py-4" />
               )}
             </div>
           </div>

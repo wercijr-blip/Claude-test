@@ -67,6 +67,7 @@ export default function StepPaciente({ pacienteId: _pacienteId, onNext, defaultV
             <input
               {...register('nome')}
               className={inputCls(!!errors.nome)}
+              aria-invalid={errors.nome ? true : undefined}
               placeholder="Como consta no documento"
             />
           </Field>
@@ -83,6 +84,7 @@ export default function StepPaciente({ pacienteId: _pacienteId, onNext, defaultV
             <input
               {...register('cpf')}
               className={inputCls(!!errors.cpf)}
+              aria-invalid={errors.cpf ? true : undefined}
               placeholder="000.000.000-00"
               maxLength={14}
             />
@@ -90,13 +92,14 @@ export default function StepPaciente({ pacienteId: _pacienteId, onNext, defaultV
         )}
 
         <Field label="Data de nascimento" error={errors.dataNascimento?.message}>
-          <input {...register('dataNascimento')} type="date" className={inputCls(!!errors.dataNascimento)} />
+          <input {...register('dataNascimento')} type="date" className={inputCls(!!errors.dataNascimento)} aria-invalid={errors.dataNascimento ? true : undefined} />
         </Field>
 
         <Field label="Nome completo da mãe" error={errors.nomeMae?.message}>
           <input
             {...register('nomeMae')}
             className={inputCls(!!errors.nomeMae)}
+            aria-invalid={errors.nomeMae ? true : undefined}
             placeholder="Nome completo da mãe (obrigatório)"
           />
         </Field>

@@ -18,6 +18,7 @@ import { enviarWhatsApp } from '../whatsapp.ts'
 import { gerarLinkDeAcesso } from './intake.ts'
 import * as Sentry from '@sentry/node'
 import { okEmpty } from '../_core/response.ts'
+import { normalizarTelefoneParaE164 } from '../_core/phoneUtils.ts'
 
 async function emitirJwtPaciente(tokenId: number, pacienteId: number): Promise<string> {
   const secret = new TextEncoder().encode(env.JWT_SECRET)
@@ -419,7 +420,7 @@ export const pacienteRouter = router({
         nome: decrypt(precad.nomeEncrypted),
         cpf: decrypt(precad.cpfEncrypted),
         email: decrypt(precad.emailEncrypted),
-        telefone: decrypt(precad.telefoneEncrypted),
+        telefone: normalizarTelefoneParaE164(decrypt(precad.telefoneEncrypted)),
         tipo: precad.tipo,
         plano: precad.plano,
       }
@@ -469,7 +470,7 @@ export const pacienteRouter = router({
         dataNascimento: p.dataNascimentoEncrypted ? decrypt(p.dataNascimentoEncrypted) : null,
         nomeMae: p.nomeMaeEncrypted ? decrypt(p.nomeMaeEncrypted) : null,
         email: p.emailEncrypted ? decrypt(p.emailEncrypted) : null,
-        telefone: p.telefoneEncrypted ? decrypt(p.telefoneEncrypted) : null,
+        telefone: normalizarTelefoneParaE164(p.telefoneEncrypted ? decrypt(p.telefoneEncrypted) : null),
         cpfEncrypted: undefined,
         nomeEncrypted: undefined,
         dataNascimentoEncrypted: undefined,

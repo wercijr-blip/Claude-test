@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### ⚠️ Breaking Changes
+- **Telefone:** campo `telefone` agora exige formato E.164 (`+5561999998888`). Números legados (10-11 dígitos sem `+55`) são normalizados automaticamente na leitura; o script `server/scripts/backfillTelefoneE164.ts` migra os registros no banco. Execute-o uma vez após o deploy.
+
 ### Segurança
 - Remover `paymentId` da resposta pública de `consultarStatusPorPrecadastro` (fecha cadeia de enumeração JWT)
 - Substituir comparação de string por `timingSafeEqual` na validação do webhook Asaas (timing oracle)
@@ -9,6 +12,8 @@
 - LLM daily throttle via Redis counter (variável `LLM_DAILY_LIMIT`, padrão 200/dia)
 
 ### Adicionado
+- Alertas WhatsApp para equipe médica e secretaria (`notificarStaff`) com debounce Redis de 5 min e máscara de número (LGPD)
+- Input de telefone internacional (`react-international-phone`) com validação E.164; script de backfill para registros legados
 - Integração Z-API WhatsApp com 4 triggers (cadastro, link de acesso, lembrete, pesquisa)
 - Endpoint admin `regenerarFichaAtendimento` para reprocessar PDFs corrompidos
 - Tabela `dlq_jobs` para persistência de jobs que esgotam retries + campo `reprocessingAt` para idempotência
