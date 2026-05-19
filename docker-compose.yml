@@ -14,5 +14,35 @@ services:
       timeout: 3s
       retries: 3
 
+  mysql:
+    image: mysql:8.0
+    container_name: cis-mysql
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: cisdev
+      MYSQL_DATABASE: cis_db
+      MYSQL_USER: cis
+      MYSQL_PASSWORD: cisdev
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u",
+          "cis",
+          "-pcisdev",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   redis_data:
+  mysql_data:

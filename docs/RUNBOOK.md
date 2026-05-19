@@ -63,18 +63,37 @@ mysqldump \
 3. Restaure para um cluster de staging primeiro para validar
 4. RTO estimado: < 4 horas
 
+### Rollback de Migration
+
+As migrations do CIS são **exclusivamente aditivas** (ADD COLUMN, CREATE TABLE) — nunca descartam colunas ou tabelas existentes. Em caso de problema após uma migration:
+
+1. **Reverter o deploy** no Railway (redeploy da versão anterior — o schema antigo ainda é compatível com o código antigo)
+2. **Avaliar impacto:** colunas adicionadas pela migration nova são ignoradas pelo código antigo
+3. **Se houver dado inválido:** restaurar via PITR (acima) para o ponto anterior à migration
+4. **Para migrations críticas (ALTER TABLE em tabela grande):** executar em janela de manutenção com backup prévio
+
+```bash
+# Verificar histórico de migrations aplicadas
+mysql -e "SELECT * FROM drizzle_migrations ORDER BY created_at DESC LIMIT 10;" cis_db
+
+# Em caso de rollback manual (última migration):
+# 1. Fazer backup primeiro (ver "Backup manual" acima)
+# 2. Reverter manualmente (ex: DROP COLUMN se foi ADD COLUMN)
+mysql -e "ALTER TABLE soap_notes DROP COLUMN nova_coluna;" cis_db
+```
+
 ---
 
 ## 3. Continuidade de Negócio — RTO/RPO
 
 ### Objetivos
 
-| Componente | RPO (máx. perda de dados) | RTO (tempo de recuperação) |
-|---|---|---|
-| Banco de dados (TiDB Cloud) | 5 minutos (PITR automático) | < 4 horas |
-| Redis (filas BullMQ) | 0 — jobs em DLQ para replay | < 15 minutos |
-| Servidor CIS (Railway) | n/a | < 5 minutos (restart) |
-| Armazenamento de áudio (S3) | 0 — replicação multi-AZ | < 30 minutos |
+| Componente                  | RPO (máx. perda de dados)   | RTO (tempo de recuperação) |
+| --------------------------- | --------------------------- | -------------------------- |
+| Banco de dados (TiDB Cloud) | 5 minutos (PITR automático) | < 4 horas                  |
+| Redis (filas BullMQ)        | 0 — jobs em DLQ para replay | < 15 minutos               |
+| Servidor CIS (Railway)      | n/a                         | < 5 minutos (restart)      |
+| Armazenamento de áudio (S3) | 0 — replicação multi-AZ     | < 30 minutos               |
 
 **SLA operacional informado ao cliente:** disponibilidade de 99,5% mês (≤ 3,65h/mês de indisponibilidade).
 
@@ -141,6 +160,7 @@ railway service restart cis-workers
 ### Jobs travados (stalled)
 
 BullMQ detecta jobs travados automaticamente via `stalledInterval`. Se um worker travar:
+
 1. O job é re-enfileirado automaticamente (máx `maxStalledCount: 1`)
 2. Após `maxStalledCount`, o job vai para failed
 3. Verifique os logs: `railway logs --service cis-workers`
@@ -206,8 +226,8 @@ Para aumentar o limite, altere `OPUS_DAILY_TOKEN_BUDGET` nas variáveis de ambie
 
 ## 8. Contatos
 
-| Responsável | Função | Contato |
-|------------|--------|---------|
+| Responsável                        | Função                             | Contato         |
+| ---------------------------------- | ---------------------------------- | --------------- |
 | Dr. Werciley Saraiva Vieira Júnior | Médico proprietário / CRM-DF 16381 | (61) 99401-8161 |
 
 ---
@@ -245,7 +265,7 @@ Usar após qualquer incidente SEV-1 (dados inacessíveis, falha de auth, DLQ acu
 **Data:** YYYY-MM-DD  
 **Duração:** HH:MM – HH:MM BRT  
 **Severidade:** SEV-1 / SEV-2  
-**Sistemas afetados:** CIS API / BullMQ / Redis / TiDB / S3 / Anthropic  
+**Sistemas afetados:** CIS API / BullMQ / Redis / TiDB / S3 / Anthropic
 
 ## Resumo
 
@@ -253,13 +273,13 @@ Uma frase descrevendo o que aconteceu e o impacto clínico (se houver).
 
 ## Linha do tempo
 
-| Hora BRT | Evento |
-|---|---|
-| HH:MM | Incidente detectado via alerta / usuário |
-| HH:MM | Início da investigação |
-| HH:MM | Causa-raiz identificada |
-| HH:MM | Mitigação aplicada |
-| HH:MM | Serviço restaurado |
+| Hora BRT | Evento                                   |
+| -------- | ---------------------------------------- |
+| HH:MM    | Incidente detectado via alerta / usuário |
+| HH:MM    | Início da investigação                   |
+| HH:MM    | Causa-raiz identificada                  |
+| HH:MM    | Mitigação aplicada                       |
+| HH:MM    | Serviço restaurado                       |
 
 ## Causa-raiz
 
@@ -281,7 +301,7 @@ Descrever a causa técnica precisa (código, configuração, infraestrutura).
 
 ## Ações corretivas
 
-| Ação | Responsável | Prazo |
-|---|---|---|
-| … | Werciley | YYYY-MM-DD |
+| Ação | Responsável | Prazo      |
+| ---- | ----------- | ---------- |
+| …    | Werciley    | YYYY-MM-DD |
 ```

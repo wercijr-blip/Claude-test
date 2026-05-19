@@ -8,6 +8,34 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/)
 ## [Unreleased]
 
 ### Added
+
+- Cursor pagination (`nextCursor`) em `listarSoapNotes`, `listarAlertas`, `listarDigests`, `listarPublicacoes`
+- `exportarDadosPaciente` endpoint para portabilidade de dados (LGPD Art. 18 VI)
+- `/api/health/metrics` expõe profundidade da DLQ e status do orçamento Opus
+- `getDlqCount()` no módulo DLQ
+- Campo `engines` no `package.json` (Node ≥ 22, pnpm 10.4.1)
+- Tabela RTO/RPO e procedimento de drill de DR em `docs/RUNBOOK.md`
+- `docker-compose.dev.yml` para Redis + MySQL local
+- ADR-001 (modelo single-doctor) e ADR-002 (transcrição Whisper) em `docs/ADR/`
+- Testes para DLQ e audit trail (`server/dlq.test.ts`, `server/audit.test.ts`)
+- Thresholds de cobertura elevados para 75%/75%/65%
+
+### Changed
+
+- `listarAlertas`: ordenação estabilizada por `id DESC` (keyset pagination consistente)
+- `listarDigests` / `listarPublicacoes`: mesma paginação por cursor aplicada
+- `CISDashboard`: `invalidate()` substitui `refetch()`; botão "Marcar visto" com invalidação automática
+- Estados de loading e erro na lista de notas recentes
+
+### Removed
+
+- `staffProcedure` (código morto — role `secretaria` não existe no CIS)
+- `JWT_EXPIRY_PATIENT` e `ALLOWED_MIME_TYPES` (resíduos do Facilita PrEP)
+
+---
+
+### Added (histórico)
+
 - 11 prompts de inteligência clínica (CIS-01 a CIS-11)
 - Filas BullMQ: pubmed-synthesis, clinical-digest, case-series
 - Síntese analítica de artigos PubMed com classificação GRADE
@@ -32,6 +60,7 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/)
 - Migrations versionadas via `drizzle-kit generate` + `pnpm db:migrate`
 
 ### Security
+
 - `timingSafeEqual` para autenticação da REST API por API key
 - `devLogin` retorna NOT_FOUND em produção (indistinguível de rota inexistente)
 - Sentry sem PII (`sendDefaultPii: false`), DSN via variável de ambiente
