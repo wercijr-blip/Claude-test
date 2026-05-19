@@ -23,14 +23,13 @@ import { getPresignedUrl } from '../storage.ts'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function assertSessaoDoMedico(sessao: { medicoId: number } | undefined, medicoId: number) {
-  if (!sessao) throw new TRPCError({ code: 'NOT_FOUND', message: 'Sessão não encontrada' })
-  if (sessao.medicoId !== medicoId) throw new TRPCError({ code: 'FORBIDDEN' })
-}
-
-function assertSoapDoMedico(nota: { medicoId: number } | undefined, medicoId: number) {
-  if (!nota) throw new TRPCError({ code: 'NOT_FOUND', message: 'Nota não encontrada' })
-  if (nota.medicoId !== medicoId) throw new TRPCError({ code: 'FORBIDDEN' })
+function assertOwnership(
+  entity: { medicoId: number } | undefined,
+  medicoId: number,
+  notFoundMessage: string,
+) {
+  if (!entity) throw new TRPCError({ code: 'NOT_FOUND', message: notFoundMessage })
+  if (entity.medicoId !== medicoId) throw new TRPCError({ code: 'FORBIDDEN' })
 }
 
 // ─── Router ───────────────────────────────────────────────────────────────────
@@ -58,7 +57,7 @@ export const scribaRouter = router({
         .where(eq(clinicalSessions.id, input.sessionId))
         .limit(1)
 
-      assertSessaoDoMedico(sessao, medicoId)
+      assertOwnership(sessao, medicoId, 'Sessão não encontrada')
 
       await encerrarSessao(input.sessionId, medicoId)
       return { ok: true }
@@ -130,7 +129,7 @@ export const scribaRouter = router({
         .where(eq(clinicalSessions.id, input.sessionId))
         .limit(1)
 
-      assertSessaoDoMedico(sessao, medicoId)
+      assertOwnership(sessao, medicoId, 'Sessão não encontrada')
 
       if (sessao.encerradaEm) {
         throw new TRPCError({ code: 'BAD_REQUEST', message: 'Sessão já encerrada. Abra uma nova sessão.' })
@@ -196,7 +195,7 @@ export const scribaRouter = router({
         .where(eq(soapNotes.id, input.id))
         .limit(1)
 
-      assertSoapDoMedico(nota, medicoId)
+      assertOwnership(nota, medicoId, 'Nota não encontrada')
 
       // Não retorna pacienteNomeEncrypted — nome descriptografado só em endpoint específico
       const { pacienteNomeEncrypted: _, ...notaSemPii } = nota
@@ -224,7 +223,7 @@ export const scribaRouter = router({
         .where(eq(soapNotes.id, input.soapNoteId))
         .limit(1)
 
-      assertSoapDoMedico(nota, medicoId)
+      assertOwnership(nota, medicoId, 'Nota não encontrada')
 
       return {
         soapNoteId: nota.id,

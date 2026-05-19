@@ -9,7 +9,7 @@
 
 import { Queue, Worker } from 'bullmq'
 import { env } from './_core/env.ts'
-import { redis } from './_core/redis.ts'
+import { redis, QUEUE_PREFIX } from './_core/redis.ts'
 import { db } from './db.ts'
 import { soapNotes, conductAlerts } from '../drizzle/schema.ts'
 import { eq, and, isNotNull, desc, gt, ne, inArray } from 'drizzle-orm'
@@ -24,8 +24,6 @@ import { logger } from './_core/logger.ts'
 // ─── Configuração ─────────────────────────────────────────────────────────────
 
 export const PUBMED_QUEUE_NAME = 'pubmed-synthesis'
-
-const QUEUE_PREFIX = env.NODE_ENV === 'production' ? '{fp-prod}' : `{fp-${env.NODE_ENV}}`
 
 const WORKER_OPTS = {
   lockDuration: 180_000,  // síntese pode levar até 3 min (PubMed + Claude)
@@ -125,21 +123,23 @@ export function startPubmedWorker() {
       const { soapNoteId, medicoId, pubmedQuery, diagnosticoPrincipal, cid10, soapTexto, condutaAtual, populacao, perfilPacienteJson, template, termosMesh } = job.data
       const perfilPaciente = perfilPacienteJson ? JSON.parse(perfilPacienteJson) : undefined
 
-      // 1. Buscar artigos no PubMed (query livre + MeSH, dedup, até 10) + enriquecer com Unpaywall
+      // 1. Buscar artigos PubMed; em paralelo já inicia busca Zotero (sem dependência entre si)
       const artigos = await buscarArtigosDual(pubmedQuery, termosMesh ?? [], 10)
-      const artigosEnriquecidos = await enriquecerArtigos(artigos)
-      const artigosFormatados = formatarArtigosEnriquecidosParaPrompt(artigosEnriquecidos)
       const artigosJson = JSON.stringify(artigos)
 
-      // 1b. Buscar referências Zotero + salvar artigos PubMed na biblioteca (best-effort)
-      let zoteroReferencias = ''
-      try {
-        const zoteroItems = await buscarReferenciasPorQuery(`${diagnosticoPrincipal} ${cid10}`, 8)
-        zoteroReferencias = formatarZoteroParaPrompt(zoteroItems)
-        // Salva artigos PubMed no Zotero em fire-and-forget — não bloqueia síntese
+      // 1b. Unpaywall + Zotero em paralelo — ambos independentes entre si após PubMed
+      const [artigosEnriquecidos, zoteroItems] = await Promise.all([
+        enriquecerArtigos(artigos),
+        buscarReferenciasPorQuery(`${diagnosticoPrincipal} ${cid10}`, 8).catch(() => {
+          logger.warn('[pubmedQueue] Zotero indisponível — síntese prossegue sem biblioteca pessoal', { soapNoteId })
+          return null
+        }),
+      ])
+      const artigosFormatados = formatarArtigosEnriquecidosParaPrompt(artigosEnriquecidos)
+      const zoteroReferencias = zoteroItems ? formatarZoteroParaPrompt(zoteroItems) : ''
+      // Salva artigos PubMed no Zotero em fire-and-forget — não bloqueia síntese
+      if (zoteroItems) {
         for (const artigo of artigos) salvarArtigoPubMed(artigo, { cid10, template }).catch(() => null)
-      } catch {
-        logger.warn('[pubmedQueue] Zotero indisponível — síntese prossegue sem biblioteca pessoal', { soapNoteId })
       }
 
       // 2. Gerar síntese (Prompt 03)

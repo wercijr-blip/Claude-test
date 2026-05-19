@@ -9,7 +9,7 @@
 
 import { Queue, Worker } from 'bullmq'
 import { env } from './_core/env.ts'
-import { redis } from './_core/redis.ts'
+import { redis, QUEUE_PREFIX } from './_core/redis.ts'
 import { db } from './db.ts'
 import {
   clinicalSessions,
@@ -32,8 +32,6 @@ import { logger } from './_core/logger.ts'
 // ─── Configuração ─────────────────────────────────────────────────────────────
 
 export const DIGEST_QUEUE_NAME = 'clinical-digest'
-
-const QUEUE_PREFIX = env.NODE_ENV === 'production' ? '{fp-prod}' : `{fp-${env.NODE_ENV}}`
 
 // Digests não são urgentes nem patient-facing.
 // drainDelay alto reduz comandos Redis (Upstash free tier: 500k/mês).
@@ -321,7 +319,7 @@ async function runMensal(periodoRef: string) {
   const mesLabel = periodoRef || `${agora.getUTCFullYear()}-${String(agora.getUTCMonth() + 1).padStart(2, '0')}`
 
   for (const medicoId of medicoIds) {
-    const [consultas, alertas, artigosMesJson, seriesGeradas, seriesPublicadas] = await Promise.all([
+    const [consultas, alertas, artigosMesJson, seriesGeradas, seriesPublicadas, cronograma] = await Promise.all([
       getSoapResumo(medicoId, de, ate),
       getAlertasResumo(medicoId, de, ate),
       getSintesesPeriodo(medicoId, de, ate),
@@ -354,24 +352,23 @@ async function runMensal(periodoRef: string) {
         eq(publicationDrafts.medicoId, medicoId),
         eq(publicationDrafts.status, 'publicado'),
       )),
+      // Cronograma: rascunhos e submetidos com jornal informado
+      db.select({
+        tipo: publicationDrafts.tipo,
+        diagnostico: publicationDrafts.diagnostico,
+        tema: publicationDrafts.tema,
+        status: publicationDrafts.status,
+        jornal: publicationDrafts.jornal,
+        dataSubmissao: publicationDrafts.dataSubmissao,
+      })
+      .from(publicationDrafts)
+      .where(and(
+        eq(publicationDrafts.medicoId, medicoId),
+        inArray(publicationDrafts.status, ['rascunho', 'em_revisao', 'submetido', 'aceito']),
+        isNotNull(publicationDrafts.jornal),
+      ))
+      .limit(5),
     ])
-
-    // Cronograma: rascunhos e submetidos com jornal informado
-    const cronograma = await db.select({
-      tipo: publicationDrafts.tipo,
-      diagnostico: publicationDrafts.diagnostico,
-      tema: publicationDrafts.tema,
-      status: publicationDrafts.status,
-      jornal: publicationDrafts.jornal,
-      dataSubmissao: publicationDrafts.dataSubmissao,
-    })
-    .from(publicationDrafts)
-    .where(and(
-      eq(publicationDrafts.medicoId, medicoId),
-      inArray(publicationDrafts.status, ['rascunho', 'em_revisao', 'submetido', 'aceito']),
-      isNotNull(publicationDrafts.jornal),
-    ))
-    .limit(5)
 
     const { texto } = await gerarDigestMensal({
       mesAno: mesLabel,

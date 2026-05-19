@@ -12,10 +12,10 @@
 
 import { Queue, Worker } from 'bullmq'
 import { env } from './_core/env.ts'
-import { redis } from './_core/redis.ts'
+import { redis, QUEUE_PREFIX } from './_core/redis.ts'
 import { db } from './db.ts'
 import { soapNotes, publicationDrafts } from '../drizzle/schema.ts'
-import { eq, and, inArray, gte, desc, sql } from 'drizzle-orm'
+import { eq, and, inArray, gte, desc } from 'drizzle-orm'
 import { buscarArtigosDual } from './pubmed.ts'
 import { buscarReferenciasPorQuery, formatarZoteroParaPrompt } from './zotero.ts'
 import { gerarSerieCasos } from './clinicalIntelligence.ts'
@@ -25,8 +25,6 @@ import { logger } from './_core/logger.ts'
 // ─── Configuração ─────────────────────────────────────────────────────────────
 
 export const CASE_SERIES_QUEUE_NAME = 'case-series'
-
-const QUEUE_PREFIX = env.NODE_ENV === 'production' ? '{fp-prod}' : `{fp-${env.NODE_ENV}}`
 
 const WORKER_OPTS = {
   lockDuration: 300_000,   // até 5 min (Opus pode ser lento)
@@ -133,15 +131,15 @@ export function startCaseSeriesWorker() {
         metadata: n.knowledgeMetadata,
       })))
 
-      // 3. Buscar artigos PubMed + Zotero
-      const artigos = await buscarArtigosDual(`"${diagnostico}"[Title/Abstract] ${cid10}[MeSH]`, [], 10)
-      let zoteroReferencias = ''
-      try {
-        const zoteroItems = await buscarReferenciasPorQuery(`${diagnostico} ${cid10}`, 8)
-        zoteroReferencias = formatarZoteroParaPrompt(zoteroItems)
-      } catch {
-        logger.warn('[caseSeriesQueue] Zotero indisponível', { cid10 })
-      }
+      // 3. Buscar artigos PubMed + Zotero em paralelo
+      const [artigos, zoteroItems] = await Promise.all([
+        buscarArtigosDual(`"${diagnostico}"[Title/Abstract] ${cid10}[MeSH]`, [], 10),
+        buscarReferenciasPorQuery(`${diagnostico} ${cid10}`, 8).catch(() => {
+          logger.warn('[caseSeriesQueue] Zotero indisponível', { cid10 })
+          return null
+        }),
+      ])
+      const zoteroReferencias = zoteroItems ? formatarZoteroParaPrompt(zoteroItems) : ''
 
       // 4. Prompt 10 — gerarSerieCasos (Opus)
       const resultado = await gerarSerieCasos({

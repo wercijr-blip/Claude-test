@@ -10,6 +10,7 @@
  *   GET /api/cis/notas/:id/sintese — síntese PubMed de uma nota
  */
 
+import { timingSafeEqual } from 'crypto'
 import { Router, type Request, type Response, type NextFunction } from 'express'
 import { db } from '../db.ts'
 import { soapNotes, conductAlerts } from '../../drizzle/schema.ts'
@@ -36,7 +37,10 @@ function autenticar(req: Request, res: Response): number | null {
   }
 
   const chave = req.headers['x-cis-api-key']
-  if (typeof chave !== 'string' || chave !== env.CIS_API_KEY) {
+  const chaveValida = typeof chave === 'string' &&
+    chave.length === env.CIS_API_KEY!.length &&
+    timingSafeEqual(Buffer.from(chave), Buffer.from(env.CIS_API_KEY!))
+  if (!chaveValida) {
     logger.warn('[cisRest] Tentativa com chave inválida', { ip: req.ip })
     res.status(401).json({ erro: 'Chave de API inválida' })
     return null
@@ -176,7 +180,7 @@ cisRestRouter.get('/notas/:id/sintese', ar(async (req, res) => {
       createdAt:      conductAlerts.createdAt,
     })
     .from(conductAlerts)
-    .where(eq(conductAlerts.soapNoteId, id))
+    .where(and(eq(conductAlerts.soapNoteId, id), eq(conductAlerts.medicoId, medicoId)))
 
   res.json({
     soapNoteId:        nota.id,
