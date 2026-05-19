@@ -171,11 +171,11 @@ export const CLINICA_INFO = {
   cep: '70390-700',
   whatsapp: '(61) 99401-8161',
   telefone: '(61) 4042-7188',
-  email: 'contato@facilitaprep.com.br',
+  email: 'contato@cis.atos.med.br',
   responsavelTecnico: 'Dr. Werciley Saraiva Vieira Júnior',
   crmRt: 'CRM/DF 16381',
-  appNome: 'Facilita PrEP',
-  appTagline: 'Plataforma de Saúde Digital',
+  appNome: 'CIS',
+  appTagline: 'Clinical Intelligence System',
 } as const
 
 // ── Modalidades de PrEP ──────────────────────────────────────

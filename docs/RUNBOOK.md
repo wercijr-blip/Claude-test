@@ -1,0 +1,208 @@
+# CIS — Runbook Operacional
+
+> Referência rápida para operação e resolução de incidentes do Clinical Intelligence System.
+
+---
+
+## 1. Saúde do Sistema
+
+### Health Check
+
+```bash
+# Verifica DB, Redis e filas BullMQ
+curl https://cis.atos.med.br/api/health
+
+# Versão do deploy
+curl https://cis.atos.med.br/api/health/version
+```
+
+Resposta esperada: `{ "status": "ok", "db": "ok", "redis": "ok", "queues": {...} }`
+
+### Logs em tempo real (Railway)
+
+```bash
+railway logs --service cis-server --tail
+railway logs --service cis-workers --tail
+```
+
+---
+
+## 2. Banco de Dados
+
+### Verificar conectividade
+
+```bash
+mysql \
+  --host=gateway01.sa-east-1.prod.aws.tidbcloud.com \
+  --port=4000 --user="$DB_USER" --password="$DB_PASS" \
+  --ssl-mode=VERIFY_IDENTITY \
+  -e "SELECT 1; SHOW TABLES;" cis_db
+```
+
+### Aplicar migrations
+
+```bash
+# Sempre antes de um deploy com mudanças de schema
+pnpm db:migrate
+```
+
+### Backup manual antes de migration crítica
+
+```bash
+mysqldump \
+  --host=gateway01.sa-east-1.prod.aws.tidbcloud.com \
+  --port=4000 --user="$DB_USER" --password="$DB_PASS" \
+  --ssl-mode=VERIFY_IDENTITY --single-transaction --set-gtid-purged=OFF \
+  cis_db | gzip > backup-cis-$(date -u +%Y%m%d-%H%M%S).sql.gz
+```
+
+### Restaurar Point-In-Time (TiDB Cloud)
+
+1. Acesse o console TiDB Cloud → Cluster → Backups
+2. Clique em **Restore** e selecione o ponto no tempo desejado
+3. Restaure para um cluster de staging primeiro para validar
+4. RTO estimado: < 4 horas
+
+---
+
+## 3. Redis
+
+### Verificar conexão
+
+```bash
+redis-cli -u "$REDIS_URL" PING
+# Esperado: PONG
+```
+
+### Inspecionar filas BullMQ
+
+```bash
+# Jobs aguardando
+redis-cli -u "$REDIS_URL" KEYS "{cis-prod}:*:wait"
+
+# Jobs ativos
+redis-cli -u "$REDIS_URL" KEYS "{cis-prod}:*:active"
+
+# Jobs com falha
+redis-cli -u "$REDIS_URL" KEYS "{cis-prod}:*:failed"
+```
+
+### Limpar jobs travados (use com cuidado)
+
+```bash
+# Lista jobs failed da fila pubmed-synthesis
+redis-cli -u "$REDIS_URL" LRANGE "{cis-prod}:pubmed-synthesis:failed" 0 -1
+```
+
+---
+
+## 4. Workers BullMQ
+
+### Verificar status dos workers
+
+Os workers expostos via `/api/health` mostram contagem de jobs waiting/active/failed por fila.
+
+```bash
+curl https://cis.atos.med.br/api/health | jq .queues
+```
+
+### Reiniciar workers (Railway)
+
+```bash
+railway service restart cis-workers
+```
+
+### Jobs travados (stalled)
+
+BullMQ detecta jobs travados automaticamente via `stalledInterval`. Se um worker travar:
+1. O job é re-enfileirado automaticamente (máx `maxStalledCount: 1`)
+2. Após `maxStalledCount`, o job vai para failed
+3. Verifique os logs: `railway logs --service cis-workers`
+
+### Jobs com falha persistente
+
+Jobs que excederam tentativas ficam com status `failed` (mantidos por 20-30 entradas via `removeOnFail`).
+Para re-processar manualmente:
+
+```bash
+# Via Bull Board (se habilitado) ou diretamente via Redis
+redis-cli -u "$REDIS_URL" LRANGE "{cis-prod}:pubmed-synthesis:failed" 0 -1
+```
+
+---
+
+## 5. Antropic / LLM
+
+### Verificar budget Opus diário
+
+```bash
+curl -H "X-CIS-Api-Key: $CIS_API_KEY" https://cis.atos.med.br/api/cis/budget
+```
+
+### Budget esgotado (downgrade automático para Sonnet)
+
+O CIS faz downgrade automático para Sonnet quando `OPUS_DAILY_TOKEN_BUDGET` é atingido.
+Reset automático à meia-noite UTC. Sem ação necessária.
+
+Para aumentar o limite, altere `OPUS_DAILY_TOKEN_BUDGET` nas variáveis de ambiente do Railway.
+
+---
+
+## 6. Incidents — Procedimentos
+
+### P1 — Sistema inacessível
+
+1. Verificar Railway status: `railway status`
+2. Verificar health: `curl https://cis.atos.med.br/api/health`
+3. Se DB down: verificar TiDB Cloud status page (pingcap.com/status)
+4. Se Redis down: verificar provider Redis (Railway / Upstash)
+5. Reiniciar serviço: `railway service restart cis-server`
+
+### P2 — SOAP notes não sendo geradas
+
+1. Verificar logs tRPC: `railway logs --service cis-server | grep trpc`
+2. Verificar quota Anthropic: console.anthropic.com
+3. Verificar variável `BUILT_IN_FORGE_API_KEY` no Railway
+
+### P3 — Síntese PubMed atrasada
+
+1. Verificar fila: `curl https://cis.atos.med.br/api/health | jq .queues.pubmed`
+2. Se workers parados: `railway service restart cis-workers`
+3. Se NCBI com problemas: aguardar (circuit breaker reativa em 30s após 50% sucesso)
+
+### P4 — Alertas de conduta não aparecendo
+
+1. Verificar se síntese PubMed foi concluída (pré-requisito)
+2. Verificar logs: `railway logs --service cis-workers | grep divergência`
+3. O alerta sem síntese é gerado em `processarConsulta` — o re-run com síntese é best-effort
+
+---
+
+## 7. Contatos
+
+| Responsável | Função | Contato |
+|------------|--------|---------|
+| Dr. Werciley Saraiva Vieira Júnior | Médico proprietário / CRM-DF 16381 | (61) 99401-8161 |
+
+---
+
+## 8. Variáveis de Ambiente Críticas
+
+Ver `.env.example` para lista completa. Variáveis obrigatórias em produção:
+
+```
+DATABASE_URL          # TiDB Cloud — jdbc string
+REDIS_URL             # Redis URL completa
+JWT_SECRET            # ≥ 32 chars — NUNCA rotacionar sem invalidar sessões
+ENCRYPTION_KEY        # 64 chars hex — NUNCA rotacionar (dados históricos ilegíveis)
+CPF_HASH_SALT         # ≥ 32 chars — NUNCA rotacionar (hashes históricos inválidos)
+GOOGLE_CLIENT_ID      # OAuth
+GOOGLE_CLIENT_SECRET  # OAuth
+OWNER_OPEN_ID         # sub Google do médico admin
+BUILT_IN_FORGE_API_KEY # Anthropic API key
+AWS_ACCESS_KEY_ID     # S3
+AWS_SECRET_ACCESS_KEY # S3
+AWS_S3_BUCKET         # S3 bucket name
+AWS_REGION            # sa-east-1
+APP_URL               # URL pública — https://cis.atos.med.br
+```

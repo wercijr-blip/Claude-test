@@ -6,6 +6,7 @@ import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
 import { randomUUID } from 'crypto'
+import type { Worker } from 'bullmq'
 import { env } from './env.ts'
 import { logger } from './logger.ts'
 import { redis } from './redis.ts'
@@ -115,6 +116,26 @@ app.get('/api/health', async (_req, res) => {
     redis.ping().then((r) => r === 'PONG').catch(() => false),
   ])
 
+  // BullMQ queue depths (non-blocking — best-effort)
+  let queues: Record<string, unknown> = {}
+  try {
+    const { pubmedQueue } = await import('../pubmedQueue.ts')
+    const { digestQueue } = await import('../digestQueue.ts')
+    const { caseSeriesQueue } = await import('../caseSeriesQueue.ts')
+    const [pubmed, digest, caseSeries] = await Promise.all([
+      Promise.all([pubmedQueue.getWaitingCount(), pubmedQueue.getActiveCount(), pubmedQueue.getFailedCount()]),
+      Promise.all([digestQueue.getWaitingCount(), digestQueue.getActiveCount(), digestQueue.getFailedCount()]),
+      Promise.all([caseSeriesQueue.getWaitingCount(), caseSeriesQueue.getActiveCount(), caseSeriesQueue.getFailedCount()]),
+    ])
+    queues = {
+      pubmed:     { waiting: pubmed[0],     active: pubmed[1],     failed: pubmed[2] },
+      digest:     { waiting: digest[0],     active: digest[1],     failed: digest[2] },
+      caseSeries: { waiting: caseSeries[0], active: caseSeries[1], failed: caseSeries[2] },
+    }
+  } catch {
+    queues = { error: 'unavailable' }
+  }
+
   const allOk = dbOk && redisOk
   res.status(allOk ? 200 : 503).json({
     status: allOk ? 'ok' : 'degraded',
@@ -122,6 +143,7 @@ app.get('/api/health', async (_req, res) => {
     version: '1.0.0',
     db: dbOk ? 'ok' : 'error',
     redis: redisOk ? 'ok' : 'error',
+    queues,
     timestamp: new Date().toISOString(),
   })
 })
@@ -163,6 +185,8 @@ await ensureSchema().catch((err) => {
   logger.error('[server] ensureSchema falhou (continuando)', { error: String(err) })
 })
 
+const inProcessWorkers: Worker[] = []
+
 const server = app.listen(env.PORT, async () => {
   logger.info(`CIS rodando na porta ${env.PORT}`, { env: env.NODE_ENV })
 
@@ -170,9 +194,7 @@ const server = app.listen(env.PORT, async () => {
     const { startPubmedWorker } = await import('../pubmedQueue.ts')
     const { startDigestWorker, agendarDigestCrons } = await import('../digestQueue.ts')
     const { startCaseSeriesWorker } = await import('../caseSeriesQueue.ts')
-    startPubmedWorker()
-    startDigestWorker()
-    startCaseSeriesWorker()
+    inProcessWorkers.push(startPubmedWorker(), startDigestWorker(), startCaseSeriesWorker())
     await agendarDigestCrons()
     logger.info('[server] Workers BullMQ iniciados em-processo.')
   } else {
@@ -182,6 +204,8 @@ const server = app.listen(env.PORT, async () => {
 
 async function shutdown(signal: string) {
   logger.info(`[server] ${signal} recebido — encerrando graciosamente...`)
+  // Close workers first so in-flight jobs can complete/unlock before Redis disconnects
+  await Promise.allSettled(inProcessWorkers.map((w) => w.close()))
   server.close(async () => {
     const { redis } = await import('./redis.ts')
     await redis.quit().catch(() => undefined)

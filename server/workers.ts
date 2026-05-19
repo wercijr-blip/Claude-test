@@ -11,15 +11,21 @@ import { logger } from './_core/logger.ts'
 async function main() {
   logger.info('[workers] Iniciando workers BullMQ...')
 
-  startDigestWorker()
-  startPubmedWorker()
-  startCaseSeriesWorker()
+  const digestWorker = startDigestWorker()
+  const pubmedWorker = startPubmedWorker()
+  const caseWorker = startCaseSeriesWorker()
   await agendarDigestCrons()
 
   logger.info('[workers] Workers prontos.')
 
   async function shutdown(signal: string) {
     logger.info(`[workers] ${signal} recebido — encerrando graciosamente...`)
+    // Close workers first so in-flight jobs can complete/unlock before Redis disconnects
+    await Promise.allSettled([
+      digestWorker.close(),
+      pubmedWorker.close(),
+      caseWorker.close(),
+    ])
     const { redis } = await import('./_core/redis.ts')
     await redis.quit().catch(() => undefined)
     logger.info('[workers] Encerrado.')

@@ -2,376 +2,147 @@ import { sql } from 'drizzle-orm'
 import { db } from '../db.ts'
 import { logger } from './logger.ts'
 
-// Creates all tables using IF NOT EXISTS so this is safe to run on every boot.
-// Tables are listed in FK dependency order.
+// Creates CIS tables using IF NOT EXISTS — safe to run on every boot.
+// Tables listed in FK dependency order (users first, then tables referencing users).
 const DDL_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS users (
     id INT PRIMARY KEY AUTO_INCREMENT,
     open_id VARCHAR(255) NOT NULL,
     email VARCHAR(255),
     nome VARCHAR(255),
-    role VARCHAR(50) NOT NULL DEFAULT 'user',
+    role VARCHAR(50) NOT NULL DEFAULT 'medico',
     ativo TINYINT(1) NOT NULL DEFAULT 1,
-    totp_secret_encrypted TEXT,
-    totp_enabled TINYINT(1) NOT NULL DEFAULT 0,
-    totp_backup_codes JSON,
+    deleted_at DATETIME,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE INDEX idx_users_open_id (open_id),
-    INDEX idx_users_role (role)
+    INDEX idx_users_role (role),
+    INDEX idx_users_ativo (ativo)
   )`,
 
-  `CREATE TABLE IF NOT EXISTS access_tokens (
+  `CREATE TABLE IF NOT EXISTS clinical_sessions (
     id INT PRIMARY KEY AUTO_INCREMENT,
-    token_hash VARCHAR(64) NOT NULL,
-    patient_email VARCHAR(255),
-    tipo VARCHAR(20) NOT NULL DEFAULT 'privado',
-    convenio VARCHAR(100),
-    used_at DATETIME,
-    expires_at DATETIME NOT NULL,
-    revoked_at DATETIME,
-    created_by_id INT NOT NULL,
+    medico_id INT NOT NULL,
+    periodo_ref VARCHAR(20) NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'aberta',
+    iniciada_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    encerrada_at DATETIME,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE INDEX idx_access_tokens_hash (token_hash),
-    INDEX idx_access_tokens_created_by (created_by_id)
+    INDEX idx_sessions_medico (medico_id),
+    INDEX idx_sessions_periodo (periodo_ref),
+    INDEX idx_sessions_status (status),
+    CONSTRAINT fk_sessions_medico FOREIGN KEY (medico_id) REFERENCES users(id)
   )`,
 
-  `CREATE TABLE IF NOT EXISTS pacientes (
+  `CREATE TABLE IF NOT EXISTS soap_notes (
     id INT PRIMARY KEY AUTO_INCREMENT,
-    token_id INT NOT NULL,
-    cpf_encrypted TEXT NOT NULL,
-    cpf_hash VARCHAR(64) NOT NULL,
-    nome_encrypted TEXT NOT NULL,
-    data_nascimento_encrypted TEXT,
-    nome_mae_encrypted TEXT,
-    cns VARCHAR(20),
-    sexo VARCHAR(20),
-    nome_social VARCHAR(255),
-    cor_raca VARCHAR(50),
-    escolaridade VARCHAR(100),
-    situacao_conjugal VARCHAR(50),
-    renda_familiar VARCHAR(50),
-    ocupacao VARCHAR(100),
-    identidade_genero VARCHAR(50),
-    orientacao_sexual VARCHAR(50),
-    uf_nascimento VARCHAR(2),
-    municipio_nascimento VARCHAR(100),
-    situacao_rua TINYINT(1),
-    privado_liberdade TINYINT(1),
-    email_encrypted TEXT,
-    tipo_telefone VARCHAR(20),
-    telefone_encrypted TEXT,
-    permite_contato TINYINT(1),
-    tipo_contato VARCHAR(20),
-    cep VARCHAR(10),
-    logradouro VARCHAR(255),
-    numero VARCHAR(20),
-    complemento VARCHAR(100),
-    bairro VARCHAR(100),
-    cidade VARCHAR(100),
-    estado VARCHAR(2),
-    conduta_json JSON,
-    prescricao_json JSON,
-    prep_modalidade VARCHAR(30),
-    tipo_atendimento VARCHAR(50),
-    convenio VARCHAR(100),
-    numero_convenio VARCHAR(100),
-    valor_centavos INT,
-    autorizados_json JSON,
-    status VARCHAR(50) NOT NULL DEFAULT 'rascunho',
-    current_step INT NOT NULL DEFAULT 1,
-    medico_id INT,
-    observacoes_medico TEXT,
-    retention_until DATETIME,
+    session_id INT NOT NULL,
+    medico_id INT NOT NULL,
+    paciente_nome_encrypted TEXT,
+    template VARCHAR(100),
+    transcricao TEXT,
+    soap_texto TEXT,
+    knowledge_metadata JSON,
+    diagnostico_principal VARCHAR(255),
+    cid10 VARCHAR(20),
+    pubmed_query VARCHAR(500),
+    sintese_evidencias TEXT,
+    evidence_metadata JSON,
+    retencao_ate DATETIME NOT NULL,
+    deleted_at DATETIME,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_pacientes_cpf_hash (cpf_hash),
-    INDEX idx_pacientes_status (status),
-    UNIQUE INDEX idx_pacientes_token (token_id),
-    INDEX idx_pacientes_medico (medico_id)
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_soap_session (session_id),
+    INDEX idx_soap_medico (medico_id),
+    INDEX idx_soap_cid10 (cid10),
+    INDEX idx_soap_created (created_at),
+    CONSTRAINT fk_soap_session FOREIGN KEY (session_id) REFERENCES clinical_sessions(id),
+    CONSTRAINT fk_soap_medico FOREIGN KEY (medico_id) REFERENCES users(id)
   )`,
 
-  `CREATE TABLE IF NOT EXISTS precadastros (
+  `CREATE TABLE IF NOT EXISTS conduct_alerts (
     id INT PRIMARY KEY AUTO_INCREMENT,
-    nome_encrypted TEXT NOT NULL,
-    telefone_encrypted TEXT NOT NULL,
-    cpf_encrypted TEXT NOT NULL,
-    cpf_hash VARCHAR(64) NOT NULL,
-    email_encrypted TEXT NOT NULL,
-    tipo VARCHAR(20) NOT NULL,
-    plano VARCHAR(100),
-    carteirinha_s3_key VARCHAR(500),
-    documento_s3_key VARCHAR(500),
-    status VARCHAR(50) NOT NULL DEFAULT 'aguardando',
-    stripe_session_id VARCHAR(200),
-    access_token_id INT,
-    validado_por_id INT,
-    validado_em DATETIME,
-    observacoes TEXT,
+    soap_note_id INT NOT NULL,
+    medico_id INT NOT NULL,
+    diagnostico VARCHAR(255),
+    cid10 VARCHAR(20),
+    nivel_urgencia VARCHAR(20) NOT NULL DEFAULT 'baixo',
+    hash_alerta VARCHAR(64),
+    alerta_json JSON,
+    mensagem_medico TEXT,
+    feedback_medico VARCHAR(50),
+    feedback_motivo TEXT,
+    feedback_em DATETIME,
+    supressao_ate DATETIME,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_precad_cpf_hash (cpf_hash),
-    INDEX idx_precad_status (status),
-    INDEX idx_precad_session (stripe_session_id)
+    UNIQUE INDEX idx_alerts_hash (hash_alerta),
+    INDEX idx_alerts_soap (soap_note_id),
+    INDEX idx_alerts_medico (medico_id),
+    INDEX idx_alerts_cid10 (cid10),
+    INDEX idx_alerts_supressao (supressao_ate),
+    CONSTRAINT fk_alerts_soap FOREIGN KEY (soap_note_id) REFERENCES soap_notes(id),
+    CONSTRAINT fk_alerts_medico FOREIGN KEY (medico_id) REFERENCES users(id)
   )`,
 
-  `CREATE TABLE IF NOT EXISTS exames (
+  `CREATE TABLE IF NOT EXISTS publication_drafts (
     id INT PRIMARY KEY AUTO_INCREMENT,
-    paciente_id INT NOT NULL,
-    s3_key VARCHAR(500) NOT NULL,
-    nome_arquivo VARCHAR(255) NOT NULL,
-    tipo_exame VARCHAR(100),
-    mime_type VARCHAR(100),
-    tamanho_bytes INT,
-    resultado_ia JSON,
-    revisado_por_id INT,
-    revisado_em DATETIME,
-    liberado_por_medico_id INT,
-    liberado_em DATETIME,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_exames_paciente (paciente_id)
-  )`,
-
-  `CREATE TABLE IF NOT EXISTS tcle_assinaturas (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    paciente_id INT NOT NULL,
-    assinatura_data_url TEXT NULL,
-    ip_address VARCHAR(45),
-    user_agent TEXT,
-    signed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE INDEX idx_tcle_paciente (paciente_id)
-  )`,
-
-  `CREATE TABLE IF NOT EXISTS pdfs (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    paciente_id INT NOT NULL,
-    s3_key VARCHAR(500) NOT NULL,
+    medico_id INT NOT NULL,
     tipo VARCHAR(50) NOT NULL,
-    certificado_serial VARCHAR(100),
-    assinado_em DATETIME,
+    status VARCHAR(50) NOT NULL DEFAULT 'rascunho',
+    diagnostico VARCHAR(255),
+    cid10 VARCHAR(20),
+    n_casos INT,
+    soap_note_ids JSON,
+    n_artigos INT,
+    texto_gerado LONGTEXT,
+    obsidian_path VARCHAR(500),
+    deleted_at DATETIME,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_pdfs_paciente (paciente_id)
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_drafts_medico (medico_id),
+    INDEX idx_drafts_cid10 (cid10),
+    INDEX idx_drafts_status (status),
+    CONSTRAINT fk_drafts_medico FOREIGN KEY (medico_id) REFERENCES users(id)
   )`,
 
-  `CREATE TABLE IF NOT EXISTS security_events (
+  `CREATE TABLE IF NOT EXISTS clinical_digests (
     id INT PRIMARY KEY AUTO_INCREMENT,
-    tipo_evento VARCHAR(100) NOT NULL,
-    user_id INT,
-    ip_address VARCHAR(45),
-    user_agent TEXT,
-    detalhes JSON,
+    medico_id INT NOT NULL,
+    tipo VARCHAR(20) NOT NULL,
+    periodo_ref VARCHAR(20) NOT NULL,
+    texto_gerado LONGTEXT,
+    batch_id VARCHAR(255),
+    obsidian_path VARCHAR(500),
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_sec_tipo (tipo_evento),
-    INDEX idx_sec_created (created_at),
-    INDEX idx_sec_user (user_id)
-  )`,
-
-  `CREATE TABLE IF NOT EXISTS nfse_registros (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    paciente_id INT,
-    precadastro_id INT,
-    numero_nfse VARCHAR(50),
-    status VARCHAR(50) NOT NULL DEFAULT 'pendente',
-    valor_centavos INT NOT NULL,
-    focusnfe_ref VARCHAR(100),
-    erro_descricao TEXT,
-    emitido_em DATETIME,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_nfse_paciente (paciente_id),
-    INDEX idx_nfse_precadastro (precadastro_id)
-  )`,
-
-  `CREATE TABLE IF NOT EXISTS consultas_inicio (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    token_id INT NOT NULL,
-    tipo_consulta VARCHAR(50),
-    tem_exame_recente TINYINT(1),
-    exame_s3_key VARCHAR(500),
-    pedido_completo_s3_key VARCHAR(500),
-    pedido_ist_s3_key VARCHAR(500),
-    pedido_hiv_s3_key VARCHAR(500),
-    pedido_densitometria_s3_key VARCHAR(500),
-    status VARCHAR(50) NOT NULL DEFAULT 'aguardando_escolha',
-    resultado_ia JSON,
-    motivo_rejeicao VARCHAR(200),
-    tentativas_reenvio INT NOT NULL DEFAULT 0,
-    validado_por_id INT,
-    validado_em DATETIME,
-    data_exame_validado VARCHAR(20),
-    resultado_hiv_validado VARCHAR(20),
-    observacoes_medico TEXT,
-    ultimo_lembrete_at DATETIME,
-    link_expires_at DATETIME,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE INDEX idx_consultas_inicio_token (token_id),
-    INDEX idx_consultas_inicio_status (status)
-  )`,
-
-  `CREATE TABLE IF NOT EXISTS satisfacao_pesquisas (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    paciente_id INT NOT NULL,
-    achou_facil TINYINT(1),
-    conseguiu_medicacao TINYINT(1),
-    indicaria TINYINT(1),
-    comentario TEXT,
-    respondido_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE INDEX idx_satisfacao_paciente (paciente_id)
-  )`,
-
-  `CREATE TABLE IF NOT EXISTS pagamentos (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    paciente_id INT NOT NULL,
-    provider VARCHAR(20) NOT NULL DEFAULT 'asaas',
-    asaas_payment_id VARCHAR(100),
-    stripe_payment_id VARCHAR(100),
-    stripe_session_id VARCHAR(100),
-    status VARCHAR(50) NOT NULL DEFAULT 'pendente',
-    valor_centavos INT NOT NULL,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_pagamentos_paciente (paciente_id),
-    INDEX idx_pagamentos_asaas (asaas_payment_id),
-    INDEX idx_pagamentos_session (stripe_session_id)
-  )`,
-
-  `CREATE TABLE IF NOT EXISTS stripe_events (
-    event_id VARCHAR(100) PRIMARY KEY,
-    type VARCHAR(100) NOT NULL,
-    processado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-  )`,
-
-  `CREATE TABLE IF NOT EXISTS pesquisa_tokens (
-    paciente_id INT PRIMARY KEY,
-    token VARCHAR(64) NOT NULL,
-    criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    expira_em DATETIME NOT NULL,
-    UNIQUE INDEX idx_pesquisa_token (token)
+    UNIQUE INDEX idx_digests_unique (medico_id, tipo, periodo_ref),
+    INDEX idx_digests_medico (medico_id),
+    INDEX idx_digests_periodo (periodo_ref),
+    CONSTRAINT fk_digests_medico FOREIGN KEY (medico_id) REFERENCES users(id)
   )`,
 ]
 
-// Mapa de tabela -> colunas esperadas (DDL para ALTER TABLE ADD COLUMN).
-// Usado para adicionar colunas que faltam em tabelas pré-existentes
-// criadas com schema antigo.
+// Column patches for tables that may exist from an older schema version.
 const COLUMN_PATCHES: Record<string, Array<{ name: string; ddl: string }>> = {
-  consultas_inicio: [
-    { name: 'tipo_consulta', ddl: 'VARCHAR(50)' },
-    { name: 'tem_exame_recente', ddl: 'TINYINT(1)' },
-    { name: 'exame_s3_key', ddl: 'VARCHAR(500)' },
-    { name: 'pedido_completo_s3_key', ddl: 'VARCHAR(500)' },
-    { name: 'pedido_ist_s3_key', ddl: 'VARCHAR(500)' },
-    { name: 'pedido_hiv_s3_key', ddl: 'VARCHAR(500)' },
-    { name: 'pedido_densitometria_s3_key', ddl: 'VARCHAR(500)' },
-    { name: 'status', ddl: "VARCHAR(50) NOT NULL DEFAULT 'aguardando_escolha'" },
-    { name: 'resultado_ia', ddl: 'JSON' },
-    { name: 'motivo_rejeicao', ddl: 'VARCHAR(200)' },
-    { name: 'tentativas_reenvio', ddl: 'INT NOT NULL DEFAULT 0' },
-    { name: 'validado_por_id', ddl: 'INT' },
-    { name: 'validado_em', ddl: 'DATETIME' },
-    { name: 'data_exame_validado', ddl: 'VARCHAR(20)' },
-    { name: 'resultado_hiv_validado', ddl: 'VARCHAR(20)' },
-    { name: 'observacoes_medico', ddl: 'TEXT' },
-    { name: 'ultimo_lembrete_at', ddl: 'DATETIME' },
-    { name: 'link_expires_at', ddl: 'DATETIME' },
-  ],
-  precadastros: [
-    { name: 'plano', ddl: 'VARCHAR(100)' },
-    { name: 'carteirinha_s3_key', ddl: 'VARCHAR(500)' },
-    { name: 'documento_s3_key', ddl: 'VARCHAR(500)' },
-    { name: 'stripe_session_id', ddl: 'VARCHAR(200)' },
-    { name: 'access_token_id', ddl: 'INT' },
-    { name: 'validado_por_id', ddl: 'INT' },
-    { name: 'validado_em', ddl: 'DATETIME' },
-    { name: 'observacoes', ddl: 'TEXT' },
-  ],
-  access_tokens: [
-    { name: 'patient_email', ddl: 'VARCHAR(255)' },
-    { name: 'tipo', ddl: "VARCHAR(20) NOT NULL DEFAULT 'privado'" },
-    { name: 'convenio', ddl: 'VARCHAR(100)' },
-    { name: 'used_at', ddl: 'DATETIME' },
-    { name: 'revoked_at', ddl: 'DATETIME' },
-  ],
-  pacientes: [
-    { name: 'nome_mae_encrypted', ddl: 'TEXT' },
-    { name: 'cns', ddl: 'VARCHAR(20)' },
-    { name: 'identidade_genero', ddl: 'VARCHAR(50)' },
-    { name: 'orientacao_sexual', ddl: 'VARCHAR(50)' },
-    { name: 'uf_nascimento', ddl: 'VARCHAR(2)' },
-    { name: 'municipio_nascimento', ddl: 'VARCHAR(100)' },
-    { name: 'situacao_rua', ddl: 'TINYINT(1)' },
-    { name: 'privado_liberdade', ddl: 'TINYINT(1)' },
-    { name: 'permite_contato', ddl: 'TINYINT(1)' },
-    { name: 'tipo_contato', ddl: 'VARCHAR(20)' },
-    { name: 'prep_modalidade', ddl: 'VARCHAR(30)' },
-  ],
-  exames: [
-    { name: 'tipo_exame', ddl: 'VARCHAR(100)' },
-    { name: 'mime_type', ddl: 'VARCHAR(100)' },
-    { name: 'tamanho_bytes', ddl: 'INT' },
-    { name: 'resultado_ia', ddl: 'JSON' },
-    { name: 'revisado_por_id', ddl: 'INT' },
-    { name: 'revisado_em', ddl: 'DATETIME' },
-    { name: 'liberado_por_medico_id', ddl: 'INT' },
-    { name: 'liberado_em', ddl: 'DATETIME' },
-  ],
-  pdfs: [
-    { name: 'certificado_serial', ddl: 'VARCHAR(100)' },
-    { name: 'assinado_em', ddl: 'DATETIME' },
-  ],
-  nfse_registros: [
-    { name: 'precadastro_id', ddl: 'INT' },
-    { name: 'numero_nfse', ddl: 'VARCHAR(50)' },
-    { name: 'focusnfe_ref', ddl: 'VARCHAR(100)' },
-    { name: 'erro_descricao', ddl: 'TEXT' },
-    { name: 'emitido_em', ddl: 'DATETIME' },
-  ],
-  tcle_assinaturas: [
-    { name: 'ip_address', ddl: 'VARCHAR(45)' },
-    { name: 'user_agent', ddl: 'TEXT' },
-  ],
   users: [
-    { name: 'email', ddl: 'VARCHAR(255)' },
-    { name: 'nome', ddl: 'VARCHAR(255)' },
-    { name: 'role', ddl: "VARCHAR(50) NOT NULL DEFAULT 'user'" },
-    { name: 'ativo', ddl: 'TINYINT(1) NOT NULL DEFAULT 1' },
-    // TOTP 2FA — adicionado na Etapa 6.3, faltava em produção (causava 500 em auth.callback)
-    { name: 'totp_secret_encrypted', ddl: 'TEXT' },
-    { name: 'totp_enabled', ddl: 'TINYINT(1) NOT NULL DEFAULT 0' },
-    { name: 'totp_backup_codes', ddl: 'JSON' },
+    { name: 'deleted_at', ddl: 'DATETIME' },
   ],
-  security_events: [
-    { name: 'user_id', ddl: 'INT' },
-    { name: 'ip_address', ddl: 'VARCHAR(45)' },
-    { name: 'user_agent', ddl: 'TEXT' },
-    { name: 'detalhes', ddl: 'JSON' },
+  soap_notes: [
+    { name: 'evidence_metadata', ddl: 'JSON' },
+    { name: 'deleted_at', ddl: 'DATETIME' },
   ],
-  satisfacao_pesquisas: [
-    { name: 'achou_facil', ddl: 'TINYINT(1)' },
-    { name: 'conseguiu_medicacao', ddl: 'TINYINT(1)' },
-    { name: 'indicaria', ddl: 'TINYINT(1)' },
-    { name: 'comentario', ddl: 'TEXT' },
+  conduct_alerts: [
+    { name: 'supressao_ate', ddl: 'DATETIME' },
+    { name: 'mensagem_medico', ddl: 'TEXT' },
   ],
-  pagamentos: [
-    { name: 'provider', ddl: "VARCHAR(20) NOT NULL DEFAULT 'asaas'" },
-    { name: 'asaas_payment_id', ddl: 'VARCHAR(100)' },
-    { name: 'stripe_payment_id', ddl: 'VARCHAR(100)' },
-    { name: 'stripe_session_id', ddl: 'VARCHAR(100)' },
-    { name: 'status', ddl: "VARCHAR(50) NOT NULL DEFAULT 'pendente'" },
-    // valor_centavos é NOT NULL sem DEFAULT — ALTER TABLE ADD COLUMN
-    // com NOT NULL falha em tabela com dados, então não é patchável.
-    // Em ambientes pré-existentes a coluna já deve existir; deploys
-    // novos pegam via CREATE TABLE.
+  publication_drafts: [
+    { name: 'deleted_at', ddl: 'DATETIME' },
+    { name: 'obsidian_path', ddl: 'VARCHAR(500)' },
   ],
-  // stripe_events e pesquisa_tokens só têm colunas NOT NULL essenciais
-  // (event_id PK / token / expira_em). Nada para patch.
+  clinical_digests: [
+    { name: 'batch_id', ddl: 'VARCHAR(255)' },
+    { name: 'obsidian_path', ddl: 'VARCHAR(500)' },
+  ],
 }
-
-// Mapa de tabela.coluna -> DDL para conversão de NOT NULL → NULL.
-// Cada entrada SÓ executa o ALTER se IS_NULLABLE='NO' no momento do boot,
-// evitando rodar DDL custosa em deploys subsequentes.
-const NULLABILITY_PATCHES: Array<{ table: string; column: string; ddl: string }> = [
-  // Aceite eletrônico via checkbox substituiu a assinatura desenhada;
-  // a coluna deixa de ser obrigatória.
-  { table: 'tcle_assinaturas', column: 'assinatura_data_url', ddl: 'TEXT NULL' },
-]
 
 async function getExistingColumns(table: string): Promise<Set<string>> {
   const rows = (await db.execute(sql.raw(
@@ -379,7 +150,6 @@ async function getExistingColumns(table: string): Promise<Set<string>> {
   ))) as unknown as Array<{ COLUMN_NAME?: string; column_name?: string }> | { rows?: Array<{ COLUMN_NAME?: string; column_name?: string }> }
 
   const list = Array.isArray(rows) ? rows : (rows.rows ?? [])
-  // mysql2 driver returns rows in [results, fields] tuple — flatten if needed
   const flat: Array<{ COLUMN_NAME?: string; column_name?: string }> = Array.isArray(list[0])
     ? (list[0] as Array<{ COLUMN_NAME?: string; column_name?: string }>)
     : (list as Array<{ COLUMN_NAME?: string; column_name?: string }>)
@@ -387,67 +157,30 @@ async function getExistingColumns(table: string): Promise<Set<string>> {
   return new Set(flat.map((r) => r.COLUMN_NAME ?? r.column_name ?? '').filter(Boolean))
 }
 
-async function getColumnIsNullable(table: string, column: string): Promise<boolean | null> {
-  try {
-    const rows = (await db.execute(sql.raw(
-      `SELECT IS_NULLABLE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '${table}' AND COLUMN_NAME = '${column}'`,
-    ))) as unknown as Array<{ IS_NULLABLE?: string; is_nullable?: string }> | { rows?: Array<{ IS_NULLABLE?: string; is_nullable?: string }> }
-
-    const list = Array.isArray(rows) ? rows : (rows.rows ?? [])
-    const flat: Array<{ IS_NULLABLE?: string; is_nullable?: string }> = Array.isArray(list[0])
-      ? (list[0] as Array<{ IS_NULLABLE?: string; is_nullable?: string }>)
-      : (list as Array<{ IS_NULLABLE?: string; is_nullable?: string }>)
-
-    const value = flat[0]?.IS_NULLABLE ?? flat[0]?.is_nullable
-    if (!value) return null
-    return value.toUpperCase() === 'YES'
-  } catch (err) {
-    logger.error('[ensureSchema] Falha ao consultar IS_NULLABLE', { table, column, error: String(err) })
-    return null
-  }
-}
-
-async function patchColumnNullability(table: string, column: string, ddl: string): Promise<void> {
-  const isNullable = await getColumnIsNullable(table, column)
-  if (isNullable === null) return // coluna ou tabela não existe — nada a fazer
-  if (isNullable) return           // já é NULL — não precisa rodar DDL
-  try {
-    await db.execute(sql.raw(`ALTER TABLE ${table} MODIFY COLUMN ${column} ${ddl}`))
-    logger.info('[ensureSchema] Coluna convertida para NULL', { table, column })
-  } catch (err) {
-    logger.error('[ensureSchema] Falha ao alterar nullability (continuando)', {
-      table, column, error: String(err),
-    })
-  }
-}
-
 async function patchTableColumns(table: string, columns: Array<{ name: string; ddl: string }>): Promise<void> {
   let existing: Set<string>
   try {
     existing = await getExistingColumns(table)
   } catch (err) {
-    logger.error('[ensureSchema] Falha ao listar colunas existentes', { table, error: String(err) })
+    logger.error('[ensureSchema] Falha ao listar colunas', { table, error: String(err) })
     return
   }
 
   for (const col of columns) {
     if (existing.has(col.name)) continue
-    const stmt = `ALTER TABLE ${table} ADD COLUMN ${col.name} ${col.ddl}`
     try {
-      await db.execute(sql.raw(stmt))
+      await db.execute(sql.raw(`ALTER TABLE ${table} ADD COLUMN ${col.name} ${col.ddl}`))
       logger.info('[ensureSchema] Coluna adicionada', { table, column: col.name })
     } catch (err) {
       logger.error('[ensureSchema] Falha ao adicionar coluna (continuando)', {
-        table,
-        column: col.name,
-        error: String(err),
+        table, column: col.name, error: String(err),
       })
     }
   }
 }
 
 export async function ensureSchema(): Promise<void> {
-  logger.info('[ensureSchema] Verificando schema do banco de dados...')
+  logger.info('[ensureSchema] Verificando schema CIS...')
   let ok = 0
   let failed = 0
   for (const stmt of DDL_STATEMENTS) {
@@ -464,16 +197,9 @@ export async function ensureSchema(): Promise<void> {
   }
   logger.info(`[ensureSchema] DDL concluído: ${ok} ok, ${failed} falhas.`)
 
-  // Patch de colunas faltantes em tabelas pré-existentes
   for (const [table, columns] of Object.entries(COLUMN_PATCHES)) {
     await patchTableColumns(table, columns)
   }
 
-  // Patch de colunas que precisam virar NULL (idempotente — só roda
-  // o ALTER se a coluna ainda estiver NOT NULL).
-  for (const { table, column, ddl } of NULLABILITY_PATCHES) {
-    await patchColumnNullability(table, column, ddl)
-  }
-
-  logger.info('[ensureSchema] Verificação concluída.')
+  logger.info('[ensureSchema] Schema CIS verificado.')
 }

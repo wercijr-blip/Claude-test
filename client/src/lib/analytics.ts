@@ -76,45 +76,6 @@ export function trackPageView(path: string, title?: string): void {
   if (typeof window.fbq === 'function') window.fbq('track', 'PageView')
 }
 
-// ─── Conversion events ───────────────────────────────────────────────────────
-
-/** User started the payment/intake flow. */
-export function trackBeginCheckout(plan: string, value: number): void {
-  push('begin_checkout', { plan, value, currency: 'BRL' })
-  if (typeof window.fbq === 'function') window.fbq('track', 'InitiateCheckout', { content_name: plan, value, currency: 'BRL' })
-  if (typeof window.gtag === 'function') window.gtag('event', 'begin_checkout', { value, currency: 'BRL', items: [{ item_name: plan, price: value }] })
-}
-
-/** Stripe payment confirmed — call from /pagamento/sucesso. */
-export function trackPurchase(orderId: string, value: number): void {
-  push('purchase', { transaction_id: orderId, value, currency: 'BRL', item_name: 'Consulta PrEP' })
-  if (typeof window.fbq === 'function') window.fbq('track', 'Purchase', { value, currency: 'BRL' })
-  if (typeof window.gtag === 'function') {
-    window.gtag('event', 'purchase', {
-      transaction_id: orderId, value, currency: 'BRL',
-      items: [{ item_name: 'Consulta PrEP', price: value }],
-    })
-  }
-}
-
-/** Form submission tracking. */
-export function trackFormSubmit(formName: string): void {
-  push('form_submit', { form_name: formName })
-  if (typeof window.fbq === 'function') {
-    window.fbq('track', formName.includes('clinico') ? 'CompleteRegistration' : 'Lead', { content_name: formName })
-  }
-}
-
-/** Specific: pre-registration form submitted. */
-export function trackFormSubmitPrecadastro(tipo: 'particular' | 'plano'): void {
-  trackFormSubmit(`precadastro_${tipo}`)
-}
-
-/** Specific: clinical questionnaire submitted. */
-export function trackFormSubmitClinico(): void {
-  trackFormSubmit('clinico')
-}
-
 /** CTA click. */
 export function trackCtaClick(local: string): void {
   push('cta_click', { cta_local: local, page_path: typeof window !== 'undefined' ? window.location.pathname : '' })
@@ -124,4 +85,9 @@ export function trackCtaClick(local: string): void {
 export function trackWhatsApp(local: string): void {
   push('whatsapp_click', { local })
   if (typeof window.fbq === 'function') window.fbq('track', 'Contact')
+}
+
+/** Form submission tracking. */
+export function trackFormSubmit(formName: string): void {
+  push('form_submit', { form_name: formName })
 }

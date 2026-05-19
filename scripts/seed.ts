@@ -8,7 +8,7 @@
  */
 
 import { db } from '../server/db.ts'
-import { users } from '../drizzle/schema.ts'
+import { users } from '../drizzle/cis-schema.ts'
 
 async function seed() {
   console.log('🌱 Iniciando seed...')

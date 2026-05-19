@@ -39,7 +39,7 @@
       "Sid": "AllowAppAccess",
       "Effect": "Allow",
       "Principal": {
-        "AWS": "arn:aws:iam::SEU_ACCOUNT_ID_AWS:user/facilita-prep-app"
+        "AWS": "arn:aws:iam::SEU_ACCOUNT_ID_AWS:user/cis-app"
       },
       "Action": [
         "s3:PutObject",

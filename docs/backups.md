@@ -1,4 +1,4 @@
-# Backup e Recuperação de Dados — Facilita PrEP
+# Backup e Recuperação de Dados — CIS
 
 ## Banco de Dados (TiDB Cloud Serverless)
 
@@ -6,7 +6,7 @@ O banco de dados é gerenciado pelo **TiDB Cloud Serverless** (camada de dados g
 que oferece backup automático nativo — não é necessário script manual de `mysqldump` ou similar.
 
 > **Nota:** O banco em produção é **TiDB Cloud Serverless (MySQL 8.0-compatible)** em
-> `gateway01.eu-central-1.prod.aws.tidbcloud.com:4000`. Não usar `pg_dump` — o banco não é PostgreSQL.
+> `gateway01.sa-east-1.prod.aws.tidbcloud.com:4000`. Não usar `pg_dump` — o banco não é PostgreSQL.
 > Backups automáticos diários nativos ficam disponíveis por 7 dias no dashboard PingCAP em
 > **Backup → Automated Backup**. Para snapshots manuais antes de migrations, use `mysqldump`
 > (ou `dumpling`, da PingCAP, que paraleliza o dump por chunks).
@@ -22,6 +22,9 @@ que oferece backup automático nativo — não é necessário script manual de `
 | RPO | < 24 horas |
 | RTO | < 4 horas (restauração via console) |
 
+> **LGPD/CFM:** Configurar retenção mínima de **20 dias** no painel TiDB Cloud para cumprir
+> CFM 2.299/2021 (dados de saúde). Verificar em Settings → Backup.
+
 ### Backup Manual (Export)
 
 Para exportações pontuais (ex.: antes de uma migration):
@@ -29,7 +32,7 @@ Para exportações pontuais (ex.: antes de uma migration):
 ```bash
 # Opção 1 — mysqldump (MySQL-compatible, flags obrigatórias para TiDB Cloud)
 mysqldump \
-  --host=gateway01.eu-central-1.prod.aws.tidbcloud.com \
+  --host=gateway01.sa-east-1.prod.aws.tidbcloud.com \
   --port=4000 \
   --user="$DB_USER" \
   --password="$DB_PASS" \
@@ -39,23 +42,23 @@ mysqldump \
   --quick \
   --routines \
   --triggers \
-  facilita_prep \
-  | gzip > backup-$(date -u +%Y%m%d-%H%M%S).sql.gz
+  cis_db \
+  | gzip > backup-cis-$(date -u +%Y%m%d-%H%M%S).sql.gz
 
 # Opção 2 — dumpling (ferramenta nativa PingCAP, paraleliza por chunks)
 dumpling \
   -u "$DB_USER" -P 4000 \
-  -h gateway01.eu-central-1.prod.aws.tidbcloud.com \
+  -h gateway01.sa-east-1.prod.aws.tidbcloud.com \
   -p "$DB_PASS" \
   --filetype sql \
   --threads 4 \
-  --output ./backup-$(date -u +%Y%m%d-%H%M%S) \
-  --database facilita_prep
+  --output ./backup-cis-$(date -u +%Y%m%d-%H%M%S) \
+  --database cis_db
 
 # Opção 3 — Via TiDB Cloud CLI (sem precisar de cliente local)
 ticloud serverless export create \
   --cluster-id <SEU_CLUSTER_ID> \
-  --database facilita_prep \
+  --database cis_db \
   --file-type SQL \
   --target-type LOCAL
 ```
@@ -65,14 +68,14 @@ Ou via console: TiDB Cloud → Cluster → **Import/Export** → Export.
 ### Restore Manual
 
 ```bash
-# Restaurar a partir de dump mysqldump (descomprime e importa via cliente mysql)
-gunzip -c backup-YYYYMMDD-HHMMSS.sql.gz | mysql \
-  --host=gateway01.eu-central-1.prod.aws.tidbcloud.com \
+# Restaurar a partir de dump mysqldump
+gunzip -c backup-cis-YYYYMMDD-HHMMSS.sql.gz | mysql \
+  --host=gateway01.sa-east-1.prod.aws.tidbcloud.com \
   --port=4000 \
   --user="$DB_USER" \
   --password="$DB_PASS" \
   --ssl-mode=VERIFY_IDENTITY \
-  facilita_prep
+  cis_db
 ```
 
 ### Configuração Recomendada em Produção
@@ -81,29 +84,44 @@ No painel TiDB Cloud, verifique que:
 
 1. **Backup automático está habilitado** (Settings → Backup)
 2. **Retenção mínima de 20 dias** para cumprir CFM 2.299/2021 (dados de saúde)
-3. **Alertas de falha de backup** configurados em Settings → Alerts
+3. **PITR (Point-In-Time Recovery)** habilitado para restauração granular
+4. **Alertas de falha de backup** configurados em Settings → Alerts
 
 ---
 
-## Arquivos S3 (Exames de Pacientes)
+## Arquivos de Áudio (S3)
 
-Exames enviados ficam no bucket `AWS_S3_BUCKET` (padrão: `facilita-prep-exames-producao`).
+Gravações de consulta ficam no bucket `AWS_S3_BUCKET` (região: `sa-east-1`).
 
 ### Proteção
 
 | Recurso | Configuração |
 |---|---|
 | Versioning | Habilitar via console AWS S3 → Properties |
-| Lifecycle | `exames-inicio/` expira em 30 dias (configurado via `storage.ts:ensureS3Lifecycle`) |
-| Replicação | Opcional: Cross-Region Replication para sa-east-1 → us-east-1 |
+| Lifecycle | `audio/` expira em 90 dias (após transcrição; o texto é o dado permanente) |
+| Replicação | Opcional: Cross-Region Replication `sa-east-1` → `us-east-1` |
+| Criptografia | SSE-S3 (Server-Side Encryption — padrão AWS) |
 
-### Recomendação
+### Configurar Lifecycle (áudios expiram em 90 dias)
 
-Habilitar **S3 Versioning** no bucket de produção para proteção contra deleção acidental.
+```bash
+aws s3api put-bucket-lifecycle-configuration \
+  --bucket "$AWS_S3_BUCKET" \
+  --lifecycle-configuration '{
+    "Rules": [{
+      "ID": "expire-audio",
+      "Filter": { "Prefix": "audio/" },
+      "Status": "Enabled",
+      "Expiration": { "Days": 90 }
+    }]
+  }'
+```
+
+### Habilitar Versioning
 
 ```bash
 aws s3api put-bucket-versioning \
-  --bucket facilita-prep-exames-producao \
+  --bucket "$AWS_S3_BUCKET" \
   --versioning-configuration Status=Enabled
 ```
 
@@ -113,19 +131,23 @@ aws s3api put-bucket-versioning \
 
 Conforme **Lei 13.787/2018** (digitalização de prontuários) e **CFM 2.299/2021**:
 
-- Prontuários de pacientes devem ser retidos por **mínimo 20 anos** após o último atendimento
-- O campo `retention_until` em `pacientes` registra a data limite de retenção
-- **Não apagar** registros de saúde antes do vencimento de `retention_until`
+- SOAP notes devem ser retidas por **mínimo 20 anos** após o último atendimento
+- O campo `retencao_ate` em `soap_notes` registra a data limite de retenção
+- **Não apagar** registros antes do vencimento de `retencao_ate`
+- Soft delete via `deleted_at` — registros nunca são removidos fisicamente antes do prazo
 
-Solicitações de anonimização via LGPD Art. 18 são registradas no `audit_log` com
-`action = 'paciente.anonymize_request'` para processamento pelo DPO, respeitando
-o prazo legal de retenção.
+Solicitações de portabilidade/anonimização via LGPD Art. 18/20 devem ser processadas pelo
+médico responsável no painel admin, respeitando o prazo legal de retenção.
 
 ---
 
-## Certificados ICP-Brasil
+## Tabelas CIS (referência)
 
-- Arquivos `.pem` e `.pfx` em `server/certs/` — **NUNCA commitar**
-- Em produção: armazenados como variável de ambiente `ICP_PFX_BASE64` (base64 do .pfx)
-- Renovar certificado digital **antes do vencimento** (verificar data de expiração no console ICP-Brasil)
-- Backup local seguro dos certificados fora do repositório (ex.: cofre de senhas)
+| Tabela | Dados | Retenção |
+|--------|-------|----------|
+| `users` | Staff (médico, admin) | Indefinida |
+| `clinical_sessions` | Sessões de atendimento | 20 anos |
+| `soap_notes` | SOAP + síntese PubMed | 20 anos (CFM) |
+| `conduct_alerts` | Alertas de divergência | 20 anos |
+| `publication_drafts` | Rascunhos científicos | Indefinida |
+| `clinical_digests` | Digests diário/semanal/mensal | 5 anos |

@@ -2,7 +2,7 @@ import { writeFile, mkdir } from 'fs/promises'
 import path from 'path'
 
 // Simula variáveis de ambiente para o teste
-process.env.APP_URL = 'https://facilitaprep.com.br'
+process.env.APP_URL = 'https://cis.atos.med.br'
 process.env.MEDICO_NOME = 'Dr. Werciley Saraiva Vieira Junior'
 process.env.MEDICO_CRM = '12345/DF'
 process.env.NODE_ENV = 'development'

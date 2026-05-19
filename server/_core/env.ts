@@ -1,7 +1,13 @@
 import { z } from 'zod'
 
 const envSchema = z.object({
-  DATABASE_URL: z.string().min(1),
+  DATABASE_URL: z.string().min(1).transform((url) => {
+    // Ensure TiDB/MySQL returns DATETIME values in BRT (São Paulo) not UTC.
+    // This prevents off-by-3h bugs in period calculations (digests, retention).
+    if (url.includes('timezone=')) return url
+    const sep = url.includes('?') ? '&' : '?'
+    return `${url}${sep}timezone=America%2FSao_Paulo`
+  }),
   JWT_SECRET: z.string().min(32),
   GOOGLE_CLIENT_ID: z.string().min(1),
   GOOGLE_CLIENT_SECRET: z.string().min(1),
