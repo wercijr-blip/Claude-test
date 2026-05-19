@@ -12,6 +12,8 @@ import { useAuth, parseJwtPayload } from "./_core/hooks/useAuth.ts";
 import LoginPage from "./components/LoginPage.tsx";
 import { ToastProvider, useToast } from "./components/Toast.tsx";
 import AudioRecorder from "./components/AudioRecorder.tsx";
+import AlertCard from "./components/AlertCard.tsx";
+import PublicacoesPanel from "./components/PublicacoesPanel.tsx";
 import { trpc } from "./lib/trpc.ts";
 
 function PageLoader() {
@@ -101,6 +103,11 @@ function CISDashboard() {
     onError: (err) => toast(err.message, "error"),
   });
 
+  const refreshEvidencia = trpc.scriba.refreshEvidencia.useMutation({
+    onSuccess: () => toast("Síntese de evidências reagendada.", "success"),
+    onError: (err) => toast(err.message, "error"),
+  });
+
   const alertaItems = alertas?.items ?? [];
 
   return (
@@ -137,26 +144,15 @@ function CISDashboard() {
               ⚠️ {alertaItems.length} alerta{alertaItems.length > 1 ? "s" : ""}{" "}
               de conduta pendente{alertaItems.length > 1 ? "s" : ""}
             </p>
-            <ul className="space-y-1">
+            <ul className="space-y-2">
               {alertaItems.map((a) => (
-                <li
+                <AlertCard
                   key={a.id}
-                  className="text-sm text-amber-700 flex items-start justify-between gap-2"
-                >
-                  <span>
-                    <span className="font-medium capitalize">
-                      {a.nivelUrgencia}
-                    </span>
-                    {a.mensagemMedico ? ` — ${a.mensagemMedico}` : ""}
-                  </span>
-                  <button
-                    onClick={() => marcarVisto.mutate({ alertaId: a.id })}
-                    disabled={marcarVisto.isPending}
-                    className="text-xs text-amber-600 hover:text-amber-800 underline shrink-0 disabled:opacity-50"
-                  >
-                    Marcar visto
-                  </button>
-                </li>
+                  alerta={a}
+                  onVisto={(id) => marcarVisto.mutate({ alertaId: id })}
+                  onFeedback={() => utils.scriba.listarAlertas.invalidate()}
+                  vistoLoading={marcarVisto.isPending}
+                />
               ))}
             </ul>
           </div>
@@ -221,25 +217,53 @@ function CISDashboard() {
             </p>
           ) : (
             <ul className="divide-y divide-slate-100">
-              {notas.items.map((n) => (
-                <li key={n.id} className="py-3 flex items-start gap-3">
-                  <span className="mt-0.5 text-xs font-mono bg-slate-100 text-slate-500 px-2 py-0.5 rounded">
-                    {n.cid10 ?? "—"}
-                  </span>
-                  <div>
-                    <p className="text-sm font-medium text-slate-800">
-                      {n.diagnosticoPrincipal ?? "Diagnóstico não definido"}
-                    </p>
-                    <p className="text-xs text-slate-400">
-                      {n.template} ·{" "}
-                      {new Date(n.createdAt).toLocaleString("pt-BR")}
-                    </p>
-                  </div>
-                </li>
-              ))}
+              {notas.items.map((n) => {
+                const diasDesde = Math.floor(
+                  (Date.now() - new Date(n.createdAt).getTime()) / 86_400_000,
+                );
+                const sinteseVelha = n.temSintese && diasDesde > 365;
+                return (
+                  <li key={n.id} className="py-3 flex items-start gap-3">
+                    <span className="mt-0.5 text-xs font-mono bg-slate-100 text-slate-500 px-2 py-0.5 rounded">
+                      {n.cid10 ?? "—"}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-800">
+                        {n.diagnosticoPrincipal ?? "Diagnóstico não definido"}
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        {n.template} ·{" "}
+                        {new Date(n.createdAt).toLocaleString("pt-BR")}
+                        {n.temSintese ? (
+                          <span className="ml-1 text-emerald-600">· síntese ✓</span>
+                        ) : (
+                          <span className="ml-1 text-slate-300">· sem síntese</span>
+                        )}
+                      </p>
+                      {sinteseVelha && (
+                        <div className="mt-1 flex items-center gap-2">
+                          <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+                            Evidências &gt;1 ano
+                          </span>
+                          <button
+                            onClick={() =>
+                              refreshEvidencia.mutate({ soapNoteId: n.id })
+                            }
+                            disabled={refreshEvidencia.isPending}
+                            className="text-xs text-blue-600 hover:text-blue-800 underline disabled:opacity-50"
+                          >
+                            {refreshEvidencia.isPending ? "Reagendando…" : "Atualizar"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
+        <PublicacoesPanel />
       </main>
     </div>
   );
