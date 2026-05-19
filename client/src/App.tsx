@@ -4,12 +4,14 @@ import {
   useEffect,
   useRef,
   useState,
+  useCallback,
   type ReactNode,
 } from "react";
 import { Route, Switch, useLocation } from "wouter";
 import { useAuth, parseJwtPayload } from "./_core/hooks/useAuth.ts";
 import LoginPage from "./components/LoginPage.tsx";
 import { ToastProvider, useToast } from "./components/Toast.tsx";
+import AudioRecorder from "./components/AudioRecorder.tsx";
 import { trpc } from "./lib/trpc.ts";
 
 function PageLoader() {
@@ -59,9 +61,13 @@ function CISDashboard() {
   const { logout } = useAuth();
   const { toast } = useToast();
   const utils = trpc.useUtils();
+  const [transcricao, setTranscricao] = useState<string | null>(null);
+  const [sessaoId, setSessaoId] = useState<number | null>(null);
+
   const abrirSessao = trpc.scriba.abrirSessao.useMutation({
     onSuccess: (data) => {
       utils.scriba.listarSoapNotes.invalidate();
+      setSessaoId(data.sessionId);
       toast(
         data.nova ? "Sessão aberta com sucesso." : "Sessão retomada.",
         "success",
@@ -69,6 +75,11 @@ function CISDashboard() {
     },
     onError: (err) => toast(err.message, "error"),
   });
+
+  const handleTranscricao = useCallback((texto: string) => {
+    setTranscricao(texto);
+    toast("Transcrição concluída.", "success");
+  }, [toast]);
   const {
     data: notas,
     isLoading: notasLoading,
@@ -151,22 +162,46 @@ function CISDashboard() {
           </div>
         )}
 
-        <div className="bg-white rounded-2xl border border-slate-200 p-6">
-          <h2 className="text-sm font-semibold text-slate-700 mb-4">
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-5">
+          <h2 className="text-sm font-semibold text-slate-700">
             Sessão Clínica
           </h2>
-          <button
-            onClick={() => abrirSessao.mutate(void 0)}
-            disabled={abrirSessao.isPending}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-5 rounded-xl transition-colors disabled:opacity-50 text-sm"
-          >
-            {abrirSessao.isPending ? "Abrindo…" : "Iniciar Atendimento"}
-          </button>
-          {abrirSessao.isSuccess && (
-            <p className="mt-3 text-sm text-slate-500">
-              Sessão {abrirSessao.data.nova ? "aberta" : "retomada"} — ID{" "}
-              {abrirSessao.data.sessionId}
-            </p>
+
+          {!sessaoId ? (
+            <button
+              onClick={() => abrirSessao.mutate(void 0)}
+              disabled={abrirSessao.isPending}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-5 rounded-xl transition-colors disabled:opacity-50 text-sm"
+            >
+              {abrirSessao.isPending ? "Abrindo…" : "Iniciar Atendimento"}
+            </button>
+          ) : (
+            <>
+              <div className="flex items-center gap-2 text-sm text-slate-500">
+                <span className="w-2 h-2 bg-green-500 rounded-full" />
+                Sessão {abrirSessao.data?.nova ? "aberta" : "retomada"} — ID {sessaoId}
+              </div>
+
+              <div className="border-t border-slate-100 pt-4">
+                <p className="text-xs font-medium text-slate-600 mb-3">
+                  Gravar consulta
+                </p>
+                <AudioRecorder
+                  sessionId={sessaoId}
+                  onTranscricao={handleTranscricao}
+                />
+              </div>
+
+              {transcricao && (
+                <div className="border-t border-slate-100 pt-4">
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    Transcrição disponível acima. Copie o texto e use{" "}
+                    <strong>Processar Consulta</strong> para gerar o SOAP note com
+                    inteligência clínica.
+                  </p>
+                </div>
+              )}
+            </>
           )}
         </div>
 
