@@ -3,6 +3,8 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { trpc } from '../../lib/trpc.ts'
+import { useFormDraft } from '../../hooks/useFormDraft.ts'
+import { SubmitButton } from '../SubmitButton.tsx'
 import { ESTADOS_BR } from '@shared/const.ts'
 
 const schema = z.object({
@@ -33,7 +35,7 @@ export default function StepContato({ pacienteId, onNext, onBack, defaultValues 
   const [cepLoading, setCepLoading] = useState(false)
   const [cepErro, setCepErro] = useState<string | null>(null)
 
-  const { register, handleSubmit, setValue, formState: { errors } } = useForm<FormData>({
+  const form = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       pacienteId: pacienteId ?? 0,
@@ -41,8 +43,10 @@ export default function StepContato({ pacienteId, onNext, onBack, defaultValues 
       telefone: defaultValues?.telefone ?? '',
     },
   })
+  const { register, handleSubmit, setValue, formState: { errors } } = form
+  const { clearDraft } = useFormDraft(form, 'step-contato-draft')
 
-  const salvar = trpc.paciente.salvarStep3.useMutation({ onSuccess: () => onNext() })
+  const salvar = trpc.paciente.salvarStep3.useMutation({ onSuccess: () => { clearDraft(); onNext() } })
 
   const buscarCep = async (digits: string) => {
     if (digits.length !== 8) return
@@ -168,9 +172,7 @@ export default function StepContato({ pacienteId, onNext, onBack, defaultValues 
 
         <div className="flex justify-between pt-2">
           <button type="button" onClick={onBack} className={btnSecondary}>← Anterior</button>
-          <button type="submit" disabled={salvar.isPending} className={btnPrimary}>
-            {salvar.isPending ? 'Salvando…' : 'Próximo →'}
-          </button>
+          <SubmitButton isPending={salvar.isPending} />
         </div>
       </form>
     </div>
@@ -196,5 +198,4 @@ function ReadonlyValue({ value }: { value: string }) {
 }
 
 const inputCls = (e: boolean) => `w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${e ? 'border-red-400' : 'border-slate-300'}`
-const btnPrimary = 'bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium py-2 px-6 rounded-lg transition-colors'
 const btnSecondary = 'text-slate-600 hover:text-slate-800 font-medium py-2 px-4 rounded-lg transition-colors'

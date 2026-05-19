@@ -1,11 +1,29 @@
 import { z } from 'zod'
 import { env } from './_core/env.ts'
 import { logger } from './_core/logger.ts'
+import { redis } from './_core/redis.ts'
 import { db } from './db.ts'
 import { exames } from '../drizzle/schema.ts'
 import { eq } from 'drizzle-orm'
 import { getPresignedUrl } from './storage.ts'
 import type { ResultadoIa } from '../shared/types.ts'
+
+const MAX_DAILY_LLM_CALLS = env.LLM_DAILY_LIMIT ?? 200
+
+async function checkDailyLimit(): Promise<void> {
+  const key = `llm:daily:${new Date().toISOString().slice(0, 10)}`
+  try {
+    const count = await redis.incr(key)
+    if (count === 1) await redis.expire(key, 90_000) // 25h TTL — survives day boundary
+    if (count > MAX_DAILY_LLM_CALLS) {
+      logger.warn('[llm] limite diário atingido', { count, limit: MAX_DAILY_LLM_CALLS, key })
+      throw new Error(`Limite diário de análises por IA atingido (${MAX_DAILY_LLM_CALLS}/dia). Tente novamente amanhã.`)
+    }
+  } catch (err) {
+    if ((err as Error).message.includes('Limite diário')) throw err
+    logger.warn('[llm] Redis indisponível — ignorando limite diário', { error: String(err) })
+  }
+}
 
 const iaResponseSchema = z.object({
   tipoExame: z.enum(['hiv', 'hepatite_b', 'hepatite_c', 'sifilis', 'creatinina', 'outro']),
@@ -15,6 +33,8 @@ const iaResponseSchema = z.object({
 })
 
 export async function analisarExame(exameId: number): Promise<ResultadoIa> {
+  await checkDailyLimit()
+
   const [exame] = await db.select().from(exames).where(eq(exames.id, exameId)).limit(1)
   if (!exame) throw new Error(`Exame ${exameId} não encontrado`)
 

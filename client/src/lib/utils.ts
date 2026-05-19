@@ -1,13 +1,9 @@
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
+export { formatarCpf } from '@shared/validators.ts'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
-}
-
-export function formatarCpf(cpf: string): string {
-  const d = cpf.replace(/\D/g, '')
-  return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
 }
 
 export function formatarTelefone(tel: string): string {

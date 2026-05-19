@@ -15,9 +15,10 @@ import '../_core/instrument.ts'
 import { db } from '../db.ts'
 import { redis } from '../_core/redis.ts'
 import { env } from '../_core/env.ts'
+import { dlqJobs } from '../../drizzle/schema.ts'
 import { S3Client, HeadBucketCommand } from '@aws-sdk/client-s3'
 import * as Sentry from '@sentry/node'
-import { sql } from 'drizzle-orm'
+import { sql, count, lt } from 'drizzle-orm'
 
 interface CheckResult {
   name: string
@@ -56,6 +57,18 @@ await runCheck('s3', async () => {
     },
   })
   await s3.send(new HeadBucketCommand({ Bucket: env.AWS_S3_BUCKET }))
+})
+
+await runCheck('dlq', async () => {
+  // Purge jobs older than 30 days to prevent unbounded growth
+  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+  await db.delete(dlqJobs).where(lt(dlqJobs.createdAt, cutoff))
+
+  // Alert if too many stuck jobs — indicates a systemic failure
+  const [{ total }] = await db.select({ total: count() }).from(dlqJobs)
+  if (total > 20) {
+    throw new Error(`DLQ com ${total} jobs — investigar falhas persistentes`)
+  }
 })
 
 const allOk = results.every(r => r.ok)

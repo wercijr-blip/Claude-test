@@ -27,6 +27,7 @@ const envSchema = z.object({
 
   BUILT_IN_FORGE_API_URL: z.string().url().default('https://api.anthropic.com'),
   BUILT_IN_FORGE_API_KEY: z.string().optional(),
+  LLM_DAILY_LIMIT: z.coerce.number().int().positive().default(200),
 
   REDIS_URL: z.string().default('redis://localhost:6379'),
 

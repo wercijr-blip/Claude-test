@@ -4,7 +4,8 @@ import { router, protectedProcedure } from '../_core/trpc.ts'
 import { TRPCError } from '@trpc/server'
 import { db } from '../db.ts'
 import { pacientes, precadastros, pdfs, tcleAssinaturas, accessTokens } from '../../drizzle/schema.ts'
-import { eq, and, sql } from 'drizzle-orm'
+import { eq, and, sql, gte } from 'drizzle-orm'
+import type { ResultSetHeader } from 'mysql2'
 import { encrypt, decrypt, hashCpf } from '../_core/encryption.ts'
 import { validarCpf } from '../_core/cpfValidator.ts'
 import { ERROR_MESSAGES, PREP_MODALIDADE, PREP_POSOLOGIA } from '../../shared/const.ts'
@@ -45,6 +46,36 @@ async function validarEtapaPaciente(pacienteId: number, tokenId: number, etapaRe
     throw new TRPCError({ code: 'BAD_REQUEST', message: 'Complete as etapas anteriores primeiro' })
   }
   return p
+}
+
+// Single-query alternative: merges step validation into the UPDATE WHERE clause.
+// Happy path = 1 query instead of 2. Error path falls back to a diagnostic SELECT.
+async function salvarEtapa(
+  pacienteId: number,
+  tokenId: number,
+  etapaRequerida: number,
+  nextStep: number,
+  fields: Record<string, unknown>,
+): Promise<void> {
+  const result = await db
+    .update(pacientes)
+    .set({ ...fields, currentStep: sql`GREATEST(currentStep, ${nextStep})`, updatedAt: new Date() })
+    .where(and(
+      eq(pacientes.id, pacienteId),
+      eq(pacientes.tokenId, tokenId),
+      gte(pacientes.currentStep, etapaRequerida),
+    ))
+
+  if ((result as unknown as ResultSetHeader).affectedRows === 0) {
+    const [exists] = await db
+      .select({ id: pacientes.id })
+      .from(pacientes)
+      .where(and(eq(pacientes.id, pacienteId), eq(pacientes.tokenId, tokenId)))
+      .limit(1)
+    throw exists
+      ? new TRPCError({ code: 'BAD_REQUEST', message: 'Complete as etapas anteriores primeiro' })
+      : new TRPCError({ code: 'NOT_FOUND' })
+  }
 }
 
 // Schema clínico do Step 4 — alinhado com os campos preenchidos na
@@ -220,25 +251,19 @@ export const pacienteRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       assertPatient(ctx.session)
-      const p = await validarEtapaPaciente(input.pacienteId, ctx.session.tokenId, 2)
-      await db
-        .update(pacientes)
-        .set({
-          corRaca: input.corRaca,
-          escolaridade: input.escolaridade,
-          situacaoConjugal: input.situacaoConjugal,
-          rendaFamiliar: input.rendaFamiliar,
-          ocupacao: input.ocupacao,
-          identidadeGenero: input.identidadeGenero,
-          orientacaoSexual: input.orientacaoSexual,
-          ufNascimento: input.ufNascimento,
-          municipioNascimento: input.municipioNascimento,
-          situacaoRua: input.situacaoRua,
-          privadoLiberdade: input.privadoLiberdade,
-          currentStep: Math.max(p.currentStep, 3),
-          updatedAt: new Date(),
-        })
-        .where(and(eq(pacientes.id, input.pacienteId), eq(pacientes.tokenId, ctx.session.tokenId)))
+      await salvarEtapa(input.pacienteId, ctx.session.tokenId, 2, 3, {
+        corRaca: input.corRaca,
+        escolaridade: input.escolaridade,
+        situacaoConjugal: input.situacaoConjugal,
+        rendaFamiliar: input.rendaFamiliar,
+        ocupacao: input.ocupacao,
+        identidadeGenero: input.identidadeGenero,
+        orientacaoSexual: input.orientacaoSexual,
+        ufNascimento: input.ufNascimento,
+        municipioNascimento: input.municipioNascimento,
+        situacaoRua: input.situacaoRua,
+        privadoLiberdade: input.privadoLiberdade,
+      })
       return okEmpty()
     }),
 
@@ -263,26 +288,20 @@ export const pacienteRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       assertPatient(ctx.session)
-      const p = await validarEtapaPaciente(input.pacienteId, ctx.session.tokenId, 3)
-      await db
-        .update(pacientes)
-        .set({
-          emailEncrypted: encrypt(input.email),
-          tipoTelefone: input.tipoTelefone,
-          telefoneEncrypted: encrypt(input.telefone),
-          cep: input.cep,
-          logradouro: input.logradouro,
-          numero: input.numero,
-          complemento: input.complemento,
-          bairro: input.bairro,
-          cidade: input.cidade,
-          estado: input.estado,
-          permiteContato: input.permiteContato,
-          tipoContato: input.tipoContato,
-          currentStep: Math.max(p.currentStep, 4),
-          updatedAt: new Date(),
-        })
-        .where(and(eq(pacientes.id, input.pacienteId), eq(pacientes.tokenId, ctx.session.tokenId)))
+      await salvarEtapa(input.pacienteId, ctx.session.tokenId, 3, 4, {
+        emailEncrypted: encrypt(input.email),
+        tipoTelefone: input.tipoTelefone,
+        telefoneEncrypted: encrypt(input.telefone),
+        cep: input.cep,
+        logradouro: input.logradouro,
+        numero: input.numero,
+        complemento: input.complemento,
+        bairro: input.bairro,
+        cidade: input.cidade,
+        estado: input.estado,
+        permiteContato: input.permiteContato,
+        tipoContato: input.tipoContato,
+      })
       return okEmpty()
     }),
 
@@ -291,11 +310,7 @@ export const pacienteRouter = router({
     .input(z.object({ pacienteId: z.number(), conduta: condutaSchema }))
     .mutation(async ({ input, ctx }) => {
       assertPatient(ctx.session)
-      const p = await validarEtapaPaciente(input.pacienteId, ctx.session.tokenId, 4)
-      await db
-        .update(pacientes)
-        .set({ condutaJson: input.conduta, currentStep: Math.max(p.currentStep, 5), updatedAt: new Date() })
-        .where(and(eq(pacientes.id, input.pacienteId), eq(pacientes.tokenId, ctx.session.tokenId)))
+      await salvarEtapa(input.pacienteId, ctx.session.tokenId, 4, 5, { condutaJson: input.conduta })
       return okEmpty()
     }),
 
@@ -311,22 +326,16 @@ export const pacienteRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       assertPatient(ctx.session)
-      const p = await validarEtapaPaciente(input.pacienteId, ctx.session.tokenId, 5)
       const { posologia, duracao } = PREP_POSOLOGIA[input.prepModalidade]
-      await db
-        .update(pacientes)
-        .set({
-          prepModalidade: input.prepModalidade,
-          prescricaoJson: {
-            medicamento: 'tenofovir_emtricitabina',
-            posologia,
-            duracao,
-            modalidade: input.prepModalidade,
-          },
-          currentStep: Math.max(p.currentStep, 6),
-          updatedAt: new Date(),
-        })
-        .where(and(eq(pacientes.id, input.pacienteId), eq(pacientes.tokenId, ctx.session.tokenId)))
+      await salvarEtapa(input.pacienteId, ctx.session.tokenId, 5, 6, {
+        prepModalidade: input.prepModalidade,
+        prescricaoJson: {
+          medicamento: 'tenofovir_emtricitabina',
+          posologia,
+          duracao,
+          modalidade: input.prepModalidade,
+        },
+      })
       return okEmpty()
     }),
 

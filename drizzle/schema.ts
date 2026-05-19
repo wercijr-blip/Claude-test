@@ -373,6 +373,8 @@ export const dlqJobs = mysqlTable('dlq_jobs', {
   data: json('data'),
   failReason: text('fail_reason'),
   attempts: int('attempts').default(0),
+  // Set when a reprocess is in-flight; prevents double-processing on retry clicks
+  reprocessingAt: datetime('reprocessing_at'),
   createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (t) => ({
   queueIdx: index('idx_dlq_queue').on(t.queue),

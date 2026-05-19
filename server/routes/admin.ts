@@ -2,14 +2,17 @@
  * adminRouter — Painel administrativo
  * Seções: equipe | pacientes | documentos | auditoria | certificado | intake | dlq
  * Cada procedure usa adminProcedure (role: admin).
+ *
+ * Sub-modules:
+ *   admin/users.ts — gestão de equipe (listarUsuarios, cadastrarUsuario, …)
+ *   admin/dlq.ts   — dead letter queue (listarDlq, reprocessarDlqJob)
  */
 import { z } from 'zod'
 import { router, adminProcedure } from '../_core/trpc.ts'
 import { TRPCError } from '@trpc/server'
 import { db } from '../db.ts'
-import { users, securityEvents, pacientes, exames, pdfs, consultasInicio, dlqJobs } from '../../drizzle/schema.ts'
-import { eq, desc, inArray, count, isNull, and } from 'drizzle-orm'
-import type { Role } from '../../shared/types.ts'
+import { securityEvents, pacientes, exames, pdfs, consultasInicio } from '../../drizzle/schema.ts'
+import { eq, desc, inArray, count, and } from 'drizzle-orm'
 import { decrypt } from '../_core/encryption.ts'
 import { filtrarExamePorStatus } from '../examUtils.ts'
 import { inspecionarCertificado, assinarPdf } from '../pdfSigner.ts'
@@ -20,6 +23,8 @@ import { logAudit } from '../_core/audit.ts'
 import { uploadBuffer, deleteObject, getPresignedUrl } from '../storage.ts'
 import { preencherFichaAtendimento, buildConfigClinica, mapPrepAdesaoLabel } from '../sus/preencherFichaAtendimento.ts'
 import { okEmpty } from '../_core/response.ts'
+import { userProcedures } from './admin/users.ts'
+import { dlqProcedures } from './admin/dlq.ts'
 
 type ResultadoIaJson = {
   status?: string
@@ -27,134 +32,8 @@ type ResultadoIaJson = {
 }
 
 export const adminRouter = router({
-  // ── Gestão de equipe ──────────────────────────────────────────
-
-  // Listar equipe (excluindo soft-deleted)
-  listarUsuarios: adminProcedure.query(async () => {
-    return db.select().from(users).where(isNull(users.deletedAt)).orderBy(users.createdAt)
-  }),
-
-  // Cadastrar novo usuário da equipe
-  cadastrarUsuario: adminProcedure
-    .input(z.object({
-      email: z.string().email(),
-      nome: z.string().min(2),
-      role: z.enum(['secretaria', 'medico', 'admin']),
-    }))
-    .mutation(async ({ input }) => {
-      // Verificar se já existe usuário com esse e-mail
-      const existing = await db
-        .select({ id: users.id })
-        .from(users)
-        .where(eq(users.email, input.email))
-        .limit(1)
-
-      if (existing.length > 0) {
-        throw new TRPCError({ code: 'CONFLICT', message: 'Já existe um usuário com esse e-mail.' })
-      }
-
-      // openId será preenchido no primeiro login via SSO; usamos e-mail como placeholder
-      await db.insert(users).values({
-        openId: `pending:${input.email}`,
-        email: input.email,
-        nome: input.nome,
-        role: input.role as Role,
-        ativo: true,
-      })
-
-      return okEmpty()
-    }),
-
-  // Alterar role de usuário
-  alterarRole: adminProcedure
-    .input(z.object({ userId: z.number(), role: z.enum(['secretaria', 'medico', 'admin']) }))
-    .mutation(async ({ input }) => {
-      const [user] = await db.select().from(users).where(eq(users.id, input.userId)).limit(1)
-      if (!user) throw new TRPCError({ code: 'NOT_FOUND' })
-
-      await db
-        .update(users)
-        .set({ role: input.role as Role, updatedAt: new Date() })
-        .where(eq(users.id, input.userId))
-
-      return okEmpty()
-    }),
-
-  // Ativar/desativar usuário
-  toggleAtivo: adminProcedure
-    .input(z.object({ userId: z.number(), ativo: z.boolean() }))
-    .mutation(async ({ input }) => {
-      await db
-        .update(users)
-        .set({ ativo: input.ativo, updatedAt: new Date() })
-        .where(eq(users.id, input.userId))
-      return okEmpty()
-    }),
-
-  // Soft-delete: marca deletedAt/deletedBy, desativa acesso. Nunca hard-delete.
-  deletarStaff: adminProcedure
-    .input(z.object({ userId: z.number() }))
-    .mutation(async ({ input, ctx }) => {
-      if (input.userId === ctx.session.id) {
-        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Você não pode deletar sua própria conta.' })
-      }
-
-      const [target] = await db.select().from(users).where(eq(users.id, input.userId)).limit(1)
-      if (!target) throw new TRPCError({ code: 'NOT_FOUND' })
-      if (target.deletedAt) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Usuário já foi deletado.' })
-
-      // Prevent deleting the last active admin
-      if (target.role === 'admin') {
-        const [{ activeTotal }] = await db
-          .select({ activeTotal: count() })
-          .from(users)
-          .where(and(eq(users.role, 'admin'), isNull(users.deletedAt)))
-        if (activeTotal <= 1) {
-          throw new TRPCError({ code: 'BAD_REQUEST', message: 'Não é possível deletar o último administrador ativo.' })
-        }
-      }
-
-      await db
-        .update(users)
-        .set({ deletedAt: new Date(), deletedBy: ctx.session.id, ativo: false, updatedAt: new Date() })
-        .where(eq(users.id, input.userId))
-
-      await logAudit({
-        actorId: ctx.session.id,
-        actorRole: ctx.session.role,
-        action: 'admin.user_delete',
-        resourceType: 'user',
-        resourceId: input.userId,
-        detalhes: { targetEmail: target.email, targetRole: target.role },
-      })
-
-      return okEmpty()
-    }),
-
-  // Reativar usuário soft-deleted
-  reativarStaff: adminProcedure
-    .input(z.object({ userId: z.number() }))
-    .mutation(async ({ input, ctx }) => {
-      const [target] = await db.select().from(users).where(eq(users.id, input.userId)).limit(1)
-      if (!target) throw new TRPCError({ code: 'NOT_FOUND' })
-      if (!target.deletedAt) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Usuário não está deletado.' })
-
-      await db
-        .update(users)
-        .set({ deletedAt: null, deletedBy: null, ativo: true, updatedAt: new Date() })
-        .where(eq(users.id, input.userId))
-
-      await logAudit({
-        actorId: ctx.session.id,
-        actorRole: ctx.session.role,
-        action: 'admin.user_restore',
-        resourceType: 'user',
-        resourceId: input.userId,
-        detalhes: { targetEmail: target.email, targetRole: target.role },
-      })
-
-      return okEmpty()
-    }),
+  // ── Gestão de equipe — ver admin/users.ts ─────────────────────
+  ...userProcedures,
 
   // ── Pacientes ─────────────────────────────────────────────────
 
@@ -433,43 +312,8 @@ export const adminRouter = router({
       return { ok: true, url, fichasRemovidas: fichasExistentes.length }
     }),
 
-  // ── Dead Letter Queue ─────────────────────────────────────────
-
-  listarDlq: adminProcedure
-    .input(z.object({ limit: z.number().int().min(1).max(100).default(20) }))
-    .query(async ({ input }) => {
-      const rows = await db
-        .select()
-        .from(dlqJobs)
-        .orderBy(desc(dlqJobs.createdAt))
-        .limit(input.limit)
-      return rows
-    }),
-
-  reprocessarDlqJob: adminProcedure
-    .input(z.object({ jobId: z.number().int().positive() }))
-    .mutation(async ({ input }) => {
-      const [job] = await db
-        .select()
-        .from(dlqJobs)
-        .where(eq(dlqJobs.id, input.jobId))
-        .limit(1)
-      if (!job) throw new TRPCError({ code: 'NOT_FOUND', message: 'Job não encontrado na DLQ' })
-
-      // Re-enqueue based on queue name
-      if (job.queue === 'exam-analysis') {
-        const { enqueueAnalisarExame } = await import('../examQueue.ts')
-        await enqueueAnalisarExame((job.data as { exameId: number }).exameId)
-      } else if (job.queue === 'pdf-generation') {
-        const { enqueueGerarPdf } = await import('../pdfQueue.ts')
-        await enqueueGerarPdf((job.data as { pacienteId: number }).pacienteId)
-      }
-
-      // Mark as reprocessed by deleting from DLQ
-      await db.delete(dlqJobs).where(eq(dlqJobs.id, input.jobId))
-
-      return { ok: true, queue: job.queue, jobId: job.jobId }
-    }),
+  // ── Dead Letter Queue — ver admin/dlq.ts ─────────────────────
+  ...dlqProcedures,
 
   saudeIntake: adminProcedure.query(async () => {
     let redisOk = false
