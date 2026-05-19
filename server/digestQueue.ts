@@ -24,6 +24,9 @@ import {
   gerarDigestDiario,
   gerarDigestSemanal,
   gerarDigestMensal,
+  callClaudeBatch,
+  buildDigestSemanalRequest,
+  buildDigestMensalRequest,
 } from './clinicalIntelligence.ts'
 import { publicarDigest } from './obsidian.ts'
 import { notificarDigest } from './n8n.ts'
@@ -34,14 +37,14 @@ import { logger } from './_core/logger.ts'
 export const DIGEST_QUEUE_NAME = 'clinical-digest'
 
 // Digests não são urgentes nem patient-facing.
-// drainDelay alto reduz comandos Redis (Upstash free tier: 500k/mês).
+// lockDuration de 35 min cobre o worst-case do Batch API (normalmente < 5 min).
 const DIGEST_WORKER_OPTS = {
-  lockDuration: 120_000,
+  lockDuration: 35 * 60_000,
   stalledInterval: 120_000,
   maxStalledCount: 1,
   removeOnComplete: { count: 30 },
   removeOnFail: { count: 20 },
-  drainDelay: 120, // 2 min — crons não são time-critical
+  drainDelay: 120,
 } as const
 
 export const digestQueue = new Queue(DIGEST_QUEUE_NAME, {
@@ -259,53 +262,76 @@ async function runSemanal(periodoRef: string) {
   const ate = fimDia(agora)
   const semanaLabel = periodoRef || `${agora.getUTCFullYear()}-W${String(Math.ceil(agora.getUTCDate() / 7)).padStart(2, '0')}`
 
-  for (const medicoId of medicoIds) {
-    const [consultas, alertas, artigosSemanaJson, seriesAtivas] = await Promise.all([
-      getSoapResumo(medicoId, de, ate),
-      getAlertasResumo(medicoId, de, ate),
-      getSintesesPeriodo(medicoId, de, ate),
-      db.select({
-        tipo: publicationDrafts.tipo,
-        diagnostico: publicationDrafts.diagnostico,
-        tema: publicationDrafts.tema,
-        status: publicationDrafts.status,
-        nCasos: publicationDrafts.nCasos,
-        jornal: publicationDrafts.jornal,
-        atualizadoEm: publicationDrafts.atualizadoEm,
-      })
-      .from(publicationDrafts)
-      .where(and(
-        eq(publicationDrafts.medicoId, medicoId),
-        inArray(publicationDrafts.status, ['rascunho', 'em_revisao', 'submetido', 'aceito']),
-      ))
-      .limit(10),
-    ])
+  // Coleta dados de todos os médicos em paralelo
+  const dadosPorMedico = await Promise.all(
+    medicoIds.map(async medicoId => {
+      const [consultas, alertas, artigosSemanaJson, seriesAtivas] = await Promise.all([
+        getSoapResumo(medicoId, de, ate),
+        getAlertasResumo(medicoId, de, ate),
+        getSintesesPeriodo(medicoId, de, ate),
+        db.select({
+          tipo: publicationDrafts.tipo,
+          diagnostico: publicationDrafts.diagnostico,
+          tema: publicationDrafts.tema,
+          status: publicationDrafts.status,
+          nCasos: publicationDrafts.nCasos,
+          jornal: publicationDrafts.jornal,
+          atualizadoEm: publicationDrafts.atualizadoEm,
+        })
+        .from(publicationDrafts)
+        .where(and(
+          eq(publicationDrafts.medicoId, medicoId),
+          inArray(publicationDrafts.status, ['rascunho', 'em_revisao', 'submetido', 'aceito']),
+        ))
+        .limit(10),
+      ])
+      return { medicoId, consultas, alertas, artigosSemanaJson, seriesAtivas }
+    }),
+  )
 
-    if (!consultas.length && !alertas.length) continue
+  const ativos = dadosPorMedico.filter(d => d.consultas.length || d.alertas.length)
+  if (!ativos.length) return
 
+  // Com 2+ médicos: Batch API (50% de desconto, todas as requisições em paralelo)
+  // Com 1 médico: chamada direta (sem overhead de polling)
+  if (ativos.length > 1) {
+    const batchRequests = ativos.map(d =>
+      buildDigestSemanalRequest({
+        semana: semanaLabel,
+        totalPacientes: d.consultas.length,
+        diagnosticosJson: JSON.stringify(d.consultas),
+        artigosSemanaJson: d.artigosSemanaJson,
+        alertasSemanaJson: JSON.stringify(d.alertas),
+        seriesStatusJson: JSON.stringify(d.seriesAtivas),
+        relatoriosSemana: String(d.seriesAtivas.length),
+      }, String(d.medicoId)),
+    )
+
+    const resultados = await callClaudeBatch(batchRequests)
+
+    for (const d of ativos) {
+      const texto = resultados.get(String(d.medicoId)) ?? ''
+      if (!texto) continue
+      await salvarDigest({ medicoId: d.medicoId, tipo: 'semanal', periodoRef: semanaLabel, texto, totalConsultas: d.consultas.length, totalAlertas: d.alertas.length })
+      publicarDigest({ tipo: 'semanal', periodoRef: semanaLabel, texto }).catch(() => null)
+      notificarDigest({ tipo: 'semanal', periodoRef: semanaLabel, totalConsultas: d.consultas.length, totalAlertas: d.alertas.length, resumoTexto: texto })
+      logger.info('[digestQueue] Digest semanal gerado (batch)', { medicoId: d.medicoId, semana: semanaLabel })
+    }
+  } else {
+    const d = ativos[0]!
     const { texto } = await gerarDigestSemanal({
       semana: semanaLabel,
-      totalPacientes: consultas.length,
-      diagnosticosJson: JSON.stringify(consultas),
-      artigosSemanaJson,
-      alertasSemanaJson: JSON.stringify(alertas),
-      seriesStatusJson: JSON.stringify(seriesAtivas),
-      relatoriosSemana: String(seriesAtivas.length),
+      totalPacientes: d.consultas.length,
+      diagnosticosJson: JSON.stringify(d.consultas),
+      artigosSemanaJson: d.artigosSemanaJson,
+      alertasSemanaJson: JSON.stringify(d.alertas),
+      seriesStatusJson: JSON.stringify(d.seriesAtivas),
+      relatoriosSemana: String(d.seriesAtivas.length),
     })
-
-    await salvarDigest({
-      medicoId,
-      tipo: 'semanal',
-      periodoRef: semanaLabel,
-      texto,
-      totalConsultas: consultas.length,
-      totalAlertas: alertas.length,
-    })
-
+    await salvarDigest({ medicoId: d.medicoId, tipo: 'semanal', periodoRef: semanaLabel, texto, totalConsultas: d.consultas.length, totalAlertas: d.alertas.length })
     publicarDigest({ tipo: 'semanal', periodoRef: semanaLabel, texto }).catch(() => null)
-    notificarDigest({ tipo: 'semanal', periodoRef: semanaLabel, totalConsultas: consultas.length, totalAlertas: alertas.length, resumoTexto: texto })
-
-    logger.info('[digestQueue] Digest semanal gerado', { medicoId, semana: semanaLabel })
+    notificarDigest({ tipo: 'semanal', periodoRef: semanaLabel, totalConsultas: d.consultas.length, totalAlertas: d.alertas.length, resumoTexto: texto })
+    logger.info('[digestQueue] Digest semanal gerado', { medicoId: d.medicoId, semana: semanaLabel })
   }
 }
 
@@ -318,88 +344,80 @@ async function runMensal(periodoRef: string) {
   const ate = fimDia(agora)
   const mesLabel = periodoRef || `${agora.getUTCFullYear()}-${String(agora.getUTCMonth() + 1).padStart(2, '0')}`
 
-  for (const medicoId of medicoIds) {
-    const [consultas, alertas, artigosMesJson, seriesGeradas, seriesPublicadas, cronograma] = await Promise.all([
-      getSoapResumo(medicoId, de, ate),
-      getAlertasResumo(medicoId, de, ate),
-      getSintesesPeriodo(medicoId, de, ate),
-      // Séries criadas neste mês (qualquer status)
-      db.select({
-        tipo: publicationDrafts.tipo,
-        diagnostico: publicationDrafts.diagnostico,
-        tema: publicationDrafts.tema,
-        status: publicationDrafts.status,
-        nCasos: publicationDrafts.nCasos,
-        jornal: publicationDrafts.jornal,
-      })
-      .from(publicationDrafts)
-      .where(and(
-        eq(publicationDrafts.medicoId, medicoId),
-        gte(publicationDrafts.createdAt, de),
-        lte(publicationDrafts.createdAt, ate),
-      )),
-      // Séries publicadas no total (acumulado)
-      db.select({
-        tipo: publicationDrafts.tipo,
-        diagnostico: publicationDrafts.diagnostico,
-        tema: publicationDrafts.tema,
-        doi: publicationDrafts.doi,
-        jornal: publicationDrafts.jornal,
-        dataPublicacao: publicationDrafts.dataPublicacao,
-      })
-      .from(publicationDrafts)
-      .where(and(
-        eq(publicationDrafts.medicoId, medicoId),
-        eq(publicationDrafts.status, 'publicado'),
-      )),
-      // Cronograma: rascunhos e submetidos com jornal informado
-      db.select({
-        tipo: publicationDrafts.tipo,
-        diagnostico: publicationDrafts.diagnostico,
-        tema: publicationDrafts.tema,
-        status: publicationDrafts.status,
-        jornal: publicationDrafts.jornal,
-        dataSubmissao: publicationDrafts.dataSubmissao,
-      })
-      .from(publicationDrafts)
-      .where(and(
-        eq(publicationDrafts.medicoId, medicoId),
-        inArray(publicationDrafts.status, ['rascunho', 'em_revisao', 'submetido', 'aceito']),
-        isNotNull(publicationDrafts.jornal),
-      ))
-      .limit(5),
-    ])
+  // Coleta dados de todos os médicos em paralelo
+  const dadosPorMedico = await Promise.all(
+    medicoIds.map(async medicoId => {
+      const [consultas, alertas, artigosMesJson, seriesGeradas, seriesPublicadas, cronograma] = await Promise.all([
+        getSoapResumo(medicoId, de, ate),
+        getAlertasResumo(medicoId, de, ate),
+        getSintesesPeriodo(medicoId, de, ate),
+        db.select({
+          tipo: publicationDrafts.tipo,
+          diagnostico: publicationDrafts.diagnostico,
+          tema: publicationDrafts.tema,
+          status: publicationDrafts.status,
+          nCasos: publicationDrafts.nCasos,
+          jornal: publicationDrafts.jornal,
+        })
+        .from(publicationDrafts)
+        .where(and(eq(publicationDrafts.medicoId, medicoId), gte(publicationDrafts.createdAt, de), lte(publicationDrafts.createdAt, ate))),
+        db.select({
+          tipo: publicationDrafts.tipo,
+          diagnostico: publicationDrafts.diagnostico,
+          tema: publicationDrafts.tema,
+          doi: publicationDrafts.doi,
+          jornal: publicationDrafts.jornal,
+          dataPublicacao: publicationDrafts.dataPublicacao,
+        })
+        .from(publicationDrafts)
+        .where(and(eq(publicationDrafts.medicoId, medicoId), eq(publicationDrafts.status, 'publicado'))),
+        db.select({
+          tipo: publicationDrafts.tipo,
+          diagnostico: publicationDrafts.diagnostico,
+          tema: publicationDrafts.tema,
+          status: publicationDrafts.status,
+          jornal: publicationDrafts.jornal,
+          dataSubmissao: publicationDrafts.dataSubmissao,
+        })
+        .from(publicationDrafts)
+        .where(and(eq(publicationDrafts.medicoId, medicoId), inArray(publicationDrafts.status, ['rascunho', 'em_revisao', 'submetido', 'aceito']), isNotNull(publicationDrafts.jornal)))
+        .limit(5),
+      ])
+      return { medicoId, consultas, alertas, artigosMesJson, seriesGeradas, seriesPublicadas, cronograma }
+    }),
+  )
 
-    const { texto } = await gerarDigestMensal({
-      mesAno: mesLabel,
-      totalPacientes: consultas.length,
-      diagnosticosMesJson: JSON.stringify(consultas),
-      artigosMesJson,
-      alertasMesJson: JSON.stringify(alertas),
-      seriesGeradasJson: JSON.stringify(seriesGeradas),
-      seriesPublicadasJson: JSON.stringify(seriesPublicadas),
-      totalAcumuladoJson: JSON.stringify({
-        consultas: consultas.length,
-        alertas: alertas.length,
-        seriesGeradas: seriesGeradas.length,
-        seriesPublicadas: seriesPublicadas.length,
-      }),
-      cronogramaPublicacaoJson: JSON.stringify(cronograma),
-    })
+  const buildParams = (d: typeof dadosPorMedico[0]) => ({
+    mesAno: mesLabel,
+    totalPacientes: d.consultas.length,
+    diagnosticosMesJson: JSON.stringify(d.consultas),
+    artigosMesJson: d.artigosMesJson,
+    alertasMesJson: JSON.stringify(d.alertas),
+    seriesGeradasJson: JSON.stringify(d.seriesGeradas),
+    seriesPublicadasJson: JSON.stringify(d.seriesPublicadas),
+    totalAcumuladoJson: JSON.stringify({ consultas: d.consultas.length, alertas: d.alertas.length, seriesGeradas: d.seriesGeradas.length, seriesPublicadas: d.seriesPublicadas.length }),
+    cronogramaPublicacaoJson: JSON.stringify(d.cronograma),
+  })
 
-    await salvarDigest({
-      medicoId,
-      tipo: 'mensal',
-      periodoRef: mesLabel,
-      texto,
-      totalConsultas: consultas.length,
-      totalAlertas: alertas.length,
-    })
+  if (dadosPorMedico.length > 1) {
+    const batchRequests = dadosPorMedico.map(d => buildDigestMensalRequest(buildParams(d), String(d.medicoId)))
+    const resultados = await callClaudeBatch(batchRequests)
 
+    for (const d of dadosPorMedico) {
+      const texto = resultados.get(String(d.medicoId)) ?? ''
+      if (!texto) continue
+      await salvarDigest({ medicoId: d.medicoId, tipo: 'mensal', periodoRef: mesLabel, texto, totalConsultas: d.consultas.length, totalAlertas: d.alertas.length })
+      publicarDigest({ tipo: 'mensal', periodoRef: mesLabel, texto }).catch(() => null)
+      notificarDigest({ tipo: 'mensal', periodoRef: mesLabel, totalConsultas: d.consultas.length, totalAlertas: d.alertas.length, resumoTexto: texto })
+      logger.info('[digestQueue] Digest mensal gerado (batch)', { medicoId: d.medicoId, mes: mesLabel })
+    }
+  } else {
+    const d = dadosPorMedico[0]!
+    const { texto } = await gerarDigestMensal(buildParams(d))
+    await salvarDigest({ medicoId: d.medicoId, tipo: 'mensal', periodoRef: mesLabel, texto, totalConsultas: d.consultas.length, totalAlertas: d.alertas.length })
     publicarDigest({ tipo: 'mensal', periodoRef: mesLabel, texto }).catch(() => null)
-    notificarDigest({ tipo: 'mensal', periodoRef: mesLabel, totalConsultas: consultas.length, totalAlertas: alertas.length, resumoTexto: texto })
-
-    logger.info('[digestQueue] Digest mensal gerado', { medicoId, mes: mesLabel })
+    notificarDigest({ tipo: 'mensal', periodoRef: mesLabel, totalConsultas: d.consultas.length, totalAlertas: d.alertas.length, resumoTexto: texto })
+    logger.info('[digestQueue] Digest mensal gerado', { medicoId: d.medicoId, mes: mesLabel })
   }
 }
 

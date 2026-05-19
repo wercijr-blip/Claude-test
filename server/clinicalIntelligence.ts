@@ -117,6 +117,76 @@ async function callClaude(
   }
 }
 
+// ─── Batch API ────────────────────────────────────────────────────────────────
+
+export interface BatchRequest {
+  id: string
+  systemPrompt: string
+  userContent: string
+  maxTokens: number
+  model?: string
+  temperature?: number
+}
+
+/**
+ * Submits multiple independent Claude requests as one batch job — 50% cheaper.
+ * Polls until all requests complete or timeout is reached.
+ * Returns a Map<id, text>; failed/expired requests map to empty string.
+ */
+export async function callClaudeBatch(
+  requests: BatchRequest[],
+  { pollIntervalMs = 30_000, timeoutMs = 30 * 60_000 } = {},
+): Promise<Map<string, string>> {
+  if (requests.length === 0) return new Map()
+
+  const batch = await anthropic.messages.batches.create({
+    requests: requests.map(r => ({
+      custom_id: r.id,
+      params: {
+        model: r.model ?? MODEL_SONNET,
+        max_tokens: r.maxTokens,
+        system: [{ type: 'text' as const, text: r.systemPrompt, cache_control: { type: 'ephemeral' as const } }],
+        messages: [{ role: 'user' as const, content: r.userContent }],
+        ...(r.temperature !== undefined && (r.model ?? MODEL_SONNET) !== MODEL_OPUS
+          ? { temperature: r.temperature }
+          : {}),
+      },
+    })),
+  })
+
+  logger.info('[cis] Batch submetido', { batchId: batch.id, n: requests.length })
+
+  const deadline = Date.now() + timeoutMs
+  let current = batch
+  while (current.processing_status !== 'ended') {
+    if (Date.now() > deadline) {
+      await anthropic.messages.batches.cancel(batch.id).catch(() => null)
+      throw new Error(`[cis] Batch timeout após ${timeoutMs / 60_000} min (id: ${batch.id})`)
+    }
+    await new Promise(resolve => setTimeout(resolve, pollIntervalMs))
+    current = await anthropic.messages.batches.retrieve(batch.id)
+    logger.info('[cis] Batch aguardando', {
+      batchId: batch.id,
+      processing: current.request_counts.processing,
+      succeeded: current.request_counts.succeeded,
+    })
+  }
+
+  const results = new Map<string, string>()
+  for await (const result of await anthropic.messages.batches.results(batch.id)) {
+    if (result.result.type === 'succeeded') {
+      const block = result.result.message.content[0]
+      results.set(result.custom_id, block?.type === 'text' ? block.text : '')
+    } else {
+      logger.warn('[cis] Batch request falhou', { id: result.custom_id, type: result.result.type })
+      results.set(result.custom_id, '')
+    }
+  }
+
+  logger.info('[cis] Batch concluído', { batchId: batch.id, resultados: results.size })
+  return results
+}
+
 function parseJsonResponse<T>(text: string, context: string): T {
   const match = text.match(/\{[\s\S]*\}/)
   const jsonStr = match ? match[0] : text
@@ -945,7 +1015,7 @@ export interface DigestSemanal {
   texto: string
 }
 
-export async function gerarDigestSemanal(params: {
+type DigestSemanalParams = {
   semana: string
   totalPacientes: number
   diagnosticosJson: string
@@ -953,8 +1023,9 @@ export async function gerarDigestSemanal(params: {
   alertasSemanaJson: string
   seriesStatusJson: string
   relatoriosSemana: string
-}): Promise<DigestSemanal> {
-  const systemPrompt = `${DIGEST_BASE}
+}
+
+const PROMPT_08_SYSTEM = `${DIGEST_BASE}
 
 Gere o resumo semanal. Máximo 800 palavras.
 
@@ -993,16 +1064,24 @@ Gere o resumo semanal. Máximo 800 palavras.
 
 Termine com: "Próximo resumo semanal: próxima sexta-feira às 19h."`
 
-  const userContent = `DADOS DA SEMANA — ${params.semana}:
+function digestSemanalUserContent(params: DigestSemanalParams): string {
+  return `DADOS DA SEMANA — ${params.semana}:
 - Total de pacientes: ${params.totalPacientes}
 - Diagnósticos da semana: ${params.diagnosticosJson}
 - Artigos sintetizados: ${params.artigosSemanaJson}
 - Alertas de conduta: ${params.alertasSemanaJson}
 - Status das séries de casos: ${params.seriesStatusJson}
 - Relatórios emitidos: ${params.relatoriosSemana}`
+}
 
-  const text = await callClaude(systemPrompt, userContent, 2000, MODEL_SONNET, 0.2)
+export async function gerarDigestSemanal(params: DigestSemanalParams): Promise<DigestSemanal> {
+  const text = await callClaude(PROMPT_08_SYSTEM, digestSemanalUserContent(params), 2000, MODEL_SONNET, 0.2)
   return { texto: text }
+}
+
+/** Constrói uma BatchRequest para digest semanal — usar com callClaudeBatch() quando N > 1 médico. */
+export function buildDigestSemanalRequest(params: DigestSemanalParams, id: string): BatchRequest {
+  return { id, systemPrompt: PROMPT_08_SYSTEM, userContent: digestSemanalUserContent(params), maxTokens: 2000, model: MODEL_SONNET, temperature: 0.2 }
 }
 
 // ─── PROMPT 09 — Digest Mensal ────────────────────────────────────────────────
@@ -1011,7 +1090,7 @@ export interface DigestMensal {
   texto: string
 }
 
-export async function gerarDigestMensal(params: {
+type DigestMensalParams = {
   mesAno: string
   totalPacientes: number
   diagnosticosMesJson: string
@@ -1021,8 +1100,9 @@ export async function gerarDigestMensal(params: {
   seriesPublicadasJson: string
   totalAcumuladoJson: string
   cronogramaPublicacaoJson: string
-}): Promise<DigestMensal> {
-  const systemPrompt = `${DIGEST_BASE}
+}
+
+const PROMPT_09_SYSTEM = `${DIGEST_BASE}
 
 Gere o resumo mensal analítico. Máximo 1000 palavras. Seja analítico — identifique padrões, priorize informações acionáveis.
 
@@ -1069,7 +1149,8 @@ Gere o resumo mensal analítico. Máximo 1000 palavras. Seja analítico — iden
 
 Termine com: "Próximo resumo mensal: último dia de [próximo mês]."`
 
-  const userContent = `DADOS DO MÊS — ${params.mesAno}:
+function digestMensalUserContent(params: DigestMensalParams): string {
+  return `DADOS DO MÊS — ${params.mesAno}:
 - Total de pacientes no mês: ${params.totalPacientes}
 - Diagnósticos do mês: ${params.diagnosticosMesJson}
 - Artigos sintetizados no mês: ${params.artigosMesJson}
@@ -1078,9 +1159,16 @@ Termine com: "Próximo resumo mensal: último dia de [próximo mês]."`
 - Séries publicadas: ${params.seriesPublicadasJson}
 - Totais acumulados (desde o início): ${params.totalAcumuladoJson}
 - Cronograma de publicação: ${params.cronogramaPublicacaoJson}`
+}
 
-  const text = await callClaude(systemPrompt, userContent, 2500, MODEL_SONNET, 0.2)
+export async function gerarDigestMensal(params: DigestMensalParams): Promise<DigestMensal> {
+  const text = await callClaude(PROMPT_09_SYSTEM, digestMensalUserContent(params), 2500, MODEL_SONNET, 0.2)
   return { texto: text }
+}
+
+/** Constrói uma BatchRequest para digest mensal — usar com callClaudeBatch() quando N > 1 médico. */
+export function buildDigestMensalRequest(params: DigestMensalParams, id: string): BatchRequest {
+  return { id, systemPrompt: PROMPT_09_SYSTEM, userContent: digestMensalUserContent(params), maxTokens: 2500, model: MODEL_SONNET, temperature: 0.2 }
 }
 
 // ─── PROMPT 10 — Geração de Série de Casos ───────────────────────────────────
