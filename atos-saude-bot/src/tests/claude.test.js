@@ -12,9 +12,12 @@ vi.mock('../services/knowledge.js', () => ({
 }))
 
 vi.mock('../services/db.js', () => ({
-  insertAuthQuery: vi.fn().mockResolvedValue(undefined),
-  // outros exports usados por módulos que importam db.js não são necessários aqui
-  // pois este mock é escopo deste arquivo de testes apenas
+  insertAuthQuery: vi.fn().mockResolvedValue(undefined)
+}))
+
+// Elimina os delays reais de retry nos testes — comportamento de erro é o que importa
+vi.mock('../utils/retry.js', () => ({
+  withRetry: vi.fn(async (fn) => fn())
 }))
 
 const { answerAuthorizationQuestion } = await import('../services/claude.js')

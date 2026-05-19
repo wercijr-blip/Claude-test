@@ -114,9 +114,57 @@
 
   /* ── SMOOTH SCROLLING ──────────────────────────────────── */
   html { scroll-behavior: smooth; }
+
+  /* ── SKELETON LOADER ───────────────────────────────────── */
+  .skeleton {
+    background: linear-gradient(90deg, #F1F5F9 25%, #E8EDF2 50%, #F1F5F9 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+    border-radius: 6px;
+  }
+  @keyframes shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* ── TOAST ─────────────────────────────────────────────── */
+  .toast-item {
+    padding: 12px 16px; border-radius: 10px; font-size: 13px; font-weight: 600;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.12); display: flex; align-items: center;
+    gap: 10px; min-width: 240px; max-width: 340px; pointer-events: auto;
+    animation: toastIn .22s ease;
+  }
+  @keyframes toastIn {
+    from { transform: translateX(110%); opacity: 0; }
+    to   { transform: translateX(0);    opacity: 1; }
+  }
+  .toast-success { background: #D1FAE5; color: #065F46; border-left: 4px solid #10B981; }
+  .toast-error   { background: #FEE2E2; color: #991B1B; border-left: 4px solid #EF4444; }
+  .toast-info    { background: #E0F2FE; color: #0369A1; border-left: 4px solid #3B82F6; }
+
+  /* ── EMPTY STATE ────────────────────────────────────────── */
+  .empty-state { padding: 52px 24px; text-align: center; }
+  .empty-state-icon { font-size: 48px; opacity: .18; margin-bottom: 12px; }
+  .empty-state-title { font-size: 14px; font-weight: 600; color: #94A3B8; }
+  .empty-state-sub   { font-size: 12px; color: #CBD5E1; margin-top: 4px; }
+
+  /* ── RATING BAR ─────────────────────────────────────────── */
+  .rating-bar-track { height: 8px; background: #F1F5F9; border-radius: 4px; overflow: hidden; flex: 1; }
+  .rating-bar-fill  { height: 100%; border-radius: 4px; transition: width .7s cubic-bezier(.4,0,.2,1); }
 </style>
 </head>
 <body class="bg-[#F1F5F9]" x-data="painel()" x-init="init()">
+
+<!-- ═══════════════════ TOAST CONTAINER ═══════════════════ -->
+<div class="fixed top-4 right-4 z-[9999] flex flex-col gap-2" style="pointer-events:none" aria-live="polite">
+  <template x-for="t in toasts" :key="t.id">
+    <div class="toast-item" :class="`toast-${t.type}`">
+      <span x-text="t.icon" class="shrink-0"></span>
+      <span x-text="t.msg" class="flex-1 leading-tight"></span>
+      <button @click="dismissToast(t.id)" class="shrink-0 opacity-50 hover:opacity-100 text-lg leading-none">×</button>
+    </div>
+  </template>
+</div>
 
 <!-- ═══════════════════ TELA DE LOGIN ═══════════════════ -->
 <div x-show="!autenticado" x-cloak
@@ -402,9 +450,25 @@
             <th>Nome</th><th>Nascimento</th><th>Telefone</th><th>Status</th><th>Ação</th>
           </tr></thead>
           <tbody>
-            <template x-if="agendamentos.length===0">
-              <tr><td colspan="12" class="text-center py-10 text-gray-300 text-sm">
-                Nenhum registro encontrado.</td></tr>
+            <!-- Skeleton loader -->
+            <template x-if="agendaLoading">
+              <template x-for="i in [1,2,3,4,5]" :key="i">
+                <tr>
+                  <td colspan="12" class="px-4 py-2">
+                    <div class="skeleton h-5 w-full"></div>
+                  </td>
+                </tr>
+              </template>
+            </template>
+            <!-- Empty state -->
+            <template x-if="!agendaLoading && agendamentos.length===0">
+              <tr><td colspan="12">
+                <div class="empty-state">
+                  <div class="empty-state-icon">📅</div>
+                  <p class="empty-state-title">Nenhum agendamento encontrado</p>
+                  <p class="empty-state-sub">Ajuste os filtros ou aguarde novos agendamentos via WhatsApp.</p>
+                </div>
+              </td></tr>
             </template>
             <template x-for="row in agendamentos" :key="row.id">
               <tr class="tbl-row" :class="rowClass(row)">
@@ -1015,37 +1079,42 @@
     <!-- /Tab Conhecimento ────────────────────────────────────── -->
 
     <!-- Tab Satisfação ───────────────────────────────────────── -->
-    <div x-show="activeTab==='satisfacao'" x-cloak class="space-y-4">
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div class="card p-4 text-center border-t-4 border-green-400">
-          <p class="text-2xl font-black text-green-600" x-text="satisfacaoStats.excelente"></p>
-          <p class="text-xs text-gray-400 mt-0.5">Excelente (5)</p>
-        </div>
-        <div class="card p-4 text-center border-t-4 border-blue-400">
-          <p class="text-2xl font-black text-blue-600" x-text="satisfacaoStats.bom"></p>
-          <p class="text-xs text-gray-400 mt-0.5">Bom (4)</p>
-        </div>
-        <div class="card p-4 text-center border-t-4 border-yellow-400">
-          <p class="text-2xl font-black text-yellow-600" x-text="satisfacaoStats.regular"></p>
-          <p class="text-xs text-gray-400 mt-0.5">Regular (3)</p>
-        </div>
-        <div class="card p-4 text-center border-t-4 border-red-400">
-          <p class="text-2xl font-black text-red-600" x-text="satisfacaoStats.ruim"></p>
-          <p class="text-xs text-gray-400 mt-0.5">Ruim (1-2)</p>
-        </div>
-      </div>
+    <div x-show="activeTab==='satisfacao'" x-cloak class="space-y-4 pt-4">
+      <!-- KPIs -->
       <div class="grid grid-cols-3 gap-4">
         <div class="card p-5 text-center">
-          <p class="text-3xl font-black text-teal-600" x-text="mediaNotas||'—'"></p>
-          <p class="text-xs text-gray-400 mt-1">Nota média</p>
+          <p class="text-4xl font-black text-teal-600" x-text="mediaNotas||'—'"></p>
+          <p class="text-xs text-gray-400 mt-1 font-medium">Nota média</p>
         </div>
         <div class="card p-5 text-center">
-          <p class="text-3xl font-black text-slate-800" x-text="satisfacoes.length"></p>
-          <p class="text-xs text-gray-400 mt-1">Avaliações</p>
+          <p class="text-4xl font-black text-slate-800" x-text="satisfacoes.length"></p>
+          <p class="text-xs text-gray-400 mt-1 font-medium">Avaliações totais</p>
         </div>
         <div class="card p-5 text-center">
-          <p class="text-3xl font-black text-green-500" x-text="satisfacoes.filter(s=>s.nota>=4).length"></p>
-          <p class="text-xs text-gray-400 mt-1">Nota ≥ 4</p>
+          <p class="text-4xl font-black text-green-500"
+            x-text="satisfacoes.length ? Math.round(satisfacoes.filter(s=>s.nota>=4).length/satisfacoes.length*100)+'%' : '—'"></p>
+          <p class="text-xs text-gray-400 mt-1 font-medium">Satisfação (≥ 4)</p>
+        </div>
+      </div>
+      <!-- Distribuição visual de notas -->
+      <div class="card p-5">
+        <h3 class="font-bold text-slate-800 mb-4 text-sm">📊 Distribuição de Notas</h3>
+        <div class="space-y-3">
+          <template x-for="r in ratingDistribution" :key="r.nota">
+            <div class="flex items-center gap-3">
+              <span class="text-sm font-bold w-12 shrink-0" :style="`color:${r.color}`"
+                x-text="'★ ' + r.nota"></span>
+              <div class="rating-bar-track">
+                <div class="rating-bar-fill" :style="`width:${r.pct}%;background:${r.color}`"></div>
+              </div>
+              <span class="text-xs text-gray-400 w-8 text-right shrink-0" x-text="r.count"></span>
+              <span class="text-xs text-gray-300 w-8 text-right shrink-0"
+                x-text="r.pct > 0 ? r.pct+'%' : ''"></span>
+            </div>
+          </template>
+          <template x-if="satisfacoes.length === 0">
+            <div class="text-center py-4 text-gray-300 text-sm">Nenhuma avaliação ainda.</div>
+          </template>
         </div>
       </div>
       <div class="card overflow-auto">
@@ -1057,7 +1126,13 @@
           <thead><tr class="tbl-head"><th>Telefone</th><th>Médico</th><th>Especialidade</th><th>Nota</th><th>Comentário</th><th>Data</th></tr></thead>
           <tbody>
             <template x-if="satisfacoes.length===0">
-              <tr><td colspan="6" class="text-center py-10 text-gray-300 text-sm">Nenhuma avaliação.</td></tr>
+              <tr><td colspan="6">
+                <div class="empty-state">
+                  <div class="empty-state-icon">⭐</div>
+                  <p class="empty-state-title">Nenhuma avaliação recebida</p>
+                  <p class="empty-state-sub">As pesquisas são enviadas automaticamente após cada consulta.</p>
+                </div>
+              </td></tr>
             </template>
             <template x-for="s in satisfacoes" :key="s.id">
               <tr class="tbl-row">
@@ -1329,6 +1404,8 @@ function painel() {
 
     // Satisfação
     satisfacoes: [], mediaNotas: null,
+    toasts: [], _toastSeq: 0,
+    agendaLoading: false,
 
     // Conversas
     conversas: [], conversaAberta: null, mensagensAbertas: [],
@@ -1338,6 +1415,16 @@ function painel() {
     stats: { agenda: 0, humano: 0, encaixe: 0, conversas: 0, hoje: 0, consultas: 0, infusoes: 0 },
     conhecimentoStats: { perguntasHoje: 0, taxaResolucao: 0 },
     satisfacaoStats: { excelente: 0, bom: 0, regular: 0, ruim: 0 },
+
+    get ratingDistribution() {
+      const total = this.satisfacoes.length
+      const counts = [5,4,3,2,1].map(nota => ({
+        nota,
+        count: this.satisfacoes.filter(s => s.nota === nota).length,
+        color: nota===5?'#10B981':nota===4?'#3B82F6':nota===3?'#F59E0B':nota===2?'#F97316':'#EF4444'
+      }))
+      return counts.map(r => ({ ...r, pct: total > 0 ? Math.round(r.count/total*100) : 0 }))
+    },
 
     // Clock
     clockStr: '',
@@ -1452,6 +1539,7 @@ function painel() {
 
     // Agenda
     async loadAgenda() {
+      this.agendaLoading = true
       try {
         const p = new URLSearchParams()
         if (this.agFilter.status) p.set('status', this.agFilter.status)
@@ -1462,18 +1550,33 @@ function painel() {
         this.agendamentos = d.data || d
         this.stats.agenda = this.agendamentos.filter(a => a.status === 'PENDENTE').length
       } catch (e) { console.error(e) }
+      finally { this.agendaLoading = false }
     },
 
+    showToast(msg, type = 'info', durationMs = 4000) {
+      const icons = { success: '✅', error: '❌', info: 'ℹ️' }
+      const id = ++this._toastSeq
+      this.toasts.push({ id, msg, type, icon: icons[type] || 'ℹ️' })
+      setTimeout(() => this.dismissToast(id), durationMs)
+    },
+    dismissToast(id) { this.toasts = this.toasts.filter(t => t.id !== id) },
+
     async confirmarAgendamento(id) {
-      try { await this.api('/agendamentos/'+id+'/status', { method:'PATCH', body: JSON.stringify({ status:'CONFIRMADO' }) }); this.loadAgenda() }
-      catch (e) { alert(e.message) }
+      try {
+        await this.api('/agendamentos/'+id+'/status', { method:'PATCH', body: JSON.stringify({ status:'CONFIRMADO' }) })
+        this.loadAgenda()
+        this.showToast('Agendamento confirmado.', 'success')
+      } catch (e) { this.showToast(e.message, 'error') }
     },
 
     async cancelarAgendamento(idOrRow) {
       const id = (idOrRow && typeof idOrRow === 'object') ? idOrRow.id : idOrRow
       if (!confirm('Cancelar este agendamento?')) return
-      try { await this.api('/agendamentos/'+id+'/status', { method:'PATCH', body: JSON.stringify({ status:'CANCELADO' }) }); this.loadAgenda() }
-      catch (e) { alert(e.message) }
+      try {
+        await this.api('/agendamentos/'+id+'/status', { method:'PATCH', body: JSON.stringify({ status:'CANCELADO' }) })
+        this.loadAgenda()
+        this.showToast('Agendamento cancelado.', 'info')
+      } catch (e) { this.showToast(e.message, 'error') }
     },
 
     // Compat wrappers usados pelo HTML v1/v2
@@ -1627,13 +1730,19 @@ function painel() {
     loadHumanWaiting() { return this.loadSessoesHumanas() },
 
     async assumirAtendimento(phone) {
-      try { await this.api('/sessions/'+encodeURIComponent(phone)+'/assume', { method:'POST' }); this.loadSessoesHumanas() }
-      catch (e) { alert(e.message) }
+      try {
+        await this.api('/sessions/'+encodeURIComponent(phone)+'/assume', { method:'POST' })
+        this.loadSessoesHumanas()
+        this.showToast('Atendimento assumido.', 'success')
+      } catch (e) { this.showToast(e.message, 'error') }
     },
 
     async encerrarAtendimento(phone) {
-      try { await this.api('/sessions/'+encodeURIComponent(phone)+'/encerrar', { method:'POST' }); this.loadSessoesHumanas() }
-      catch (e) { alert(e.message) }
+      try {
+        await this.api('/sessions/'+encodeURIComponent(phone)+'/encerrar', { method:'POST' })
+        this.loadSessoesHumanas()
+        this.showToast('Sessão encerrada.', 'info')
+      } catch (e) { this.showToast(e.message, 'error') }
     },
 
     // Encaixe
@@ -1750,8 +1859,8 @@ function painel() {
       try {
         await this.api('/usuarios/'+this.resetSenhaTarget.id+'/reset-senha', { method:'PATCH', body: JSON.stringify({ password: this.resetSenhaPwd }) })
         this.resetSenhaModal = false; this.resetSenhaPwd = ''; this.resetSenhaTarget = null
-        alert('Senha redefinida com sucesso!')
-      } catch (e) { alert(e.message) }
+        this.showToast('Senha redefinida com sucesso!', 'success')
+      } catch (e) { this.showToast(e.message, 'error') }
     },
 
     // WhatsApp / QR

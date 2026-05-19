@@ -5,6 +5,7 @@ import { dirname, join } from 'path'
 import { searchKnowledge } from './knowledge.js'
 import { insertAuthQuery } from './db.js'
 import { logger } from '../utils/logger.js'
+import { withRetry } from '../utils/retry.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -36,12 +37,15 @@ export async function answerAuthorizationQuestion(phone, question) {
   const systemPrompt = SYSTEM_PROMPT_TEMPLATE.replace('{context}', context)
 
   try {
-    const response = await getClient().messages.create({
-      model: CLAUDE_MODEL,
-      max_tokens: 400,
-      system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
-      messages: [{ role: 'user', content: question }]
-    })
+    const response = await withRetry(
+      () => getClient().messages.create({
+        model: CLAUDE_MODEL,
+        max_tokens: 400,
+        system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
+        messages: [{ role: 'user', content: question }]
+      }),
+      { attempts: 3, baseDelayMs: 1000 }
+    )
 
     const answer = response.content[0]?.text?.trim() || 'NAO_SEI'
 

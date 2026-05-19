@@ -1,0 +1,8 @@
+node_modules
+.env
+*.db
+*.db.gz
+backups/
+uploads/
+src/config/google-service-account.json
+.git
