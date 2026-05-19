@@ -98,10 +98,6 @@ async function efetch(pmids: string[]): Promise<string> {
 }
 
 // ── MEDLINE parser ────────────────────────────────────────────────────────────
-//
-// MEDLINE format uses tagged lines: "TAG - value". Multi-line values are
-// continuation lines that start with 6 spaces. Each record is separated
-// by a blank line. We collect all tag→value pairs and map them to ArtigoPubMed.
 
 interface MedlineRecord {
   [tag: string]: string[]

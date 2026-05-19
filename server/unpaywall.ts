@@ -121,15 +121,18 @@ export async function enriquecerArtigos(
   }
 
   const resultado: ArtigoPubMedEnriquecido[] = []
+  const BATCH_SIZE = 3
 
-  for (const artigo of artigos) {
-    const textoCompleto = artigo.doi
-      ? await buscarTextoCompleto(artigo.doi)
-      : null
-
-    resultado.push({ ...artigo, texto_completo: textoCompleto })
-
-    if (artigo.doi) {
+  for (let i = 0; i < artigos.length; i += BATCH_SIZE) {
+    const batch = artigos.slice(i, i + BATCH_SIZE)
+    const batchResults = await Promise.all(
+      batch.map(async artigo => ({
+        ...artigo,
+        texto_completo: artigo.doi ? await buscarTextoCompleto(artigo.doi) : null,
+      })),
+    )
+    resultado.push(...batchResults)
+    if (i + BATCH_SIZE < artigos.length) {
       await new Promise(resolve => setTimeout(resolve, DELAY_ENTRE_REQUESTS_MS))
     }
   }
@@ -162,7 +165,8 @@ export function formatarArtigosEnriquecidosParaPrompt(
     let acesso = '⚠️ Apenas abstract disponível.'
 
     if (oa?.is_oa) {
-      const tipo = oa.versao === 'publisher' ? 'versão do editor' : oa.versao === 'preprint' ? 'preprint' : 'repositório'
+      const VERSAO_LABEL: Record<string, string> = { publisher: 'versão do editor', preprint: 'preprint' }
+      const tipo = VERSAO_LABEL[oa.versao ?? ''] ?? 'repositório'
       const licenca = oa.licenca ? ` (${oa.licenca})` : ''
       acesso = `✅ Texto completo open access — ${tipo}${licenca}.`
       if (oa.url_pdf) acesso += ` PDF: ${oa.url_pdf}`
