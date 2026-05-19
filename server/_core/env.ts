@@ -16,7 +16,7 @@ const envSchema = z.object({
   AWS_S3_BUCKET: z.string().min(1),
 
   RESEND_API_KEY: z.string().optional(),
-  EMAIL_FROM: z.string().default('Facilita PrEP <noreply@facilitaprep.com.br>'),
+  EMAIL_FROM: z.string().default('CIS <noreply@cis.local>'),
 
   ASAAS_API_KEY: z.string().optional(),
   ASAAS_ENV: z.enum(['sandbox', 'production']).default('sandbox'),
@@ -37,16 +37,16 @@ const envSchema = z.object({
   ZAPI_INSTANCE_ID: z.string().optional(),
   ZAPI_TOKEN: z.string().optional(),
 
-  MEDICO_NOME: z.string().default('Werciley Saraiva Vieira Junior'),
-  MEDICO_CRM: z.string().default('16381'),
-  MEDICO_CRM_UF: z.string().default('DF'),
+  MEDICO_NOME: z.string().default(''),
+  MEDICO_CRM: z.string().default(''),
+  MEDICO_CRM_UF: z.string().default(''),
   MEDICO_CRM_TIPO: z.string().default('CRM'),
-  MEDICO_RQE: z.string().default('RQE 14486'),
+  MEDICO_RQE: z.string().default(''),
 
-  CLINICA_NOME: z.string().default('ATOS Saúde Integrada Hospital Dia e Vacinas'),
-  SUS_CNES: z.string().default('9843744'),
+  CLINICA_NOME: z.string().default(''),
+  SUS_CNES: z.string().default(''),
 
-  APP_URL: z.string().url().default('https://www.facilitaprep.com.br'),
+  APP_URL: z.string().url().default('http://localhost:3000'),
   ALLOWED_ORIGINS: z.string().optional(),
 
   PORT: z.coerce.number().default(3000),

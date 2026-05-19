@@ -13,7 +13,7 @@
 import { timingSafeEqual } from 'crypto'
 import { Router, type Request, type Response, type NextFunction } from 'express'
 import { db } from '../db.ts'
-import { soapNotes, conductAlerts } from '../../drizzle/schema.ts'
+import { soapNotes, conductAlerts } from '../../drizzle/cis-schema.ts'
 import { eq, and, desc, gte, lte, sql } from 'drizzle-orm'
 import { env } from '../_core/env.ts'
 import { logger } from '../_core/logger.ts'

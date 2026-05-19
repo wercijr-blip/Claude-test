@@ -18,9 +18,8 @@ import {
   clinicalDigests,
   publicationDrafts,
   users,
-  pacientes,
-} from '../drizzle/schema.ts'
-import { eq, and, gte, lte, lt, isNotNull, inArray, sql, count } from 'drizzle-orm'
+} from '../drizzle/cis-schema.ts'
+import { eq, and, gte, lte, isNotNull, inArray, sql, count } from 'drizzle-orm'
 import {
   gerarDigestDiario,
   gerarDigestSemanal,
@@ -107,19 +106,6 @@ export async function agendarDigestCrons() {
       removeOnFail: { count: 5 },
     },
   )
-
-  // Retenção de dados — LGPD/CFM: apaga registros com retentionUntil expirado (semanal, domingo 03:00 UTC)
-  await digestQueue.add(
-    'retencao-dados',
-    { tipo: 'retencao' } as any,
-    {
-      jobId: 'retencao-semanal-cron',
-      repeat: { pattern: '0 3 * * 0' },
-      removeOnComplete: { count: 5 },
-      removeOnFail: { count: 5 },
-    },
-  )
-  logger.info('[digestQueue] Cron de retenção de dados agendado', { pattern: '0 3 * * 0 (03:00 UTC = domingo)' })
 
   logger.info('[digestQueue] Crons semanal e mensal registrados')
 }
@@ -444,19 +430,6 @@ export function startDigestWorker() {
     DIGEST_QUEUE_NAME,
     async (job) => {
       const data = job.data
-
-      if (job.name === 'retencao-dados') {
-        // Remove registros de pacientes com retentionUntil expirado (CFM: 20 anos para dados de saúde)
-        const limite = new Date()
-        const resultado = await db
-          .delete(pacientes)
-          .where(lt(pacientes.retentionUntil, limite))
-        logger.info('[digestQueue] Retenção executada', {
-          deletados: (resultado as any).rowsAffected ?? 0,
-          limite: limite.toISOString(),
-        })
-        return
-      }
 
       if (data.tipo === 'diario') {
         await runDiario(data)

@@ -8,7 +8,7 @@
 import { env } from './_core/env.ts'
 import { logger } from './_core/logger.ts'
 import { db } from './db.ts'
-import { clinicalSessions, soapNotes, conductAlerts } from '../drizzle/schema.ts'
+import { clinicalSessions, soapNotes, conductAlerts } from '../drizzle/cis-schema.ts'
 import { eq, and, isNull, gte, isNotNull, desc, sql, gt, ne, inArray } from 'drizzle-orm'
 import { encrypt } from './_core/encryption.ts'
 import {
