@@ -66,7 +66,8 @@ const envSchema = z.object({
 
   // TOTP 2FA — chave AES separada para encriptar segredos TOTP
   // Gerar com: openssl rand -hex 32
-  TOTP_ENC_KEY: z.string().length(64),
+  // Obrigatório quando há usuários com totpEnabled=true; opcional no boot para não bloquear deploy
+  TOTP_ENC_KEY: z.string().length(64).optional(),
 
   // Ops endpoints protection (/api/metrics, /api/admin/usage)
   // Gerar com: openssl rand -hex 32
