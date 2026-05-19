@@ -9,7 +9,7 @@ import {
   clinicalDigests,
   publicationDrafts,
 } from '../../drizzle/cis-schema.ts'
-import { eq, and, isNull, desc, isNotNull, sql, inArray } from 'drizzle-orm'
+import { eq, and, isNull, desc, isNotNull, sql, inArray, lt } from 'drizzle-orm'
 import { randomUUID } from 'crypto'
 import { encrypt } from '../_core/encryption.ts'
 import { getPresignedUploadUrl } from '../storage.ts'
@@ -170,17 +170,17 @@ export const scribaRouter = router({
     .input(z.object({
       sessionId: z.number().int().positive().optional(),
       limit: z.number().int().min(1).max(100).default(20),
+      cursor: z.number().int().positive().optional(),
     }).optional())
     .query(async ({ input, ctx }) => {
       const medicoId = ctx.session.id
       const limit = input?.limit ?? 20
 
-      const conditions = [eq(soapNotes.medicoId, medicoId)]
-      if (input?.sessionId) {
-        conditions.push(eq(soapNotes.sessionId, input.sessionId))
-      }
+      const conditions = [eq(soapNotes.medicoId, medicoId), isNull(soapNotes.deletedAt)]
+      if (input?.sessionId) conditions.push(eq(soapNotes.sessionId, input.sessionId))
+      if (input?.cursor) conditions.push(lt(soapNotes.id, input.cursor))
 
-      return db
+      const rows = await db
         .select({
           id: soapNotes.id,
           sessionId: soapNotes.sessionId,
@@ -192,8 +192,15 @@ export const scribaRouter = router({
         })
         .from(soapNotes)
         .where(and(...conditions))
-        .orderBy(desc(soapNotes.createdAt))
-        .limit(limit)
+        .orderBy(desc(soapNotes.id))
+        .limit(limit + 1)
+
+      const hasMore = rows.length > limit
+      const items = hasMore ? rows.slice(0, limit) : rows
+      return {
+        items,
+        nextCursor: hasMore ? items[items.length - 1]!.id : null,
+      }
     }),
 
   /** Retorna uma nota SOAP completa (texto + knowledge_metadata). */

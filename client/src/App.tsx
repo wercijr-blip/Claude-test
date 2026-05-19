@@ -108,11 +108,11 @@ function CISDashboard() {
 
         <div className="bg-white rounded-2xl border border-slate-200 p-6">
           <h2 className="text-sm font-semibold text-slate-700 mb-4">Notas Recentes</h2>
-          {!notas || notas.length === 0 ? (
+          {!notas?.items || notas.items.length === 0 ? (
             <p className="text-sm text-slate-400">Nenhuma nota registrada ainda.</p>
           ) : (
             <ul className="divide-y divide-slate-100">
-              {notas.map((n) => (
+              {notas.items.map((n) => (
                 <li key={n.id} className="py-3 flex items-start gap-3">
                   <span className="mt-0.5 text-xs font-mono bg-slate-100 text-slate-500 px-2 py-0.5 rounded">
                     {n.cid10 ?? '—'}

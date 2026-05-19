@@ -65,7 +65,33 @@ mysqldump \
 
 ---
 
-## 3. Redis
+## 3. Continuidade de Negócio — RTO/RPO
+
+### Objetivos
+
+| Componente | RPO (máx. perda de dados) | RTO (tempo de recuperação) |
+|---|---|---|
+| Banco de dados (TiDB Cloud) | 5 minutos (PITR automático) | < 4 horas |
+| Redis (filas BullMQ) | 0 — jobs em DLQ para replay | < 15 minutos |
+| Servidor CIS (Railway) | n/a | < 5 minutos (restart) |
+| Armazenamento de áudio (S3) | 0 — replicação multi-AZ | < 30 minutos |
+
+**SLA operacional informado ao cliente:** disponibilidade de 99,5% mês (≤ 3,65h/mês de indisponibilidade).
+
+### Procedimento de Drill de DR (realizar trimestralmente)
+
+1. **Notificar** o Dr. Werciley: janela de manutenção prevista (janela fora do horário clínico, 22h–01h BRT).
+2. **Verificar estado da DLQ** antes de iniciar: `curl https://cis.atos.med.br/api/health | jq .queues`
+3. **Simular falha de BD:** pausar o cluster no console TiDB Cloud → confirmar que o CIS retorna 503 e que nenhum dado é perdido.
+4. **Restaurar PITR:** selecionar ponto no tempo 15 minutos antes → restaurar em cluster de staging → validar integridade (contagem de registros, SOAPs, alertas).
+5. **Simular falha de Redis:** parar o serviço Redis → confirmar que jobs em `waiting` são re-enfileirados após restart.
+6. **Testar replay de DLQ:** adicionar job de teste na fila `dlq` → confirmar que pode ser re-processado manualmente via Bull Board.
+7. **Registrar resultado** no post-mortem de DR: duração efetiva de recuperação vs RTO/RPO acima.
+8. **Próximo drill:** agendar para 90 dias.
+
+---
+
+## 4. Redis
 
 ### Verificar conexão
 
@@ -96,7 +122,7 @@ redis-cli -u "$REDIS_URL" LRANGE "{cis-prod}:pubmed-synthesis:failed" 0 -1
 
 ---
 
-## 4. Workers BullMQ
+## 5. Workers BullMQ
 
 ### Verificar status dos workers
 
@@ -131,7 +157,7 @@ redis-cli -u "$REDIS_URL" LRANGE "{cis-prod}:pubmed-synthesis:failed" 0 -1
 
 ---
 
-## 5. Antropic / LLM
+## 6. Antropic / LLM
 
 ### Verificar budget Opus diário
 
@@ -148,7 +174,7 @@ Para aumentar o limite, altere `OPUS_DAILY_TOKEN_BUDGET` nas variáveis de ambie
 
 ---
 
-## 6. Incidents — Procedimentos
+## 7. Incidents — Procedimentos
 
 ### P1 — Sistema inacessível
 
@@ -178,7 +204,7 @@ Para aumentar o limite, altere `OPUS_DAILY_TOKEN_BUDGET` nas variáveis de ambie
 
 ---
 
-## 7. Contatos
+## 8. Contatos
 
 | Responsável | Função | Contato |
 |------------|--------|---------|
@@ -186,7 +212,7 @@ Para aumentar o limite, altere `OPUS_DAILY_TOKEN_BUDGET` nas variáveis de ambie
 
 ---
 
-## 8. Variáveis de Ambiente Críticas
+## 9. Variáveis de Ambiente Críticas
 
 Ver `.env.example` para lista completa. Variáveis obrigatórias em produção:
 
@@ -209,7 +235,7 @@ APP_URL               # URL pública — https://cis.atos.med.br
 
 ---
 
-## 9. Template de Post-Mortem
+## 10. Template de Post-Mortem
 
 Usar após qualquer incidente SEV-1 (dados inacessíveis, falha de auth, DLQ acumulando) ou SEV-2 (degradação >15min).
 
