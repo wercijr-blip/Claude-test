@@ -32,6 +32,9 @@ jobs:
       - name: TypeScript type-check
         run: pnpm check
 
+      - name: Format check
+        run: pnpm lint
+
       - name: Run tests
         run: pnpm test
 

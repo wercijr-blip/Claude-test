@@ -166,38 +166,40 @@ export async function processarConsulta(params: {
 
   const diag = knowledge_metadata.diagnostico_principal
 
-  // ── Persiste soap_note ──────────────────────────────────────────────────────
-  await db.insert(soapNotes).values({
-    sessionId: params.sessionId,
-    medicoId: params.medicoId,
-    pacienteNomeEncrypted: params.pacienteNomeEncrypted,
-    template,
-    soapTexto: soap,
-    knowledgeMetadata: knowledge_metadata,
-    diagnosticoPrincipal: diag?.nome ?? null,
-    cid10: diag?.cid10 ?? null,
-    certeza: diag?.certeza ?? null,
-    pubmedQuery: knowledge_metadata.busca_pubmed?.query_sugerida ?? null,
+  // ── Persiste soap_note + incrementa contador da sessão (atomic) ────────────
+  const soapNoteId = await db.transaction(async (tx) => {
+    await tx.insert(soapNotes).values({
+      sessionId: params.sessionId,
+      medicoId: params.medicoId,
+      pacienteNomeEncrypted: params.pacienteNomeEncrypted,
+      template,
+      soapTexto: soap,
+      knowledgeMetadata: knowledge_metadata,
+      diagnosticoPrincipal: diag?.nome ?? null,
+      cid10: diag?.cid10 ?? null,
+      certeza: diag?.certeza ?? null,
+      pubmedQuery: knowledge_metadata.busca_pubmed?.query_sugerida ?? null,
+    })
+
+    const [inserted] = await tx
+      .select({ id: soapNotes.id })
+      .from(soapNotes)
+      .where(and(
+        eq(soapNotes.sessionId, params.sessionId),
+        eq(soapNotes.medicoId, params.medicoId),
+      ))
+      .orderBy(sql`${soapNotes.createdAt} DESC`)
+      .limit(1)
+
+    if (!inserted) throw new Error('[scriba] SOAP note não encontrada após insert — inconsistência no banco')
+
+    await tx
+      .update(clinicalSessions)
+      .set({ totalConsultas: sql`${clinicalSessions.totalConsultas} + 1` })
+      .where(eq(clinicalSessions.id, params.sessionId))
+
+    return inserted.id
   })
-
-  const [inserted] = await db
-    .select({ id: soapNotes.id })
-    .from(soapNotes)
-    .where(and(
-      eq(soapNotes.sessionId, params.sessionId),
-      eq(soapNotes.medicoId, params.medicoId),
-    ))
-    .orderBy(sql`${soapNotes.createdAt} DESC`)
-    .limit(1)
-
-  if (!inserted) throw new Error('[scriba] SOAP note não encontrada após insert — inconsistência no banco')
-  const soapNoteId = inserted.id
-
-  // ── Incrementa contador da sessão ───────────────────────────────────────────
-  await db
-    .update(clinicalSessions)
-    .set({ totalConsultas: sql`${clinicalSessions.totalConsultas} + 1` })
-    .where(eq(clinicalSessions.id, params.sessionId))
 
   // ── Publica SOAP no Obsidian + notifica n8n se caso atípico (best-effort) ───
   publicarNotaSOAP({ soapNoteId, soapTexto: soap, metadata: knowledge_metadata }).catch(() => null)

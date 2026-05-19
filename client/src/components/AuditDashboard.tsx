@@ -301,7 +301,7 @@ export default function AuditDashboard() {
                       <td className="py-3 pr-4 text-slate-500">{p.convenio ?? '—'}</td>
                       <td className="py-3 pr-4 text-slate-400">{p.currentStep}/8</td>
                       <td className="py-3 text-slate-400 whitespace-nowrap">
-                        {new Date(p.createdAt).toLocaleDateString('pt-BR')}
+                        {new Date(p.createdAt).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
                       </td>
                     </tr>
                   ))}
@@ -367,7 +367,7 @@ export default function AuditDashboard() {
               {eventos?.map((e) => (
                 <div key={e.id} className="flex items-start gap-3 text-xs py-2 border-b border-slate-50">
                   <span className="text-slate-400 whitespace-nowrap">
-                    {new Date(e.createdAt).toLocaleString('pt-BR')}
+                    {new Date(e.createdAt).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
                   </span>
                   <span className={`font-medium ${e.tipoEvento.includes('fail') || e.tipoEvento.includes('invalid') || e.tipoEvento.includes('block') ? 'text-red-600' : 'text-slate-700'}`}>
                     {e.tipoEvento}
@@ -469,11 +469,11 @@ function PainelCertificado() {
             </div>
             <div>
               <dt className="text-xs text-slate-500">Válido a partir de</dt>
-              <dd className="text-slate-700">{data.validoDe ? new Date(data.validoDe).toLocaleDateString('pt-BR') : '—'}</dd>
+              <dd className="text-slate-700">{data.validoDe ? new Date(data.validoDe).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '—'}</dd>
             </div>
             <div>
               <dt className="text-xs text-slate-500">Válido até</dt>
-              <dd className="text-slate-700">{data.validoAte ? new Date(data.validoAte).toLocaleDateString('pt-BR') : '—'}</dd>
+              <dd className="text-slate-700">{data.validoAte ? new Date(data.validoAte).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '—'}</dd>
             </div>
           </dl>
         )}

@@ -324,6 +324,33 @@ const server = app.listen(env.PORT, async () => {
     await agendarLembreteDiario()
     await agendarDigestCrons()
     logger.info('[server] Workers BullMQ iniciados em-processo.')
+
+    // Monitoramento de expiração do certificado ICP-Brasil
+    await import('../pdfSigner.ts').then(({ inspecionarCertificado }) =>
+      inspecionarCertificado().then(status => {
+        if (status.status === 'configurado' && status.diasRestantes != null) {
+          if (status.diasRestantes < 14) {
+            logger.error('[server] ⚠️ CERTIFICADO ICP-BRASIL EXPIRA EM BREVE', {
+              diasRestantes: status.diasRestantes,
+              validoAte: status.validoAte,
+              acao: 'Renovar imediatamente — assinatura de PDFs falhará após expiração',
+            })
+          } else if (status.diasRestantes < 60) {
+            logger.warn('[server] Certificado ICP-Brasil vence em menos de 60 dias', {
+              diasRestantes: status.diasRestantes,
+              validoAte: status.validoAte,
+            })
+          } else {
+            logger.info('[server] Certificado ICP-Brasil OK', {
+              diasRestantes: status.diasRestantes,
+              validoAte: status.validoAte,
+            })
+          }
+        }
+      }).catch((err) => {
+        logger.warn('[server] Não foi possível verificar certificado ICP-Brasil', { error: String(err) })
+      })
+    ).catch(() => null)
   } else {
     logger.info('[server] WORKERS_ENABLED=false — aguardando worker service separado.')
   }

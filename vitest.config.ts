@@ -12,5 +12,15 @@ export default defineConfig({
     alias: {
       '@shared': path.resolve(__dirname, 'shared'),
     },
+    coverage: {
+      provider: 'v8',
+      include: ['server/**/*.ts'],
+      exclude: ['server/**/*.test.ts', 'server/workers.ts', 'server/_core/index.ts'],
+      thresholds: {
+        lines: 70,
+        functions: 70,
+        branches: 60,
+      },
+    },
   },
 })

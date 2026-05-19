@@ -18,6 +18,7 @@ import { eq, and, desc, gte, lte, sql } from 'drizzle-orm'
 import { env } from '../_core/env.ts'
 import { logger } from '../_core/logger.ts'
 import { getOpusBudgetStatus } from '../clinicalIntelligence.ts'
+import { redis } from '../_core/redis.ts'
 
 // Express 4 não propaga rejeições de async handlers automaticamente.
 // Este wrapper encaminha qualquer erro ao error handler do Express via next().
@@ -65,9 +66,7 @@ function autenticar(req: Request, res: Response): number | null {
   return env.CIS_MEDICO_USER_ID
 }
 
-// ─── Cache em memória para /budget (TTL: 60s) ────────────────────────────────
-
-let budgetCache: { data: object; expiresAt: number } | null = null
+const BUDGET_CACHE_KEY = 'cis:budget:cache'
 
 // ─── GET /api/cis/budget ─────────────────────────────────────────────────────
 
@@ -75,13 +74,19 @@ cisRestRouter.get('/budget', ar(async (req, res) => {
   const medicoId = autenticar(req, res)
   if (!medicoId) return
 
-  if (budgetCache && Date.now() < budgetCache.expiresAt) {
-    res.json(budgetCache.data)
-    return
+  // Try Redis cache first (60s TTL)
+  const cached = await redis.get(BUDGET_CACHE_KEY).catch(() => null)
+  if (cached) {
+    try {
+      res.json(JSON.parse(cached))
+      return
+    } catch {
+      // Corrupted cache — fall through to fetch fresh
+    }
   }
 
   const status = await getOpusBudgetStatus()
-  budgetCache = { data: status, expiresAt: Date.now() + 60_000 }
+  await redis.setex(BUDGET_CACHE_KEY, 60, JSON.stringify(status)).catch(() => null)
   res.json(status)
 }))
 

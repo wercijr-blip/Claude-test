@@ -12,6 +12,7 @@
 import { env } from './_core/env.ts'
 import { logger } from './_core/logger.ts'
 import type { ArtigoPubMed } from './pubmed.ts'
+import { CircuitBreaker } from './_core/circuitBreaker.ts'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -46,6 +47,7 @@ interface UnpaywallResponse {
 
 const UNPAYWALL_BASE = 'https://api.unpaywall.org/v2'
 const DELAY_ENTRE_REQUESTS_MS = 200  // respeita limite de taxa sem agressividade
+const unpaywallCircuit = new CircuitBreaker('unpaywall')
 
 function unpaywallDisponivel(): boolean {
   return Boolean(env.UNPAYWALL_EMAIL)
@@ -60,6 +62,8 @@ function unpaywallDisponivel(): boolean {
 export async function buscarTextoCompleto(doi: string): Promise<TextoCompletoInfo | null> {
   if (!unpaywallDisponivel() || !doi?.trim()) return null
 
+  if (unpaywallCircuit.isOpen()) return null
+
   const url = `${UNPAYWALL_BASE}/${encodeURIComponent(doi)}?email=${encodeURIComponent(env.UNPAYWALL_EMAIL!)}`
 
   try {
@@ -70,12 +74,14 @@ export async function buscarTextoCompleto(doi: string): Promise<TextoCompletoInf
 
     if (!res.ok) {
       logger.warn('[unpaywall] Requisição falhou', { doi, status: res.status })
+      unpaywallCircuit.recordFailure()
       return null
     }
 
     const data = (await res.json()) as UnpaywallResponse
 
     if (!data.is_oa || !data.best_oa_location) {
+      unpaywallCircuit.recordSuccess()
       return { doi, is_oa: false, url_pdf: null, url_html: null, licenca: null, versao: null }
     }
 
@@ -86,6 +92,7 @@ export async function buscarTextoCompleto(doi: string): Promise<TextoCompletoInf
         ? 'preprint'
         : 'repository'
 
+    unpaywallCircuit.recordSuccess()
     return {
       doi,
       is_oa: true,
@@ -96,6 +103,7 @@ export async function buscarTextoCompleto(doi: string): Promise<TextoCompletoInf
     }
   } catch (err) {
     logger.warn('[unpaywall] Erro ao buscar DOI', { doi, err: String(err) })
+    unpaywallCircuit.recordFailure()
     return null
   }
 }

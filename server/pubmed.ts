@@ -1,5 +1,7 @@
 import { env } from './_core/env.ts'
 import { logger } from './_core/logger.ts'
+import { CircuitBreaker } from './_core/circuitBreaker.ts'
+import { redis } from './_core/redis.ts'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -16,6 +18,17 @@ export interface ArtigoPubMed {
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const EUTILS_BASE = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils'
+
+const pubmedCircuit = new CircuitBreaker('pubmed')
+
+const PUBMED_CACHE_TTL = 24 * 3600  // 24 hours
+function pubmedCacheKey(query: string, termos: string[]): string {
+  const raw = `${query}||${[...termos].sort().join(',')}`
+  // Simple hash: sum of charCodes (fast, good enough for cache key)
+  let h = 0
+  for (let i = 0; i < raw.length; i++) h = (h * 31 + raw.charCodeAt(i)) >>> 0
+  return `cis:pubmed:${h.toString(36)}`
+}
 const DEFAULT_MAX_ARTIGOS = 5
 const DEFAULT_MAX_ARTIGOS_DUAL = 10
 
@@ -28,15 +41,30 @@ function apiKeyParam(): string {
 // ── esearch: query → list of PMIDs ────────────────────────────────────────────
 
 async function esearch(query: string, retmax: number): Promise<string[]> {
+  if (pubmedCircuit.isOpen()) {
+    throw new Error('[pubmed] Circuit aberto — E-utilities temporariamente indisponível')
+  }
+
   const url =
     `${EUTILS_BASE}/esearch.fcgi?db=pubmed&retmode=json&retmax=${retmax}` +
     `&term=${encodeURIComponent(query)}${apiKeyParam()}`
 
-  const res = await fetch(url, { signal: AbortSignal.timeout(15_000) })
-  if (!res.ok) throw new Error(`esearch HTTP ${res.status}`)
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(15_000) })
+    if (!res.ok) {
+      pubmedCircuit.recordFailure()
+      throw new Error(`esearch HTTP ${res.status}`)
+    }
 
-  const json = (await res.json()) as { esearchresult?: { idlist?: string[] } }
-  return json.esearchresult?.idlist ?? []
+    const json = (await res.json()) as { esearchresult?: { idlist?: string[] } }
+    pubmedCircuit.recordSuccess()
+    return json.esearchresult?.idlist ?? []
+  } catch (err) {
+    if (!(err instanceof Error && err.message.startsWith('[pubmed] Circuit'))) {
+      pubmedCircuit.recordFailure()
+    }
+    throw err
+  }
 }
 
 // ── efetch MEDLINE: PMIDs → raw text ─────────────────────────────────────────
@@ -44,14 +72,29 @@ async function esearch(query: string, retmax: number): Promise<string[]> {
 async function efetch(pmids: string[]): Promise<string> {
   if (pmids.length === 0) return ''
 
+  if (pubmedCircuit.isOpen()) {
+    throw new Error('[pubmed] Circuit aberto — E-utilities temporariamente indisponível')
+  }
+
   const url =
     `${EUTILS_BASE}/efetch.fcgi?db=pubmed&rettype=medline&retmode=text` +
     `&id=${pmids.join(',')}${apiKeyParam()}`
 
-  const res = await fetch(url, { signal: AbortSignal.timeout(20_000) })
-  if (!res.ok) throw new Error(`efetch HTTP ${res.status}`)
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(20_000) })
+    if (!res.ok) {
+      pubmedCircuit.recordFailure()
+      throw new Error(`efetch HTTP ${res.status}`)
+    }
 
-  return res.text()
+    pubmedCircuit.recordSuccess()
+    return res.text()
+  } catch (err) {
+    if (!(err instanceof Error && err.message.startsWith('[pubmed] Circuit'))) {
+      pubmedCircuit.recordFailure()
+    }
+    throw err
+  }
 }
 
 // ── MEDLINE parser ────────────────────────────────────────────────────────────
@@ -156,6 +199,18 @@ export async function buscarArtigosDual(
   termosMesh: string[],
   maxArtigos = DEFAULT_MAX_ARTIGOS_DUAL,
 ): Promise<ArtigoPubMed[]> {
+  const cacheKey = pubmedCacheKey(query, termosMesh)
+  try {
+    const cached = await redis.get(cacheKey)
+    if (cached) {
+      const parsed = JSON.parse(cached) as ArtigoPubMed[]
+      logger.info('[pubmed] Cache hit', { cacheKey, n: parsed.length })
+      return parsed
+    }
+  } catch {
+    // Cache miss or Redis unavailable — proceed normally
+  }
+
   try {
     const meshQuery = termosMesh.length > 0
       ? termosMesh.map(t => `"${t}"[MeSH Terms]`).join(' AND ')
@@ -191,6 +246,7 @@ export async function buscarArtigosDual(
       pmidsUnicos: pmids.length,
       artigos: artigos.length,
     })
+    redis.setex(cacheKey, PUBMED_CACHE_TTL, JSON.stringify(artigos)).catch(() => null)
     return artigos
   } catch (err) {
     logger.error('[pubmed] erro em buscarArtigosDual', { query, err })

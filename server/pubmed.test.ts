@@ -12,6 +12,11 @@ vi.mock('./_core/logger.ts', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }))
 
+vi.mock('./_core/redis.ts', () => ({
+  redis: { get: vi.fn().mockResolvedValue(null), setex: vi.fn().mockResolvedValue('OK') },
+  QUEUE_PREFIX: '{fp-test}',
+}))
+
 // ── Sample MEDLINE data ───────────────────────────────────────────────────────
 
 const MEDLINE_TWO_RECORDS = `\

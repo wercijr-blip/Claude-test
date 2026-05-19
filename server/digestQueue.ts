@@ -18,6 +18,7 @@ import {
   clinicalDigests,
   publicationDrafts,
   users,
+  pacientes,
 } from '../drizzle/schema.ts'
 import { eq, and, gte, lte, lt, isNotNull, inArray, sql, count } from 'drizzle-orm'
 import {
@@ -83,7 +84,7 @@ export async function enqueueDigestDiario(params: {
 
 /** Registra os crons semanal e mensal uma única vez ao iniciar o worker. */
 export async function agendarDigestCrons() {
-  // Sexta-feira 19h BRT = sexta-feira 22h UTC
+  // Sexta-feira 22h UTC = 19h BRT (Brasil UTC-3; não adota DST desde 2019)
   await digestQueue.add(
     'digest-semanal',
     { tipo: 'semanal', periodoRef: '' } satisfies SemanalJobData,
@@ -95,7 +96,7 @@ export async function agendarDigestCrons() {
     },
   )
 
-  // Dias 28-31 às 23h UTC (20h BRT) — worker verifica se é o último dia
+  // Dias 28-31 às 23h UTC = 20h BRT — worker verifica se é o último dia
   await digestQueue.add(
     'digest-mensal',
     { tipo: 'mensal', periodoRef: '' } satisfies MensalJobData,
@@ -106,6 +107,19 @@ export async function agendarDigestCrons() {
       removeOnFail: { count: 5 },
     },
   )
+
+  // Retenção de dados — LGPD/CFM: apaga registros com retentionUntil expirado (semanal, domingo 03:00 UTC)
+  await digestQueue.add(
+    'retencao-dados',
+    { tipo: 'retencao' } as any,
+    {
+      jobId: 'retencao-semanal-cron',
+      repeat: { pattern: '0 3 * * 0' },
+      removeOnComplete: { count: 5 },
+      removeOnFail: { count: 5 },
+    },
+  )
+  logger.info('[digestQueue] Cron de retenção de dados agendado', { pattern: '0 3 * * 0 (03:00 UTC = domingo)' })
 
   logger.info('[digestQueue] Crons semanal e mensal registrados')
 }
@@ -430,6 +444,19 @@ export function startDigestWorker() {
     DIGEST_QUEUE_NAME,
     async (job) => {
       const data = job.data
+
+      if (job.name === 'retencao-dados') {
+        // Remove registros de pacientes com retentionUntil expirado (CFM: 20 anos para dados de saúde)
+        const limite = new Date()
+        const resultado = await db
+          .delete(pacientes)
+          .where(lt(pacientes.retentionUntil, limite))
+        logger.info('[digestQueue] Retenção executada', {
+          deletados: (resultado as any).rowsAffected ?? 0,
+          limite: limite.toISOString(),
+        })
+        return
+      }
 
       if (data.tipo === 'diario') {
         await runDiario(data)

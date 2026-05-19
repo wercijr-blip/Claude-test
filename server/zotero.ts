@@ -11,6 +11,7 @@
 import { env } from './_core/env.ts'
 import { logger } from './_core/logger.ts'
 import type { ArtigoPubMed } from './pubmed.ts'
+import { CircuitBreaker } from './_core/circuitBreaker.ts'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -47,6 +48,7 @@ interface ZoteroApiItem {
 
 const ZOTERO_BASE = 'https://api.zotero.org'
 const TAG_AUTO = 'cis-auto'  // tag aplicada aos artigos salvos automaticamente pelo CIS
+const zoteroCircuit = new CircuitBreaker('zotero')
 
 function headers(): Record<string, string> {
   return {
@@ -101,6 +103,7 @@ export async function buscarReferenciasPorQuery(
   limit = 10,
 ): Promise<ZoteroItem[]> {
   if (!zoteroDisponivel()) return []
+  if (zoteroCircuit.isOpen()) return []
 
   const url = `${userBase()}/items?q=${encodeURIComponent(query)}&itemType=journalArticle&limit=${limit}&format=json`
 
@@ -108,12 +111,15 @@ export async function buscarReferenciasPorQuery(
     const res = await fetch(url, { headers: headers(), signal: AbortSignal.timeout(10_000) })
     if (!res.ok) {
       logger.warn('[zotero] buscarReferenciasPorQuery falhou', { status: res.status, query })
+      zoteroCircuit.recordFailure()
       return []
     }
     const items = (await res.json()) as ZoteroApiItem[]
+    zoteroCircuit.recordSuccess()
     return items.map(parseItem)
   } catch (err) {
     logger.warn('[zotero] buscarReferenciasPorQuery erro', { query, err: String(err) })
+    zoteroCircuit.recordFailure()
     return []
   }
 }
@@ -127,6 +133,7 @@ export async function buscarReferenciasPorTag(
   limit = 20,
 ): Promise<ZoteroItem[]> {
   if (!zoteroDisponivel()) return []
+  if (zoteroCircuit.isOpen()) return []
 
   const url = `${userBase()}/items?tag=${encodeURIComponent(tag)}&itemType=journalArticle&limit=${limit}&format=json`
 
@@ -134,12 +141,15 @@ export async function buscarReferenciasPorTag(
     const res = await fetch(url, { headers: headers(), signal: AbortSignal.timeout(10_000) })
     if (!res.ok) {
       logger.warn('[zotero] buscarReferenciasPorTag falhou', { status: res.status, tag })
+      zoteroCircuit.recordFailure()
       return []
     }
     const items = (await res.json()) as ZoteroApiItem[]
+    zoteroCircuit.recordSuccess()
     return items.map(parseItem)
   } catch (err) {
     logger.warn('[zotero] buscarReferenciasPorTag erro', { tag, err: String(err) })
+    zoteroCircuit.recordFailure()
     return []
   }
 }
@@ -157,6 +167,7 @@ export async function salvarArtigoPubMed(
   opcoes?: { cid10?: string; template?: string },
 ): Promise<boolean> {
   if (!zoteroDisponivel()) return false
+  if (zoteroCircuit.isOpen()) return false
 
   const creators = artigo.autores.map(nome => {
     const partes = nome.split(/,\s*/)
@@ -193,12 +204,15 @@ export async function salvarArtigoPubMed(
     })
     if (!res.ok) {
       logger.warn('[zotero] salvarArtigoPubMed falhou', { status: res.status, pmid: artigo.pmid })
+      zoteroCircuit.recordFailure()
       return false
     }
     logger.info('[zotero] Artigo salvo', { pmid: artigo.pmid, titulo: artigo.titulo.slice(0, 60) })
+    zoteroCircuit.recordSuccess()
     return true
   } catch (err) {
     logger.warn('[zotero] salvarArtigoPubMed erro', { pmid: artigo.pmid, err: String(err) })
+    zoteroCircuit.recordFailure()
     return false
   }
 }
