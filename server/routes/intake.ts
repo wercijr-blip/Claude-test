@@ -9,6 +9,7 @@ import { encrypt, decrypt, hashCpf } from '../_core/encryption.ts'
 import { validarCpf, normalizarCpf } from '../_core/cpfValidator.ts'
 import { criarCobrancaIntake, obterPagamento, listarPagamentosPorReferencia } from '../asaas/client.ts'
 import { enviarNotificacaoNovoPlano, enviarConfirmacaoPlano } from '../email.ts'
+import { notificarStaff, staffTemplates } from '../whatsapp.staff.ts'
 import { getPresignedUrl } from '../storage.ts'
 import { env } from '../_core/env.ts'
 import { SignJWT } from 'jose'
@@ -152,7 +153,7 @@ export const intakeRouter = router({
   criar: publicProcedure
     .input(z.object({
       nome: z.string().min(2).max(255),
-      telefone: z.string().min(10).max(20),
+      telefone: z.string().regex(/^\+\d{8,15}$/, 'Use formato internacional: +5561999998888'),
       cpf: z.string(),
       email: z.string().email(),
       tipo: z.enum(['particular', 'plano']),
@@ -207,6 +208,7 @@ export const intakeRouter = router({
         const dashboardUrl = `${env.APP_URL}/secretaria`
 
         await enviarNotificacaoNovoPlano(emails, input.nome, input.plano!, dashboardUrl).catch((e: unknown) => logger.warn('[intake] notificação falhou', { error: String(e) }))
+        await notificarStaff('secretaria', 'plano-pendente', staffTemplates.secretariaPlanoSaudePendente).catch((e: unknown) => logger.warn('[intake] staff WhatsApp falhou', { error: String(e) }))
         await enviarConfirmacaoPlano(input.email, input.nome).catch((e: unknown) => logger.warn('[intake] notificação falhou', { error: String(e) }))
       }
 

@@ -2,7 +2,11 @@ import { env } from './_core/env.ts'
 
 function formatarTelefoneWA(telefone: string): string {
   const digits = telefone.replace(/\D/g, '')
+  // E.164 com código de país não-BR (não começa com 55): usa direto
+  if (digits.length >= 10 && !digits.startsWith('55')) return digits
+  // Já tem +55 com DDD+número (12-13 dígitos): usa direto
   if (digits.startsWith('55') && digits.length >= 12) return digits
+  // BR legado sem +55 (10-11 dígitos): prepende 55
   return `55${digits}`
 }
 

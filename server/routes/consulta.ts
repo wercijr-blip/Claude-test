@@ -12,6 +12,7 @@ import { assinarPdf } from '../pdfSigner.ts'
 import { uploadBuffer, getPresignedUrl } from '../storage.ts'
 import * as Sentry from '@sentry/node'
 import { enviarWhatsApp } from '../whatsapp.ts'
+import { notificarStaff, staffTemplates } from '../whatsapp.staff.ts'
 import {
   enviarExameAprovadoIa,
   enviarAnaliseHumanaExame,
@@ -709,8 +710,12 @@ async function _notificarMedicosEPaciente(
   const [medicosEmails] = await Promise.all([getMedicosEmails()])
   const dashboardUrl = `${env.APP_URL}/medico`
 
+  const tipo = urgente ? 'exame-urgente' : 'exame-revisar'
+  const template = urgente ? staffTemplates.medicoExameUrgente : staffTemplates.medicoExameParaRevisar
+
   await Promise.all([
     enviarNotificacaoMedicoPendente(medicosEmails, urgente, info.nome, motivo, dashboardUrl).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) })),
+    notificarStaff('medico', tipo, template).catch((e: unknown) => logger.warn('[consulta] staff WhatsApp falhou', { error: String(e) })),
     info.email
       ? enviarAnaliseHumanaExame(info.email, info.nome).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
       : Promise.resolve(),

@@ -39,6 +39,10 @@ const envSchema = z.object({
   ZAPI_TOKEN: z.string().optional(),
   ZAPI_CLIENT_TOKEN: z.string().optional(),
 
+  // WhatsApp pra staff — número compartilhado por papel, formato E.164 (ex: +556198432878)
+  STAFF_WHATSAPP_MEDICOS: z.string().optional(),
+  STAFF_WHATSAPP_SECRETARIAS: z.string().optional(),
+
   MEDICO_NOME: z.string().default('Werciley Saraiva Vieira Junior'),
   MEDICO_CRM: z.string().default('16381'),
   MEDICO_CRM_UF: z.string().default('DF'),

@@ -274,7 +274,7 @@ export const pacienteRouter = router({
         pacienteId: z.number(),
         email: z.string().email().max(255),
         tipoTelefone: z.string().max(20).optional(),
-        telefone: z.string().min(10).max(20),
+        telefone: z.string().regex(/^\+\d{8,15}$/, 'Use formato internacional: +5561999998888'),
         cep: z.string().length(8),
         logradouro: z.string().max(255),
         numero: z.string().max(20),
