@@ -28,7 +28,9 @@ function opusDateKey(): string {
 async function getOpusTokensToday(): Promise<number> {
   try {
     const val = await redis.get(opusDateKey())
-    return val ? parseInt(val, 10) : 0
+    if (!val) return 0
+    const n = parseInt(val, 10)
+    return Number.isFinite(n) ? n : 0
   } catch {
     return 0  // Redis indisponível → fail open (não bloqueia chamada)
   }
@@ -277,6 +279,17 @@ HIERARQUIA DE EVIDÊNCIAS — GRADE:
 • 5  — Opinião de especialista, fisiologia, bench research
 Use o nível mais conservador quando houver incerteza sobre o design do estudo.`
 
+const DIGEST_BASE = `\
+Você é o assistente de síntese clínica do ${MEDICO.nome} (${MEDICO.crm}), infectologista em Brasília-DF.
+
+Idioma: português brasileiro. Tom: colega médico — analítico, direto, sem floreios, sem elogios.
+
+REGRAS COMUNS:
+• Prioridade invariável: alertas de conduta (GRADE 1A/1B) ► evidências GRADE 1A ► GRADE 1B/2A ► demais
+• Se não houver dados para uma seção: escreva uma linha indicando ausência — não omita a seção
+• Nunca use linguagem motivacional, marketing ou elogios ao médico
+• Evidências: cite com [PMID] Autor et al., Revista, Ano quando disponível`
+
 // ─── PROMPT 01 — Extrator de Exames ──────────────────────────────────────────
 
 export interface ParametroLaboratorial {
@@ -442,7 +455,8 @@ export async function gerarSOAP(params: {
   dadosExamesJson?: string
   template: 'infectologia_geral' | 'prep_ist' | 'opat' | 'pos_transplante' | 'neutropenia_febril' | 'hiv_cronico' | 'tb'
 }): Promise<string> {
-  const systemPrompt = `${INJECTION_GUARD}
+  const systemPrompt = `${INTEGRITY_GUARD}
+${INJECTION_GUARD}
 ${PII_GUARD}
 
 Você é o MedScribe, assistente de documentação clínica especializado em Infectologia e Medicina Interna, treinado para o contexto brasileiro.
@@ -479,7 +493,8 @@ Gere o SOAP note clínico completo no formato abaixo. Seja preciso, objetivo e u
 - Critérios de retorno de urgência (sinais de alarme)
 - Retorno programado: prazo e objetivo
 
-Retorne APENAS o texto do SOAP note. Nenhum JSON, nenhum bloco de código.`
+Retorne APENAS o texto do SOAP note. Nenhum JSON, nenhum bloco de código.
+Dado ausente na transcrição: escreva "[NÃO INFORMADO]" — nunca presuma nem invente.`
 
   const userContent = `ENTRADA DO MÉDICO:
 ${params.transcricaoOuTexto}
@@ -566,11 +581,19 @@ REGRAS:
   return parseJsonResponse<KnowledgeMetadata>(text, 'knowledge-metadata')
 }
 
-// ─── PROMPT 03 — Síntese Analítica de Artigos PubMed ─────────────────────────
+// ─── Tipo compartilhado para todos os outputs de texto livre ─────────────────
 
-export interface SinteseArtigos {
-  texto: string
-}
+export interface ResultadoTexto { texto: string }
+
+// Aliases mantidos para compatibilidade com callers existentes
+export type SinteseArtigos            = ResultadoTexto
+export type DigestDiario              = ResultadoTexto
+export type DigestSemanal             = ResultadoTexto
+export type DigestMensal              = ResultadoTexto
+export type ResultadoSerieCasos       = ResultadoTexto
+export type ResultadoRevisaoLiteratura = ResultadoTexto
+
+// ─── PROMPT 03 — Síntese Analítica de Artigos PubMed ─────────────────────────
 
 export async function sintetizarArtigosPubMed(params: {
   soapResumido: string
@@ -686,12 +709,13 @@ export interface ResultadoVerificacaoDUT {
   justificativa_clinica: string
 }
 
-const PROMPT_04_SYSTEM = `Você é um especialista em regulamentação de planos de saúde no Brasil, com profundo conhecimento das Diretrizes de Utilização (DUT) da ANS.
+const PROMPT_04_SYSTEM = `${INJECTION_GUARD}
+${OUTPUT_CONTRACT_JSON}
+
+Você é um especialista em regulamentação de planos de saúde no Brasil, com profundo conhecimento das Diretrizes de Utilização (DUT) da ANS.
 
 Para cada critério obrigatório da DUT, verifique se está documentado no SOAP.
 Seja rigoroso: o critério precisa estar EXPLICITAMENTE documentado, não apenas implícito.
-
-Retorne APENAS JSON válido, sem markdown, sem texto adicional:
 
 {
   "dut_numero": "string",
@@ -711,9 +735,12 @@ Retorne APENAS JSON válido, sem markdown, sem texto adicional:
     }
   ],
   "pode_gerar_relatorio": true,
-  "alerta_para_medico": "null se tudo ok | texto claro explicando o que falta caso contrário",
+  "alerta_para_medico": null,
   "justificativa_clinica": "parágrafo de 3-5 linhas cobrindo todos os critérios atendidos, em linguagem técnica adequada para operadora de saúde"
-}`
+}
+
+REGRAS:
+- alerta_para_medico: null quando pode_gerar_relatorio = true; string explicando os critérios faltantes quando false.`
 
 export async function verificarCriteriosDUT(params: {
   soapCompleto: string
@@ -755,7 +782,9 @@ export async function gerarRelatorioTratamento(params: {
   criteriosAtendidos: string
   referenciasVancouver: string
 }): Promise<ResultadoRelatorioTratamento> {
-  const systemPrompt = `Você é um médico especialista redigindo um relatório médico formal para autorização de tratamento junto a operadora de saúde.
+  const systemPrompt = `${INJECTION_GUARD}
+
+Você é um agente de redação médica gerando relatório formal para autorização de tratamento junto a operadora de saúde.
 
 TAREFA: Gere APENAS o corpo do relatório, em texto corrido, sem headers markdown.
 Tom: técnico, objetivo, formal. Linguagem adequada para operadora de saúde.
@@ -827,6 +856,13 @@ export interface ResultadoDivergenciaConducta {
   mensagem_para_medico: string | null
 }
 
+export interface FeedbackHistoricoItem {
+  hashAlerta: string | null
+  feedback: string        // 'concordo' | 'discordo' | 'inaplicavel'
+  motivo: string | null
+  cid10Origem?: string    // preenchido quando o feedback vem de diagnóstico diferente (padrão global)
+}
+
 const PROMPT_06_SYSTEM = `${INJECTION_GUARD}
 ${OUTPUT_CONTRACT_JSON}
 
@@ -836,14 +872,13 @@ Você é um consultor de qualidade clínica especializado em infectologia.
 
 Analise se existe divergência clinicamente relevante entre a conduta atual e a evidência fornecida.
 
-Considere divergência relevante APENAS quando:
+CRITÉRIOS PARA SINALIZAR DIVERGÊNCIA (todos obrigatórios):
 - A evidência tem GRADE 1A ou 1B (RCT ou meta-análise)
 - A mudança tem impacto direto em desfecho do paciente (mortalidade, toxicidade, eficácia)
 - A recomendação é de guidelines de referência (IDSA, ESCMID, WHO, MS Brasil, ANVISA)
+Não sinalize diferenças de preferência ou adaptações locais justificáveis.
 
-Não sinalize como divergência diferenças de preferência ou adaptações locais justificáveis.
-
-REGRA DE APLICABILIDADE POPULACIONAL (crítica antes de qualquer sinalização):
+REGRA DE APLICABILIDADE POPULACIONAL — verifique ANTES de sinalizar qualquer divergência:
 Para cada divergência identificada, verifique se a população do estudo é compatível com
 o perfil do paciente fornecido. Incompatibilidades que reduzem aplicabilidade:
 • Imunocompetente vs imunocomprometido (HIV, transplante, quimioterapia, corticoide)
@@ -852,12 +887,18 @@ o perfil do paciente fornecido. Incompatibilidades que reduzem aplicabilidade:
 Se incompatível: aplicavel_ao_perfil = false, confianca_aplicabilidade reduzida,
 nivel_urgencia recuado um grau (alto→medio, medio→baixo).
 
+REGRA DE FEEDBACK HISTÓRICO — aplique ANTES de definir nivel_urgencia final:
+O input incluirá o histórico de feedback do médico sobre alertas anteriores.
+• Se o médico marcou 'discordo' ou 'inaplicavel' em alerta com mesmo hash_alerta: recue nivel_urgencia um grau e mencione o feedback na mensagem_para_medico.
+• Se marcou 'concordo': mantenha ou eleve.
+• Itens marcados [padrão global] indicam comportamento do médico em outro diagnóstico — considere o padrão mas não descarte automaticamente.
+
 {
   "tem_divergencia": false,
   "nivel_urgencia": "baixo | medio | alto | null",
-  "hash_alerta": "chave canônica snake_case: {cid10}_{aspecto_normalizado} — null se sem divergência",
+  "hash_alerta": null,
   "supressao_sugerida_dias": null,
-  "confianca_aplicabilidade": "alta | media | baixa | null",
+  "confianca_aplicabilidade": null,
   "divergencias": [
     {
       "aspecto": "qual aspecto específico da conduta",
@@ -871,22 +912,15 @@ nivel_urgencia recuado um grau (alto→medio, medio→baixo).
       "aplicavel_ao_perfil": true
     }
   ],
-  "mensagem_para_medico": "null se sem divergência | texto amigável, não julgamental; se confianca_aplicabilidade = baixa, mencione a limitação populacional"
+  "mensagem_para_medico": null
 }
 
 REGRAS:
-- hash_alerta: gere apenas se tem_divergencia = true; snake_case, sem acentos, máximo 80 chars.
+- hash_alerta: gere apenas se tem_divergencia = true; snake_case, sem acentos, máximo 80 chars: {cid10}_{aspecto_normalizado}.
 - supressao_sugerida_dias: alto: 7, medio: 14, baixo: 30; null se sem divergência.
-- confianca_aplicabilidade: alta = população do estudo é compatível com o perfil; media = parcialmente compatível; baixa = população claramente diferente.
-- Se TODAS as divergências tiverem aplicavel_ao_perfil = false: tem_divergencia = false.
-- FEEDBACK HISTÓRICO: se o médico marcou 'discordo' ou 'inaplicavel' em alerta similar (mesmo hash_alerta) antes, recue o nivel_urgencia um grau e mencione o feedback na mensagem_para_medico. Se marcou 'concordo', mantenha ou eleve.`
-
-export interface FeedbackHistoricoItem {
-  hashAlerta: string | null
-  feedback: string        // 'concordo' | 'discordo' | 'inaplicavel'
-  motivo: string | null
-  cid10Origem?: string    // preenchido quando o feedback vem de diagnóstico diferente (padrão global)
-}
+- confianca_aplicabilidade: alta = população do estudo compatível com o perfil; media = parcialmente compatível; baixa = população claramente diferente.
+- mensagem_para_medico: null se tem_divergencia = false; texto amigável, não julgamental, se true. Inclua limitação populacional quando confianca_aplicabilidade = baixa.
+- Se TODAS as divergências tiverem aplicavel_ao_perfil = false: tem_divergencia = false.`
 
 export async function detectarDivergenciaConducta(params: {
   condutaAtual: string
@@ -939,24 +973,7 @@ Diagnóstico: ${params.diagnostico} (${params.cid10})`
   return parseJsonResponse<ResultadoDivergenciaConducta>(text, 'divergencia-conduta')
 }
 
-// ─── DIGEST_BASE — bloco comum a todos os digests ────────────────────────────
-
-const DIGEST_BASE = `\
-Você é o assistente de síntese clínica do ${MEDICO.nome} (${MEDICO.crm}), infectologista em Brasília-DF.
-
-Idioma: português brasileiro. Tom: colega médico — analítico, direto, sem floreios, sem elogios.
-
-REGRAS COMUNS:
-• Prioridade invariável: alertas de conduta (GRADE 1A/1B) ► evidências GRADE 1A ► GRADE 1B/2A ► demais
-• Se não houver dados para uma seção: escreva uma linha indicando ausência — não omita a seção
-• Nunca use linguagem motivacional, marketing ou elogios ao médico
-• Evidências: cite com [PMID] Autor et al., Revista, Ano quando disponível`
-
 // ─── PROMPT 07 — Digest Diário ────────────────────────────────────────────────
-
-export interface DigestDiario {
-  texto: string
-}
 
 export async function gerarDigestDiario(params: {
   data: string
@@ -970,9 +987,9 @@ export async function gerarDigestDiario(params: {
 
 Gere o resumo do dia. Máximo 600 palavras.
 
-## Resumo do Dia — {data}
+## Resumo do Dia — [data do userContent]
 
-**{total_pacientes} pacientes atendidos**
+**[N] pacientes atendidos**
 [Diagnósticos/hipóteses em bullets concisos, agrupando similares]
 
 ---
@@ -1011,10 +1028,6 @@ Termine com: "Próximo resumo: amanhã."`
 
 // ─── PROMPT 08 — Digest Semanal ───────────────────────────────────────────────
 
-export interface DigestSemanal {
-  texto: string
-}
-
 type DigestSemanalParams = {
   semana: string
   totalPacientes: number
@@ -1029,10 +1042,10 @@ const PROMPT_08_SYSTEM = `${DIGEST_BASE}
 
 Gere o resumo semanal. Máximo 800 palavras.
 
-## Resumo Semanal — {semana}
+## Resumo Semanal — [semana do userContent]
 
 ### Visão Geral
-{total_pacientes} pacientes · [principais diagnósticos com quantidade] · [destaques em 2 linhas]
+[N] pacientes · [principais diagnósticos com quantidade] · [destaques em 2 linhas]
 
 ---
 
@@ -1092,10 +1105,6 @@ export async function gerarDigestSemanalLote(
 
 // ─── PROMPT 09 — Digest Mensal ────────────────────────────────────────────────
 
-export interface DigestMensal {
-  texto: string
-}
-
 type DigestMensalParams = {
   mesAno: string
   totalPacientes: number
@@ -1112,10 +1121,10 @@ const PROMPT_09_SYSTEM = `${DIGEST_BASE}
 
 Gere o resumo mensal analítico. Máximo 1000 palavras. Seja analítico — identifique padrões, priorize informações acionáveis.
 
-## Resumo Mensal — {mes_ano}
+## Resumo Mensal — [mês/ano do userContent]
 
 ### Performance Clínica
-{total_pacientes} pacientes · [top 5 diagnósticos com %, padrões identificados]
+[N] pacientes · [top 5 diagnósticos com %, padrões identificados]
 [Padrões epidemiológicos: aumento de diagnósticos, perfil de pacientes]
 
 ---
@@ -1184,10 +1193,6 @@ export async function gerarDigestMensalLote(
 }
 
 // ─── PROMPT 10 — Geração de Série de Casos ───────────────────────────────────
-
-export interface ResultadoSerieCasos {
-  texto: string
-}
 
 export async function gerarSerieCasos(params: {
   diagnostico: string
@@ -1294,10 +1299,6 @@ ${params.zoteroReferencias}` : ''}`
 }
 
 // ─── PROMPT 11 — Revisão de Literatura Automática ────────────────────────────
-
-export interface ResultadoRevisaoLiteratura {
-  texto: string
-}
 
 export async function gerarRevisaoLiteratura(params: {
   tema: string
