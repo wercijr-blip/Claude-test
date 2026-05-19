@@ -300,11 +300,7 @@ export const authRouter = router({
         });
       }
 
-      if (
-        payload.type !== "pending_2fa" ||
-        !payload.userId ||
-        !payload.role
-      ) {
+      if (payload.type !== "pending_2fa" || !payload.userId || !payload.role) {
         throw new TRPCError({
           code: "UNAUTHORIZED",
           message: "Token de 2FA inválido",
@@ -312,7 +308,11 @@ export const authRouter = router({
       }
 
       const [user] = await db
-        .select({ id: users.id, totpSecret: users.totpSecret, openId: users.openId })
+        .select({
+          id: users.id,
+          totpSecret: users.totpSecret,
+          openId: users.openId,
+        })
         .from(users)
         .where(and(eq(users.id, payload.userId), isNull(users.deletedAt)))
         .limit(1);

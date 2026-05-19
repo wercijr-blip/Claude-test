@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockLoggerInfo = vi.fn();
-const mockInsert = vi.fn().mockReturnValue({ values: vi.fn().mockReturnValue({ catch: vi.fn() }) });
+const mockInsert = vi
+  .fn()
+  .mockReturnValue({ values: vi.fn().mockReturnValue({ catch: vi.fn() }) });
 
 vi.mock("./_core/logger.ts", () => ({
   logger: { info: mockLoggerInfo, error: vi.fn(), warn: vi.fn() },

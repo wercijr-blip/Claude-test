@@ -116,7 +116,10 @@ cisRestRouter.get(
       req.query["cursor"] !== undefined
         ? Math.max(Number(req.query["cursor"]) || 0, 0)
         : undefined;
-    const offset = cursorId !== undefined ? 0 : Math.max(Number(req.query["offset"]) || 0, 0);
+    const offset =
+      cursorId !== undefined
+        ? 0
+        : Math.max(Number(req.query["offset"]) || 0, 0);
     const cid10 =
       typeof req.query["cid10"] === "string" &&
       CID10_RE.test(req.query["cid10"])
@@ -175,9 +178,7 @@ cisRestRouter.get(
       notas: items,
       total: Number(total),
       limit,
-      ...(cursorId !== undefined
-        ? { nextCursor }
-        : { offset, nextCursor }),
+      ...(cursorId !== undefined ? { nextCursor } : { offset, nextCursor }),
     });
   }),
 );

@@ -286,7 +286,9 @@ export const scribaRouter = router({
           knowledgeMetadata: soapNotes.knowledgeMetadata,
         })
         .from(soapNotes)
-        .where(and(eq(soapNotes.id, input.soapNoteId), isNull(soapNotes.deletedAt)))
+        .where(
+          and(eq(soapNotes.id, input.soapNoteId), isNull(soapNotes.deletedAt)),
+        )
         .limit(1);
 
       assertOwnership(nota, medicoId);
