@@ -4,7 +4,7 @@ import { router, protectedProcedure } from '../_core/trpc.ts'
 import { TRPCError } from '@trpc/server'
 import { db } from '../db.ts'
 import { pacientes, precadastros, pdfs, tcleAssinaturas, accessTokens } from '../../drizzle/schema.ts'
-import { eq, and } from 'drizzle-orm'
+import { eq, and, sql } from 'drizzle-orm'
 import { encrypt, decrypt, hashCpf } from '../_core/encryption.ts'
 import { validarCpf } from '../_core/cpfValidator.ts'
 import { ERROR_MESSAGES, PREP_MODALIDADE, PREP_POSOLOGIA } from '../../shared/const.ts'
@@ -16,7 +16,6 @@ import { enviarCadastroRecebidoExames } from '../email.ts'
 import { enviarWhatsApp } from '../whatsapp.ts'
 import { gerarLinkDeAcesso } from './intake.ts'
 import * as Sentry from '@sentry/node'
-import type { ResultSetHeader } from 'mysql2'
 import { okEmpty } from '../_core/response.ts'
 
 async function emitirJwtPaciente(tokenId: number, pacienteId: number): Promise<string> {
@@ -127,10 +126,25 @@ export const pacienteRouter = router({
         return { pacienteId: targetId, newSessionToken }
       }
 
-      let newPacienteId: number
-      try {
-        const [result] = await db.insert(pacientes).values({
-          tokenId,
+      // Atomic upsert: MySQL ON DUPLICATE KEY UPDATE handles concurrent requests
+      // without a race condition window. LAST_INSERT_ID(id) makes MySQL return
+      // the existing row's ID on conflict, so insertId is always the right ID.
+      await db.insert(pacientes).values({
+        tokenId,
+        cpfEncrypted: encrypt(input.cpf),
+        cpfHash,
+        nomeEncrypted: encrypt(input.nome),
+        dataNascimentoEncrypted: encrypt(input.dataNascimento),
+        nomeMaeEncrypted: encrypt(input.nomeMae),
+        cns: input.cns,
+        sexo: input.sexo,
+        nomeSocial: input.nomeSocial,
+        tipoAtendimento,
+        convenio,
+        currentStep: 2,
+        retentionUntil,
+      }).onDuplicateKeyUpdate({
+        set: {
           cpfEncrypted: encrypt(input.cpf),
           cpfHash,
           nomeEncrypted: encrypt(input.nome),
@@ -141,38 +155,17 @@ export const pacienteRouter = router({
           nomeSocial: input.nomeSocial,
           tipoAtendimento,
           convenio,
-          currentStep: 2,
-          retentionUntil,
-        })
-        newPacienteId = (result as ResultSetHeader).insertId
-      } catch (insertErr) {
-        // Concurrent request already created the record for this tokenId —
-        // fetch the existing row and update it instead of failing.
-        if ((insertErr as NodeJS.ErrnoException).code !== 'ER_DUP_ENTRY') throw insertErr
-        const [existing] = await db
-          .select({ id: pacientes.id })
-          .from(pacientes)
-          .where(eq(pacientes.tokenId, tokenId))
-          .limit(1)
-        if (!existing) throw insertErr
-        newPacienteId = existing.id
-        await db.update(pacientes)
-          .set({
-            cpfEncrypted: encrypt(input.cpf),
-            cpfHash,
-            nomeEncrypted: encrypt(input.nome),
-            dataNascimentoEncrypted: encrypt(input.dataNascimento),
-            nomeMaeEncrypted: encrypt(input.nomeMae),
-            cns: input.cns,
-            sexo: input.sexo,
-            nomeSocial: input.nomeSocial,
-            tipoAtendimento,
-            convenio,
-            currentStep: 2,
-            updatedAt: new Date(),
-          })
-          .where(eq(pacientes.id, newPacienteId))
-      }
+          currentStep: sql`GREATEST(currentStep, 2)`,
+          updatedAt: new Date(),
+        },
+      })
+      const [upserted] = await db
+        .select({ id: pacientes.id })
+        .from(pacientes)
+        .where(eq(pacientes.tokenId, tokenId))
+        .limit(1)
+      if (!upserted) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Falha ao registrar paciente' })
+      const newPacienteId = upserted.id
       const newSessionToken = await emitirJwtPaciente(tokenId, newPacienteId)
 
       // Email 2 — "Cadastro recebido + pedido de exames" — fired once on first creation.
