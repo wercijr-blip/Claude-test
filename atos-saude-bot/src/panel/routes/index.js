@@ -132,7 +132,7 @@ apiRouter.post('/agendamentos/:id/cancelar', async (req, res) => {
 })
 
 // POST /api/calendar/bloquear
-apiRouter.post('/calendar/bloquear', async (req, res) => {
+apiRouter.post('/calendar/bloquear', requireAuth(['admin', 'secretaria']), async (req, res) => {
   const { doctorId, startISO, endISO, motivo } = req.body
   if (!doctorId || !startISO || !endISO) {
     return res.status(400).json({ error: 'doctorId, startISO e endISO são obrigatórios.' })
@@ -206,7 +206,7 @@ apiRouter.get('/slots', async (req, res) => {
 })
 
 // POST /api/agendamentos/manual  (marcação manual pela secretária)
-apiRouter.post('/agendamentos/manual', async (req, res) => {
+apiRouter.post('/agendamentos/manual', requireAuth(['admin', 'secretaria']), async (req, res) => {
   const { doctorId, slotISO, nome, nascimento, telefone, tipoAtendimento, convenio, phone } = req.body
   if (!doctorId || !slotISO || !nome || !nascimento || !telefone) {
     return res.status(400).json({ error: 'Campos obrigatórios: doctorId, slotISO, nome, nascimento, telefone.' })
