@@ -473,7 +473,8 @@ export const publicationDrafts = mysqlTable('publication_drafts', {
   medicoIdx:    index('idx_pdrafts_medico').on(t.medicoId),
   statusIdx:    index('idx_pdrafts_status').on(t.status),
   cid10Idx:     index('idx_pdrafts_cid10').on(t.cid10),
-  // Impede criação de duplicate rascunho para mesmo diagnóstico enquanto já existe um ativo
+  // Impede dois rascunhos com mesmo status para (medicoId, tipo, cid10).
+  // A guarda contra múltiplos rascunhos ativos está em enqueueCaseSeries (caseSeriesQueue.ts).
   unicoCid10:   uniqueIndex('idx_pdrafts_uniq_cid10').on(t.medicoId, t.tipo, t.cid10, t.status),
 }))
 

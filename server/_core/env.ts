@@ -122,3 +122,11 @@ if (env.NODE_ENV === 'development' && process.env['RAILWAY_ENVIRONMENT']) {
   console.error('❌ NODE_ENV=development detectado em ambiente Railway. Defina NODE_ENV=production.')
   process.exit(1)
 }
+
+// Warn when CIS API is partially configured — avoids silent runtime failures.
+if (env.CIS_API_KEY && !env.CIS_MEDICO_USER_ID) {
+  console.warn('⚠️  CIS_API_KEY definida mas CIS_MEDICO_USER_ID ausente — REST API do CIS retornará 503.')
+}
+if ((env.CIS_API_KEY || env.CIS_MEDICO_USER_ID) && !env.BUILT_IN_FORGE_API_KEY) {
+  console.warn('⚠️  CIS configurado mas BUILT_IN_FORGE_API_KEY ausente — todos os prompts CIS falharão com 401.')
+}

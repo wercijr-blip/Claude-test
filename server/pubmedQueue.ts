@@ -296,7 +296,7 @@ export function startPubmedWorker() {
             nivelUrgencia: alerta.nivel_urgencia ?? 'baixo',
             hashAlerta: alerta.hash_alerta ?? null,
             mensagemMedico: alerta.mensagem_para_medico ?? null,
-          })
+          }).catch(() => null)
         }
       } catch (alertaErr) {
         logger.warn('[pubmedQueue] Falha ao re-executar divergência (best-effort)', { soapNoteId, err: alertaErr })

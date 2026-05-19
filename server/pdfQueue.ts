@@ -1,7 +1,7 @@
 import { Queue, Worker } from 'bullmq'
 import { randomBytes } from 'crypto'
 import { env } from './_core/env.ts'
-import { redis } from './_core/redis.ts'
+import { redis, QUEUE_PREFIX } from './_core/redis.ts'
 import { db } from './db.ts'
 import { pacientes, pdfs, consultasInicio, accessTokens, precadastros, pesquisaTokens } from '../drizzle/schema.ts'
 import { eq, and, gt } from 'drizzle-orm'
@@ -21,8 +21,6 @@ export const PDF_QUEUE_NAME = 'pdf-generation'
 export const LEMBRETE_QUEUE_NAME = 'lembrete-exame'
 export const PESQUISA_QUEUE_NAME = 'pesquisa-satisfacao'
 export const LINK_ACESSO_QUEUE_NAME = 'link-acesso'
-
-const QUEUE_PREFIX = env.NODE_ENV === 'production' ? '{fp-prod}' : `{fp-${env.NODE_ENV}}`
 
 const connection = redis
 

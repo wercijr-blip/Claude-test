@@ -59,8 +59,8 @@ export function notificarAlertaConduta(params: {
   nivelUrgencia: string
   hashAlerta: string | null
   mensagemMedico: string | null
-}): void {
-  notificar('webhook/cis-alerta-conduta', params).catch(() => null)
+}): Promise<void> {
+  return notificar('webhook/cis-alerta-conduta', params)
 }
 
 /** Disparado após geração de qualquer digest (diário/semanal/mensal). */

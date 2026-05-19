@@ -89,6 +89,8 @@ export async function agendarDigestCrons() {
     {
       repeat: { pattern: '0 22 * * 5' },
       jobId: 'digest-semanal-cron',
+      removeOnComplete: { count: 5 },
+      removeOnFail: { count: 5 },
     },
   )
 
@@ -99,6 +101,8 @@ export async function agendarDigestCrons() {
     {
       repeat: { pattern: '0 23 28-31 * *' },
       jobId: 'digest-mensal-cron',
+      removeOnComplete: { count: 5 },
+      removeOnFail: { count: 5 },
     },
   )
 
@@ -230,7 +234,7 @@ async function runDiario(data: DiarioJobData) {
     consultasJson: JSON.stringify(consultas),
     artigosSintetizadosJson,
     alertasCondutaJson: JSON.stringify(alertas),
-    relatoriosGerados: '0',
+    relatoriosGerados: consultas.length.toString(),
   })
 
   await salvarDigest({
