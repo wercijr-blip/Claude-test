@@ -4,7 +4,7 @@ import { hashToken, generateToken } from '../_core/tokenUtils.ts'
 import { TRPCError } from '@trpc/server'
 import { db } from '../db.ts'
 import { precadastros, accessTokens, users, pacientes } from '../../drizzle/schema.ts'
-import { eq, desc, lt, inArray, isNull, and } from 'drizzle-orm'
+import { eq, desc, lt, inArray, isNull, and, gt } from 'drizzle-orm'
 import { encrypt, decrypt, hashCpf } from '../_core/encryption.ts'
 import { validarCpf, normalizarCpf } from '../_core/cpfValidator.ts'
 import { criarCobrancaIntake, obterPagamento, listarPagamentosPorReferencia } from '../asaas/client.ts'
@@ -442,5 +442,53 @@ export const intakeRouter = router({
         .where(eq(precadastros.id, input.precadastroId))
 
       return okEmpty()
+    }),
+
+  // Auto-atendimento: paciente solicita reenvio do link de acesso pelo CPF
+  solicitarReenvioLink: publicProcedure
+    .input(z.object({
+      cpf: z.string().min(11),
+    }))
+    .mutation(async ({ input }) => {
+      const GENERIC_OK = { ok: true }
+
+      let cpfNorm: string
+      try {
+        cpfNorm = normalizarCpf(input.cpf)
+        if (!validarCpf(cpfNorm)) return GENERIC_OK
+      } catch {
+        return GENERIC_OK
+      }
+
+      const cpfHash = hashCpf(cpfNorm)
+
+      const [precad] = await db
+        .select({ id: precadastros.id, accessTokenId: precadastros.accessTokenId })
+        .from(precadastros)
+        .where(eq(precadastros.cpfHash, cpfHash))
+        .orderBy(desc(precadastros.createdAt))
+        .limit(1)
+
+      if (!precad?.accessTokenId) return GENERIC_OK
+
+      const [token] = await db
+        .select({ id: accessTokens.id })
+        .from(accessTokens)
+        .where(and(
+          eq(accessTokens.id, precad.accessTokenId),
+          isNull(accessTokens.revokedAt),
+          gt(accessTokens.expiresAt, new Date()),
+        ))
+        .limit(1)
+
+      if (!token) return GENERIC_OK
+
+      try {
+        await gerarEEnviarLinkAcesso(precad.id)
+      } catch (err) {
+        logger.warn('[intake] solicitarReenvioLink falhou', { error: String(err) })
+      }
+
+      return GENERIC_OK
     }),
 })

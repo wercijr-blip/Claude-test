@@ -161,6 +161,10 @@ app.use(
   tokenValidateLimiter,
 )
 app.use(
+  '/trpc/intake.solicitarReenvioLink',
+  tokenValidateLimiter,
+)
+app.use(
   '/trpc/twoFactor.verify',
   totpLimiter,
 )

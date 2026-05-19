@@ -25,6 +25,7 @@ const VerificacaoPage = lazy(() => import('./components/VerificacaoPage.tsx'))
 const PrivacidadePage = lazy(() => import('./components/PrivacidadePage.tsx'))
 const TermosPage = lazy(() => import('./components/TermosPage.tsx'))
 const PesquisaSatisfacao = lazy(() => import('./components/PesquisaSatisfacao.tsx'))
+const ReenviarAcesso = lazy(() => import('./components/ReenviarAcesso.tsx'))
 
 function PageLoader() {
   return (
@@ -163,6 +164,7 @@ export default function App() {
             <Route path="/duvidas" component={DuvidasPage} />
             <Route path="/privacidade" component={PrivacidadePage} />
             <Route path="/termos" component={TermosPage} />
+            <Route path="/reenviar-acesso" component={ReenviarAcesso} />
             <Route path="/v/:slug" component={VerificacaoPage} />
             <Route path="/pesquisa/:pacienteId/:token" component={PesquisaSatisfacao} />
             <Route path="/pagamento/sucesso" component={PagamentoSucesso} />

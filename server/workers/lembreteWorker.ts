@@ -2,7 +2,7 @@ import { Worker } from 'bullmq'
 import { env } from '../_core/env.ts'
 import { db } from '../db.ts'
 import { consultasInicio, accessTokens, precadastros } from '../../drizzle/schema.ts'
-import { eq, and, gt } from 'drizzle-orm'
+import { eq, and, gt, lt } from 'drizzle-orm'
 import { decrypt } from '../_core/encryption.ts'
 import { enviarLinkAcessoIntake } from '../email.ts'
 import { enviarWhatsApp } from '../whatsapp.ts'
@@ -22,12 +22,14 @@ export function startLembreteWorker() {
     LEMBRETE_QUEUE_NAME,
     async () => {
       const agora = new Date()
+      const tresDiasDepois = new Date(agora.getTime() + 3 * 24 * 60 * 60 * 1000)
 
       const pendentes = await db
         .select({
           consultaId: consultasInicio.id,
           tokenId: consultasInicio.tokenId,
           linkExpiresAt: consultasInicio.linkExpiresAt,
+          ultimoLembreteAt: consultasInicio.ultimoLembreteAt,
           patientEmail: accessTokens.patientEmail,
           precadNome: precadastros.nomeEncrypted,
           precadTelefone: precadastros.telefoneEncrypted,
@@ -39,10 +41,17 @@ export function startLembreteWorker() {
           and(
             eq(consultasInicio.status, 'aguardando_upload'),
             gt(consultasInicio.linkExpiresAt!, agora),
+            lt(consultasInicio.linkExpiresAt!, tresDiasDepois),
           ),
         )
 
       for (const p of pendentes) {
+        // Skip if already reminded in the last 20 hours
+        if (p.ultimoLembreteAt && agora.getTime() - p.ultimoLembreteAt.getTime() < 20 * 60 * 60 * 1000) continue
+
+        const diasRestantes = Math.ceil((p.linkExpiresAt!.getTime() - agora.getTime()) / (24 * 60 * 60 * 1000))
+        const isUrgente = diasRestantes <= 1
+
         if (!p.patientEmail || !p.tokenId) continue
 
         const nome = p.precadNome ? decrypt(p.precadNome).split(' ')[0] : 'Paciente'
@@ -65,11 +74,12 @@ export function startLembreteWorker() {
 
         if (p.precadTelefone) {
           const telefone = decrypt(p.precadTelefone)
-          const msg =
-            `Olá ${nome}! Estamos aguardando o envio do seu exame de HIV para dar continuidade ao atendimento PrEP.\n\n` +
-            `Acesse o formulário e envie o exame:\n${linkLembrete}\n\n` +
-            `Ou cole o código no site facilitaprep.com.br:\n*${codigoLembrete}*\n\n` +
-            `Prazo: ${p.linkExpiresAt?.toLocaleDateString('pt-BR')}\n\n_Facilita PrEP_`
+          const msg = isUrgente
+            ? `⚠️ Olá ${nome}! Hoje é o último dia para enviar seu exame de HIV.\n\n` +
+              `Acesse agora:\n${linkLembrete}\n\nCódigo: *${codigoLembrete}*\n\n_Facilita PrEP_`
+            : `Olá ${nome}! Seu prazo para enviar o exame de HIV termina em ${diasRestantes} dia${diasRestantes > 1 ? 's' : ''}.\n\n` +
+              `Acesse o formulário:\n${linkLembrete}\n\nCódigo: *${codigoLembrete}*\n\n` +
+              `Prazo: ${p.linkExpiresAt?.toLocaleDateString('pt-BR')}\n\n_Facilita PrEP_`
           await enviarWhatsApp(telefone, msg).catch((e: unknown) => logger.warn('[lembreteQueue] notificação falhou', { error: String(e) }))
         }
 
