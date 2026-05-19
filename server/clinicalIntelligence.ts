@@ -3,15 +3,21 @@
  * 11 prompts for AI-assisted clinical documentation, knowledge synthesis, and reporting.
  */
 
+import Anthropic from '@anthropic-ai/sdk'
 import { env } from './_core/env.ts'
 import { logger } from './_core/logger.ts'
 import { redis } from './_core/redis.ts'
 
 // ─── Shared API helper ────────────────────────────────────────────────────────
 
-const MODEL_HAIKU  = 'claude-haiku-4-5-20251001'  // CIS-01, CIS-02b, CIS-04
-const MODEL_SONNET = 'claude-sonnet-4-6'           // CIS-02a, CIS-03, CIS-05–09
-const MODEL_OPUS   = 'claude-opus-4-7'             // CIS-10, CIS-11
+const MODEL_HAIKU  = 'claude-haiku-4-5'    // CIS-01, CIS-02b, CIS-04
+const MODEL_SONNET = 'claude-sonnet-4-6'   // CIS-02a, CIS-03, CIS-05–09
+const MODEL_OPUS   = 'claude-opus-4-7'     // CIS-10, CIS-11
+
+const anthropic = new Anthropic({
+  apiKey: env.BUILT_IN_FORGE_API_KEY ?? '',
+  baseURL: env.BUILT_IN_FORGE_API_URL,
+})
 
 // ─── Opus daily budget (Redis counter) ───────────────────────────────────────
 
@@ -63,7 +69,7 @@ async function callClaude(
   userContent: string,
   maxTokens: number,
   model = MODEL_SONNET,
-  temperature = 0.2,
+  temperature?: number,
 ): Promise<string> {
   // Verifica orçamento diário antes de chamar Opus
   let effectiveModel = model
@@ -78,46 +84,37 @@ async function callClaude(
     }
   }
 
-  let response: Response
   try {
-    response = await fetch(`${env.BUILT_IN_FORGE_API_URL}/v1/messages`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': env.BUILT_IN_FORGE_API_KEY ?? '',
-        'anthropic-version': '2023-06-01',
-      },
-      signal: AbortSignal.timeout(60000),
-      body: JSON.stringify({
-        model: effectiveModel,
-        max_tokens: maxTokens,
-        temperature,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userContent }],
-      }),
+    const response = await anthropic.messages.create({
+      model: effectiveModel,
+      max_tokens: maxTokens,
+      // System as array enables prompt caching for static system prompts.
+      system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
+      messages: [{ role: 'user', content: userContent }],
+      // Opus 4.7 removed temperature/top_p/top_k — omit them to avoid 400 errors.
+      ...(temperature !== undefined && effectiveModel !== MODEL_OPUS ? { temperature } : {}),
     })
-  } catch (fetchErr) {
-    throw new Error(`Falha na requisição à API de IA: ${(fetchErr as Error).message}`)
-  }
 
-  if (!response.ok) {
-    const body = await response.text().catch(() => '')
-    throw new Error(`Erro na API de IA (HTTP ${response.status}): ${body.slice(0, 200)}`)
-  }
+    // Registra tokens consumidos se chamada Opus foi efetivamente executada
+    if (effectiveModel === MODEL_OPUS) {
+      const total = (response.usage.input_tokens ?? 0) + (response.usage.output_tokens ?? 0)
+      await incrOpusTokens(total)
+      logger.info('[cis] Tokens Opus registrados', { total, key: opusDateKey() })
+    }
 
-  const data = (await response.json()) as {
-    content: Array<{ text: string }>
-    usage?: { input_tokens: number; output_tokens: number }
+    const block = response.content[0]
+    return block?.type === 'text' ? block.text : ''
+  } catch (err) {
+    if (err instanceof Anthropic.APIError) {
+      logger.error('[cis] Erro na API Anthropic', {
+        status: err.status,
+        message: err.message,
+        model: effectiveModel,
+      })
+      throw new Error(`Erro na API de IA (HTTP ${err.status}): ${err.message}`)
+    }
+    throw err
   }
-
-  // Registra tokens consumidos se chamada Opus foi efetivamente executada
-  if (effectiveModel === MODEL_OPUS && data.usage) {
-    const total = (data.usage.input_tokens ?? 0) + (data.usage.output_tokens ?? 0)
-    await incrOpusTokens(total)
-    logger.info('[cis] Tokens Opus registrados', { total, key: opusDateKey() })
-  }
-
-  return data.content[0]?.text ?? ''
 }
 
 function parseJsonResponse<T>(text: string, context: string): T {
@@ -1192,7 +1189,7 @@ ${params.artigosReferenciasJson}${params.zoteroReferencias?.trim() ? `
 REFERÊNCIAS DA BIBLIOTECA PESSOAL DO MÉDICO (Zotero) — cite como [Z1], [Z2], etc.:
 ${params.zoteroReferencias}` : ''}`
 
-  const text = await callClaude(systemPrompt, userContent, 4096, MODEL_OPUS, 0.2)
+  const text = await callClaude(systemPrompt, userContent, 4096, MODEL_OPUS)
   return { texto: text }
 }
 
@@ -1296,6 +1293,6 @@ REFERÊNCIAS DA BIBLIOTECA PESSOAL DO MÉDICO (Zotero) — cite como [Z1], [Z2],
 
 ${params.zoteroReferencias}` : ''}`
 
-  const text = await callClaude(systemPrompt, userContent, 4096, MODEL_OPUS, 0.2)
+  const text = await callClaude(systemPrompt, userContent, 4096, MODEL_OPUS)
   return { texto: text }
 }
