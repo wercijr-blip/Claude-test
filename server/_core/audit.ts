@@ -20,7 +20,8 @@ export type AuditAction =
   | "admin.user_deactivate"
   | "admin.user_delete"
   | "data.portability_request"
-  | "data.export";
+  | "data.export"
+  | "user.totp_activated";
 
 export interface AuditEntry {
   actorId?: number;

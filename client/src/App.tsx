@@ -65,6 +65,7 @@ function CISDashboard() {
   const utils = trpc.useUtils();
   const [transcricao, setTranscricao] = useState<string | null>(null);
   const [sessaoId, setSessaoId] = useState<number | null>(null);
+  const [refreshingId, setRefreshingId] = useState<number | null>(null);
 
   const abrirSessao = trpc.scriba.abrirSessao.useMutation({
     onSuccess: (data) => {
@@ -104,6 +105,8 @@ function CISDashboard() {
   });
 
   const refreshEvidencia = trpc.scriba.refreshEvidencia.useMutation({
+    onMutate: ({ soapNoteId }) => setRefreshingId(soapNoteId),
+    onSettled: () => setRefreshingId(null),
     onSuccess: () => toast("Síntese de evidências reagendada.", "success"),
     onError: (err) => toast(err.message, "error"),
   });
@@ -133,8 +136,14 @@ function CISDashboard() {
         )}
 
         {!alertasLoading && alertasError && (
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center justify-between">
             <p className="text-sm text-red-600">Não foi possível carregar alertas.</p>
+            <button
+              onClick={() => utils.scriba.listarAlertas.invalidate()}
+              className="text-xs text-red-600 underline hover:text-red-800"
+            >
+              Tentar novamente
+            </button>
           </div>
         )}
 
@@ -210,7 +219,15 @@ function CISDashboard() {
               <div className="w-5 h-5 border-2 border-slate-200 border-t-blue-600 rounded-full animate-spin" />
             </div>
           ) : notasError ? (
-            <p className="text-sm text-red-500">Erro ao carregar notas.</p>
+            <div className="flex items-center gap-3">
+              <p className="text-sm text-red-500">Erro ao carregar notas.</p>
+              <button
+                onClick={() => utils.scriba.listarSoapNotes.invalidate()}
+                className="text-xs text-red-500 underline hover:text-red-700"
+              >
+                Tentar novamente
+              </button>
+            </div>
           ) : !notas?.items || notas.items.length === 0 ? (
             <p className="text-sm text-slate-400">
               Nenhuma nota registrada ainda.
@@ -249,10 +266,10 @@ function CISDashboard() {
                             onClick={() =>
                               refreshEvidencia.mutate({ soapNoteId: n.id })
                             }
-                            disabled={refreshEvidencia.isPending}
+                            disabled={refreshingId === n.id}
                             className="text-xs text-blue-600 hover:text-blue-800 underline disabled:opacity-50"
                           >
-                            {refreshEvidencia.isPending ? "Reagendando…" : "Atualizar"}
+                            {refreshingId === n.id ? "Reagendando…" : "Atualizar"}
                           </button>
                         </div>
                       )}

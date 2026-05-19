@@ -374,6 +374,53 @@ export const authRouter = router({
     };
   }),
 
+  // Confirms the TOTP enrollment by verifying the first code and flipping totpEnabled.
+  // Must be called after enrollTotp — otherwise 2FA is stored but never triggered at login.
+  ativarTotp: protectedProcedure
+    .input(z.object({ code: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      if (ctx.session.type !== "staff") {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+
+      const [user] = await db
+        .select({ totpSecret: users.totpSecret })
+        .from(users)
+        .where(and(eq(users.id, ctx.session.id), isNull(users.deletedAt)))
+        .limit(1);
+
+      if (!user?.totpSecret) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "TOTP não configurado. Execute enrollTotp primeiro.",
+        });
+      }
+
+      if (!verifyTotpCode(user.totpSecret, input.code)) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Código TOTP inválido",
+        });
+      }
+
+      await db
+        .update(users)
+        .set({ totpEnabled: true, updatedAt: new Date() })
+        .where(eq(users.id, ctx.session.id));
+
+      const role =
+        ctx.session.type === "staff" ? ctx.session.role : ("medico" as Role);
+      logAudit({
+        actorId: ctx.session.id,
+        actorRole: role,
+        action: "user.totp_activated",
+        resourceType: "user",
+        resourceId: ctx.session.id,
+      });
+
+      return { ok: true };
+    }),
+
   me: protectedProcedure.query(({ ctx }) => {
     return ctx.session;
   }),

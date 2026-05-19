@@ -8,6 +8,10 @@ import {
   verificarCriteriosDUT,
   gerarRelatorioTratamento,
   gerarDigestDiario,
+  gerarDigestSemanal,
+  gerarDigestSemanalLote,
+  gerarDigestMensal,
+  gerarDigestMensalLote,
   gerarSerieCasos,
   callClaudeBatch,
   gerarRevisaoLiteratura,
@@ -42,23 +46,29 @@ const redisMock = vi.hoisted(() => ({
 }));
 vi.mock("./_core/redis.ts", () => ({ redis: redisMock }));
 
-// Mock @anthropic-ai/sdk — intercepts anthropic.messages.create() calls.
+// Mock @anthropic-ai/sdk — intercepts anthropic.messages.create() and batch calls.
 const createMock = vi.hoisted(() => vi.fn());
-vi.mock("@anthropic-ai/sdk", () => {
-  class APIError extends Error {
+const batchesMock = vi.hoisted(() => ({
+  create: vi.fn(),
+  results: vi.fn(),
+  cancel: vi.fn(),
+}));
+const MockAPIError = vi.hoisted(() => {
+  class Err extends Error {
     status: number;
     constructor(status: number, message: string) {
       super(message);
       this.status = status;
     }
   }
-  return {
-    default: class Anthropic {
-      messages = { create: createMock };
-      static APIError = APIError;
-    },
-  };
+  return Err;
 });
+vi.mock("@anthropic-ai/sdk", () => ({
+  default: class Anthropic {
+    messages = { create: createMock, batches: batchesMock };
+    static APIError = MockAPIError;
+  },
+}));
 
 // Helper: creates a mock SDK response with text content.
 function sdkReply(
@@ -363,6 +373,26 @@ describe("Opus daily budget", () => {
       expect.stringMatching(/^cis:opus:tokens:/),
       5000,
     );
+  });
+
+  it("emite warning quando Opus está entre 80% e 100% do budget", async () => {
+    // 42000 tokens = 84% of 50000 → warning, but no downgrade
+    redisMock.get.mockResolvedValueOnce("42000");
+    redisMock.incrby.mockResolvedValueOnce(47000);
+    createMock.mockReturnValueOnce(
+      sdkReply("Revisão completa", { input_tokens: 3000, output_tokens: 2000 }),
+    );
+
+    await gerarRevisaoLiteratura({
+      tema: "HIV tratamento",
+      nArtigos: 1,
+      artigosJson: "[]",
+      contextoClinico: "teste",
+    });
+
+    const params = createMock.mock.calls[0]![0] as { model: string };
+    expect(params.model).toBe("claude-opus-4-7");
+    expect(redisMock.incrby).toHaveBeenCalled();
   });
 
   it("downgrade para Sonnet quando orçamento Opus está esgotado", async () => {
@@ -920,6 +950,8 @@ describe("gerarSerieCasos", () => {
 describe("callClaudeBatch", () => {
   beforeEach(() => {
     createMock.mockReset();
+    batchesMock.create.mockReset();
+    batchesMock.results.mockReset();
   });
 
   it("retorna Map vazio sem chamar a API quando requests está vazio", async () => {
@@ -927,6 +959,62 @@ describe("callClaudeBatch", () => {
 
     expect(createMock).not.toHaveBeenCalled();
     expect(resultado.size).toBe(0);
+  });
+
+  it("submete batch e retorna resultados quando requests não está vazio", async () => {
+    batchesMock.create.mockResolvedValueOnce({
+      id: "batch-test-1",
+      processing_status: "ended",
+      request_counts: { processing: 0, succeeded: 1 },
+    });
+    batchesMock.results.mockResolvedValueOnce([
+      {
+        custom_id: "req-1",
+        result: {
+          type: "succeeded",
+          message: {
+            content: [{ type: "text", text: "Resumo batch gerado." }],
+          },
+        },
+      },
+    ]);
+
+    const resultado = await callClaudeBatch([
+      {
+        id: "req-1",
+        systemPrompt: "Sistema",
+        userContent: "Dados",
+        maxTokens: 500,
+      },
+    ]);
+
+    expect(batchesMock.create).toHaveBeenCalledTimes(1);
+    expect(resultado.get("req-1")).toBe("Resumo batch gerado.");
+  });
+
+  it("mapeia resultado falho para string vazia", async () => {
+    batchesMock.create.mockResolvedValueOnce({
+      id: "batch-test-2",
+      processing_status: "ended",
+      request_counts: { processing: 0, succeeded: 0 },
+    });
+    batchesMock.results.mockResolvedValueOnce([
+      {
+        custom_id: "req-fail",
+        result: { type: "errored" },
+      },
+    ]);
+
+    const resultado = await callClaudeBatch([
+      {
+        id: "req-fail",
+        systemPrompt: "Sistema",
+        userContent: "Dados",
+        maxTokens: 500,
+      },
+    ]);
+
+    expect(resultado.get("req-fail")).toBe("");
   });
 });
 
@@ -961,5 +1049,223 @@ describe("parseJsonResponse (via verificarCriteriosDUT)", () => {
 
     expect(resultado.pode_gerar_relatorio).toBe(true);
     expect(resultado.alerta_para_medico).toBeNull();
+  });
+});
+
+// ── callClaude error paths ────────────────────────────────────────────────────
+
+describe("callClaude — tratamento de erros da API", () => {
+  beforeEach(() => {
+    createMock.mockReset();
+  });
+
+  it("propaga erro não-retryable como Error com status HTTP", async () => {
+    createMock.mockRejectedValueOnce(new MockAPIError(400, "Bad request"));
+
+    await expect(
+      gerarDigestDiario({
+        data: "2024-01-15",
+        totalPacientes: 1,
+        consultasJson: "[]",
+        artigosSintetizadosJson: "[]",
+        alertasCondutaJson: "[]",
+        relatoriosGerados: "1",
+      }),
+    ).rejects.toThrow("Erro na API de IA (HTTP 400)");
+  });
+
+  it("propaga erros não-Anthropic diretamente", async () => {
+    createMock.mockRejectedValueOnce(new Error("Network error"));
+
+    await expect(
+      gerarDigestDiario({
+        data: "2024-01-15",
+        totalPacientes: 1,
+        consultasJson: "[]",
+        artigosSintetizadosJson: "[]",
+        alertasCondutaJson: "[]",
+        relatoriosGerados: "1",
+      }),
+    ).rejects.toThrow("Network error");
+  });
+});
+
+// ── gerarDigestSemanal (PROMPT 08 — Sonnet) ───────────────────────────────────
+
+const semanalBase = {
+  semana: "2024-W03",
+  totalPacientes: 5,
+  diagnosticosJson: "[]",
+  artigosSemanaJson: "[]",
+  alertasSemanaJson: "[]",
+  seriesStatusJson: "[]",
+  relatoriosSemana: "5",
+};
+
+describe("gerarDigestSemanal", () => {
+  beforeEach(() => {
+    createMock.mockReset();
+  });
+
+  it("retorna { texto: string }", async () => {
+    createMock.mockReturnValueOnce(sdkReply("## Resumo Semanal\n5 pacientes."));
+
+    const resultado = await gerarDigestSemanal(semanalBase);
+
+    expect(typeof resultado.texto).toBe("string");
+    expect(resultado.texto).toContain("Resumo Semanal");
+  });
+
+  it("usa MODEL_SONNET", async () => {
+    createMock.mockReturnValueOnce(sdkReply("digest semanal"));
+
+    await gerarDigestSemanal(semanalBase);
+
+    const params = createMock.mock.calls[0]![0] as { model: string };
+    expect(params.model).toBe("claude-sonnet-4-6");
+  });
+
+  it("inclui dados da semana no user content", async () => {
+    createMock.mockReturnValueOnce(sdkReply("digest semanal"));
+
+    await gerarDigestSemanal({ ...semanalBase, totalPacientes: 12 });
+
+    const params = createMock.mock.calls[0]![0] as {
+      messages: Array<{ content: string }>;
+    };
+    expect(params.messages[0]!.content).toContain("12");
+  });
+});
+
+// ── gerarDigestSemanalLote ────────────────────────────────────────────────────
+
+describe("gerarDigestSemanalLote", () => {
+  beforeEach(() => {
+    batchesMock.create.mockReset();
+    batchesMock.results.mockReset();
+  });
+
+  it("retorna Map vazio quando entradas está vazio", async () => {
+    const resultado = await gerarDigestSemanalLote([]);
+
+    expect(batchesMock.create).not.toHaveBeenCalled();
+    expect(resultado.size).toBe(0);
+  });
+
+  it("submete batch e retorna digest semanal para cada entrada", async () => {
+    batchesMock.create.mockResolvedValueOnce({
+      id: "batch-semanal-1",
+      processing_status: "ended",
+      request_counts: { processing: 0, succeeded: 1 },
+    });
+    batchesMock.results.mockResolvedValueOnce([
+      {
+        custom_id: "medico-1",
+        result: {
+          type: "succeeded",
+          message: {
+            content: [{ type: "text", text: "## Resumo Semanal\nOK" }],
+          },
+        },
+      },
+    ]);
+
+    const resultado = await gerarDigestSemanalLote([
+      { id: "medico-1", params: semanalBase },
+    ]);
+
+    expect(batchesMock.create).toHaveBeenCalledTimes(1);
+    expect(resultado.get("medico-1")).toContain("Resumo Semanal");
+  });
+});
+
+// ── gerarDigestMensal (PROMPT 09 — Sonnet) ───────────────────────────────────
+
+const mensalBase = {
+  mesAno: "2024-01",
+  totalPacientes: 80,
+  diagnosticosMesJson: "[]",
+  artigosMesJson: "[]",
+  alertasMesJson: "[]",
+  seriesGeradasJson: "[]",
+  seriesPublicadasJson: "[]",
+  totalAcumuladoJson: "{}",
+  cronogramaPublicacaoJson: "[]",
+};
+
+describe("gerarDigestMensal", () => {
+  beforeEach(() => {
+    createMock.mockReset();
+  });
+
+  it("retorna { texto: string }", async () => {
+    createMock.mockReturnValueOnce(sdkReply("## Resumo Mensal\n80 pacientes."));
+
+    const resultado = await gerarDigestMensal(mensalBase);
+
+    expect(typeof resultado.texto).toBe("string");
+    expect(resultado.texto).toContain("Resumo Mensal");
+  });
+
+  it("usa MODEL_SONNET", async () => {
+    createMock.mockReturnValueOnce(sdkReply("digest mensal"));
+
+    await gerarDigestMensal(mensalBase);
+
+    const params = createMock.mock.calls[0]![0] as { model: string };
+    expect(params.model).toBe("claude-sonnet-4-6");
+  });
+
+  it("inclui dados do mês no user content", async () => {
+    createMock.mockReturnValueOnce(sdkReply("digest mensal"));
+
+    await gerarDigestMensal({ ...mensalBase, totalPacientes: 42 });
+
+    const params = createMock.mock.calls[0]![0] as {
+      messages: Array<{ content: string }>;
+    };
+    expect(params.messages[0]!.content).toContain("42");
+  });
+});
+
+// ── gerarDigestMensalLote ─────────────────────────────────────────────────────
+
+describe("gerarDigestMensalLote", () => {
+  beforeEach(() => {
+    batchesMock.create.mockReset();
+    batchesMock.results.mockReset();
+  });
+
+  it("retorna Map vazio quando entradas está vazio", async () => {
+    const resultado = await gerarDigestMensalLote([]);
+
+    expect(batchesMock.create).not.toHaveBeenCalled();
+    expect(resultado.size).toBe(0);
+  });
+
+  it("submete batch e retorna digest mensal para cada entrada", async () => {
+    batchesMock.create.mockResolvedValueOnce({
+      id: "batch-mensal-1",
+      processing_status: "ended",
+      request_counts: { processing: 0, succeeded: 1 },
+    });
+    batchesMock.results.mockResolvedValueOnce([
+      {
+        custom_id: "medico-2",
+        result: {
+          type: "succeeded",
+          message: {
+            content: [{ type: "text", text: "## Resumo Mensal\nOK" }],
+          },
+        },
+      },
+    ]);
+
+    const resultado = await gerarDigestMensalLote([
+      { id: "medico-2", params: mensalBase },
+    ]);
+
+    expect(batchesMock.create).toHaveBeenCalledTimes(1);
+    expect(resultado.get("medico-2")).toContain("Resumo Mensal");
   });
 });
