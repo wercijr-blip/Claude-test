@@ -53,7 +53,7 @@ export const digestQueue = new Queue(DIGEST_QUEUE_NAME, {
 
 // ─── Tipos de job ─────────────────────────────────────────────────────────────
 
-type DiarioJobData  = { tipo: 'diario';  medicoId: number; sessionId: number; periodoRef: string }
+type DiarioJobData  = { tipo: 'diario';  medicoId: number; sessionId: number; periodoRef: string; requestId?: string }
 type SemanalJobData = { tipo: 'semanal'; periodoRef: string }
 type MensalJobData  = { tipo: 'mensal';  periodoRef: string }
 type DigestJobData  = DiarioJobData | SemanalJobData | MensalJobData
@@ -65,6 +65,7 @@ export async function enqueueDigestDiario(params: {
   medicoId: number
   sessionId: number
   periodoRef: string // "YYYY-MM-DD"
+  requestId?: string
 }) {
   // jobId determinístico evita duplicatas em cliques duplos ou retries
   return digestQueue.add(
@@ -454,7 +455,14 @@ export function startDigestWorker() {
   )
 
   worker.on('failed', (job, err) => {
-    logger.error(`[digestQueue] Job ${job?.id} falhou`, { message: err.message, tipo: job?.data?.tipo })
+    logger.error('[digestQueue] Job falhou definitivamente (DLQ)', {
+      jobId: job?.id,
+      tipo: job?.data?.tipo,
+      medicoId: (job?.data as { medicoId?: number })?.medicoId,
+      requestId: (job?.data as { requestId?: string })?.requestId,
+      attempts: job?.attemptsMade,
+      error: err.message,
+    })
   })
 
   worker.on('completed', (job) => {

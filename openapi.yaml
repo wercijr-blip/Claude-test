@@ -1,0 +1,400 @@
+openapi: 3.1.0
+info:
+  title: Facilita PrEP — CIS REST API
+  description: |
+    API REST pública do Clinical Intelligence System (CIS) para integrações externas
+    (n8n, Obsidian scripts, curl, automações).
+
+    ## Autenticação
+    Todas as rotas requerem o header `X-CIS-Api-Key` com o valor configurado em
+    `CIS_API_KEY`. A comparação é feita com `timingSafeEqual` (resistente a timing attacks).
+
+    ## Sistema Single-Doctor
+    O médico é identificado internamente pela variável `CIS_MEDICO_USER_ID`.
+    Não há multi-tenancy — todas as requisições autenticadas operam sobre os dados
+    do médico configurado.
+
+    ## Rate Limiting
+    Máximo de 60 requisições por minuto por IP. Respostas incluem headers
+    `RateLimit-Limit`, `RateLimit-Remaining` e `RateLimit-Reset`.
+  version: 1.0.0
+  contact:
+    name: Facilita PrEP
+    url: https://facilitaprep.com.br
+
+servers:
+  - url: https://facilitaprep.com.br/api/cis
+    description: Produção
+  - url: http://localhost:3000/api/cis
+    description: Desenvolvimento local
+
+security:
+  - ApiKeyAuth: []
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-CIS-Api-Key
+
+  schemas:
+    Erro:
+      type: object
+      required: [erro]
+      properties:
+        erro:
+          type: string
+          example: Chave de API inválida
+
+    NotaResumo:
+      type: object
+      required: [id, sessionId, template, diagnosticoPrincipal, cid10, certeza, pubmedQuery, temSintese, createdAt]
+      properties:
+        id:
+          type: integer
+          example: 42
+        sessionId:
+          type: integer
+          example: 7
+        template:
+          type: string
+          example: hiv_cronico
+        diagnosticoPrincipal:
+          type: string
+          example: "HIV/AIDS em acompanhamento"
+        cid10:
+          type: string
+          example: B20
+          pattern: '^[A-Z]\d{2}(\.\d{1,2})?$'
+        certeza:
+          type: string
+          nullable: true
+          example: definido
+        pubmedQuery:
+          type: string
+          nullable: true
+          example: "HIV AIDS antiretroviral treatment 2024"
+        temSintese:
+          type: integer
+          enum: [0, 1]
+          description: 1 se síntese PubMed está disponível, 0 se pendente
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-05-19T14:30:00.000Z"
+
+    NotaCompleta:
+      type: object
+      required: [id, sessionId, template, diagnosticoPrincipal, cid10, certeza, soapTexto, pubmedQuery, createdAt]
+      properties:
+        id:
+          type: integer
+          example: 42
+        sessionId:
+          type: integer
+          example: 7
+        template:
+          type: string
+          example: hiv_cronico
+        diagnosticoPrincipal:
+          type: string
+          example: "HIV/AIDS em acompanhamento"
+        cid10:
+          type: string
+          example: B20
+        certeza:
+          type: string
+          nullable: true
+        soapTexto:
+          type: string
+          description: Texto completo da SOAP note (sem PII do paciente)
+          example: "S: Paciente refere...\nO: PA 120/80...\nA: HIV estável...\nP: Manter TARV..."
+        knowledgeMetadata:
+          type: object
+          nullable: true
+          description: Metadados clínicos estruturados (perfil do paciente anonimizado)
+        pubmedQuery:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    Alerta:
+      type: object
+      required: [id, nivelUrgencia, mensagemMedico, feedbackMedico, createdAt]
+      properties:
+        id:
+          type: integer
+        nivelUrgencia:
+          type: string
+          enum: [baixo, medio, alto, critico]
+          example: alto
+        mensagemMedico:
+          type: string
+          example: "Conduta diverge da diretriz GRADE 1A: considerar..."
+        feedbackMedico:
+          type: string
+          nullable: true
+          example: "Paciente tem contraindicação a TMP-SMX documentada"
+        createdAt:
+          type: string
+          format: date-time
+
+    SinteseResponse:
+      type: object
+      required: [soapNoteId, sinteseEvidencias, pubmedQuery, pronta, alertas]
+      properties:
+        soapNoteId:
+          type: integer
+          example: 42
+        sinteseEvidencias:
+          type: string
+          nullable: true
+          description: Texto da síntese PubMed (null enquanto processando)
+        pubmedQuery:
+          type: string
+          nullable: true
+        pronta:
+          type: boolean
+          description: true quando sinteseEvidencias está disponível
+        alertas:
+          type: array
+          items:
+            $ref: '#/components/schemas/Alerta'
+
+    BudgetResponse:
+      type: object
+      required: [usado, limite, percentual, dataKey]
+      properties:
+        usado:
+          type: integer
+          description: Tokens Claude Opus consumidos hoje
+          example: 45230
+        limite:
+          type: integer
+          description: Limite diário configurado em OPUS_DAILY_TOKEN_BUDGET
+          example: 100000
+        percentual:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Percentual do budget consumido (0-100)
+          example: 45
+        dataKey:
+          type: string
+          description: Chave Redis do contador (formato cis:opus:tokens:YYYY-MM-DD)
+          example: "cis:opus:tokens:2025-05-19"
+
+paths:
+  /budget:
+    get:
+      summary: Status do orçamento diário de tokens Claude Opus
+      description: |
+        Retorna o consumo atual de tokens Claude Opus do dia corrente.
+        Resposta é cacheada por 60 segundos em memória.
+      operationId: getBudget
+      responses:
+        '200':
+          description: Status do budget retornado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BudgetResponse'
+        '401':
+          description: Chave de API inválida ou ausente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '503':
+          description: REST API do CIS não está configurada (CIS_API_KEY / CIS_MEDICO_USER_ID ausentes)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+
+  /notas:
+    get:
+      summary: Listar SOAP notes com filtros e paginação
+      description: |
+        Retorna lista paginada de SOAP notes do médico. Suporta filtro por CID-10,
+        template clínico e intervalo de datas. Não inclui dados de PII dos pacientes.
+      operationId: listarNotas
+      parameters:
+        - name: limit
+          in: query
+          description: Máximo de itens por página (1-100, padrão 20)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          description: Deslocamento para paginação
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: cid10
+          in: query
+          description: Filtrar por CID-10 exato (ex: B20, J18.9)
+          schema:
+            type: string
+            pattern: '^[A-Z]\d{2}(\.\d{1,2})?$'
+            example: B20
+        - name: template
+          in: query
+          description: Filtrar por template clínico (ex: hiv_cronico, prep_inicial)
+          schema:
+            type: string
+            pattern: '^[a-z0-9_-]{1,60}$'
+            example: hiv_cronico
+        - name: from
+          in: query
+          description: Data de início do filtro (ISO 8601)
+          schema:
+            type: string
+            format: date-time
+            example: "2025-01-01T00:00:00Z"
+        - name: to
+          in: query
+          description: Data de fim do filtro (ISO 8601)
+          schema:
+            type: string
+            format: date-time
+            example: "2025-12-31T23:59:59Z"
+      responses:
+        '200':
+          description: Lista de notas retornada com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [notas, total, limit, offset]
+                properties:
+                  notas:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/NotaResumo'
+                  total:
+                    type: integer
+                    description: Total de registros (para calcular páginas)
+                    example: 150
+                  limit:
+                    type: integer
+                    example: 20
+                  offset:
+                    type: integer
+                    example: 0
+        '400':
+          description: Parâmetros inválidos (ex: from > to)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          $ref: '#/paths/~1budget/get/responses/401'
+        '503':
+          $ref: '#/paths/~1budget/get/responses/503'
+
+  /notas/{id}:
+    get:
+      summary: Obter SOAP note completa por ID
+      description: |
+        Retorna a SOAP note completa incluindo texto e metadados clínicos.
+        Não inclui PII do paciente. Inclui knowledgeMetadata (perfil clínico anonimizado).
+      operationId: getNota
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID da SOAP note
+          schema:
+            type: integer
+            example: 42
+      responses:
+        '200':
+          description: SOAP note retornada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotaCompleta'
+        '400':
+          description: ID inválido (não é um inteiro)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          $ref: '#/paths/~1budget/get/responses/401'
+        '404':
+          description: Nota não encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '503':
+          $ref: '#/paths/~1budget/get/responses/503'
+
+  /notas/{id}/sintese:
+    get:
+      summary: Obter síntese PubMed de uma SOAP note
+      description: |
+        Retorna a síntese de evidências PubMed gerada pelo CIS (Prompt 03) para uma nota.
+        O campo `pronta` indica se o processamento assíncrono foi concluído.
+        Inclui também alertas de conduta associados à nota.
+
+        Tipicamente: a síntese fica pronta 30-120 segundos após a criação da nota,
+        dependendo da disponibilidade da API Anthropic e da fila BullMQ.
+      operationId: getSintese
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID da SOAP note
+          schema:
+            type: integer
+            example: 42
+      responses:
+        '200':
+          description: Síntese retornada com sucesso (pode ser null se ainda processando)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SinteseResponse'
+              examples:
+                pronta:
+                  summary: Síntese disponível
+                  value:
+                    soapNoteId: 42
+                    sinteseEvidencias: "## Síntese de Evidências\n..."
+                    pubmedQuery: "HIV AIDS antiretroviral 2024"
+                    pronta: true
+                    alertas: []
+                pendente:
+                  summary: Ainda processando
+                  value:
+                    soapNoteId: 42
+                    sinteseEvidencias: null
+                    pubmedQuery: "HIV AIDS antiretroviral 2024"
+                    pronta: false
+                    alertas: []
+        '400':
+          description: ID inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          $ref: '#/paths/~1budget/get/responses/401'
+        '404':
+          description: Nota não encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '503':
+          $ref: '#/paths/~1budget/get/responses/503'

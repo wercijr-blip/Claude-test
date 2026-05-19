@@ -53,6 +53,7 @@ export interface PubmedJobData {
   perfilPacienteJson: string // JSON do perfil_paciente para Prompt 06
   template: string           // template clínico — tag automática no Zotero
   termosMesh: string[]       // termos MeSH gerados pelo Prompt 02b
+  requestId?: string
 }
 
 // ─── Extrator de metadados de qualidade de evidência ─────────────────────────
@@ -104,7 +105,7 @@ export function extrairGradeMetadata(sintese: string): EvidenceGradeMetadata {
  * Enfileira síntese PubMed para uma SOAP note.
  * jobId determinístico evita re-processamento se scriba rodar duas vezes.
  */
-export async function enqueueSintesePubMed(params: PubmedJobData): Promise<void> {
+export async function enqueueSintesePubMed(params: PubmedJobData & { requestId?: string }): Promise<void> {
   if (!params.pubmedQuery?.trim()) return // sem query não há o que buscar
 
   await pubmedQueue.add('sintese-pubmed', params, {
@@ -165,6 +166,7 @@ export function startPubmedWorker() {
 
       logger.info('[pubmedQueue] Síntese salva', {
         soapNoteId,
+        requestId: job.data.requestId ?? undefined,
         artigos: artigos.length,
         grade1A: evidenceMetadata.grade1A,
         grade1B: evidenceMetadata.grade1B,
@@ -202,7 +204,7 @@ export function startPubmedWorker() {
           .limit(1)
 
         if (supressaoAtiva) {
-          logger.info('[pubmedQueue] Alerta suprimido — supressaoAte ativa', { soapNoteId, cid10 })
+          logger.info('[pubmedQueue] Alerta suprimido — supressaoAte ativa', { soapNoteId, requestId: job.data.requestId ?? undefined, cid10 })
           return { soapNoteId, artigosEncontrados: artigos.length }
         }
 
@@ -308,7 +310,13 @@ export function startPubmedWorker() {
   )
 
   worker.on('failed', (job, err) => {
-    logger.error(`[pubmedQueue] Job ${job?.id} falhou`, { soapNoteId: job?.data?.soapNoteId, err: err.message })
+    logger.error('[pubmedQueue] Job falhou definitivamente (DLQ)', {
+      jobId: job?.id,
+      soapNoteId: job?.data?.soapNoteId,
+      requestId: job?.data?.requestId,
+      attempts: job?.attemptsMade,
+      error: err.message,
+    })
   })
 
   worker.on('completed', (job, result) => {

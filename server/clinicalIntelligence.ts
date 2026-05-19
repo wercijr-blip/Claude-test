@@ -76,11 +76,21 @@ async function callClaude(
   maxTokens: number,
   model = MODEL_SONNET,
   temperature?: number,
+  fnName = '',
 ): Promise<string> {
   // Verifica orçamento diário antes de chamar Opus
   let effectiveModel = model
   if (model === MODEL_OPUS && env.OPUS_DAILY_TOKEN_BUDGET > 0) {
     const tokensHoje = await getOpusTokensToday()
+    const limiteAlerta = Math.floor(env.OPUS_DAILY_TOKEN_BUDGET * 0.8)
+    if (tokensHoje >= limiteAlerta && tokensHoje < env.OPUS_DAILY_TOKEN_BUDGET) {
+      logger.warn('[cis] Orçamento Opus em 80% — considere aumentar OPUS_DAILY_TOKEN_BUDGET', {
+        tokensHoje,
+        limiteAlerta,
+        limite: env.OPUS_DAILY_TOKEN_BUDGET,
+        percentual: Math.round((tokensHoje / env.OPUS_DAILY_TOKEN_BUDGET) * 100),
+      })
+    }
     if (tokensHoje >= env.OPUS_DAILY_TOKEN_BUDGET) {
       logger.warn('[cis] Orçamento diário de Opus atingido — downgrade para Sonnet', {
         tokensHoje,
@@ -91,6 +101,7 @@ async function callClaude(
   }
 
   for (let attempt = 0; attempt <= MAX_API_RETRIES; attempt++) {
+    const start = Date.now()
     try {
       const response = await anthropic.messages.create({
         model: effectiveModel,
@@ -108,6 +119,8 @@ async function callClaude(
         await incrOpusTokens(total)
         logger.info('[cis] Tokens Opus registrados', { total, key: opusDateKey() })
       }
+
+      logger.info('[cis] latência', { fn: fnName, model: effectiveModel, ms: Date.now() - start, inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens })
 
       const block = response.content[0]
       return block?.type === 'text' ? block.text : ''
@@ -413,7 +426,7 @@ CRITÉRIOS DE VALOR CRÍTICO — SBPC/ML 2024 (flag_critico: true):
 - Hemocultura: qualquer crescimento bacteriano ou fúngico`
 
 export async function extrairExamesLaboratoriais(textoLaudo: string): Promise<ResultadoExtracaoExames> {
-  const text = await callClaude(PROMPT_01_SYSTEM, textoLaudo, 2048, MODEL_HAIKU, 0.1)
+  const text = await callClaude(PROMPT_01_SYSTEM, textoLaudo, 2048, MODEL_HAIKU, 0.1, 'extrairExamesLaboratoriais')
   return parseJsonResponse<ResultadoExtracaoExames>(text, 'extrator-exames')
 }
 
@@ -523,7 +536,7 @@ ${params.transcricaoOuTexto}
 EXAMES IMPORTADOS (se houver):
 ${params.dadosExamesJson ?? 'Nenhum exame importado'}`
 
-  return callClaude(systemPrompt, userContent, 4096, MODEL_SONNET, 0.2)
+  return callClaude(systemPrompt, userContent, 4096, MODEL_SONNET, 0.2, 'gerarSOAP')
 }
 
 // ─── CIS-02b — MedScribe: Knowledge Metadata ─────────────────────────────────
@@ -598,7 +611,7 @@ REGRAS:
   • Manifestação em faixa etária ou imunocompetência discordante do padrão descrito em guidelines
   criterios_objetivos: liste apenas os critérios efetivamente verificáveis no SOAP ([] se atipico = false)`
 
-  const text = await callClaude(systemPrompt, params.soapTexto, 1024, MODEL_HAIKU, 0.1)
+  const text = await callClaude(systemPrompt, params.soapTexto, 1024, MODEL_HAIKU, 0.1, 'gerarTermosMeSH')
   return parseJsonResponse<KnowledgeMetadata>(text, 'knowledge-metadata')
 }
 
@@ -706,7 +719,7 @@ REFERÊNCIAS DA BIBLIOTECA PESSOAL DO MÉDICO (Zotero) — cite como [Z1], [Z2],
 
 ${params.zoteroReferencias}` : ''}`
 
-  const text = await callClaude(systemPrompt, userContent, 4096, MODEL_SONNET, 0.2)
+  const text = await callClaude(systemPrompt, userContent, 4096, MODEL_SONNET, 0.2, 'sintetizarArtigosPubMed')
   return { texto: text }
 }
 
@@ -777,7 +790,7 @@ DIAGNÓSTICO: ${params.diagnostico}
 DUT Nº ${params.numeroDut} — CRITÉRIOS OBRIGATÓRIOS:
 ${params.criteriosDutJson}`
 
-  const text = await callClaude(PROMPT_04_SYSTEM, userContent, 1024)
+  const text = await callClaude(PROMPT_04_SYSTEM, userContent, 1024, MODEL_SONNET, undefined, 'verificarCriteriosDUT')
   return parseJsonResponse<ResultadoVerificacaoDUT>(text, 'verificacao-dut')
 }
 
@@ -851,7 +864,7 @@ Plano: ${params.soapP}
 REFERÊNCIAS DISPONÍVEIS:
 ${params.referenciasVancouver}`
 
-  const text = await callClaude(systemPrompt, userContent, 2048)
+  const text = await callClaude(systemPrompt, userContent, 2048, MODEL_SONNET, undefined, 'gerarRelatorioTratamento')
   return { texto: text }
 }
 
@@ -990,7 +1003,7 @@ ${params.sinteseEvidencias}
 
 Diagnóstico: ${params.diagnostico} (${params.cid10})`
 
-  const text = await callClaude(PROMPT_06_SYSTEM, userContent, 1500, MODEL_SONNET, 0.1)
+  const text = await callClaude(PROMPT_06_SYSTEM, userContent, 1500, MODEL_SONNET, 0.1, 'detectarDivergenciaConducta')
   return parseJsonResponse<ResultadoDivergenciaConducta>(text, 'divergencia-conduta')
 }
 
@@ -1043,7 +1056,7 @@ Termine com: "Próximo resumo: amanhã."`
 - Alertas de conduta gerados: ${params.alertasCondutaJson}
 - Relatórios emitidos: ${params.relatoriosGerados}`
 
-  const text = await callClaude(systemPrompt, userContent, 1500, MODEL_SONNET, 0.2)
+  const text = await callClaude(systemPrompt, userContent, 1500, MODEL_SONNET, 0.2, 'gerarDigestDiario')
   return { texto: text }
 }
 
@@ -1109,7 +1122,7 @@ function digestSemanalUserContent(params: DigestSemanalParams): string {
 }
 
 export async function gerarDigestSemanal(params: DigestSemanalParams): Promise<DigestSemanal> {
-  const text = await callClaude(PROMPT_08_SYSTEM, digestSemanalUserContent(params), 2000, MODEL_SONNET, 0.2)
+  const text = await callClaude(PROMPT_08_SYSTEM, digestSemanalUserContent(params), 2000, MODEL_SONNET, 0.2, 'gerarDigestSemanal')
   return { texto: text }
 }
 
@@ -1198,7 +1211,7 @@ function digestMensalUserContent(params: DigestMensalParams): string {
 }
 
 export async function gerarDigestMensal(params: DigestMensalParams): Promise<DigestMensal> {
-  const text = await callClaude(PROMPT_09_SYSTEM, digestMensalUserContent(params), 2500, MODEL_SONNET, 0.2)
+  const text = await callClaude(PROMPT_09_SYSTEM, digestMensalUserContent(params), 2500, MODEL_SONNET, 0.2, 'gerarDigestMensal')
   return { texto: text }
 }
 
@@ -1315,7 +1328,7 @@ ${params.artigosReferenciasJson}${params.zoteroReferencias?.trim() ? `
 REFERÊNCIAS DA BIBLIOTECA PESSOAL DO MÉDICO (Zotero) — cite como [Z1], [Z2], etc.:
 ${params.zoteroReferencias}` : ''}`
 
-  const text = await callClaude(systemPrompt, userContent, 4096, MODEL_OPUS)
+  const text = await callClaude(systemPrompt, userContent, 4096, MODEL_OPUS, undefined, 'gerarSerieCasos')
   return { texto: text }
 }
 
@@ -1415,6 +1428,6 @@ REFERÊNCIAS DA BIBLIOTECA PESSOAL DO MÉDICO (Zotero) — cite como [Z1], [Z2],
 
 ${params.zoteroReferencias}` : ''}`
 
-  const text = await callClaude(systemPrompt, userContent, 4096, MODEL_OPUS)
+  const text = await callClaude(systemPrompt, userContent, 4096, MODEL_OPUS, undefined, 'gerarRevisaoLiteratura')
   return { texto: text }
 }

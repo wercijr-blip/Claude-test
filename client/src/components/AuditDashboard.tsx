@@ -12,7 +12,7 @@ export default function AuditDashboard() {
   const [tab, setTab] = useState<Tab>('equipe')
 
   // Equipe
-  const { data: usuarios, refetch: refetchUsuarios } = trpc.admin.listarUsuarios.useQuery()
+  const { data: usuarios, refetch: refetchUsuarios, isLoading: isLoadingUsuarios } = trpc.admin.listarUsuarios.useQuery()
   const alterarRole = trpc.admin.alterarRole.useMutation({ onSuccess: () => refetchUsuarios() })
   const toggleAtivo = trpc.admin.toggleAtivo.useMutation({ onSuccess: () => refetchUsuarios() })
   const cadastrarUsuario = trpc.admin.cadastrarUsuario.useMutation({ onSuccess: () => { refetchUsuarios(); setNovoEmail(''); setNovoNome(''); setNovoRole('medico') } })
@@ -29,13 +29,13 @@ export default function AuditDashboard() {
 
   // Pacientes
   const [busca, setBusca] = useState('')
-  const { data: pacientesResp } = trpc.admin.listarTodosPacientes.useQuery({ busca: busca || undefined })
+  const { data: pacientesResp, isLoading: isLoadingPacientes } = trpc.admin.listarTodosPacientes.useQuery({ busca: busca || undefined })
   const [precadIdRecuperar, setPrecadIdRecuperar] = useState('')
   const recuperarPagamento = trpc.admin.recuperarPagamento.useMutation()
   const pacientes = pacientesResp?.data
 
   // Auditoria
-  const { data: eventos } = trpc.admin.listarEventos.useQuery({ limit: 100 })
+  const { data: eventos, isError: isEventosError } = trpc.admin.listarEventos.useQuery({ limit: 100 })
   const { refetch: fetchCsv } = trpc.admin.exportarAuditoria.useQuery(undefined, { enabled: false })
 
   function downloadCsv() {
@@ -184,6 +184,19 @@ export default function AuditDashboard() {
           {/* Gerenciar equipe existente */}
           <div className="bg-white rounded-2xl border border-slate-200 p-6">
             <h2 className="text-base font-semibold text-slate-800 mb-4">Gerenciar Equipe</h2>
+            {alterarRole.isError && (
+              <p className="mb-3 text-xs text-red-600">Erro ao alterar perfil: {alterarRole.error?.message}</p>
+            )}
+            {toggleAtivo.isError && (
+              <p className="mb-3 text-xs text-red-600">Erro ao alterar status: {toggleAtivo.error?.message}</p>
+            )}
+            {isLoadingUsuarios ? (
+              <div className="space-y-2">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="h-10 bg-slate-100 rounded animate-pulse" />
+                ))}
+              </div>
+            ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -232,6 +245,7 @@ export default function AuditDashboard() {
                 </tbody>
               </table>
             </div>
+            )}
           </div>
         </div>
       )}
@@ -252,6 +266,13 @@ export default function AuditDashboard() {
               className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mb-4"
             />
 
+            {isLoadingPacientes ? (
+              <div className="space-y-2">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="h-10 bg-slate-100 rounded animate-pulse" />
+                ))}
+              </div>
+            ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -287,6 +308,7 @@ export default function AuditDashboard() {
                 </tbody>
               </table>
             </div>
+            )}
           </div>
 
           {/* Reenviar link de acesso */}
@@ -338,6 +360,9 @@ export default function AuditDashboard() {
                 Exportar CSV
               </button>
             </div>
+            {isEventosError && (
+              <p className="mb-3 text-xs text-red-600">Erro ao carregar eventos de auditoria.</p>
+            )}
             <div className="space-y-1 max-h-[600px] overflow-y-auto">
               {eventos?.map((e) => (
                 <div key={e.id} className="flex items-start gap-3 text-xs py-2 border-b border-slate-50">
