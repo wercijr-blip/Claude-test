@@ -3,6 +3,7 @@ import express from 'express'
 import helmet from 'helmet'
 import cors from 'cors'
 import rateLimit from 'express-rate-limit'
+import { randomUUID } from 'crypto'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 import { mkdirSync, existsSync } from 'fs'
@@ -24,6 +25,16 @@ import webhookRouter from './src/webhook/index.js'
 import apiRouter from './src/panel/routes/index.js'
 import authRouter from './src/panel/routes/auth.js'
 
+// ─── Tratamento de erros não capturados ──────────────────────────────────────
+process.on('uncaughtException', (err) => {
+  logger.error({ err: err.message, stack: err.stack }, 'Exceção não capturada — encerrando processo')
+  process.exit(1)
+})
+
+process.on('unhandledRejection', (reason) => {
+  logger.error({ reason: String(reason) }, 'Promise rejeitada sem tratamento')
+})
+
 // ─── Validação de variáveis de ambiente obrigatórias ────────────────────────
 const REQUIRED_ENV = ['EVOLUTION_URL', 'EVOLUTION_API_KEY', 'ANTHROPIC_API_KEY']
 const missing = REQUIRED_ENV.filter(k => !process.env[k])
@@ -35,6 +46,12 @@ if (!process.env.JWT_SECRET) {
     throw new Error('JWT_SECRET é obrigatório em produção. Configure a variável de ambiente.')
   }
   logger.warn('JWT_SECRET não definido — usando chave padrão INSEGURA. Configure JWT_SECRET em produção!')
+}
+if (process.env.NODE_ENV === 'production' && !process.env.PII_ENCRYPTION_KEY) {
+  throw new Error('PII_ENCRYPTION_KEY é obrigatória em produção para proteger dados pessoais (LGPD). Gere com: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"')
+}
+if (process.env.NODE_ENV === 'production' && !process.env.BASE_URL) {
+  logger.warn('BASE_URL não configurada — links de remarcação usarão localhost')
 }
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -85,6 +102,13 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 app.use(express.json({ limit: '1mb' }))
+
+// Request ID para rastreamento em logs
+app.use((req, res, next) => {
+  req.id = req.headers['x-request-id'] || randomUUID()
+  res.setHeader('x-request-id', req.id)
+  next()
+})
 
 // Rate limiting global na API (evita abuso)
 const apiLimiter = rateLimit({

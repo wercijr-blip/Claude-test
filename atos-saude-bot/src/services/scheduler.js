@@ -7,7 +7,7 @@ import { sendText } from './whatsapp.js'
 import {
   upsertSession, getAgendamentosComSlot, wasReminderSent, markReminderSent,
   insertRescheduleToken, getEncaixeByEspecialidade, markEncaixeNotificado,
-  deleteOldMessageLogs
+  deleteOldMessageLogs, cleanOldSessions
 } from './db.js'
 import { logger } from '../utils/logger.js'
 import { msg } from '../utils/messages.js'
@@ -202,13 +202,14 @@ export function initScheduler() {
     await verificarPesquisas().catch(e => logger.error({ err: e.message }, 'Erro ao verificar pesquisas'))
   })
 
-  // Retenção de dados: remove mensagens com mais de 90 dias (LGPD)
+  // Limpeza diária: sessões inativas >30min + mensagens >90 dias (LGPD)
   cron.schedule('0 3 * * *', () => {
     try {
+      cleanOldSessions(30)
       deleteOldMessageLogs(90)
-      logger.info('Scheduler: limpeza de mensagens antigas (>90 dias)')
+      logger.info('Scheduler: limpeza — sessões expiradas e mensagens >90 dias')
     } catch (e) {
-      logger.error({ err: e.message }, 'Erro ao limpar mensagens antigas')
+      logger.error({ err: e.message }, 'Erro na limpeza diária')
     }
   }, { timezone: 'America/Sao_Paulo' })
 

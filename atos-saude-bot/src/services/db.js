@@ -10,6 +10,8 @@ const db = new Database(DB_PATH)
 db.pragma('journal_mode = WAL')
 db.pragma('foreign_keys = ON')
 db.pragma('secure_delete = ON')
+db.pragma('busy_timeout = 5000')
+db.pragma('synchronous = NORMAL')
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS sessions (
@@ -156,6 +158,8 @@ try { db.exec('CREATE INDEX IF NOT EXISTS idx_messages_log_ts       ON messages_
 try { db.exec('CREATE INDEX IF NOT EXISTS idx_agendamentos_created  ON agendamentos(created_at)') } catch {}
 try { db.exec('CREATE INDEX IF NOT EXISTS idx_agendamentos_exported ON agendamentos(exported)') } catch {}
 try { db.exec('CREATE INDEX IF NOT EXISTS idx_messages_log_covering ON messages_log(phone, id)') } catch {}
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_sessions_flow         ON sessions(flow)') } catch {}
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_agendamentos_slot     ON agendamentos(slot_datetime) WHERE slot_datetime IS NOT NULL') } catch {}
 
 // Adiciona coluna agendamento_id à tabela sessions se ainda não existir
 try { db.exec('ALTER TABLE sessions ADD COLUMN agendamento_id TEXT') } catch {}
@@ -488,6 +492,11 @@ export function insertExamSubmission(data) {
 
 export function getExamSubmissions() {
   return db.prepare('SELECT * FROM exam_submissions ORDER BY created_at DESC').all()
+}
+
+// Transaction helper — wraps multiple synchronous DB operations atomically
+export function runTransaction(fn) {
+  return db.transaction(fn)()
 }
 
 export default db
