@@ -374,9 +374,10 @@ const NULLABILITY_PATCHES: Array<{ table: string; column: string; ddl: string }>
 ]
 
 async function getExistingColumns(table: string): Promise<Set<string>> {
-  const rows = (await db.execute(sql.raw(
-    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '${table}'`,
-  ))) as unknown as Array<{ COLUMN_NAME?: string; column_name?: string }> | { rows?: Array<{ COLUMN_NAME?: string; column_name?: string }> }
+  const rows = (await db.execute(sql`
+    SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ${table}`
+  )) as unknown as Array<{ COLUMN_NAME?: string; column_name?: string }> | { rows?: Array<{ COLUMN_NAME?: string; column_name?: string }> }
 
   const list = Array.isArray(rows) ? rows : (rows.rows ?? [])
   // mysql2 driver returns rows in [results, fields] tuple — flatten if needed
@@ -389,9 +390,10 @@ async function getExistingColumns(table: string): Promise<Set<string>> {
 
 async function getColumnIsNullable(table: string, column: string): Promise<boolean | null> {
   try {
-    const rows = (await db.execute(sql.raw(
-      `SELECT IS_NULLABLE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '${table}' AND COLUMN_NAME = '${column}'`,
-    ))) as unknown as Array<{ IS_NULLABLE?: string; is_nullable?: string }> | { rows?: Array<{ IS_NULLABLE?: string; is_nullable?: string }> }
+    const rows = (await db.execute(sql`
+      SELECT IS_NULLABLE FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ${table} AND COLUMN_NAME = ${column}`
+    )) as unknown as Array<{ IS_NULLABLE?: string; is_nullable?: string }> | { rows?: Array<{ IS_NULLABLE?: string; is_nullable?: string }> }
 
     const list = Array.isArray(rows) ? rows : (rows.rows ?? [])
     const flat: Array<{ IS_NULLABLE?: string; is_nullable?: string }> = Array.isArray(list[0])
@@ -407,7 +409,13 @@ async function getColumnIsNullable(table: string, column: string): Promise<boole
   }
 }
 
+const SAFE_IDENTIFIER = /^[a-zA-Z_][a-zA-Z0-9_]*$/
+
 async function patchColumnNullability(table: string, column: string, ddl: string): Promise<void> {
+  if (!SAFE_IDENTIFIER.test(table) || !SAFE_IDENTIFIER.test(column)) {
+    logger.error('[ensureSchema] Identificador inválido em NULLABILITY_PATCHES — ignorado', { table, column })
+    return
+  }
   const isNullable = await getColumnIsNullable(table, column)
   if (isNullable === null) return // coluna ou tabela não existe — nada a fazer
   if (isNullable) return           // já é NULL — não precisa rodar DDL
