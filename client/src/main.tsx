@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { trpc, createTrpcClient } from './lib/trpc.ts'
 import { useAuth } from './_core/hooks/useAuth.ts'
 import App from './App.tsx'
+import { CookieBanner } from './components/CookieBanner.tsx'
+import { Toaster } from './components/Toaster.tsx'
 import './index.css'
 
 const _sentryDsn = import.meta.env.VITE_SENTRY_DSN as string | undefined
@@ -43,6 +45,8 @@ function Root() {
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
         <App />
+        <CookieBanner />
+        <Toaster />
       </QueryClientProvider>
     </trpc.Provider>
   )

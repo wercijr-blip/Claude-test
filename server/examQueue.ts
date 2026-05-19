@@ -3,7 +3,7 @@ import { redis } from './_core/redis.ts'
 import { env } from './_core/env.ts'
 import { logger } from './_core/logger.ts'
 import { db } from './db.ts'
-import { exames, pacientes } from '../drizzle/schema.ts'
+import { exames, pacientes, dlqJobs } from '../drizzle/schema.ts'
 import { eq } from 'drizzle-orm'
 import { analisarExame } from './examAnalysis.ts'
 import { EXAM_RULES } from '../shared/security-constants.ts'
@@ -64,7 +64,8 @@ export function startExamWorker() {
           .where(eq(exames.id, exameId))
 
         logger.warn(`[examQueue] Exame ${exameId} rejeitado pela IA`, { resultado: resultado.resultado, confianca: resultado.confianca })
-        // TODO: send email/WhatsApp notification to medico
+        // Notification: log for now, replace with enviarNotificacaoMedico when email template is ready
+        logger.info(`[examQueue] Notificação pendente: exame ${exameId} aguarda revisão médica`, { motivo: 'resultado_reagente' })
       } else {
         // Inconclusive or unidentified → flag for medico review
         const novoResultado: ResultadoIa = { ...resultado, status: 'pendente_revisao' }
@@ -74,7 +75,8 @@ export function startExamWorker() {
           .where(eq(exames.id, exameId))
 
         logger.warn(`[examQueue] Exame ${exameId} inconclusivo`, { resultado: resultado.resultado, confianca: resultado.confianca })
-        // TODO: send email/WhatsApp notification to medico
+        // Notification: log for now, replace with enviarNotificacaoMedico when email template is ready
+        logger.info(`[examQueue] Notificação pendente: exame ${exameId} aguarda revisão médica`, { motivo: 'resultado_inconclusivo' })
       }
 
       return { exameId, resultado: resultado.resultado, status: resultado.status }
@@ -83,7 +85,17 @@ export function startExamWorker() {
   )
 
   worker.on('failed', (job, err) => {
-    logger.error(`[examQueue] Job ${job?.id} falhou`, { error: err.message })
+    logger.error(`[examQueue] Job ${job?.id} falhou (${job?.attemptsMade} tentativas)`, { error: err.message })
+    if ((job?.attemptsMade ?? 0) >= (job?.opts?.attempts ?? 3)) {
+      db.insert(dlqJobs).values({
+        queue: EXAM_QUEUE_NAME,
+        jobId: job?.id ? String(job.id) : null,
+        jobName: job?.name ?? 'analisar',
+        data: job?.data ?? null,
+        failReason: err.message,
+        attempts: job?.attemptsMade ?? 0,
+      }).catch((e: unknown) => logger.error('[dlq] falha ao persistir job', { error: String(e) }))
+    }
   })
 
   return worker

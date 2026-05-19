@@ -3,8 +3,10 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { trpc } from '../../lib/trpc.ts'
 import { useAuth } from '../../_core/hooks/useAuth.ts'
-import { validarCpf } from '../../../../server/_core/cpfValidator.ts'
+import { validarCpf } from '@shared/validators.ts'
 import { ERROR_MESSAGES } from '@shared/const.ts'
+import { useFormDraft } from '../../hooks/useFormDraft.ts'
+import { toast } from '../../lib/use-toast.ts'
 
 const schema = z.object({
   cpf: z.string().refine(validarCpf, ERROR_MESSAGES.CPF_INVALID),
@@ -23,21 +25,26 @@ interface Props {
   defaultValues?: { nome?: string; cpf?: string }
 }
 
-export default function StepPaciente({ pacienteId, onNext, defaultValues }: Props) {
+export default function StepPaciente({ pacienteId: _pacienteId, onNext, defaultValues }: Props) {
   const hasIntakeNome = !!defaultValues?.nome
   const hasIntakeCpf = !!defaultValues?.cpf
   const { setToken } = useAuth()
 
-  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
+  const form = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { nome: defaultValues?.nome ?? '', cpf: defaultValues?.cpf ?? '' },
   })
+  const { register, handleSubmit, formState: { errors } } = form
+  const { clearDraft } = useFormDraft(form, 'step-paciente-draft')
 
   const salvar = trpc.paciente.salvarStep1.useMutation({
     onSuccess: (data) => {
-      // Refresh the stored JWT so page reloads preserve pacienteId
+      clearDraft()
       if (data.newSessionToken) setToken(data.newSessionToken)
       onNext(data.pacienteId)
+    },
+    onError: (err) => {
+      toast({ title: 'Erro ao salvar', description: err.message, variant: 'error' })
     },
   })
 
@@ -60,6 +67,7 @@ export default function StepPaciente({ pacienteId, onNext, defaultValues }: Prop
             <input
               {...register('nome')}
               className={inputCls(!!errors.nome)}
+              aria-invalid={errors.nome ? true : undefined}
               placeholder="Como consta no documento"
             />
           </Field>
@@ -76,6 +84,7 @@ export default function StepPaciente({ pacienteId, onNext, defaultValues }: Prop
             <input
               {...register('cpf')}
               className={inputCls(!!errors.cpf)}
+              aria-invalid={errors.cpf ? true : undefined}
               placeholder="000.000.000-00"
               maxLength={14}
             />
@@ -83,13 +92,14 @@ export default function StepPaciente({ pacienteId, onNext, defaultValues }: Prop
         )}
 
         <Field label="Data de nascimento" error={errors.dataNascimento?.message}>
-          <input {...register('dataNascimento')} type="date" className={inputCls(!!errors.dataNascimento)} />
+          <input {...register('dataNascimento')} type="date" className={inputCls(!!errors.dataNascimento)} aria-invalid={errors.dataNascimento ? true : undefined} />
         </Field>
 
         <Field label="Nome completo da mãe" error={errors.nomeMae?.message}>
           <input
             {...register('nomeMae')}
             className={inputCls(!!errors.nomeMae)}
+            aria-invalid={errors.nomeMae ? true : undefined}
             placeholder="Nome completo da mãe (obrigatório)"
           />
         </Field>
@@ -120,7 +130,7 @@ function Field({ label, error, children }: { label: string; error?: string; chil
     <div>
       <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
       {children}
-      {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+      {error && <p role="alert" className="mt-1 text-xs text-red-500">{error}</p>}
     </div>
   )
 }

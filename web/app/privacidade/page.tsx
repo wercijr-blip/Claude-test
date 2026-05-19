@@ -104,7 +104,7 @@ export default function PoliticaPrivacidadePage() {
             <li><strong>AWS S3</strong> — armazenamento seguro de exames e documentos</li>
             <li><strong>TiDB Cloud (PingCAP)</strong> — banco de dados gerenciado, hospedado em Frankfurt (Alemanha, UE)</li>
             <li><strong>FocusNFe</strong> — emissão de nota fiscal de serviço (NFS-e)</li>
-            <li><strong>Stripe</strong> — processamento de pagamentos</li>
+            <li><strong>Asaas</strong> — processamento de pagamentos</li>
             <li>Autoridades competentes quando exigido por lei</li>
           </ul>
         </div>
@@ -167,7 +167,7 @@ export default function PoliticaPrivacidadePage() {
               com certificação ISO 27001.
             </li>
             <li>
-              <strong>Estados Unidos:</strong> Stripe (processamento de pagamentos), Sentry (monitoramento
+              <strong>Estados Unidos:</strong> Sentry (monitoramento
               de erros e rastreamento de desempenho), AWS S3 (armazenamento de exames e documentos).
             </li>
           </ul>

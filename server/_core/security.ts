@@ -42,9 +42,6 @@ export function applySecurityMiddleware(app: Express): void {
             "'self'",
             // Development: Vite HMR requires unsafe-inline
             ...(env.NODE_ENV === 'development' ? ["'unsafe-inline'"] : []),
-            // Stripe checkout
-            'https://js.stripe.com',
-            'https://checkout.stripe.com',
             // Google Analytics and Tag Manager
             'https://www.googletagmanager.com',
             'https://www.google-analytics.com',
@@ -56,8 +53,6 @@ export function applySecurityMiddleware(app: Express): void {
           scriptSrcElem: [
             "'self'",
             ...(env.NODE_ENV === 'development' ? ["'unsafe-inline'"] : []),
-            'https://js.stripe.com',
-            'https://checkout.stripe.com',
             'https://www.googletagmanager.com',
             'https://www.google-analytics.com',
             'https://static.cloudflareinsights.com',
@@ -85,9 +80,6 @@ export function applySecurityMiddleware(app: Express): void {
             // Sentry error reporting (frontend SDK sends via fetch)
             'https://*.ingest.sentry.io',
             'https://*.sentry.io',
-            // Stripe API
-            'https://api.stripe.com',
-            'https://*.stripe.com',
             // Google Analytics
             'https://www.google-analytics.com',
             // ViaCEP (address autocomplete)
@@ -100,13 +92,7 @@ export function applySecurityMiddleware(app: Express): void {
             "'self'",
             'blob:',
           ],
-          // Stripe 3D Secure usa iframes hospedados em hooks.stripe.com e js.stripe.com
-          frameSrc: [
-            "'self'",
-            'https://js.stripe.com',
-            'https://hooks.stripe.com',
-            'https://checkout.stripe.com',
-          ],
+          frameSrc: ["'self'"],
           objectSrc: ["'none'"],
           baseUri: ["'self'"],
           formAction: ["'self'"],
@@ -154,7 +140,7 @@ export function applySecurityMiddleware(app: Express): void {
         'camera=()',           // sem vídeo por enquanto
         'microphone=()',
         'geolocation=()',
-        'payment=(self)',      // Stripe inline checkout
+        'payment=(self)',
         'usb=()',
         'fullscreen=(self)',
         'autoplay=()',

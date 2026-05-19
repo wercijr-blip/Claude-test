@@ -112,6 +112,7 @@ export const PLANOS_VALIDOS = [
   'FASCAL',
   'FUSEX',
   'GAMA SAÚDE',
+  'GEAP',
   'GRAVIA',
   'INFRAERO',
   'LIFE EMPRESARIAL',

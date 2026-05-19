@@ -3,6 +3,8 @@ import type { ReactNode } from 'react'
 import { trpc } from '../lib/trpc.ts'
 import { useAuth } from '../_core/hooks/useAuth.ts'
 import { PACIENTE_STATUS } from '@shared/const.ts'
+import { fmt } from '../lib/format.ts'
+import { EmptyState } from './EmptyState.tsx'
 
 type Tab = 'pacientes' | 'exames_inicio' | 'exames_rejeitados'
 type Acao = 'aprovar' | 'recusar' | 'solicitar_reenvio' | 'recomendar_consulta' | 'encaminhar_especialista' | 'solicitar_confirmacao'
@@ -19,17 +21,40 @@ export default function MedicoDashboard() {
   const [tab, setTab] = useState<Tab>('pacientes')
   const [selectedId, setSelectedId] = useState<number | null>(null)
 
-  const { data: pendentes, refetch } = trpc.medico.listarPendentes.useQuery()
+  const utils = trpc.useUtils()
+
+  const { data: pendentesPage } = trpc.medico.listarPendentes.useQuery({}, {
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
+  })
+  const pendentes = pendentesPage?.data
   const { data: paciente } = trpc.medico.verPaciente.useQuery(
     { pacienteId: selectedId! },
     { enabled: !!selectedId },
   )
-  const { data: examesRejeitados, refetch: refetchExames } = trpc.medico.listarExamesRejeitadosIa.useQuery()
-  const { data: revisoes } = trpc.consulta.medico.listarRevisoes.useQuery()
+  const { data: examesRejeitados } = trpc.medico.listarExamesRejeitadosIa.useQuery(undefined, {
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
+  })
+  const { data: revisoes } = trpc.consulta.medico.listarRevisoes.useQuery(undefined, {
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
+  })
 
-  const aprovar = trpc.medico.aprovar.useMutation({ onSuccess: () => { setSelectedId(null); refetch() } })
-  const rejeitar = trpc.medico.rejeitar.useMutation({ onSuccess: () => { setSelectedId(null); refetch() } })
-  const liberarExame = trpc.medico.liberarExameSemValidacao.useMutation({ onSuccess: () => refetchExames() })
+  const invalidarListas = () => {
+    void utils.medico.invalidate()
+    void utils.consulta.medico.invalidate()
+  }
+
+  const aprovar = trpc.medico.aprovar.useMutation({
+    onSuccess: () => { setSelectedId(null); invalidarListas() },
+  })
+  const rejeitar = trpc.medico.rejeitar.useMutation({
+    onSuccess: () => { setSelectedId(null); invalidarListas() },
+  })
+  const liberarExame = trpc.medico.liberarExameSemValidacao.useMutation({
+    onSuccess: () => invalidarListas(),
+  })
 
   const [obs, setObs] = useState('')
   const [motivoRejeicao, setMotivoRejeicao] = useState('')
@@ -110,7 +135,7 @@ export default function MedicoDashboard() {
               >
                 <p className="font-medium text-slate-800 text-sm">{p.nome}</p>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  {new Date(p.createdAt).toLocaleDateString('pt-BR')} · {p.tipoAtendimento}
+                  {fmt.date(p.createdAt)} · {p.tipoAtendimento}
                 </p>
                 <StatusBadge status={p.status} />
               </button>
@@ -214,9 +239,7 @@ export default function MedicoDashboard() {
           </div>
 
           {!examesRejeitados?.length && (
-            <div className="bg-white rounded-2xl border border-slate-200 p-10 text-center text-slate-400">
-              Nenhum exame aguardando liberação manual.
-            </div>
+            <EmptyState message="Nenhum exame aguardando liberação manual." className="bg-white rounded-2xl border border-slate-200" />
           )}
 
           {examesRejeitados?.map((exame) => {
@@ -228,7 +251,7 @@ export default function MedicoDashboard() {
                   <div>
                     <p className="font-medium text-slate-800">{exame.nomeArquivo}</p>
                     <p className="text-xs text-slate-400 mt-0.5">
-                      Paciente #{exame.pacienteId} · {exame.tipoExame ?? 'tipo não identificado'} · {new Date(exame.createdAt).toLocaleDateString('pt-BR')}
+                      Paciente #{exame.pacienteId} · {exame.tipoExame ?? 'tipo não identificado'} · {fmt.date(exame.createdAt)}
                     </p>
                   </div>
                   {jaLiberado ? (
@@ -268,7 +291,7 @@ export default function MedicoDashboard() {
 
                 {jaLiberado && exame.liberadoEm && (
                   <p className="text-xs text-green-600">
-                    Liberado em {new Date(exame.liberadoEm).toLocaleString('pt-BR')}
+                    Liberado em {fmt.datetime(exame.liberadoEm)}
                   </p>
                 )}
               </div>
@@ -287,7 +310,13 @@ function ExamesInicioTab({ revisoes }: { revisoes: Array<any> | undefined }) {
   const [resultadoHivManual, setResultadoHivManual] = useState<'reagente' | 'nao_reagente' | ''>('')
   const [dataExameManual, setDataExameManual] = useState('')
 
-  const validarMut = trpc.consulta.medico.validar.useMutation()
+  const utils = trpc.useUtils()
+  const validarMut = trpc.consulta.medico.validar.useMutation({
+    onSuccess: () => {
+      void utils.medico.invalidate()
+      void utils.consulta.medico.invalidate()
+    },
+  })
 
   const selecionada = revisoes?.find(r => r.id === selectedId)
   const ia = selecionada?.resultadoIa as ResultadoIa | null
@@ -328,7 +357,7 @@ function ExamesInicioTab({ revisoes }: { revisoes: Array<any> | undefined }) {
           <p className="text-sm font-medium text-slate-700">{ordenadas.length} exame(s) aguardando revisão</p>
           {urgentes.length > 0 && <p className="text-xs text-red-600 font-semibold mt-1">{urgentes.length} urgente(s) — HIV reagente</p>}
         </div>
-        {ordenadas.length === 0 && <div className="p-8 text-center text-slate-400 text-sm">Nenhum exame pendente.</div>}
+        {ordenadas.length === 0 && <EmptyState message="Nenhum exame pendente." />}
         {ordenadas.map((r) => (
           <button
             key={r.id}
@@ -344,7 +373,7 @@ function ExamesInicioTab({ revisoes }: { revisoes: Array<any> | undefined }) {
               {r.urgente && <span className="text-xs bg-red-600 text-white px-1.5 py-0.5 rounded font-bold">URGENTE</span>}
             </div>
             <p className="text-xs text-slate-400">
-              {r.tipoConsulta === 'ja_faco_prep' ? 'Já faz PrEP' : 'Primeiro atendimento'} · {new Date(r.createdAt).toLocaleDateString('pt-BR')}
+              {r.tipoConsulta === 'ja_faco_prep' ? 'Já faz PrEP' : 'Primeiro atendimento'} · {fmt.date(r.createdAt)}
             </p>
             {r.motivoRejeicao && <p className="text-xs text-amber-600 mt-0.5 truncate">{r.motivoRejeicao}</p>}
           </button>

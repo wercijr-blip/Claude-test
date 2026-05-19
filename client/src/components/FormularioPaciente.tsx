@@ -262,7 +262,7 @@ export default function FormularioPaciente({ pacienteId: initialPacienteId, init
             {currentStep === 3 && (
               <StepContato
                 {...stepProps}
-                defaultValues={{ email: intakeData?.email, telefone: intakeData?.telefone }}
+                defaultValues={{ email: intakeData?.email ?? undefined, telefone: intakeData?.telefone ?? undefined }}
               />
             )}
             {currentStep === 4 && (

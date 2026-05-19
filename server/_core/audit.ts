@@ -22,6 +22,8 @@ export type AuditAction =
   | 'user.2fa_disabled'
   | 'admin.user_role_change'
   | 'admin.user_deactivate'
+  | 'admin.user_delete'
+  | 'admin.user_restore'
 
 interface AuditEntry {
   actorId?: number

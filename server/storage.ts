@@ -19,6 +19,7 @@ import { eq, and } from 'drizzle-orm'
 import { MAX_UPLOAD_SIZE_BYTES, ALLOWED_MIME_TYPES } from '../shared/security-constants.ts'
 import { enqueueAnalisarExame } from './examQueue.ts'
 import { createContext } from './_core/context.ts'
+import { withCircuitBreaker } from './_core/circuitBreaker.ts'
 
 const MIME_TO_EXT: Record<string, string> = {
   'image/jpeg': 'jpg',
@@ -47,7 +48,7 @@ const upload = multer({
 })
 
 export async function uploadBuffer(key: string, buffer: Buffer, contentType: string): Promise<void> {
-  await s3.send(
+  await withCircuitBreaker('s3', () => s3.send(
     new PutObjectCommand({
       Bucket: env.AWS_S3_BUCKET,
       Key: key,
@@ -55,7 +56,7 @@ export async function uploadBuffer(key: string, buffer: Buffer, contentType: str
       ContentType: contentType,
       ServerSideEncryption: 'AES256',
     }),
-  )
+  ), { threshold: 3, resetMs: 30_000 })
 }
 
 export async function getBuffer(key: string): Promise<Buffer> {
@@ -66,11 +67,17 @@ export async function getBuffer(key: string): Promise<Buffer> {
 }
 
 export async function getPresignedUrl(key: string, expiresIn = 900): Promise<string> {
-  return getSignedUrl(s3, new GetObjectCommand({ Bucket: env.AWS_S3_BUCKET, Key: key }), { expiresIn })
+  return withCircuitBreaker('s3', () => getSignedUrl(
+    s3,
+    new GetObjectCommand({ Bucket: env.AWS_S3_BUCKET, Key: key }),
+    { expiresIn },
+  ), { threshold: 3, resetMs: 30_000 })
 }
 
 export async function deleteObject(key: string): Promise<void> {
-  await s3.send(new DeleteObjectCommand({ Bucket: env.AWS_S3_BUCKET, Key: key }))
+  await withCircuitBreaker('s3', () => s3.send(
+    new DeleteObjectCommand({ Bucket: env.AWS_S3_BUCKET, Key: key }),
+  ), { threshold: 3, resetMs: 30_000 })
 }
 
 // ── S3 Lifecycle ─────────────────────────────────────────────────────

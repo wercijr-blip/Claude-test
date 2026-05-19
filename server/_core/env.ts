@@ -18,15 +18,16 @@ const envSchema = z.object({
   RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().default('Facilita PrEP <noreply@facilitaprep.com.br>'),
 
-  FOCUSNFE_TOKEN_HOMOLOGACAO: z.string().optional(),
-  FOCUSNFE_TOKEN_PRODUCAO: z.string().optional(),
-  FOCUSNFE_ENVIRONMENT: z.enum(['homologacao', 'producao']).default('homologacao'),
+  ASAAS_API_KEY: z.string().optional(),
+  ASAAS_ENV: z.enum(['sandbox', 'production']).default('sandbox'),
+  ASAAS_WEBHOOK_TOKEN: z.string().optional(),
 
-  STRIPE_SECRET_KEY: z.string().optional(),
-  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  // Valor da consulta em reais (ex: 150). Alterável via Railway sem deploy de código.
+  CONSULTA_VALOR: z.coerce.number().positive().default(150),
 
   BUILT_IN_FORGE_API_URL: z.string().url().default('https://api.anthropic.com'),
   BUILT_IN_FORGE_API_KEY: z.string().optional(),
+  LLM_DAILY_LIMIT: z.coerce.number().int().positive().default(200),
 
   REDIS_URL: z.string().default('redis://localhost:6379'),
 
@@ -36,6 +37,11 @@ const envSchema = z.object({
 
   ZAPI_INSTANCE_ID: z.string().optional(),
   ZAPI_TOKEN: z.string().optional(),
+  ZAPI_CLIENT_TOKEN: z.string().optional(),
+
+  // WhatsApp pra staff — número compartilhado por papel, formato E.164 (ex: +556198432878)
+  STAFF_WHATSAPP_MEDICOS: z.string().optional(),
+  STAFF_WHATSAPP_SECRETARIAS: z.string().optional(),
 
   MEDICO_NOME: z.string().default('Werciley Saraiva Vieira Junior'),
   MEDICO_CRM: z.string().default('16381'),
@@ -61,6 +67,10 @@ const envSchema = z.object({
   // TOTP 2FA — chave AES separada para encriptar segredos TOTP
   // Gerar com: openssl rand -hex 32
   TOTP_ENC_KEY: z.string().length(64).optional(),
+
+  // Payment methods — toggle via Railway without code deploy.
+  // Set ENABLE_DEBIT_CARD=true once Asaas account enables DEBIT_CARD billing.
+  ENABLE_DEBIT_CARD: z.coerce.boolean().default(false),
 })
 
 const parsed = envSchema.safeParse(process.env)

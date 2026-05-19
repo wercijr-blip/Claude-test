@@ -90,7 +90,11 @@ if (env.NODE_ENV === 'production') {
     logger.warn('[server] web/out/index.html não encontrado — marketing routes vão usar o Vite SPA como fallback')
   }
 
-  // Next.js static assets (_next/static, images, etc.) — serve primeiro
+  // Next.js static assets — _next/static has hashed names, safe to cache immutably
+  app.use('/_next/static', express.static(path.join(webOut, '_next', 'static'), {
+    maxAge: '1y',
+    immutable: true,
+  }))
   app.use('/_next', express.static(path.join(webOut, '_next')))
 
   // Rotas de marketing: Next.js SSG quando disponível, Vite SPA como fallback
@@ -121,24 +125,30 @@ if (env.NODE_ENV === 'production') {
     }
   }
 
-  // Vite SPA assets (JS, CSS, etc. for patient portal)
-  app.use(express.static(clientDist))
+  // Vite /assets → hashed bundles (JS, CSS) — content-addressable, safe to cache immutably
+  app.use('/assets', express.static(path.join(clientDist, 'assets'), {
+    maxAge: '1y',
+    immutable: true,
+  }))
+  // Other Vite statics (favicon, og-image, manifest) — moderate cache for images/fonts
+  app.use(express.static(clientDist, {
+    setHeaders: (res, filePath) => {
+      if (/\.(png|jpg|jpeg|svg|webp|avif|ico|woff2?|ttf)$/.test(filePath)) {
+        res.setHeader('Cache-Control', 'public, max-age=86400')
+      }
+    },
+  }))
 }
 
-// ⚠️ Stripe webhook DEVE vir ANTES de express.json() para receber raw body
-// (Stripe valida assinatura usando os bytes brutos do payload)
-app.post(
-  '/api/stripe/webhook',
-  express.raw({ type: 'application/json' }),
-  async (req, res) => {
-    const { handleWebhook } = await import('../stripe/webhook.ts')
-    await handleWebhook(req, res)
-  },
-)
-
-// Body parsers globais (depois do webhook)
+// Body parsers globais
 app.use(express.json({ limit: '2mb' }))
 app.use(express.urlencoded({ extended: true }))
+
+// Asaas webhook (JSON body — no raw body needed; Asaas uses token auth, not HMAC)
+app.post('/api/asaas/webhook', async (req, res) => {
+  const { handleAsaasWebhook } = await import('../asaas/webhook.ts')
+  await handleAsaasWebhook(req, res)
+})
 
 // tRPC — com rate limiters por rota
 app.use(
@@ -233,6 +243,35 @@ app.get('/api/health/version', (_req, res) => {
     builtAt: process.env.BUILD_TIMESTAMP ?? 'unknown',
     nodeVersion: process.version,
     env: process.env.NODE_ENV,
+  })
+})
+
+// Metrics — queue depth, memory, circuit breaker state
+app.get('/api/metrics', async (_req, res) => {
+  const { getCircuitStatus } = await import('./circuitBreaker.ts')
+  let pdfWaiting = -1
+  let linkWaiting = -1
+  try {
+    const { pdfQueue, linkAcessoQueue } = await import('../pdfQueue.ts')
+    ;[pdfWaiting, linkWaiting] = await Promise.all([
+      pdfQueue.getWaitingCount(),
+      linkAcessoQueue.getWaitingCount(),
+    ])
+  } catch { /* workers may not be started */ }
+
+  let staffWhatsappActiveDebounces = -1
+  try {
+    const keys = await redis.keys('wpp:staff:*')
+    staffWhatsappActiveDebounces = keys.length
+  } catch { /* Redis may be unavailable */ }
+
+  res.json({
+    uptime: Math.floor(process.uptime()),
+    memory: { heapUsedMB: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) },
+    queues: { pdf: pdfWaiting, linkAcesso: linkWaiting },
+    circuits: { asaas: getCircuitStatus('asaas') },
+    staffWhatsappActiveDebounces,
+    timestamp: new Date().toISOString(),
   })
 })
 

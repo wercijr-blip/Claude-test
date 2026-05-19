@@ -2,6 +2,8 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { trpc } from '../../lib/trpc.ts'
+import { useFormDraft } from '../../hooks/useFormDraft.ts'
+import { SubmitButton } from '../SubmitButton.tsx'
 import { PREP_MODALIDADE, type PrepModalidade } from '@shared/const.ts'
 
 const schema = z.object({
@@ -13,12 +15,14 @@ type FormData = z.infer<typeof schema>
 interface Props { pacienteId: number | null; onNext: () => void; onBack: () => void }
 
 export default function StepPrescricao({ pacienteId, onNext, onBack }: Props) {
-  const { register, handleSubmit, watch, formState: { errors } } = useForm<FormData>({
+  const form = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { pacienteId: pacienteId ?? 0, prepModalidade: PREP_MODALIDADE.DIARIA },
   })
+  const { register, handleSubmit, watch, formState: { errors } } = form
+  const { clearDraft } = useFormDraft(form, 'step-prescricao-draft')
 
-  const salvar = trpc.paciente.salvarStep5.useMutation({ onSuccess: () => onNext() })
+  const salvar = trpc.paciente.salvarStep5.useMutation({ onSuccess: () => { clearDraft(); onNext() } })
   const escolha = watch('prepModalidade')
 
   if (!pacienteId) return null
@@ -62,14 +66,12 @@ export default function StepPrescricao({ pacienteId, onNext, onBack }: Props) {
           </ul>
         </ModalidadeCard>
 
-        {errors.prepModalidade && <p className="text-red-500 text-sm">{errors.prepModalidade.message}</p>}
-        {salvar.error && <p className="text-red-500 text-sm">{salvar.error.message}</p>}
+        {errors.prepModalidade && <p role="alert" className="text-red-500 text-sm">{errors.prepModalidade.message}</p>}
+        {salvar.error && <p role="alert" className="text-red-500 text-sm">{salvar.error.message}</p>}
 
         <div className="flex justify-between pt-2">
           <button type="button" onClick={onBack} className={btnSecondary}>← Anterior</button>
-          <button type="submit" disabled={salvar.isPending} className={btnPrimary}>
-            {salvar.isPending ? 'Salvando…' : 'Próximo →'}
-          </button>
+          <SubmitButton isPending={salvar.isPending} />
         </div>
       </form>
     </div>
@@ -113,5 +115,4 @@ function ModalidadeCard({
   )
 }
 
-const btnPrimary = 'bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium py-2 px-6 rounded-lg transition-colors'
 const btnSecondary = 'text-slate-600 hover:text-slate-800 font-medium py-2 px-4 rounded-lg transition-colors'

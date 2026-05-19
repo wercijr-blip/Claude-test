@@ -41,7 +41,7 @@ const COR_TITULO = rgb(0.45, 0.36, 0.62)        // brand purple
 const COR_LABEL = rgb(0.4, 0.4, 0.45)           // cinza médio
 const COR_TEXTO = rgb(0.15, 0.15, 0.2)          // quase preto
 const COR_DESTAQUE = rgb(0.78, 0.27, 0.32)      // vermelho atenção
-const COR_SUAVE = rgb(0.5, 0.5, 0.55)
+const _COR_SUAVE = rgb(0.5, 0.5, 0.55)
 const COR_LINHA = rgb(0.88, 0.86, 0.92)
 
 export async function gerarOrientacaoPdf(dados: DadosOrientacao): Promise<Buffer> {

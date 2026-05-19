@@ -1,6 +1,7 @@
 import { useParams } from 'wouter'
 import { trpc } from '../lib/trpc.ts'
 import { LogoWordmark } from './Logo.tsx'
+import { fmt } from '../lib/format.ts'
 
 export default function VerificacaoPage() {
   const params = useParams<{ slug: string }>()
@@ -61,10 +62,7 @@ export default function VerificacaoPage() {
               {data.dataEmissao && (
                 <Linha
                   label="Data de emissão"
-                  valor={new Date(data.dataEmissao).toLocaleString('pt-BR', {
-                    day: '2-digit', month: '2-digit', year: 'numeric',
-                    hour: '2-digit', minute: '2-digit',
-                  })}
+                  valor={fmt.datetime(data.dataEmissao)}
                 />
               )}
               {data.certificadoSerial && (

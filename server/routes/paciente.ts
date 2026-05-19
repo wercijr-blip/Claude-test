@@ -4,7 +4,8 @@ import { router, protectedProcedure } from '../_core/trpc.ts'
 import { TRPCError } from '@trpc/server'
 import { db } from '../db.ts'
 import { pacientes, precadastros, pdfs, tcleAssinaturas, accessTokens } from '../../drizzle/schema.ts'
-import { eq, and } from 'drizzle-orm'
+import { eq, and, sql, gte } from 'drizzle-orm'
+import type { ResultSetHeader } from 'mysql2'
 import { encrypt, decrypt, hashCpf } from '../_core/encryption.ts'
 import { validarCpf } from '../_core/cpfValidator.ts'
 import { ERROR_MESSAGES, PREP_MODALIDADE, PREP_POSOLOGIA } from '../../shared/const.ts'
@@ -13,9 +14,11 @@ import { JWT_EXPIRY_PATIENT } from '../../shared/security-constants.ts'
 import { getPresignedUrl } from '../storage.ts'
 import { enqueueGerarPdf } from '../pdfQueue.ts'
 import { enviarCadastroRecebidoExames } from '../email.ts'
+import { enviarWhatsApp } from '../whatsapp.ts'
 import { gerarLinkDeAcesso } from './intake.ts'
 import * as Sentry from '@sentry/node'
-import type { ResultSetHeader } from 'mysql2'
+import { okEmpty } from '../_core/response.ts'
+import { normalizarTelefoneParaE164 } from '../_core/phoneUtils.ts'
 
 async function emitirJwtPaciente(tokenId: number, pacienteId: number): Promise<string> {
   const secret = new TextEncoder().encode(env.JWT_SECRET)
@@ -44,6 +47,36 @@ async function validarEtapaPaciente(pacienteId: number, tokenId: number, etapaRe
     throw new TRPCError({ code: 'BAD_REQUEST', message: 'Complete as etapas anteriores primeiro' })
   }
   return p
+}
+
+// Single-query alternative: merges step validation into the UPDATE WHERE clause.
+// Happy path = 1 query instead of 2. Error path falls back to a diagnostic SELECT.
+async function salvarEtapa(
+  pacienteId: number,
+  tokenId: number,
+  etapaRequerida: number,
+  nextStep: number,
+  fields: Record<string, unknown>,
+): Promise<void> {
+  const result = await db
+    .update(pacientes)
+    .set({ ...fields, currentStep: sql`GREATEST(currentStep, ${nextStep})`, updatedAt: new Date() })
+    .where(and(
+      eq(pacientes.id, pacienteId),
+      eq(pacientes.tokenId, tokenId),
+      gte(pacientes.currentStep, etapaRequerida),
+    ))
+
+  if ((result as unknown as ResultSetHeader).affectedRows === 0) {
+    const [exists] = await db
+      .select({ id: pacientes.id })
+      .from(pacientes)
+      .where(and(eq(pacientes.id, pacienteId), eq(pacientes.tokenId, tokenId)))
+      .limit(1)
+    throw exists
+      ? new TRPCError({ code: 'BAD_REQUEST', message: 'Complete as etapas anteriores primeiro' })
+      : new TRPCError({ code: 'NOT_FOUND' })
+  }
 }
 
 // Schema clínico do Step 4 — alinhado com os campos preenchidos na
@@ -125,10 +158,25 @@ export const pacienteRouter = router({
         return { pacienteId: targetId, newSessionToken }
       }
 
-      let newPacienteId: number
-      try {
-        const [result] = await db.insert(pacientes).values({
-          tokenId,
+      // Atomic upsert: MySQL ON DUPLICATE KEY UPDATE handles concurrent requests
+      // without a race condition window. LAST_INSERT_ID(id) makes MySQL return
+      // the existing row's ID on conflict, so insertId is always the right ID.
+      await db.insert(pacientes).values({
+        tokenId,
+        cpfEncrypted: encrypt(input.cpf),
+        cpfHash,
+        nomeEncrypted: encrypt(input.nome),
+        dataNascimentoEncrypted: encrypt(input.dataNascimento),
+        nomeMaeEncrypted: encrypt(input.nomeMae),
+        cns: input.cns,
+        sexo: input.sexo,
+        nomeSocial: input.nomeSocial,
+        tipoAtendimento,
+        convenio,
+        currentStep: 2,
+        retentionUntil,
+      }).onDuplicateKeyUpdate({
+        set: {
           cpfEncrypted: encrypt(input.cpf),
           cpfHash,
           nomeEncrypted: encrypt(input.nome),
@@ -139,38 +187,17 @@ export const pacienteRouter = router({
           nomeSocial: input.nomeSocial,
           tipoAtendimento,
           convenio,
-          currentStep: 2,
-          retentionUntil,
-        })
-        newPacienteId = (result as ResultSetHeader).insertId
-      } catch (insertErr) {
-        // Concurrent request already created the record for this tokenId —
-        // fetch the existing row and update it instead of failing.
-        if ((insertErr as NodeJS.ErrnoException).code !== 'ER_DUP_ENTRY') throw insertErr
-        const [existing] = await db
-          .select({ id: pacientes.id })
-          .from(pacientes)
-          .where(eq(pacientes.tokenId, tokenId))
-          .limit(1)
-        if (!existing) throw insertErr
-        newPacienteId = existing.id
-        await db.update(pacientes)
-          .set({
-            cpfEncrypted: encrypt(input.cpf),
-            cpfHash,
-            nomeEncrypted: encrypt(input.nome),
-            dataNascimentoEncrypted: encrypt(input.dataNascimento),
-            nomeMaeEncrypted: encrypt(input.nomeMae),
-            cns: input.cns,
-            sexo: input.sexo,
-            nomeSocial: input.nomeSocial,
-            tipoAtendimento,
-            convenio,
-            currentStep: 2,
-            updatedAt: new Date(),
-          })
-          .where(eq(pacientes.id, newPacienteId))
-      }
+          currentStep: sql`GREATEST(currentStep, 2)`,
+          updatedAt: new Date(),
+        },
+      })
+      const [upserted] = await db
+        .select({ id: pacientes.id })
+        .from(pacientes)
+        .where(eq(pacientes.tokenId, tokenId))
+        .limit(1)
+      if (!upserted) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Falha ao registrar paciente' })
+      const newPacienteId = upserted.id
       const newSessionToken = await emitirJwtPaciente(tokenId, newPacienteId)
 
       // Email 2 — "Cadastro recebido + pedido de exames" — fired once on first creation.
@@ -178,13 +205,25 @@ export const pacienteRouter = router({
       ;(async () => {
         try {
           const [precad] = await db
-            .select({ id: precadastros.id, emailEncrypted: precadastros.emailEncrypted })
+            .select({ id: precadastros.id, emailEncrypted: precadastros.emailEncrypted, telefoneEncrypted: precadastros.telefoneEncrypted })
             .from(precadastros)
             .where(eq(precadastros.accessTokenId, tokenId))
             .limit(1)
           if (!precad) return
           const { link, expiresAt, raw } = await gerarLinkDeAcesso(precad.id)
-          await enviarCadastroRecebidoExames(decrypt(precad.emailEncrypted), input.nome, link, expiresAt, raw)
+          const telefone = decrypt(precad.telefoneEncrypted)
+          const primeiroNome = input.nome.split(' ')[0]
+          await Promise.all([
+            enviarCadastroRecebidoExames(decrypt(precad.emailEncrypted), input.nome, link, expiresAt, raw),
+            telefone
+              ? enviarWhatsApp(
+                  telefone,
+                  `Olá ${primeiroNome}! Recebemos seu cadastro.\n\n` +
+                  `📋 *Próximo passo:* envie os exames laboratoriais (HIV ≤7 dias, Creatinina, HBsAg, Anti-HCV, Sífilis).\n\n` +
+                  `Acesse:\n${link}\n\n_Facilita PrEP_`,
+                ).catch(() => {})
+              : undefined,
+          ])
         } catch (err) {
           Sentry.captureException(err, { tags: { route: 'salvarStep1', stage: 'email2' } })
         }
@@ -213,26 +252,20 @@ export const pacienteRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       assertPatient(ctx.session)
-      const p = await validarEtapaPaciente(input.pacienteId, ctx.session.tokenId, 2)
-      await db
-        .update(pacientes)
-        .set({
-          corRaca: input.corRaca,
-          escolaridade: input.escolaridade,
-          situacaoConjugal: input.situacaoConjugal,
-          rendaFamiliar: input.rendaFamiliar,
-          ocupacao: input.ocupacao,
-          identidadeGenero: input.identidadeGenero,
-          orientacaoSexual: input.orientacaoSexual,
-          ufNascimento: input.ufNascimento,
-          municipioNascimento: input.municipioNascimento,
-          situacaoRua: input.situacaoRua,
-          privadoLiberdade: input.privadoLiberdade,
-          currentStep: Math.max(p.currentStep, 3),
-          updatedAt: new Date(),
-        })
-        .where(and(eq(pacientes.id, input.pacienteId), eq(pacientes.tokenId, ctx.session.tokenId)))
-      return { ok: true }
+      await salvarEtapa(input.pacienteId, ctx.session.tokenId, 2, 3, {
+        corRaca: input.corRaca,
+        escolaridade: input.escolaridade,
+        situacaoConjugal: input.situacaoConjugal,
+        rendaFamiliar: input.rendaFamiliar,
+        ocupacao: input.ocupacao,
+        identidadeGenero: input.identidadeGenero,
+        orientacaoSexual: input.orientacaoSexual,
+        ufNascimento: input.ufNascimento,
+        municipioNascimento: input.municipioNascimento,
+        situacaoRua: input.situacaoRua,
+        privadoLiberdade: input.privadoLiberdade,
+      })
+      return okEmpty()
     }),
 
   // Step 3 — Contato
@@ -242,7 +275,7 @@ export const pacienteRouter = router({
         pacienteId: z.number(),
         email: z.string().email().max(255),
         tipoTelefone: z.string().max(20).optional(),
-        telefone: z.string().min(10).max(20),
+        telefone: z.string().regex(/^\+\d{8,15}$/, 'Use formato internacional: +5561999998888'),
         cep: z.string().length(8),
         logradouro: z.string().max(255),
         numero: z.string().max(20),
@@ -256,27 +289,21 @@ export const pacienteRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       assertPatient(ctx.session)
-      const p = await validarEtapaPaciente(input.pacienteId, ctx.session.tokenId, 3)
-      await db
-        .update(pacientes)
-        .set({
-          emailEncrypted: encrypt(input.email),
-          tipoTelefone: input.tipoTelefone,
-          telefoneEncrypted: encrypt(input.telefone),
-          cep: input.cep,
-          logradouro: input.logradouro,
-          numero: input.numero,
-          complemento: input.complemento,
-          bairro: input.bairro,
-          cidade: input.cidade,
-          estado: input.estado,
-          permiteContato: input.permiteContato,
-          tipoContato: input.tipoContato,
-          currentStep: Math.max(p.currentStep, 4),
-          updatedAt: new Date(),
-        })
-        .where(and(eq(pacientes.id, input.pacienteId), eq(pacientes.tokenId, ctx.session.tokenId)))
-      return { ok: true }
+      await salvarEtapa(input.pacienteId, ctx.session.tokenId, 3, 4, {
+        emailEncrypted: encrypt(input.email),
+        tipoTelefone: input.tipoTelefone,
+        telefoneEncrypted: encrypt(input.telefone),
+        cep: input.cep,
+        logradouro: input.logradouro,
+        numero: input.numero,
+        complemento: input.complemento,
+        bairro: input.bairro,
+        cidade: input.cidade,
+        estado: input.estado,
+        permiteContato: input.permiteContato,
+        tipoContato: input.tipoContato,
+      })
+      return okEmpty()
     }),
 
   // Step 4 — Conduta
@@ -284,12 +311,8 @@ export const pacienteRouter = router({
     .input(z.object({ pacienteId: z.number(), conduta: condutaSchema }))
     .mutation(async ({ input, ctx }) => {
       assertPatient(ctx.session)
-      const p = await validarEtapaPaciente(input.pacienteId, ctx.session.tokenId, 4)
-      await db
-        .update(pacientes)
-        .set({ condutaJson: input.conduta, currentStep: Math.max(p.currentStep, 5), updatedAt: new Date() })
-        .where(and(eq(pacientes.id, input.pacienteId), eq(pacientes.tokenId, ctx.session.tokenId)))
-      return { ok: true }
+      await salvarEtapa(input.pacienteId, ctx.session.tokenId, 4, 5, { condutaJson: input.conduta })
+      return okEmpty()
     }),
 
   // Step 5 — Modalidade da PrEP (substitui a antiga Prescrição editável)
@@ -304,23 +327,17 @@ export const pacienteRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       assertPatient(ctx.session)
-      const p = await validarEtapaPaciente(input.pacienteId, ctx.session.tokenId, 5)
       const { posologia, duracao } = PREP_POSOLOGIA[input.prepModalidade]
-      await db
-        .update(pacientes)
-        .set({
-          prepModalidade: input.prepModalidade,
-          prescricaoJson: {
-            medicamento: 'tenofovir_emtricitabina',
-            posologia,
-            duracao,
-            modalidade: input.prepModalidade,
-          },
-          currentStep: Math.max(p.currentStep, 6),
-          updatedAt: new Date(),
-        })
-        .where(and(eq(pacientes.id, input.pacienteId), eq(pacientes.tokenId, ctx.session.tokenId)))
-      return { ok: true }
+      await salvarEtapa(input.pacienteId, ctx.session.tokenId, 5, 6, {
+        prepModalidade: input.prepModalidade,
+        prescricaoJson: {
+          medicamento: 'tenofovir_emtricitabina',
+          posologia,
+          duracao,
+          modalidade: input.prepModalidade,
+        },
+      })
+      return okEmpty()
     }),
 
   // O antigo Step 6 (Serviço) foi removido. tipoAtendimento e convenio
@@ -359,7 +376,7 @@ export const pacienteRouter = router({
         .insert(tcleAssinaturas)
         .values({ pacienteId: input.pacienteId, ipAddress, userAgent })
         .onDuplicateKeyUpdate({ set: { ipAddress, userAgent, signedAt: new Date() } })
-      return { ok: true }
+      return okEmpty()
     }),
 
   // Finalizar formulário após TCLE
@@ -372,14 +389,24 @@ export const pacienteRouter = router({
         .set({ status: 'pendente', updatedAt: new Date() })
         .where(and(eq(pacientes.id, input.pacienteId), eq(pacientes.tokenId, ctx.session.tokenId)))
       await enqueueGerarPdf(input.pacienteId)
-      return { ok: true }
+      return okEmpty()
     }),
 
   // Buscar dados do pré-cadastro para pré-preencher o formulário
   dadosIntake: protectedProcedure
     .query(async ({ ctx }) => {
       assertPatient(ctx.session)
-      const { tokenId } = ctx.session
+
+      let tokenId = ctx.session.tokenId
+      if (ctx.session.pacienteId !== null) {
+        const [pac] = await db
+          .select({ tokenId: pacientes.tokenId })
+          .from(pacientes)
+          .where(eq(pacientes.id, ctx.session.pacienteId))
+          .limit(1)
+        if (!pac) return null
+        tokenId = pac.tokenId
+      }
 
       const [precad] = await db
         .select()
@@ -393,7 +420,7 @@ export const pacienteRouter = router({
         nome: decrypt(precad.nomeEncrypted),
         cpf: decrypt(precad.cpfEncrypted),
         email: decrypt(precad.emailEncrypted),
-        telefone: decrypt(precad.telefoneEncrypted),
+        telefone: normalizarTelefoneParaE164(decrypt(precad.telefoneEncrypted)),
         tipo: precad.tipo,
         plano: precad.plano,
       }
@@ -443,7 +470,7 @@ export const pacienteRouter = router({
         dataNascimento: p.dataNascimentoEncrypted ? decrypt(p.dataNascimentoEncrypted) : null,
         nomeMae: p.nomeMaeEncrypted ? decrypt(p.nomeMaeEncrypted) : null,
         email: p.emailEncrypted ? decrypt(p.emailEncrypted) : null,
-        telefone: p.telefoneEncrypted ? decrypt(p.telefoneEncrypted) : null,
+        telefone: normalizarTelefoneParaE164(p.telefoneEncrypted ? decrypt(p.telefoneEncrypted) : null),
         cpfEncrypted: undefined,
         nomeEncrypted: undefined,
         dataNascimentoEncrypted: undefined,

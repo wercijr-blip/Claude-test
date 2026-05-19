@@ -2,18 +2,51 @@ import { useState } from 'react'
 import { trpc } from '../lib/trpc.ts'
 import { useAuth } from '../_core/hooks/useAuth.ts'
 import { Download } from 'lucide-react'
+import { fmt } from '../lib/format.ts'
+import { useQueryClient } from '@tanstack/react-query'
+import { toast } from '../lib/use-toast.ts'
+import { EmptyState } from './EmptyState.tsx'
+
+type ConfirmDeleteTarget = { id: number; nome: string | null; email: string | null }
 
 type Tab = 'equipe' | 'pacientes' | 'auditoria' | 'certificado'
 
 export default function AuditDashboard() {
   const { logout } = useAuth()
   const [tab, setTab] = useState<Tab>('equipe')
+  const queryClient = useQueryClient()
 
   // Equipe
   const { data: usuarios, refetch: refetchUsuarios } = trpc.admin.listarUsuarios.useQuery()
-  const alterarRole = trpc.admin.alterarRole.useMutation({ onSuccess: () => refetchUsuarios() })
-  const toggleAtivo = trpc.admin.toggleAtivo.useMutation({ onSuccess: () => refetchUsuarios() })
-  const cadastrarUsuario = trpc.admin.cadastrarUsuario.useMutation({ onSuccess: () => { refetchUsuarios(); setNovoEmail(''); setNovoNome(''); setNovoRole('secretaria') } })
+  const alterarRole = trpc.admin.alterarRole.useMutation({
+    onSuccess: () => {
+      void queryClient.invalidateQueries()
+      toast({ title: 'Role atualizado', variant: 'success' })
+    },
+    onError: (err) => toast({ title: 'Erro', description: err.message, variant: 'error' }),
+  })
+  const toggleAtivo = trpc.admin.toggleAtivo.useMutation({
+    onSuccess: () => {
+      void queryClient.invalidateQueries()
+      toast({ title: 'Status atualizado', variant: 'success' })
+    },
+    onError: (err) => toast({ title: 'Erro', description: err.message, variant: 'error' }),
+  })
+  const cadastrarUsuario = trpc.admin.cadastrarUsuario.useMutation({
+    onSuccess: () => {
+      void queryClient.invalidateQueries()
+      setNovoEmail('')
+      setNovoNome('')
+      setNovoRole('secretaria')
+      toast({ title: 'Usuário cadastrado', variant: 'success' })
+    },
+    onError: (err) => toast({ title: 'Erro ao cadastrar', description: err.message, variant: 'error' }),
+  })
+  const deletarStaff = trpc.admin.deletarStaff.useMutation({ onSuccess: () => { refetchUsuarios(); setDeleteTarget(null); setDeleteConfirmText('') } })
+
+  // Confirmação dupla para delete
+  const [deleteTarget, setDeleteTarget] = useState<ConfirmDeleteTarget | null>(null)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
 
   // Novo usuário
   const [novoEmail, setNovoEmail] = useState('')
@@ -23,7 +56,7 @@ export default function AuditDashboard() {
   // Pacientes
   const [busca, setBusca] = useState('')
   const { data: pacientesResp } = trpc.admin.listarTodosPacientes.useQuery({ busca: busca || undefined })
-  const [sessionIdRecuperar, setSessionIdRecuperar] = useState('')
+  const [precadIdRecuperar, setPrecadIdRecuperar] = useState('')
   const recuperarPagamento = trpc.admin.recuperarPagamento.useMutation()
   const pacientes = pacientesResp?.data
 
@@ -131,6 +164,50 @@ export default function AuditDashboard() {
             </button>
           </div>
 
+          {/* Modal de confirmação dupla para deletar usuário */}
+          {deleteTarget && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+              <div className="bg-white rounded-2xl border border-red-200 shadow-xl p-6 w-full max-w-md mx-4">
+                <h3 className="text-base font-semibold text-red-700 mb-2">Deletar usuário</h3>
+                <p className="text-sm text-slate-600 mb-1">
+                  Você está prestes a deletar <strong>{deleteTarget.nome ?? deleteTarget.email}</strong>.
+                </p>
+                <p className="text-sm text-slate-600 mb-4">
+                  O acesso será revogado imediatamente. Este usuário não aparecerá mais na lista da equipe.
+                  A operação é auditada e pode ser revertida pelo admin.
+                </p>
+                <p className="text-xs text-slate-500 mb-2">
+                  Para confirmar, digite <strong>DELETAR</strong> abaixo:
+                </p>
+                <input
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="DELETAR"
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mb-4 font-mono"
+                  autoFocus
+                />
+                {deletarStaff.error && (
+                  <p className="text-xs text-red-600 mb-3">{deletarStaff.error.message}</p>
+                )}
+                <div className="flex gap-3 justify-end">
+                  <button
+                    onClick={() => { setDeleteTarget(null); setDeleteConfirmText('') }}
+                    className="text-sm px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={() => deletarStaff.mutate({ userId: deleteTarget.id })}
+                    disabled={deleteConfirmText !== 'DELETAR' || deletarStaff.isPending}
+                    className="text-sm px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-medium transition-colors"
+                  >
+                    {deletarStaff.isPending ? 'Deletando…' : 'Confirmar exclusão'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Gerenciar equipe existente */}
           <div className="bg-white rounded-2xl border border-slate-200 p-6">
             <h2 className="text-base font-semibold text-slate-800 mb-4">Gerenciar Equipe</h2>
@@ -141,7 +218,8 @@ export default function AuditDashboard() {
                     <th className="pb-2 pr-4">Nome</th>
                     <th className="pb-2 pr-4">E-mail</th>
                     <th className="pb-2 pr-4">Perfil</th>
-                    <th className="pb-2">Ativo</th>
+                    <th className="pb-2 pr-4">Ativo</th>
+                    <th className="pb-2"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -160,12 +238,21 @@ export default function AuditDashboard() {
                           <option value="admin">Admin</option>
                         </select>
                       </td>
-                      <td className="py-3">
+                      <td className="py-3 pr-4">
                         <button
                           onClick={() => toggleAtivo.mutate({ userId: u.id, ativo: !u.ativo })}
                           className={`text-xs px-2 py-1 rounded-full font-medium ${u.ativo ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}
                         >
                           {u.ativo ? 'Ativo' : 'Inativo'}
+                        </button>
+                      </td>
+                      <td className="py-3">
+                        <button
+                          onClick={() => setDeleteTarget({ id: u.id, nome: u.nome ?? null, email: u.email ?? null })}
+                          className="text-xs px-2 py-1 rounded font-medium text-red-600 hover:bg-red-50 transition-colors"
+                          title="Deletar usuário"
+                        >
+                          Deletar
                         </button>
                       </td>
                     </tr>
@@ -208,7 +295,7 @@ export default function AuditDashboard() {
                 <tbody>
                   {!pacientes?.length && (
                     <tr>
-                      <td colSpan={6} className="py-8 text-center text-slate-400">Nenhum paciente encontrado.</td>
+                      <td colSpan={6}><EmptyState message="Nenhum paciente encontrado." className="py-8" /></td>
                     </tr>
                   )}
                   {pacientes?.map((p) => (
@@ -221,7 +308,7 @@ export default function AuditDashboard() {
                       <td className="py-3 pr-4 text-slate-500">{p.convenio ?? '—'}</td>
                       <td className="py-3 pr-4 text-slate-400">{p.currentStep}/8</td>
                       <td className="py-3 text-slate-400 whitespace-nowrap">
-                        {new Date(p.createdAt).toLocaleDateString('pt-BR')}
+                        {fmt.date(p.createdAt)}
                       </td>
                     </tr>
                   ))}
@@ -230,26 +317,26 @@ export default function AuditDashboard() {
             </div>
           </div>
 
-          {/* Recuperação de pagamento órfão */}
+          {/* Reenviar link de acesso */}
           <div className="bg-amber-50 rounded-2xl border border-amber-200 p-6">
-            <h2 className="text-base font-semibold text-amber-800 mb-1">Recuperar Pagamento Órfão</h2>
+            <h2 className="text-base font-semibold text-amber-800 mb-1">Reenviar Link de Acesso</h2>
             <p className="text-xs text-amber-700 mb-4">
-              Pagamento confirmado no Stripe mas link de acesso não chegou ao paciente?
-              Cole o <code className="bg-amber-100 px-1 rounded">session_id</code> do Stripe Dashboard para reenviar.
+              Pagamento confirmado mas link não chegou ao paciente? Informe o ID do pré-cadastro para reenviar.
             </p>
             <div className="flex gap-2">
               <input
-                value={sessionIdRecuperar}
-                onChange={(e) => setSessionIdRecuperar(e.target.value)}
-                placeholder="cs_live_..."
+                value={precadIdRecuperar}
+                onChange={(e) => setPrecadIdRecuperar(e.target.value)}
+                placeholder="ID do pré-cadastro (ex: 42)"
+                type="number"
                 className="flex-1 border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
               />
               <button
-                onClick={() => recuperarPagamento.mutate({ sessionId: sessionIdRecuperar })}
-                disabled={!sessionIdRecuperar || recuperarPagamento.isPending}
+                onClick={() => recuperarPagamento.mutate({ precadastroId: parseInt(precadIdRecuperar, 10) })}
+                disabled={!precadIdRecuperar || isNaN(parseInt(precadIdRecuperar, 10)) || recuperarPagamento.isPending}
                 className="bg-amber-600 hover:bg-amber-700 text-white font-medium px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50"
               >
-                {recuperarPagamento.isPending ? 'Processando…' : 'Recuperar'}
+                {recuperarPagamento.isPending ? 'Processando…' : 'Reenviar'}
               </button>
             </div>
             {recuperarPagamento.isSuccess && (
@@ -283,7 +370,7 @@ export default function AuditDashboard() {
               {eventos?.map((e) => (
                 <div key={e.id} className="flex items-start gap-3 text-xs py-2 border-b border-slate-50">
                   <span className="text-slate-400 whitespace-nowrap">
-                    {new Date(e.createdAt).toLocaleString('pt-BR')}
+                    {fmt.datetime(e.createdAt)}
                   </span>
                   <span className={`font-medium ${e.tipoEvento.includes('fail') || e.tipoEvento.includes('invalid') || e.tipoEvento.includes('block') ? 'text-red-600' : 'text-slate-700'}`}>
                     {e.tipoEvento}
@@ -292,7 +379,7 @@ export default function AuditDashboard() {
                 </div>
               ))}
               {!eventos?.length && (
-                <p className="text-sm text-slate-400 py-4 text-center">Nenhum evento registrado.</p>
+                <EmptyState message="Nenhum evento registrado." className="py-4" />
               )}
             </div>
           </div>
@@ -385,11 +472,11 @@ function PainelCertificado() {
             </div>
             <div>
               <dt className="text-xs text-slate-500">Válido a partir de</dt>
-              <dd className="text-slate-700">{data.validoDe ? new Date(data.validoDe).toLocaleDateString('pt-BR') : '—'}</dd>
+              <dd className="text-slate-700">{data.validoDe ? fmt.date(data.validoDe) : '—'}</dd>
             </div>
             <div>
               <dt className="text-xs text-slate-500">Válido até</dt>
-              <dd className="text-slate-700">{data.validoAte ? new Date(data.validoAte).toLocaleDateString('pt-BR') : '—'}</dd>
+              <dd className="text-slate-700">{data.validoAte ? fmt.date(data.validoAte) : '—'}</dd>
             </div>
           </dl>
         )}

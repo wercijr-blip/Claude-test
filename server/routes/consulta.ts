@@ -2,8 +2,8 @@ import { z } from 'zod'
 import { router, protectedProcedure, medicoProcedure } from '../_core/trpc.ts'
 import { TRPCError } from '@trpc/server'
 import { db } from '../db.ts'
-import { consultasInicio, accessTokens, precadastros, users } from '../../drizzle/schema.ts'
-import { eq, desc, inArray } from 'drizzle-orm'
+import { consultasInicio, accessTokens, precadastros, users, pacientes } from '../../drizzle/schema.ts'
+import { eq, desc, inArray, isNull, and } from 'drizzle-orm'
 import { decrypt } from '../_core/encryption.ts'
 import { extrairDadosExame, calcularSimilaridadeNome, parseDateBR, isDataValida } from '../examValidation.ts'
 import { gerarPedidosExames } from '../pdfExameRequest.ts'
@@ -12,6 +12,7 @@ import { assinarPdf } from '../pdfSigner.ts'
 import { uploadBuffer, getPresignedUrl } from '../storage.ts'
 import * as Sentry from '@sentry/node'
 import { enviarWhatsApp } from '../whatsapp.ts'
+import { notificarStaff, staffTemplates } from '../whatsapp.staff.ts'
 import {
   enviarExameAprovadoIa,
   enviarAnaliseHumanaExame,
@@ -24,6 +25,7 @@ import { gerarLinkDeAcesso } from './intake.ts'
 import { env } from '../_core/env.ts'
 import { logger } from '../_core/logger.ts'
 import { DIAS_VALIDADE_LINK_UPLOAD } from '../../shared/const.ts'
+import { okEmpty } from '../_core/response.ts'
 
 function assertPatient(session: unknown): asserts session is { type: 'patient'; tokenId: number; pacienteId: number | null } {
   if (!session || (session as { type: string }).type !== 'patient') {
@@ -76,7 +78,7 @@ async function getMedicosEmails(): Promise<string[]> {
   const rows = await db
     .select({ email: users.email })
     .from(users)
-    .where(inArray(users.role, ['medico', 'admin']))
+    .where(and(inArray(users.role, ['medico', 'admin']), isNull(users.deletedAt)))
   return rows.map(r => r.email).filter(Boolean) as string[]
 }
 
@@ -437,10 +439,39 @@ export const consultaRouter = router({
     .query(async ({ ctx }) => {
       assertPatient(ctx.session)
 
+      // When pacienteId is known, use the DB-authoritative tokenId from the pacientes
+      // table rather than the JWT claim. This prevents a stale or mismatched JWT
+      // tokenId from returning another patient's consultasInicio record (LGPD).
+      let tokenIdForQuery = ctx.session.tokenId
+      if (ctx.session.pacienteId !== null) {
+        const [pac] = await db
+          .select({ tokenId: pacientes.tokenId })
+          .from(pacientes)
+          .where(eq(pacientes.id, ctx.session.pacienteId))
+          .limit(1)
+        if (!pac) {
+          return {
+            status: 'aguardando_escolha' as const,
+            tipoConsulta: null,
+            temExameRecente: null,
+            motivoRejeicao: null,
+            linkExpiresAt: null,
+            tentativasReenvio: 0,
+            dataExame: null,
+            resultadoHiv: null,
+            nomeExame: null,
+            nomeCadastro: null,
+            tipoExameDetectado: null,
+            checks: null,
+          }
+        }
+        tokenIdForQuery = pac.tokenId
+      }
+
       const [consulta] = await db
         .select()
         .from(consultasInicio)
-        .where(eq(consultasInicio.tokenId, ctx.session.tokenId))
+        .where(eq(consultasInicio.tokenId, tokenIdForQuery))
         .limit(1)
 
       if (!consulta) {
@@ -472,7 +503,7 @@ export const consultaRouter = router({
 
       // Nome cadastrado para comparação visual (mostrar ao paciente
       // o que a IA leu vs. o que está no cadastro).
-      const info = await getInfoPaciente(ctx.session.tokenId).catch(() => null)
+      const info = await getInfoPaciente(tokenIdForQuery).catch(() => null)
 
       // Calcula os 3 critérios para mostrar ao paciente sempre que houver
       // resultado da IA — mesmo em rejeição. Permite ele entender por que
@@ -646,7 +677,7 @@ export const consultaRouter = router({
           if (info.telefone) await enviarWhatsApp(info.telefone, `Olá ${info.nome}, sobre seu exame: ${input.observacoes}. Para mais informações: (61) 99401-8161`).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
         }
 
-        return { ok: true }
+        return okEmpty()
       }),
   }),
 })
@@ -679,8 +710,12 @@ async function _notificarMedicosEPaciente(
   const [medicosEmails] = await Promise.all([getMedicosEmails()])
   const dashboardUrl = `${env.APP_URL}/medico`
 
+  const tipo = urgente ? 'exame-urgente' : 'exame-revisar'
+  const template = urgente ? staffTemplates.medicoExameUrgente : staffTemplates.medicoExameParaRevisar
+
   await Promise.all([
     enviarNotificacaoMedicoPendente(medicosEmails, urgente, info.nome, motivo, dashboardUrl).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) })),
+    notificarStaff('medico', tipo, template).catch((e: unknown) => logger.warn('[consulta] staff WhatsApp falhou', { error: String(e) })),
     info.email
       ? enviarAnaliseHumanaExame(info.email, info.nome).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
       : Promise.resolve(),

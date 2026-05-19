@@ -8,6 +8,8 @@ import { trpc } from '../lib/trpc'
 import { PLANOS_VALIDOS, HORARIO_ATENDIMENTO } from '@shared/const'
 import { Logo, LogoWordmark } from './Logo'
 import { trackFormStart, trackFormSubmit, trackConversion } from '../lib/analytics'
+import CheckoutAsaas from './CheckoutAsaas'
+import SeletorMetodoPagamento from './SeletorMetodoPagamento'
 
 const ABERTURA = HORARIO_ATENDIMENTO.ABERTURA_HORA
 const FECHAMENTO = HORARIO_ATENDIMENTO.FECHAMENTO_HORA
@@ -29,8 +31,14 @@ const schema = z.object({
 })
 
 type FormData = z.infer<typeof schema>
-type Etapa = 'escolha' | 'formulario' | 'aguardando' | 'sucesso'
+type Etapa = 'escolha' | 'formulario' | 'seletor' | 'aguardando' | 'checkout' | 'sucesso'
 type Tipo = 'particular' | 'plano'
+
+interface PixData {
+  paymentId: string
+  pixQrCode: string
+  pixCopiaECola: string
+}
 
 const inputCls = 'w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent bg-white transition-all placeholder:text-slate-400'
 const labelCls = 'block text-sm font-medium text-slate-700 mb-1.5'
@@ -54,6 +62,8 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
   const [etapa, setEtapa] = useState<Etapa>(autoStart ? 'formulario' : 'escolha')
   const [tipo, setTipo] = useState<Tipo>(initialTipo ?? 'particular')
   const [dentroHorario, setDentroHorario] = useState(isDentroHorarioAtendimento())
+  const [pixData, setPixData] = useState<PixData | null>(null)
+  const [precadastroId, setPrecadastroId] = useState<number | null>(null)
   const [carteirinhaKey, setCarteirinhaKey] = useState<string | null>(null)
   const [documentoKey, setDocumentoKey] = useState<string | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
@@ -73,11 +83,19 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
     resolver: zodResolver(schema),
   })
 
+  const { data: valorData } = trpc.intake.consultarValor.useQuery()
+  const valorFormatado = valorData?.valorFormatado
+
   const criar = trpc.intake.criar.useMutation()
   const iniciarPagamento = trpc.intake.iniciarPagamento.useMutation({
     onSuccess: (data) => {
+      if (data.tipo === 'cartao') {
+        window.location.href = data.invoiceUrl
+        return
+      }
       trackConversion(undefined, 'BRL')
-      if (data.url) window.location.href = data.url
+      setPixData({ paymentId: data.paymentId, pixQrCode: data.pixQrCode, pixCopiaECola: data.pixCopiaECola })
+      setEtapa('checkout')
     },
   })
 
@@ -118,7 +136,8 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
       })
       if (tipo === 'particular') {
         trackFormSubmit('particular')
-        await iniciarPagamento.mutateAsync({ precadastroId: result.precadastroId })
+        setPrecadastroId(result.precadastroId)
+        setEtapa('seletor')
       } else {
         trackFormSubmit('plano')
         trackConversion(undefined, 'BRL')
@@ -179,12 +198,20 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                       </svg>
                     </div>
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <h3 className="font-bold text-slate-800 text-base">Particular</h3>
                         <span className="text-xs bg-brand-light text-brand px-2 py-0.5 rounded-full font-medium">Acesso imediato</span>
                       </div>
-                      <p className="text-slate-500 text-sm mt-1">Pagamento via PIX, cartão de crédito ou débito. Acesso liberado de forma simples e rápida.</p>
+                      {valorFormatado ? (
+                        <div className="mt-2 bg-brand-pale rounded-xl px-3 py-2 inline-block">
+                          <span className="text-xs text-slate-500 font-medium">Valor da consulta </span>
+                          <span className="text-base font-bold text-brand">{valorFormatado}</span>
+                        </div>
+                      ) : (
+                        <div className="mt-2 h-8 w-32 bg-brand-pale rounded-xl animate-pulse" />
+                      )}
+                      <p className="text-slate-500 text-sm mt-2">PIX, cartão de crédito ou débito. Acesso liberado de forma simples e rápida.</p>
                     </div>
                   </div>
                 </button>
@@ -295,6 +322,28 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
           </div>
         </section>
       </div>
+    )
+  }
+
+  // ── Seletor de método de pagamento ───────────────────────────
+  if (etapa === 'seletor' && precadastroId) {
+    return (
+      <SeletorMetodoPagamento
+        precadastroId={precadastroId}
+        loading={iniciarPagamento.isPending}
+        onSelect={(metodo) => iniciarPagamento.mutate({ precadastroId, metodo })}
+      />
+    )
+  }
+
+  // ── Checkout PIX Asaas ────────────────────────────────────────
+  if (etapa === 'checkout' && pixData) {
+    return (
+      <CheckoutAsaas
+        paymentId={pixData.paymentId}
+        pixQrCode={pixData.pixQrCode}
+        pixCopiaECola={pixData.pixCopiaECola}
+      />
     )
   }
 
@@ -462,7 +511,7 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
             {isPlano ? (
               <button
                 type="submit"
-                disabled={foraHorario || criar.isPending}
+                disabled={criar.isPending || !carteirinhaKey || !documentoKey}
                 className="w-full bg-sage text-white py-3.5 rounded-2xl font-semibold disabled:opacity-50 hover:bg-sage-dark transition-all shadow-md hover:shadow-lg text-sm"
               >
                 {criar.isPending ? 'Enviando…' : 'Enviar para validação →'}

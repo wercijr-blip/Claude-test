@@ -16,7 +16,12 @@
     "test:coverage": "vitest run --coverage",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "format": "prettier --write ."
+    "lint": "eslint server/ client/src/ --max-warnings 0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "seed": "tsx server/seed.ts",
+    "dev:services": "docker compose up -d",
+    "dev:full": "pnpm dev:services && pnpm dev"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.540.0",
@@ -59,7 +64,6 @@
     "multer": "^1.4.5-lts.1",
     "mysql2": "^3.9.4",
     "node-forge": "^1.3.1",
-    "nodemailer": "^6.9.13",
     "otplib": "^13.4.0",
     "pdf-lib": "^1.17.1",
     "pino": "^10.3.1",
@@ -69,8 +73,8 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.51.3",
+    "react-international-phone": "^4.8.0",
     "resend": "^6.12.2",
-    "stripe": "^15.2.0",
     "tailwind-merge": "^2.2.2",
     "tsx": "^4.21.0",
     "wouter": "^3.1.2",
@@ -84,18 +88,28 @@
     "@types/multer": "^1.4.11",
     "@types/node": "^20.12.5",
     "@types/node-forge": "^1.3.11",
-    "@types/nodemailer": "^6.4.14",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.59.4",
+    "@typescript-eslint/parser": "^8.59.4",
     "@vitejs/plugin-react": "^4.2.1",
+    "@vitest/coverage-v8": "2.1.9",
     "concurrently": "^8.2.2",
     "dotenv": "^17.4.2",
     "drizzle-kit": "^0.30.0",
+    "eslint": "^10.4.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "prettier": "^3.2.5",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.4.4",
     "vite": "^6.0.0",
-    "vitest": "^2.0.0"
+    "vitest": "2.1.9"
+  },
+  "pnpm": {
+    "overrides": {
+      "crypto-js": "^4.2.0",
+      "brace-expansion": "^2.0.1"
+    }
   }
 }

@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { trpc } from '../lib/trpc.ts'
 import { useAuth } from '../_core/hooks/useAuth.ts'
 import { Copy, Link, Trash2, ExternalLink, CheckCircle, XCircle } from 'lucide-react'
+import { fmt } from '../lib/format.ts'
+import { EmptyState } from './EmptyState.tsx'
 
 type Tab = 'links' | 'planos' | 'documentos'
 type StatusFiltro = 'todos' | 'pendente' | 'validado' | 'rejeitado' | 'liberado'
@@ -27,7 +29,8 @@ function PlanosTab() {
   const [motivoRejeicao, setMotivoRejeicao] = useState<Record<number, string>>({})
   const [expandedId, setExpandedId] = useState<number | null>(null)
 
-  const { data: pendentes, refetch } = trpc.intake.listarPendentes.useQuery()
+  const { data: pendentesPage, refetch } = trpc.intake.listarPendentes.useQuery({})
+  const pendentes = pendentesPage?.data
   const urlDocumento = trpc.intake.urlDocumento.useMutation()
   const aprovar = trpc.intake.aprovar.useMutation({ onSuccess: () => refetch() })
   const rejeitar = trpc.intake.rejeitar.useMutation({ onSuccess: () => refetch() })
@@ -80,7 +83,7 @@ function PlanosTab() {
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-xs text-slate-400">
-                  {new Date(p.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                  {fmt.datetime(p.createdAt)}
                 </span>
                 <svg
                   className={`w-5 h-5 text-slate-400 transition-transform ${expandedId === p.id ? 'rotate-180' : ''}`}
@@ -173,14 +176,14 @@ export default function SecretariaDashboard() {
 
   const { data: tokens, refetch } = trpc.token.listar.useQuery()
   const { data: documentos } = trpc.secretaria.listarDocumentos.useQuery({ status: statusFiltro })
-  const { data: pendentes } = trpc.intake.listarPendentes.useQuery()
+  const { data: pendentesPage2 } = trpc.intake.listarPendentes.useQuery({})
   const criar = trpc.token.criar.useMutation({
     onSuccess: (data) => { setNovoToken(data.token); refetch() },
   })
   const revogar = trpc.token.revogar.useMutation({ onSuccess: () => refetch() })
 
   const linkAcesso = novoToken ? `${window.location.origin}/acesso/${novoToken}` : null
-  const qtdPendentes = pendentes?.length ?? 0
+  const qtdPendentes = pendentesPage2?.data.length ?? 0
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -299,7 +302,7 @@ export default function SecretariaDashboard() {
           <div className="bg-white rounded-2xl border border-slate-200 p-6">
             <h2 className="text-base font-semibold text-slate-800 mb-4">Links gerados</h2>
 
-            {!tokens?.length && <p className="text-sm text-slate-400">Nenhum link gerado ainda.</p>}
+            {!tokens?.length && <EmptyState message="Nenhum link gerado ainda." />}
 
             <div className="space-y-2">
               {tokens?.map((t) => (
@@ -307,7 +310,7 @@ export default function SecretariaDashboard() {
                   <div>
                     <p className="text-sm text-slate-700">{t.patientEmail ?? 'Sem e-mail'}</p>
                     <p className="text-xs text-slate-400">
-                      {t.tipo} · Expira {new Date(t.expiresAt).toLocaleDateString('pt-BR')}
+                      {t.tipo} · Expira {fmt.date(t.expiresAt)}
                       {t.revokedAt && ' · REVOGADO'}
                       {t.usedAt && ' · Usado'}
                     </p>
@@ -371,7 +374,7 @@ export default function SecretariaDashboard() {
                         <td className="px-4 py-3 text-slate-600 max-w-[200px] truncate" title={doc.nomeArquivo}>{doc.nomeArquivo}</td>
                         <td className="px-4 py-3 text-slate-500">{doc.tipoExame ?? '—'}</td>
                         <td className="px-4 py-3 text-slate-400 whitespace-nowrap">
-                          {new Date(doc.createdAt).toLocaleDateString('pt-BR')}
+                          {fmt.date(doc.createdAt)}
                         </td>
                         <td className="px-4 py-3">
                           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[iaStatus] ?? 'bg-slate-100 text-slate-500'}`}>

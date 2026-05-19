@@ -1,0 +1,18 @@
+User-Agent: *
+Allow: /
+Disallow: /api/
+Disallow: /trpc/
+Disallow: /admin/
+Disallow: /medico/
+Disallow: /secretaria/
+Disallow: /auditoria/
+Disallow: /dashboard/
+Disallow: /formulario/
+Disallow: /acesso/
+Disallow: /pagamento/
+Disallow: /inicio/
+Disallow: /pesquisa/
+Disallow: /auth/
+Disallow: /v/
+
+Sitemap: https://www.facilitaprep.com.br/sitemap.xml

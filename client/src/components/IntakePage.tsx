@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { trpc } from '../lib/trpc.ts'
 import { PLANOS_VALIDOS, HORARIO_ATENDIMENTO } from '@shared/const.ts'
 import { Logo, LogoWordmark } from './Logo.tsx'
 import { trackFormSubmitPrecadastro } from '../lib/analytics.ts'
+import CheckoutAsaas from './CheckoutAsaas.tsx'
+import SeletorMetodoPagamento from './SeletorMetodoPagamento.tsx'
+import { PhoneInput } from './PhoneInput.tsx'
 
 const ABERTURA = HORARIO_ATENDIMENTO.ABERTURA_HORA
 const FECHAMENTO = HORARIO_ATENDIMENTO.FECHAMENTO_HORA
@@ -20,14 +23,20 @@ function isDentroHorarioAtendimento(): boolean {
 
 const schema = z.object({
   nome: z.string().min(2, 'Nome muito curto'),
-  telefone: z.string().min(10, 'Telefone inválido'),
+  telefone: z.string().regex(/^\+\d{8,15}$/, 'Use formato internacional: +5561999998888'),
   cpf: z.string().min(11, 'CPF inválido'),
   email: z.string().email('E-mail inválido'),
   plano: z.string().optional(),
 })
 
 type FormData = z.infer<typeof schema>
-type Etapa = 'escolha' | 'formulario' | 'aguardando' | 'sucesso'
+type Etapa = 'escolha' | 'formulario' | 'seletor' | 'aguardando' | 'checkout' | 'sucesso'
+
+interface PixData {
+  paymentId: string
+  pixQrCode: string
+  pixCopiaECola: string
+}
 type Tipo = 'particular' | 'plano'
 
 const inputCls = 'w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent bg-white transition-all placeholder:text-slate-400'
@@ -43,7 +52,7 @@ function TrustBadge({ icon, text }: { icon: string; text: string }) {
   )
 }
 
-function HeroIllustration() {
+function _HeroIllustration() {
   return (
     <svg viewBox="0 0 320 280" className="w-full max-w-sm mx-auto" fill="none" xmlns="http://www.w3.org/2000/svg">
       {/* Background blob */}
@@ -90,6 +99,7 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
   const [tipo, setTipo] = useState<Tipo>(initialTipo ?? 'particular')
   const [dentroHorario, setDentroHorario] = useState(isDentroHorarioAtendimento())
   const [precadastroId, setPrecadastroId] = useState<number | null>(null)
+  const [pixData, setPixData] = useState<PixData | null>(null)
   const [carteirinhaKey, setCarteirinhaKey] = useState<string | null>(null)
   const [carteirinhaNome, setCarteirinhaNome] = useState<string | null>(null)
   const [carteirinhaUploading, setCarteirinhaUploading] = useState(false)
@@ -104,14 +114,24 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
     return () => clearInterval(interval)
   }, [])
 
-  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, control, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
   })
+
+  const { data: valorData } = trpc.intake.consultarValor.useQuery()
+  const valorFormatado = valorData?.valorFormatado
 
   const criar = trpc.intake.criar.useMutation()
   const iniciarPagamento = trpc.intake.iniciarPagamento.useMutation({
     onSuccess: (data) => {
-      if (data.url) window.location.href = data.url
+      if (data.tipo === 'cartao') {
+        // Navigate same-tab to Asaas checkout. autoRedirect will bring the user
+        // back to /sucesso?precadastroId=X after payment — no second tab needed.
+        window.location.href = data.invoiceUrl
+        return
+      }
+      setPixData({ paymentId: data.paymentId, pixQrCode: data.pixQrCode, pixCopiaECola: data.pixCopiaECola })
+      setEtapa('checkout')
     },
   })
 
@@ -150,7 +170,7 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
       trackFormSubmitPrecadastro(tipo)
       setPrecadastroId(result.precadastroId)
       if (tipo === 'particular') {
-        await iniciarPagamento.mutateAsync({ precadastroId: result.precadastroId })
+        setEtapa('seletor')
       } else {
         setEtapa('aguardando')
       }
@@ -214,12 +234,20 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                       </svg>
                     </div>
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <h3 className="font-bold text-slate-800 text-base">Particular</h3>
                         <span className="text-xs bg-brand-light text-brand px-2 py-0.5 rounded-full font-medium">Acesso imediato</span>
                       </div>
-                      <p className="text-slate-500 text-sm mt-1">Pagamento via PIX, cartão de crédito ou débito. Acesso liberado de forma simples e rápida.</p>
+                      {valorFormatado ? (
+                        <div className="mt-2 bg-brand-pale rounded-xl px-3 py-2 inline-block">
+                          <span className="text-xs text-slate-500 font-medium">Valor da consulta </span>
+                          <span className="text-base font-bold text-brand">{valorFormatado}</span>
+                        </div>
+                      ) : (
+                        <div className="mt-2 h-8 w-32 bg-brand-pale rounded-xl animate-pulse" />
+                      )}
+                      <p className="text-slate-500 text-sm mt-2">PIX, cartão de crédito ou débito. Acesso liberado de forma simples e rápida.</p>
                     </div>
                   </div>
                 </button>
@@ -354,6 +382,36 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
     )
   }
 
+  // ── Seletor de método de pagamento ───────────────────────────
+  if (etapa === 'seletor' && precadastroId) {
+    return (
+      <div>
+        <SeletorMetodoPagamento
+          precadastroId={precadastroId}
+          loading={iniciarPagamento.isPending}
+          onSelect={(metodo) => iniciarPagamento.mutate({ precadastroId, metodo })}
+        />
+        {iniciarPagamento.isError && (
+          <p className="text-center text-sm text-red-600 mt-3 px-4">
+            {iniciarPagamento.error?.message ?? 'Erro ao iniciar pagamento. Tente novamente.'}
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  // ── Checkout PIX Asaas ────────────────────────────────────────
+  if (etapa === 'checkout' && pixData && precadastroId) {
+    return (
+      <CheckoutAsaas
+        precadastroId={precadastroId}
+        paymentId={pixData.paymentId}
+        pixQrCode={pixData.pixQrCode}
+        pixCopiaECola={pixData.pixCopiaECola}
+      />
+    )
+  }
+
   // ── Aguardando validação do plano ─────────────────────────────
   if (etapa === 'aguardando') {
     return (
@@ -437,13 +495,40 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
 
             <div>
               <label className={labelCls}>Telefone (WhatsApp)</label>
-              <input {...register('telefone')} className={inputCls} placeholder="(11) 99999-9999" />
+              <Controller
+                name="telefone"
+                control={control}
+                render={({ field }) => (
+                  <PhoneInput
+                    value={field.value}
+                    onChange={field.onChange}
+                    hasError={!!errors.telefone}
+                    required
+                  />
+                )}
+              />
               {errors.telefone && <p className={errCls}>{errors.telefone.message}</p>}
             </div>
 
             <div>
               <label className={labelCls}>CPF</label>
-              <input {...register('cpf')} className={inputCls} placeholder="000.000.000-00" />
+              <input
+                {...register('cpf', {
+                  onChange: (e) => {
+                    const digits = e.target.value.replace(/\D/g, '').slice(0, 11)
+                    const fmt = digits
+                      .replace(/(\d{3})(\d)/, '$1.$2')
+                      .replace(/(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+                      .replace(/(\d{3})\.(\d{3})\.(\d{3})(\d)/, '$1.$2.$3-$4')
+                    e.target.value = fmt
+                    setValue('cpf', fmt, { shouldValidate: digits.length === 11 })
+                  },
+                })}
+                className={inputCls}
+                placeholder="000.000.000-00"
+                inputMode="numeric"
+                maxLength={14}
+              />
               {errors.cpf && <p className={errCls}>{errors.cpf.message}</p>}
             </div>
 
@@ -574,7 +659,7 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
             {isPlano ? (
               <button
                 type="submit"
-                disabled={foraHorario || criar.isPending || carteirinhaUploading || documentoUploading || !carteirinhaKey || !documentoKey}
+                disabled={criar.isPending || carteirinhaUploading || documentoUploading || !carteirinhaKey || !documentoKey}
                 className="w-full bg-sage text-white py-3.5 rounded-2xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-sage-dark transition-all shadow-md hover:shadow-lg text-sm"
               >
                 {criar.isPending

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { validarCpf } from './_core/cpfValidator.ts'
 import { isAllowedRedirectUri } from './_core/originValidator.ts'
 
@@ -16,7 +16,7 @@ vi.mock('./_core/env.ts', () => ({
     AWS_REGION: 'sa-east-1',
     AWS_S3_BUCKET: 'bucket',
     REDIS_URL: 'redis://localhost:6379',
-    FOCUSNFE_ENVIRONMENT: 'homologacao',
+    ASAAS_ENV: 'sandbox',
     BUILT_IN_FORGE_API_URL: 'https://api.anthropic.com',
     APP_URL: 'https://facilitaprep.com.br',
     PORT: 3000,

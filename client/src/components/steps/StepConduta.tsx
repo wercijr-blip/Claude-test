@@ -2,6 +2,8 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { trpc } from '../../lib/trpc.ts'
+import { useFormDraft } from '../../hooks/useFormDraft.ts'
+import { SubmitButton } from '../SubmitButton.tsx'
 
 const schema = z.object({
   pacienteId: z.number(),
@@ -27,15 +29,17 @@ interface Props {
 export default function StepConduta({ pacienteId, onNext, onBack, examData, tipoConsulta }: Props) {
   const isJaFazPrep = tipoConsulta === 'ja_faco_prep'
 
-  const { register, handleSubmit, watch, setValue, setError, clearErrors, formState: { errors } } = useForm<FormData>({
+  const form = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       pacienteId: pacienteId ?? 0,
       conduta: { temSintomasDst: false, usoDrogas: false },
     },
   })
+  const { register, handleSubmit, watch, setValue, setError, clearErrors, formState: { errors } } = form
+  const { clearDraft } = useFormDraft(form, 'step-conduta-draft')
 
-  const salvar = trpc.paciente.salvarStep4.useMutation({ onSuccess: () => onNext() })
+  const salvar = trpc.paciente.salvarStep4.useMutation({ onSuccess: () => { clearDraft(); onNext() } })
 
   const temSintomasDst = watch('conduta.temSintomasDst') ?? false
   const usoDrogas = watch('conduta.usoDrogas') ?? false
@@ -93,18 +97,16 @@ export default function StepConduta({ pacienteId, onNext, onBack, examData, tipo
               <option value="sob_demanda">Sob demanda (antes/depois da exposição)</option>
             </select>
             {errors.conduta?.prepAdesao && (
-              <p className="mt-1 text-xs text-red-500">{errors.conduta.prepAdesao.message}</p>
+              <p role="alert" className="mt-1 text-xs text-red-500">{errors.conduta.prepAdesao.message}</p>
             )}
           </div>
         )}
 
-        {salvar.error && <p className="text-red-500 text-sm">{salvar.error.message}</p>}
+        {salvar.error && <p role="alert" className="text-red-500 text-sm">{salvar.error.message}</p>}
 
         <div className="flex justify-between pt-2">
           <button type="button" onClick={onBack} className={btnSecondary}>← Anterior</button>
-          <button type="submit" disabled={salvar.isPending} className={btnPrimary}>
-            {salvar.isPending ? 'Salvando…' : 'Próximo →'}
-          </button>
+          <SubmitButton isPending={salvar.isPending} />
         </div>
       </form>
     </div>
@@ -140,5 +142,4 @@ function BoolGroup({ label, value, onChange }: { label: string; value: boolean; 
 }
 
 const inputCls = (e: boolean) => `w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${e ? 'border-red-400' : 'border-slate-300'}`
-const btnPrimary = 'bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium py-2 px-6 rounded-lg transition-colors'
 const btnSecondary = 'text-slate-600 hover:text-slate-800 font-medium py-2 px-4 rounded-lg transition-colors'

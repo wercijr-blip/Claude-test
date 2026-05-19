@@ -1,17 +1,30 @@
+/**
+ * adminRouter — Painel administrativo
+ * Seções: equipe | pacientes | documentos | auditoria | certificado | intake | dlq
+ * Cada procedure usa adminProcedure (role: admin).
+ *
+ * Sub-modules:
+ *   admin/users.ts — gestão de equipe (listarUsuarios, cadastrarUsuario, …)
+ *   admin/dlq.ts   — dead letter queue (listarDlq, reprocessarDlqJob)
+ */
 import { z } from 'zod'
 import { router, adminProcedure } from '../_core/trpc.ts'
 import { TRPCError } from '@trpc/server'
 import { db } from '../db.ts'
-import { users, securityEvents, pacientes, exames } from '../../drizzle/schema.ts'
-import { eq, desc, inArray, count } from 'drizzle-orm'
-import type { Role } from '../../shared/types.ts'
+import { securityEvents, pacientes, exames, pdfs, consultasInicio } from '../../drizzle/schema.ts'
+import { eq, desc, inArray, count, and } from 'drizzle-orm'
 import { decrypt } from '../_core/encryption.ts'
 import { filtrarExamePorStatus } from '../examUtils.ts'
-import { inspecionarCertificado } from '../pdfSigner.ts'
-import { stripe } from '../stripe/products.ts'
+import { inspecionarCertificado, assinarPdf } from '../pdfSigner.ts'
 import { gerarEEnviarLinkAcesso } from './intake.ts'
 import { env } from '../_core/env.ts'
 import { linkAcessoQueue } from '../pdfQueue.ts'
+import { logAudit } from '../_core/audit.ts'
+import { uploadBuffer, deleteObject, getPresignedUrl } from '../storage.ts'
+import { preencherFichaAtendimento, buildConfigClinica, mapPrepAdesaoLabel } from '../sus/preencherFichaAtendimento.ts'
+import { okEmpty } from '../_core/response.ts'
+import { userProcedures } from './admin/users.ts'
+import { dlqProcedures } from './admin/dlq.ts'
 
 type ResultadoIaJson = {
   status?: string
@@ -19,69 +32,8 @@ type ResultadoIaJson = {
 }
 
 export const adminRouter = router({
-  // ── Gestão de equipe ──────────────────────────────────────────
-
-  // Listar equipe
-  listarUsuarios: adminProcedure.query(async () => {
-    return db.select().from(users).orderBy(users.createdAt)
-  }),
-
-  // Cadastrar novo usuário da equipe
-  cadastrarUsuario: adminProcedure
-    .input(z.object({
-      email: z.string().email(),
-      nome: z.string().min(2),
-      role: z.enum(['secretaria', 'medico', 'admin']),
-    }))
-    .mutation(async ({ input }) => {
-      // Verificar se já existe usuário com esse e-mail
-      const existing = await db
-        .select({ id: users.id })
-        .from(users)
-        .where(eq(users.email, input.email))
-        .limit(1)
-
-      if (existing.length > 0) {
-        throw new TRPCError({ code: 'CONFLICT', message: 'Já existe um usuário com esse e-mail.' })
-      }
-
-      // openId será preenchido no primeiro login via SSO; usamos e-mail como placeholder
-      await db.insert(users).values({
-        openId: `pending:${input.email}`,
-        email: input.email,
-        nome: input.nome,
-        role: input.role as Role,
-        ativo: true,
-      })
-
-      return { ok: true }
-    }),
-
-  // Alterar role de usuário
-  alterarRole: adminProcedure
-    .input(z.object({ userId: z.number(), role: z.enum(['secretaria', 'medico', 'admin']) }))
-    .mutation(async ({ input }) => {
-      const [user] = await db.select().from(users).where(eq(users.id, input.userId)).limit(1)
-      if (!user) throw new TRPCError({ code: 'NOT_FOUND' })
-
-      await db
-        .update(users)
-        .set({ role: input.role as Role, updatedAt: new Date() })
-        .where(eq(users.id, input.userId))
-
-      return { ok: true }
-    }),
-
-  // Ativar/desativar usuário
-  toggleAtivo: adminProcedure
-    .input(z.object({ userId: z.number(), ativo: z.boolean() }))
-    .mutation(async ({ input }) => {
-      await db
-        .update(users)
-        .set({ ativo: input.ativo, updatedAt: new Date() })
-        .where(eq(users.id, input.userId))
-      return { ok: true }
-    }),
+  // ── Gestão de equipe — ver admin/users.ts ─────────────────────
+  ...userProcedures,
 
   // ── Pacientes ─────────────────────────────────────────────────
 
@@ -221,7 +173,7 @@ export const adminRouter = router({
         })
         .where(eq(exames.id, input.exameId))
 
-      return { ok: true }
+      return okEmpty()
     }),
 
   // Listar pacientes pendentes de revisão médica (poder de médico)
@@ -263,30 +215,12 @@ export const adminRouter = router({
     return inspecionarCertificado()
   }),
 
-  // ── Recuperação de pagamentos órfãos ─────────────────────────
-  // Re-processa um checkout.session.completed perdido por falha no webhook.
-  // Cola o session_id do Stripe Dashboard e reenvia o link de acesso.
+  // Reenviar link de acesso para um pré-cadastro específico (recuperação manual)
   recuperarPagamento: adminProcedure
-    .input(z.object({ sessionId: z.string().min(10) }))
+    .input(z.object({ precadastroId: z.number().int().positive() }))
     .mutation(async ({ input }) => {
-      let session: Awaited<ReturnType<typeof stripe.checkout.sessions.retrieve>>
-      try {
-        session = await stripe.checkout.sessions.retrieve(input.sessionId)
-      } catch {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Sessão não encontrada no Stripe.' })
-      }
-      if (session.payment_status !== 'paid') {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: `Pagamento não confirmado (status: ${session.payment_status}).`,
-        })
-      }
-      const rawId = (session.metadata as Record<string, string> | null)?.precadastroId
-      if (!rawId) {
-        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Sessão sem precadastroId na metadata do Stripe.' })
-      }
-      await gerarEEnviarLinkAcesso(parseInt(rawId, 10))
-      return { ok: true, precadastroId: parseInt(rawId, 10) }
+      await gerarEEnviarLinkAcesso(input.precadastroId)
+      return { ok: true, precadastroId: input.precadastroId }
     }),
 
   // Exportar auditoria como CSV (retorna string CSV)
@@ -317,6 +251,70 @@ export const adminRouter = router({
   // Verifica env vars críticas e conectividade com Redis/BullMQ.
   // Bater nesse endpoint antes de testar fluxos de pagamento confirma
   // que todos os recursos estão disponíveis.
+  regenerarFichaAtendimento: adminProcedure
+    .input(z.object({ pacienteId: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const { pacienteId } = input
+
+      const [p] = await db.select().from(pacientes).where(eq(pacientes.id, pacienteId)).limit(1)
+      if (!p) throw new TRPCError({ code: 'NOT_FOUND', message: 'Paciente não encontrado' })
+
+      const [consulta] = await db
+        .select({ tipoConsulta: consultasInicio.tipoConsulta, dataExameValidado: consultasInicio.dataExameValidado })
+        .from(consultasInicio)
+        .where(eq(consultasInicio.tokenId, p.tokenId))
+        .limit(1)
+
+      // Delete corrupted ficha(s) from S3 + DB
+      const fichasExistentes = await db
+        .select({ id: pdfs.id, s3Key: pdfs.s3Key })
+        .from(pdfs)
+        .where(and(eq(pdfs.pacienteId, pacienteId), eq(pdfs.tipo, 'ficha_atendimento')))
+      for (const f of fichasExistentes) {
+        await deleteObject(f.s3Key).catch(() => {})
+        await db.delete(pdfs).where(eq(pdfs.id, f.id))
+      }
+
+      const nome = decrypt(p.nomeEncrypted)
+      const cpf = decrypt(p.cpfEncrypted)
+      const dataNascimento = p.dataNascimentoEncrypted ? decrypt(p.dataNascimentoEncrypted) : ''
+      const nomeMae = p.nomeMaeEncrypted ? decrypt(p.nomeMaeEncrypted) : ''
+
+      const cond = (p.condutaJson ?? {}) as {
+        temSintomasDst?: boolean
+        usoDrogas?: boolean
+        prepAdesao?: 'diaria' | 'sob_demanda'
+      }
+      const prepAdesaoLabel = mapPrepAdesaoLabel(cond.prepAdesao)
+      const configClinica = buildConfigClinica()
+
+      const fichaBuf = Buffer.from(await preencherFichaAtendimento({
+        pacienteId,
+        cpf, nome, nomeMae, dataNascimento,
+        dataExameHiv: consulta?.dataExameValidado ?? null,
+        prepModalidade: (p.prepModalidade as 'PrEP diária' | 'PrEP sob demanda' | null) ?? 'PrEP diária',
+        tipoConsulta: (consulta?.tipoConsulta as 'primeiro_atendimento' | 'ja_faco_prep') ?? 'primeiro_atendimento',
+        prepAdesao: prepAdesaoLabel ?? null,
+        temSintomasDst: cond.temSintomasDst ?? null,
+        usoDrogas: cond.usoDrogas ?? null,
+      }, configClinica))
+
+      const { buffer: signedFicha, certificadoSerial, assinadoEm } =
+        await assinarPdf(fichaBuf, 'Ficha de Atendimento PrEP — Facilita PrEP')
+      const fichaKey = `pdfs/${pacienteId}/${Date.now()}-ficha-atendimento.pdf`
+      await uploadBuffer(fichaKey, signedFicha, 'application/pdf')
+      await db.insert(pdfs).values({ pacienteId, s3Key: fichaKey, tipo: 'ficha_atendimento', certificadoSerial, assinadoEm })
+
+      const [url] = await Promise.all([
+        getPresignedUrl(fichaKey, 3600),
+        logAudit({ actorId: ctx.session.id, actorRole: ctx.session.role, action: 'pdf.generate', resourceType: 'ficha_atendimento', resourceId: pacienteId, detalhes: { fichasRemovidas: fichasExistentes.length } }),
+      ])
+      return { ok: true, url, fichasRemovidas: fichasExistentes.length }
+    }),
+
+  // ── Dead Letter Queue — ver admin/dlq.ts ─────────────────────
+  ...dlqProcedures,
+
   saudeIntake: adminProcedure.query(async () => {
     let redisOk = false
     let linkAcessoQueueSize: number | null = null
@@ -333,8 +331,8 @@ export const adminRouter = router({
       resendKey: !!env.RESEND_API_KEY,
       zapiInstanceId: !!env.ZAPI_INSTANCE_ID,
       zapiToken: !!env.ZAPI_TOKEN,
-      stripeKey: !!env.STRIPE_SECRET_KEY,
-      stripeWebhook: !!env.STRIPE_WEBHOOK_SECRET,
+      asaasKey: !!env.ASAAS_API_KEY,
+      asaasEnv: env.ASAAS_ENV,
       redisOk,
       linkAcessoQueueSize,
     }

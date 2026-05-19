@@ -1,14 +1,17 @@
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { trpc } from '../../lib/trpc.ts'
+import { useFormDraft } from '../../hooks/useFormDraft.ts'
+import { SubmitButton } from '../SubmitButton.tsx'
+import { PhoneInput } from '../PhoneInput.tsx'
 import { ESTADOS_BR } from '@shared/const.ts'
 
 const schema = z.object({
   pacienteId: z.number(),
   email: z.string().email('E-mail inválido'),
-  telefone: z.string().min(10, 'Telefone inválido'),
+  telefone: z.string().regex(/^\+\d{8,15}$/, 'Use formato internacional: +5561999998888'),
   cep: z.string().regex(/^\d{8}$/, 'CEP deve ter 8 dígitos'),
   logradouro: z.string().min(2),
   numero: z.string().min(1),
@@ -33,7 +36,7 @@ export default function StepContato({ pacienteId, onNext, onBack, defaultValues 
   const [cepLoading, setCepLoading] = useState(false)
   const [cepErro, setCepErro] = useState<string | null>(null)
 
-  const { register, handleSubmit, setValue, formState: { errors } } = useForm<FormData>({
+  const form = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       pacienteId: pacienteId ?? 0,
@@ -41,8 +44,10 @@ export default function StepContato({ pacienteId, onNext, onBack, defaultValues 
       telefone: defaultValues?.telefone ?? '',
     },
   })
+  const { register, handleSubmit, setValue, formState: { errors } } = form
+  const { clearDraft } = useFormDraft(form, 'step-contato-draft')
 
-  const salvar = trpc.paciente.salvarStep3.useMutation({ onSuccess: () => onNext() })
+  const salvar = trpc.paciente.salvarStep3.useMutation({ onSuccess: () => { clearDraft(); onNext() } })
 
   const buscarCep = async (digits: string) => {
     if (digits.length !== 8) return
@@ -86,6 +91,7 @@ export default function StepContato({ pacienteId, onNext, onBack, defaultValues 
               {...register('email')}
               type="email"
               className={inputCls(!!errors.email)}
+              aria-invalid={errors.email ? true : undefined}
               placeholder="seu@email.com"
             />
           </Field>
@@ -98,12 +104,18 @@ export default function StepContato({ pacienteId, onNext, onBack, defaultValues 
             <p className="mt-1 text-xs text-slate-400">Preenchido automaticamente do cadastro · não editável</p>
           </Field>
         ) : (
-          <Field label="Telefone celular" error={errors.telefone?.message}>
-            <input
-              {...register('telefone')}
-              className={inputCls(!!errors.telefone)}
-              placeholder="(00) 00000-0000"
-              maxLength={15}
+          <Field label="Telefone celular (WhatsApp)" error={errors.telefone?.message}>
+            <Controller
+              name="telefone"
+              control={form.control}
+              render={({ field }) => (
+                <PhoneInput
+                  value={field.value}
+                  onChange={field.onChange}
+                  hasError={!!errors.telefone}
+                  required
+                />
+              )}
             />
           </Field>
         )}
@@ -121,6 +133,7 @@ export default function StepContato({ pacienteId, onNext, onBack, defaultValues 
                   },
                 })}
                 className={inputCls(!!errors.cep || !!cepErro)}
+                aria-invalid={errors.cep || cepErro ? true : undefined}
                 placeholder="00000000"
                 inputMode="numeric"
                 maxLength={8}
@@ -133,7 +146,7 @@ export default function StepContato({ pacienteId, onNext, onBack, defaultValues 
             </div>
           </Field>
           <Field label="Estado" error={errors.estado?.message}>
-            <select {...register('estado')} className={inputCls(!!errors.estado)}>
+            <select {...register('estado')} className={inputCls(!!errors.estado)} aria-invalid={errors.estado ? true : undefined}>
               <option value="">UF</option>
               {ESTADOS_BR.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
             </select>
@@ -141,12 +154,12 @@ export default function StepContato({ pacienteId, onNext, onBack, defaultValues 
         </div>
 
         <Field label="Logradouro" error={errors.logradouro?.message}>
-          <input {...register('logradouro')} className={inputCls(!!errors.logradouro)} placeholder="Rua, Av, etc." />
+          <input {...register('logradouro')} className={inputCls(!!errors.logradouro)} aria-invalid={errors.logradouro ? true : undefined} placeholder="Rua, Av, etc." />
         </Field>
 
         <div className="grid grid-cols-3 gap-4">
           <Field label="Número" error={errors.numero?.message}>
-            <input {...register('numero')} className={inputCls(!!errors.numero)} />
+            <input {...register('numero')} className={inputCls(!!errors.numero)} aria-invalid={errors.numero ? true : undefined} />
           </Field>
           <div className="col-span-2">
             <Field label="Complemento" error={undefined}>
@@ -157,20 +170,18 @@ export default function StepContato({ pacienteId, onNext, onBack, defaultValues 
 
         <div className="grid grid-cols-2 gap-4">
           <Field label="Bairro" error={errors.bairro?.message}>
-            <input {...register('bairro')} className={inputCls(!!errors.bairro)} />
+            <input {...register('bairro')} className={inputCls(!!errors.bairro)} aria-invalid={errors.bairro ? true : undefined} />
           </Field>
           <Field label="Cidade" error={errors.cidade?.message}>
-            <input {...register('cidade')} className={inputCls(!!errors.cidade)} />
+            <input {...register('cidade')} className={inputCls(!!errors.cidade)} aria-invalid={errors.cidade ? true : undefined} />
           </Field>
         </div>
 
-        {salvar.error && <p className="text-red-500 text-sm">{salvar.error.message}</p>}
+        {salvar.error && <p role="alert" className="text-red-500 text-sm">{salvar.error.message}</p>}
 
         <div className="flex justify-between pt-2">
           <button type="button" onClick={onBack} className={btnSecondary}>← Anterior</button>
-          <button type="submit" disabled={salvar.isPending} className={btnPrimary}>
-            {salvar.isPending ? 'Salvando…' : 'Próximo →'}
-          </button>
+          <SubmitButton isPending={salvar.isPending} />
         </div>
       </form>
     </div>
@@ -182,7 +193,7 @@ function Field({ label, error, children }: { label: string; error?: string; chil
     <div>
       <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
       {children}
-      {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+      {error && <p role="alert" className="mt-1 text-xs text-red-500">{error}</p>}
     </div>
   )
 }
@@ -196,5 +207,4 @@ function ReadonlyValue({ value }: { value: string }) {
 }
 
 const inputCls = (e: boolean) => `w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${e ? 'border-red-400' : 'border-slate-300'}`
-const btnPrimary = 'bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium py-2 px-6 rounded-lg transition-colors'
 const btnSecondary = 'text-slate-600 hover:text-slate-800 font-medium py-2 px-4 rounded-lg transition-colors'

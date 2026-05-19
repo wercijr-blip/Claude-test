@@ -145,6 +145,7 @@ export default function App() {
             <Route path="/v/:slug" component={VerificacaoPage} />
             <Route path="/pesquisa/:pacienteId/:token" component={PesquisaSatisfacao} />
             <Route path="/pagamento/sucesso" component={PagamentoSucesso} />
+            <Route path="/sucesso" component={PagamentoSucesso} />
             <Route path="/pagamento/cancelado" component={PagamentoCancelado} />
             <Route path="/equipe">
               {role === 'admin' ? <AuditDashboard /> : <LoginPage />}
@@ -248,13 +249,24 @@ function AuthCallback() {
 
 function PagamentoSucesso() {
   const params = new URLSearchParams(window.location.search)
-  const sessionId = params.get('session_id') ?? ''
+  // Flow A: legacy — paymentId present (PIX fallback, old card flow)
+  const paymentId = params.get('paymentId') || params.get('asaas_payment_id') || ''
+  // Flow B: card checkout — Asaas autoRedirect carries precadastroId
+  const precadastroIdParam = params.get('precadastroId')
+  const precadastroId = precadastroIdParam ? Number(precadastroIdParam) : null
+
   const [, navigate] = useLocation()
   const { setToken } = useAuth()
   const hasAttempted = useRef(false)
   const [erro, setErro] = useState<string | null>(null)
+  const [pollingTimedOut, setPollingTimedOut] = useState(false)
 
-  const validarToken = trpc.token.validar.useMutation({
+  useEffect(() => {
+    const t = setTimeout(() => setPollingTimedOut(true), 60_000)
+    return () => clearTimeout(t)
+  }, [])
+
+  const acesso = trpc.intake.acessoPosPagamento.useMutation({
     onSuccess: (data: { sessionToken: string }) => {
       setToken(data.sessionToken)
       navigate('/inicio')
@@ -262,42 +274,103 @@ function PagamentoSucesso() {
     onError: (err: { message: string }) => setErro(err.message),
   })
 
-  const acesso = trpc.intake.acessoPosPagamento.useMutation({
-    onSuccess: (data: { token: string }) => {
-      trackPurchase(sessionId, 150)
-      validarToken.mutate({ token: data.token })
-    },
-    onError: (err: { message: string }) => setErro(err.message),
-  })
+  // Flow A: poll by paymentId (legacy / PIX webhook path)
+  const { data: statusData } = trpc.intake.consultarStatusPagamento.useQuery(
+    { paymentId },
+    { refetchInterval: 3000, enabled: !!paymentId && !hasAttempted.current },
+  )
+
+  // Flow B: poll by precadastroId (card checkout — Asaas autoRedirect)
+  const { data: statusPrecad } = trpc.intake.consultarStatusPorPrecadastro.useQuery(
+    { precadastroId: precadastroId ?? 0 },
+    { refetchInterval: pollingTimedOut ? false : 3000, enabled: !!precadastroId && !hasAttempted.current },
+  )
 
   useEffect(() => {
-    if (sessionId && !hasAttempted.current) {
+    const status = statusData?.status
+    if ((status === 'RECEIVED' || status === 'CONFIRMED') && !hasAttempted.current) {
       hasAttempted.current = true
-      acesso.mutate({ sessionId })
+      acesso.mutate({ paymentId })
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId])
+  }, [statusData?.status])
+
+  useEffect(() => {
+    const { confirmado } = statusPrecad ?? {}
+    if (confirmado && precadastroId && !hasAttempted.current) {
+      hasAttempted.current = true
+      trackPurchase(`precad-${precadastroId}`, 250)
+      acesso.mutate({ precadastroId })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusPrecad?.confirmado])
+
+  const confirmed =
+    statusData?.status === 'RECEIVED' || statusData?.status === 'CONFIRMED' ||
+    statusPrecad?.confirmado
+
+  // No identifier → friendly message instead of infinite spinner
+  if (!paymentId && !precadastroId) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 max-w-md w-full text-center">
+          <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-bold text-slate-800 mb-2">Pagamento não identificado</h2>
+          <p className="text-slate-500 text-sm mb-2">
+            Se você acabou de pagar, verifique seu e-mail e WhatsApp — o link de acesso é enviado em instantes.
+          </p>
+          <p className="text-slate-400 text-xs">
+            Dúvidas?{' '}
+            <a href="mailto:contato@facilitaprep.com.br" className="text-blue-600 hover:underline">
+              contato@facilitaprep.com.br
+            </a>
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 max-w-md w-full text-center">
-        <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <svg className="w-8 h-8 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
+        <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${confirmed ? 'bg-emerald-100' : 'bg-blue-50'}`}>
+          {confirmed ? (
+            <svg className="w-8 h-8 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          ) : (
+            <div className="w-8 h-8 border-4 border-blue-100 border-t-blue-500 rounded-full animate-spin" role="status" aria-label="Verificando pagamento">
+              <span className="sr-only">Verificando pagamento...</span>
+            </div>
+          )}
         </div>
-        <h2 className="text-xl font-bold text-slate-800 mb-2">Pagamento confirmado!</h2>
         {erro ? (
           <>
+            <h2 className="text-xl font-bold text-slate-800 mb-2">Pagamento recebido!</h2>
             <p className="text-slate-500 text-sm mb-2">
               Em instantes você receberá o link de acesso ao formulário por <strong>e-mail</strong> e <strong>WhatsApp</strong>.
             </p>
             <p className="text-slate-400 text-xs mt-4">Verifique também sua caixa de spam.</p>
           </>
-        ) : (
+        ) : confirmed ? (
           <>
+            <h2 className="text-xl font-bold text-slate-800 mb-2">Pagamento confirmado!</h2>
             <p className="text-slate-500 text-sm">Te levando para o próximo passo…</p>
             <div className="w-6 h-6 border-2 border-slate-200 border-t-emerald-600 rounded-full animate-spin mx-auto mt-4" />
+          </>
+        ) : (
+          <>
+            <h2 className="text-xl font-bold text-slate-800 mb-2">Confirmando pagamento…</h2>
+            <p className="text-slate-500 text-sm">Aguarde um instante. Não feche esta página.</p>
+            {pollingTimedOut && !confirmed && (
+              <p className="mt-3 text-sm text-amber-600 text-center">
+                Aguardando confirmação do pagamento. Se já pagou, pode fechar esta tela — enviaremos o acesso por e-mail.
+              </p>
+            )}
           </>
         )}
       </div>

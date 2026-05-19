@@ -208,12 +208,12 @@ async function detectarProximaFase(
 
   if (!exameAprovado) return '/inicio'
 
-  if (!paciente) return '/inicio'
+  if (!paciente) return '/formulario'
 
   const statusFinal = ['pendente', 'em_revisao', 'aprovado']
   if (statusFinal.includes(paciente.status)) return '/inicio'
 
-  if (paciente.currentStep >= 2) return `/formulario/${paciente.id}`
+  if (paciente.currentStep >= 1) return `/formulario/${paciente.id}`
 
-  return '/inicio'
+  return '/formulario'
 }

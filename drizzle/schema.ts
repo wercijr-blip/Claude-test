@@ -24,6 +24,9 @@ export const users = mysqlTable('users', {
   totpSecretEncrypted: text('totp_secret_encrypted'),
   totpEnabled: boolean('totp_enabled').notNull().default(false),
   totpBackupCodes: json('totp_backup_codes'),  // string[] (hashed, each single-use)
+  // Soft delete — LGPD audit trail; never hard-delete staff records
+  deletedAt: datetime('deleted_at'),
+  deletedBy: int('deleted_by'),
   createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: datetime('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`).$onUpdateFn(() => new Date()),
 }, (t) => ({
@@ -290,11 +293,14 @@ export const satisfacaoPesquisas = mysqlTable('satisfacao_pesquisas', {
   pacienteIdx: uniqueIndex('idx_satisfacao_paciente').on(t.pacienteId),
 }))
 
-// ── Pagamentos Stripe ─────────────────────────────────────────
+// ── Pagamentos ────────────────────────────────────────────────
 
 export const pagamentos = mysqlTable('pagamentos', {
   id: int('id').primaryKey().autoincrement(),
   pacienteId: int('paciente_id').notNull().references(() => pacientes.id),
+  provider: varchar('provider', { length: 20 }).notNull().default('asaas'),
+  asaasPaymentId: varchar('asaas_payment_id', { length: 100 }),
+  // Deprecated — kept for historical rows that went through Stripe
   stripePaymentId: varchar('stripe_payment_id', { length: 100 }),
   stripeSessionId: varchar('stripe_session_id', { length: 100 }),
   status: varchar('status', { length: 50 }).notNull().default('pendente'),
@@ -302,6 +308,7 @@ export const pagamentos = mysqlTable('pagamentos', {
   createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (t) => ({
   pacienteIdx: index('idx_pagamentos_paciente').on(t.pacienteId),
+  asaasIdx: index('idx_pagamentos_asaas').on(t.asaasPaymentId),
   sessionIdx: index('idx_pagamentos_session').on(t.stripeSessionId),
 }))
 
@@ -352,4 +359,24 @@ export const pesquisaTokens = mysqlTable('pesquisa_tokens', {
   expiraEm: datetime('expira_em').notNull(),
 }, (t) => ({
   tokenIdx: uniqueIndex('idx_pesquisa_token').on(t.token),
+}))
+
+// ── Dead Letter Queue (jobs que esgotaram retries) ────────────
+// Jobs críticos que falharam todas as tentativas são persistidos aqui
+// para reprocessamento manual via painel admin.
+
+export const dlqJobs = mysqlTable('dlq_jobs', {
+  id: int('id').primaryKey().autoincrement(),
+  queue: varchar('queue', { length: 100 }).notNull(),
+  jobId: varchar('job_id', { length: 200 }),
+  jobName: varchar('job_name', { length: 100 }).notNull(),
+  data: json('data'),
+  failReason: text('fail_reason'),
+  attempts: int('attempts').default(0),
+  // Set when a reprocess is in-flight; prevents double-processing on retry clicks
+  reprocessingAt: datetime('reprocessing_at'),
+  createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (t) => ({
+  queueIdx: index('idx_dlq_queue').on(t.queue),
+  createdIdx: index('idx_dlq_created').on(t.createdAt),
 }))

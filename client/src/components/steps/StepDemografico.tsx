@@ -2,6 +2,8 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { trpc } from '../../lib/trpc.ts'
+import { useFormDraft } from '../../hooks/useFormDraft.ts'
+import { SubmitButton } from '../SubmitButton.tsx'
 import {
   COR_RACA_OPTIONS,
   ESCOLARIDADE_OPTIONS,
@@ -25,12 +27,14 @@ type FormData = z.infer<typeof schema>
 interface Props { pacienteId: number | null; onNext: () => void; onBack: () => void }
 
 export default function StepDemografico({ pacienteId, onNext, onBack }: Props) {
-  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
+  const form = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { pacienteId: pacienteId ?? 0 },
   })
+  const { register, handleSubmit, formState: { errors } } = form
+  const { clearDraft } = useFormDraft(form, 'step-demografico-draft')
 
-  const salvar = trpc.paciente.salvarStep2.useMutation({ onSuccess: () => onNext() })
+  const salvar = trpc.paciente.salvarStep2.useMutation({ onSuccess: () => { clearDraft(); onNext() } })
 
   if (!pacienteId) return null
 
@@ -40,14 +44,14 @@ export default function StepDemografico({ pacienteId, onNext, onBack }: Props) {
 
       <form onSubmit={handleSubmit((d) => salvar.mutate(d))} className="space-y-4">
         <Field label="Cor/Raça" error={errors.corRaca?.message}>
-          <select {...register('corRaca')} className={inputCls(!!errors.corRaca)}>
+          <select {...register('corRaca')} className={inputCls(!!errors.corRaca)} aria-invalid={errors.corRaca ? true : undefined}>
             <option value="">Selecione</option>
             {COR_RACA_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </Field>
 
         <Field label="Escolaridade" error={errors.escolaridade?.message}>
-          <select {...register('escolaridade')} className={inputCls(!!errors.escolaridade)}>
+          <select {...register('escolaridade')} className={inputCls(!!errors.escolaridade)} aria-invalid={errors.escolaridade ? true : undefined}>
             <option value="">Selecione</option>
             {ESCOLARIDADE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
@@ -80,13 +84,11 @@ export default function StepDemografico({ pacienteId, onNext, onBack }: Props) {
           </Field>
         </div>
 
-        {salvar.error && <p className="text-red-500 text-sm">{salvar.error.message}</p>}
+        {salvar.error && <p role="alert" className="text-red-500 text-sm">{salvar.error.message}</p>}
 
         <div className="flex justify-between pt-2">
           <button type="button" onClick={onBack} className={btnSecondary}>← Anterior</button>
-          <button type="submit" disabled={salvar.isPending} className={btnPrimary}>
-            {salvar.isPending ? 'Salvando…' : 'Próximo →'}
-          </button>
+          <SubmitButton isPending={salvar.isPending} />
         </div>
       </form>
     </div>
@@ -98,11 +100,10 @@ function Field({ label, error, children }: { label: string; error?: string; chil
     <div>
       <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
       {children}
-      {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+      {error && <p role="alert" className="mt-1 text-xs text-red-500">{error}</p>}
     </div>
   )
 }
 
 const inputCls = (e: boolean) => `w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${e ? 'border-red-400' : 'border-slate-300'}`
-const btnPrimary = 'bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium py-2 px-6 rounded-lg transition-colors'
 const btnSecondary = 'text-slate-600 hover:text-slate-800 font-medium py-2 px-4 rounded-lg transition-colors'
