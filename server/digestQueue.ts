@@ -278,7 +278,7 @@ async function runSemanal(periodoRef: string) {
       .from(publicationDrafts)
       .where(and(
         eq(publicationDrafts.medicoId, medicoId),
-        sql`${publicationDrafts.status} IN ('rascunho', 'em_revisao', 'submetido', 'aceito')`,
+        inArray(publicationDrafts.status, ['rascunho', 'em_revisao', 'submetido', 'aceito']),
       ))
       .limit(10),
     ])
@@ -368,8 +368,8 @@ async function runMensal(periodoRef: string) {
     .from(publicationDrafts)
     .where(and(
       eq(publicationDrafts.medicoId, medicoId),
-      sql`${publicationDrafts.status} IN ('rascunho', 'em_revisao', 'submetido', 'aceito')`,
-      sql`${publicationDrafts.jornal} IS NOT NULL`,
+      inArray(publicationDrafts.status, ['rascunho', 'em_revisao', 'submetido', 'aceito']),
+      isNotNull(publicationDrafts.jornal),
     ))
     .limit(5)
 

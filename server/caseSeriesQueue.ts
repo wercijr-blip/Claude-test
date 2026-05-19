@@ -15,7 +15,7 @@ import { env } from './_core/env.ts'
 import { redis } from './_core/redis.ts'
 import { db } from './db.ts'
 import { soapNotes, publicationDrafts } from '../drizzle/schema.ts'
-import { eq, and, inArray, sql } from 'drizzle-orm'
+import { eq, and, inArray, gte, desc, sql } from 'drizzle-orm'
 import { buscarArtigosDual } from './pubmed.ts'
 import { buscarReferenciasPorQuery, formatarZoteroParaPrompt } from './zotero.ts'
 import { gerarSerieCasos } from './clinicalIntelligence.ts'
@@ -69,7 +69,7 @@ export async function enqueueCaseSeries(params: CaseSeriesJobData): Promise<bool
       eq(publicationDrafts.medicoId, params.medicoId),
       eq(publicationDrafts.tipo, 'serie_casos'),
       eq(publicationDrafts.cid10, params.cid10),
-      sql`${publicationDrafts.status} IN ('rascunho', 'em_revisao', 'submetido', 'aceito')`,
+      inArray(publicationDrafts.status, ['rascunho', 'em_revisao', 'submetido', 'aceito']),
     ))
     .limit(1)
 
@@ -174,7 +174,7 @@ export function startCaseSeriesWorker() {
           eq(publicationDrafts.cid10, cid10),
           eq(publicationDrafts.status, 'rascunho'),
         ))
-        .orderBy(sql`${publicationDrafts.createdAt} DESC`)
+        .orderBy(desc(publicationDrafts.createdAt))
         .limit(1)
 
       logger.info('[caseSeriesQueue] Série gerada e salva', {
@@ -231,7 +231,7 @@ export async function checkCaseAccumulation(params: {
     .where(and(
       eq(soapNotes.medicoId, params.medicoId),
       eq(soapNotes.cid10, params.cid10),
-      sql`${soapNotes.createdAt} >= ${limiteData}`,
+      gte(soapNotes.createdAt, limiteData),
     ))
     .limit(20)
 

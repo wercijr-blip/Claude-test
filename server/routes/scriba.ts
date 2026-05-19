@@ -483,7 +483,7 @@ export const scribaRouter = router({
   solicitarRevisaoLiteratura: medicoProcedure
     .input(z.object({
       tema: z.string().min(5).max(255),
-      contextoClinicos: z.string().max(2000).optional(),
+      contextoClinico: z.string().max(2000).optional(),
       /** Se informado, extrai lacunas da síntese dessa nota para guiar a revisão */
       soapNoteId: z.number().int().positive().optional(),
     }))
@@ -525,7 +525,7 @@ export const scribaRouter = router({
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Nenhum artigo encontrado para este tema no PubMed.' })
       }
 
-      const contextoClinico = (input.contextoClinicos ?? '') + lacunasContexto
+      const contextoClinico = (input.contextoClinico ?? '') + lacunasContexto
 
       // Gera revisão (Prompt 11 — Opus)
       const revisao = await gerarRevisaoLiteratura({
