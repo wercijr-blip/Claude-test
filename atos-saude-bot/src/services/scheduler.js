@@ -11,6 +11,7 @@ import {
 } from './db.js'
 import { logger } from '../utils/logger.js'
 import { msg, hasMsg } from '../utils/messages.js'
+import { runBackup } from '../scripts/backup.js'
 
 const BASE_URL = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`
 
@@ -34,6 +35,37 @@ export function fmtData(datetimeStr) {
   const ano = d.getFullYear()
   const dias = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado']
   return { data: `${dia}/${mes}/${ano}`, diaSemana: dias[d.getDay()] }
+}
+
+// ─── Wrappers de resiliência para jobs agendados ──────────────────────────────
+
+// Retry com backoff — garante que falhas transitórias não silenciam o job
+async function runJob(name, fn, maxRetries = 2) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await fn()
+      return
+    } catch (err) {
+      logger.error({ job: name, attempt, maxRetries, err: err.message }, 'Falha no job agendado')
+      if (attempt < maxRetries) {
+        await new Promise(r => setTimeout(r, attempt * 2000))
+      } else {
+        logger.error({ job: name }, 'Job falhou em todas as tentativas — verifique o serviço manualmente')
+      }
+    }
+  }
+}
+
+// Evita sobreposição: se o job ainda está rodando, pula esta rodada
+const _runningJobs = new Set()
+async function runExclusive(name, fn) {
+  if (_runningJobs.has(name)) {
+    logger.warn({ job: name }, 'Job ainda em execução — rodada ignorada')
+    return
+  }
+  _runningJobs.add(name)
+  try { await runJob(name, fn) }
+  finally { _runningJobs.delete(name) }
 }
 
 // ─── 1. AGENDA DO MÉDICO — enviada diariamente às 8h (para o dia seguinte) ───
@@ -187,29 +219,32 @@ export async function notificarEncaixe(agendamento) {
 // ─── Inicialização dos jobs ───────────────────────────────────────────────────
 
 export function initScheduler() {
-  cron.schedule('0 8 * * *', async () => {
-    logger.info('Scheduler: enviando agenda diária aos médicos')
-    await enviarAgendaMedicos().catch(e => logger.error({ err: e.message }, 'Erro ao enviar agenda médica'))
-  }, { timezone: 'America/Sao_Paulo' })
-
-  cron.schedule('*/15 * * * *', async () => {
-    await verificarLembretes().catch(e => logger.error({ err: e.message }, 'Erro ao verificar lembretes'))
+  // Agenda diária dos médicos — 8h horário de Brasília
+  cron.schedule('0 8 * * *', () => runExclusive('agenda-medicos', enviarAgendaMedicos), {
+    timezone: 'America/Sao_Paulo'
   })
 
-  cron.schedule('*/15 * * * *', async () => {
-    await verificarPesquisas().catch(e => logger.error({ err: e.message }, 'Erro ao verificar pesquisas'))
+  // Lembretes 24h e 2h — a cada 15min, com controle de sobreposição
+  cron.schedule('*/15 * * * *', () => runExclusive('lembretes', verificarLembretes), {
+    timezone: 'America/Sao_Paulo'
   })
 
-  // Limpeza diária: sessões inativas >30min + mensagens >90 dias (LGPD)
-  cron.schedule('0 3 * * *', () => {
-    try {
-      cleanOldSessions(30)
-      deleteOldMessageLogs(90)
-      logger.info('Scheduler: limpeza — sessões expiradas e mensagens >90 dias')
-    } catch (e) {
-      logger.error({ err: e.message }, 'Erro na limpeza diária')
-    }
-  }, { timezone: 'America/Sao_Paulo' })
+  // Pesquisa de satisfação — a cada 15min, com controle de sobreposição
+  cron.schedule('*/15 * * * *', () => runExclusive('pesquisas', verificarPesquisas), {
+    timezone: 'America/Sao_Paulo'
+  })
 
-  logger.info('Scheduler iniciado: agenda médica (8h/dia) | lembretes 24h e 2h | pesquisa 3h pós-consulta | limpeza 3h/dia')
+  // Limpeza LGPD — sessões inativas >30min + mensagens >90 dias — 3h Brasília
+  cron.schedule('0 3 * * *', () => runJob('limpeza', () => {
+    cleanOldSessions(30)
+    deleteOldMessageLogs(90)
+    logger.info('Scheduler: limpeza — sessões expiradas e mensagens >90 dias')
+  }), { timezone: 'America/Sao_Paulo' })
+
+  // Backup diário do banco — 2h Brasília
+  cron.schedule('0 2 * * *', () => runJob('backup', runBackup), {
+    timezone: 'America/Sao_Paulo'
+  })
+
+  logger.info('Scheduler iniciado: agenda (8h) | lembretes 24h/2h | pesquisa 3h pós-consulta | limpeza (3h) | backup (2h)')
 }

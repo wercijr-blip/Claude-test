@@ -1,4 +1,6 @@
 import 'dotenv/config'
+// Definir timezone antes de qualquer operação de data — cron jobs precisam de Brasília, não UTC
+process.env.TZ = 'America/Sao_Paulo'
 import express from 'express'
 import helmet from 'helmet'
 import cors from 'cors'
@@ -10,6 +12,7 @@ import { mkdirSync, existsSync } from 'fs'
 
 import db from './src/services/db.js'
 import { logger } from './src/utils/logger.js'
+import { runMigrations } from './src/services/migrations.js'
 import { seedKnowledgeBase } from './src/services/knowledge.js'
 import { seedDefaultUsers } from './src/services/seed-users.js'
 import { initScheduler } from './src/services/scheduler.js'
@@ -51,16 +54,22 @@ if (!process.env.JWT_SECRET) {
 if (process.env.NODE_ENV === 'production' && !process.env.PII_ENCRYPTION_KEY) {
   throw new Error('PII_ENCRYPTION_KEY é obrigatória em produção para proteger dados pessoais (LGPD). Gere com: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"')
 }
+if (process.env.NODE_ENV === 'production' && !process.env.EVOLUTION_WEBHOOK_SECRET) {
+  throw new Error('EVOLUTION_WEBHOOK_SECRET é obrigatório em produção. Configure o mesmo valor na Evolution API e aqui para autenticar webhooks.')
+}
 if (process.env.NODE_ENV === 'production' && !process.env.BASE_URL) {
   logger.warn('BASE_URL não configurada — links de remarcação usarão localhost')
 }
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
-const uploadsDir = join(__dirname, 'uploads')
+// DATA_DIR aponta para volume persistente (Railway) ou raiz do projeto em dev
+const DATA_DIR = process.env.DATA_DIR || __dirname
+const uploadsDir = join(DATA_DIR, 'uploads')
 if (!existsSync(uploadsDir)) mkdirSync(uploadsDir, { recursive: true })
 
-logger.info('Banco de dados inicializado')
+runMigrations()
+logger.info('Banco de dados inicializado e migrations aplicadas')
 
 await seedKnowledgeBase()
 seedDefaultUsers()
@@ -104,10 +113,11 @@ if (process.env.NODE_ENV === 'production') {
 
 app.use(express.json({ limit: '1mb' }))
 
-// Request ID para rastreamento em logs
+// Request ID para rastreamento em logs — correlaciona request ↔ log entry
 app.use((req, res, next) => {
   req.id = req.headers['x-request-id'] || randomUUID()
   res.setHeader('x-request-id', req.id)
+  logger.info({ reqId: req.id, method: req.method, url: req.url }, 'Request recebido')
   next()
 })
 
@@ -121,8 +131,18 @@ const apiLimiter = rateLimit({
 })
 app.use('/api', apiLimiter)
 
-// Health check (Railway / load-balancer)
-app.get('/health', (req, res) => res.json({ ok: true, uptime: process.uptime() }))
+// Health check com validação real de dependências
+app.get('/health', (req, res) => {
+  let dbOk = false
+  try { db.prepare('SELECT 1').get(); dbOk = true } catch {}
+  const status = dbOk ? 200 : 503
+  res.status(status).json({
+    ok: dbOk,
+    uptime: process.uptime(),
+    db: dbOk ? 'ok' : 'error',
+    ts: new Date().toISOString()
+  })
+})
 
 // Webhook WhatsApp
 app.use('/webhook', webhookRouter)

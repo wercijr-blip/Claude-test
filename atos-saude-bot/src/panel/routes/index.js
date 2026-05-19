@@ -12,7 +12,8 @@ import {
   getConversations, getConversationByPhone,
   getExamSubmissions, insertMessageLog, upsertSession,
   getAllUsers, insertUser, updateUserPassword, toggleUserActive, getUserAnyStatus,
-  invalidateUserCache, getMedicationRequests, getAgendamentosComSlot
+  invalidateUserCache, getMedicationRequests, getAgendamentosComSlot,
+  deletePatientData
 } from '../../services/db.js'
 import db from '../../services/db.js'
 import { generateExcel } from '../../services/export.js'
@@ -24,6 +25,7 @@ import { fmtHora, fmtData, notificarEncaixe } from '../../services/scheduler.js'
 import { requireAuth, hashPassword, verifyToken } from '../../services/auth.js'
 import { readFileSync, writeFileSync } from 'fs'
 import { addSSEClient, broadcastSSE } from '../../utils/sse.js'
+import { logger } from '../../utils/logger.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const UPLOADS_DIR = join(__dirname, '../../../uploads')
@@ -820,6 +822,23 @@ apiRouter.put('/textos', requireAuth(['admin']), async (req, res) => {
     await writeMessages(req.body)
     res.json({ ok: true })
   } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// DELETE /api/pacientes/:phone — direito ao esquecimento (LGPD art. 18 III)
+// Agendamentos são anonimizados (não deletados — CFM exige 20 anos de retenção)
+apiRouter.delete('/pacientes/:phone', requireAuth(['admin']), (req, res) => {
+  const { phone } = req.params
+  if (!phone || !/^\d{10,15}$/.test(phone)) {
+    return res.status(400).json({ error: 'Número de telefone inválido.' })
+  }
+  try {
+    deletePatientData(phone)
+    logger.info({ phone, operator: req.user?.username }, 'Dados do paciente removidos — LGPD art. 18 III')
+    res.json({ ok: true, message: 'Dados pessoais removidos. Agendamentos anonimizados conforme obrigação CFM.' })
+  } catch (err) {
+    logger.error({ phone, err: err.message }, 'Erro ao remover dados do paciente')
+    res.status(500).json({ error: err.message })
+  }
 })
 
 export default apiRouter

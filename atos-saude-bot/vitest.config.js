@@ -13,6 +13,17 @@ export default defineConfig({
       INSTANCE_NAME: 'test',
       ANTHROPIC_API_KEY: 'sk-ant-test'
     },
-    include: ['src/tests/**/*.test.js']
+    include: ['src/tests/**/*.test.js'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      include: ['src/**/*.js'],
+      exclude: ['src/tests/**', 'src/scripts/**', 'src/panel/index.html'],
+      thresholds: {
+        lines: 50,
+        functions: 50,
+        branches: 40
+      }
+    }
   }
 })

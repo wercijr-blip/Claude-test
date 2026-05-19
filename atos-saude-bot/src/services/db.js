@@ -4,7 +4,9 @@ import { dirname, join } from 'path'
 import { encryptPII, decryptPII } from '../utils/pii.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const DB_PATH = process.env.DB_PATH || join(__dirname, '../../atos-saude.db')
+// DATA_DIR aponta para volume persistente (Railway) em produção
+const DATA_DIR = process.env.DATA_DIR || join(__dirname, '../..')
+const DB_PATH = process.env.DB_PATH || join(DATA_DIR, 'atos-saude.db')
 
 const db = new Database(DB_PATH)
 db.pragma('journal_mode = WAL')
@@ -439,11 +441,11 @@ export function getHumanWaitingSessions(minMinutes = 10) {
   ).all()
 }
 
-// Messages log
+// Messages log — texto criptografado em repouso (LGPD)
 export function insertMessageLog({ phone, direction, text, flow, step }) {
   db.prepare(
     'INSERT INTO messages_log (phone, direction, text, flow, step) VALUES (?, ?, ?, ?, ?)'
-  ).run(phone, direction, text || '', flow || null, step || null)
+  ).run(phone, direction, encryptPII(text || ''), flow || null, step || null)
 }
 
 export function getConversations(limit = 100) {
@@ -465,13 +467,13 @@ export function getConversations(limit = 100) {
     WHERE m.id = (SELECT MAX(id) FROM messages_log WHERE phone = m.phone)
     ORDER BY m.timestamp DESC
     LIMIT ?
-  `).all(limit)
+  `).all(limit).map(row => ({ ...row, last_message: decryptPII(row.last_message) }))
 }
 
 export function getConversationByPhone(phone) {
   return db.prepare(
     'SELECT * FROM messages_log WHERE phone = ? ORDER BY timestamp ASC'
-  ).all(phone)
+  ).all(phone).map(row => ({ ...row, text: decryptPII(row.text) }))
 }
 
 export function deleteOldMessageLogs(daysOld = 90) {
@@ -492,6 +494,24 @@ export function insertExamSubmission(data) {
 
 export function getExamSubmissions() {
   return db.prepare('SELECT * FROM exam_submissions ORDER BY created_at DESC').all()
+}
+
+// Direito ao esquecimento — LGPD art. 18 III
+// Mantém agendamentos anonimizados (CFM exige retenção de 20 anos), remove todo o resto
+export function deletePatientData(phone) {
+  return db.transaction(() => {
+    db.prepare('DELETE FROM messages_log WHERE phone = ?').run(phone)
+    db.prepare('DELETE FROM satisfaction_responses WHERE phone = ?').run(phone)
+    db.prepare('DELETE FROM authorization_queries WHERE phone = ?').run(phone)
+    db.prepare('DELETE FROM sessions WHERE phone = ?').run(phone)
+    db.prepare('DELETE FROM encaixe_queue WHERE phone = ?').run(phone)
+    // Agendamentos anonimizados — PII substituída, registro mantido para CFM
+    db.prepare(`
+      UPDATE agendamentos
+      SET nome = ?, nascimento = ?, telefone_contato = ?, phone = NULL
+      WHERE phone = ?
+    `).run('[REMOVIDO]', '[REMOVIDO]', '[REMOVIDO]', phone)
+  })()
 }
 
 export function runTransaction(fn, ...args) {
