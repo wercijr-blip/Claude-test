@@ -28,6 +28,9 @@ if (missing.length > 0) {
   logger.warn(`Variáveis de ambiente não configuradas: ${missing.join(', ')}. Algumas funcionalidades estarão inativas.`)
 }
 if (!process.env.JWT_SECRET) {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_SECRET é obrigatório em produção. Configure a variável de ambiente.')
+  }
   logger.warn('JWT_SECRET não definido — usando chave padrão INSEGURA. Configure JWT_SECRET em produção!')
 }
 

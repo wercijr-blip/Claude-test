@@ -10,11 +10,20 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 
 let client = null
 function getClient() {
-  if (!client) client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  if (!client) {
+    if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY não configurada')
+    client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  }
   return client
 }
 
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'claude-haiku-4-5-20251001'
+
+// Carregado uma vez — evita leitura de disco em cada requisição
+const SYSTEM_PROMPT_TEMPLATE = readFileSync(
+  join(__dirname, '../config/system-prompt.txt'),
+  'utf-8'
+)
 
 export async function answerAuthorizationQuestion(phone, question) {
   const context = searchKnowledge(question)
@@ -24,17 +33,13 @@ export async function answerAuthorizationQuestion(phone, question) {
     return { answer: null, confidence: 'LOW' }
   }
 
-  const systemPromptTemplate = readFileSync(
-    join(__dirname, '../config/system-prompt.txt'),
-    'utf-8'
-  )
-  const systemPrompt = systemPromptTemplate.replace('{context}', context)
+  const systemPrompt = SYSTEM_PROMPT_TEMPLATE.replace('{context}', context)
 
   try {
     const response = await getClient().messages.create({
       model: CLAUDE_MODEL,
       max_tokens: 400,
-      system: systemPrompt,
+      system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
       messages: [{ role: 'user', content: question }]
     })
 
@@ -53,3 +58,4 @@ export async function answerAuthorizationQuestion(phone, question) {
     return { answer: null, confidence: 'LOW' }
   }
 }
+

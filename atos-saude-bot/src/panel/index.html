@@ -820,7 +820,7 @@
                     target="_blank">⬇ Baixar</a>
                   <span x-show="!e.file_path" class="text-xs text-gray-300">Sem arquivo</span>
                 </td>
-                <td class="text-xs text-gray-400" x-text="new Date(e.created_at).toLocaleString('pt-BR')"></td>
+                <td class="text-xs text-gray-400" x-text="formatDate(e.created_at)"></td>
               </tr>
             </template>
           </tbody>
@@ -886,7 +886,7 @@
                 <td x-text="m.convenio_informado||'—'"></td>
                 <td class="max-w-xs truncate text-xs text-gray-500" x-text="m.observacao||'—'"></td>
                 <td><span class="badge" :class="m.status==='PENDENTE'?'badge-pendente':'badge-confirmado'" x-text="m.status"></span></td>
-                <td class="text-xs text-gray-400" x-text="new Date(m.created_at).toLocaleString('pt-BR')"></td>
+                <td class="text-xs text-gray-400" x-text="formatDate(m.created_at)"></td>
               </tr>
             </template>
           </tbody>
@@ -924,7 +924,7 @@
               <tr class="tbl-row">
                 <td class="font-medium text-sm" x-text="k.filename"></td>
                 <td><span class="badge bg-purple-100 text-purple-700" x-text="k.category||'geral'"></span></td>
-                <td class="text-xs text-gray-400" x-text="new Date(k.created_at).toLocaleDateString('pt-BR')"></td>
+                <td class="text-xs text-gray-400" x-text="formatDate(k.created_at)"></td>
                 <td><button @click="removerConhecimento(k.id)" class="text-xs text-red-500 hover:text-red-700 underline">Remover</button></td>
               </tr>
             </template>
@@ -970,7 +970,7 @@
                   <span class="font-bold" :class="s.nota>=4?'text-green-500':s.nota>=3?'text-yellow-500':'text-red-500'" x-text="'★ '+s.nota"></span>
                 </td>
                 <td class="max-w-xs truncate text-xs text-gray-500" x-text="s.comentario||'—'"></td>
-                <td class="text-xs text-gray-400" x-text="new Date(s.created_at).toLocaleDateString('pt-BR')"></td>
+                <td class="text-xs text-gray-400" x-text="formatDate(s.created_at)"></td>
               </tr>
             </template>
           </tbody>
@@ -1002,7 +1002,7 @@
                 </td>
                 <td><span class="badge bg-purple-100 text-purple-700 text-xs" x-text="c.current_flow||c.last_flow||'—'"></span></td>
                 <td class="text-center text-xs font-bold text-[#3A2169]" x-text="c.message_count"></td>
-                <td class="text-xs text-gray-400" x-text="new Date(c.last_timestamp).toLocaleString('pt-BR')"></td>
+                <td class="text-xs text-gray-400" x-text="formatDate(c.last_timestamp)"></td>
                 <td><button class="text-xs text-[#2D8C8C] underline">Ver →</button></td>
               </tr>
             </template>
@@ -1250,10 +1250,12 @@ function painel() {
     },
 
     loadAll() {
-      this.loadAgenda(); this.loadTextos(); this.loadSessoesHumanas()
-      this.loadEncaixe(); this.loadMedicos(); this.loadUsuarios()
-      this.loadMedicacoes(); this.loadConhecimento(); this.loadSatisfacao()
-      this.loadConversas(); this.loadWAStatus(); this.loadExames()
+      Promise.all([
+        this.loadAgenda(), this.loadTextos(), this.loadSessoesHumanas(),
+        this.loadEncaixe(), this.loadMedicos(), this.loadUsuarios(),
+        this.loadMedicacoes(), this.loadConhecimento(), this.loadSatisfacao(),
+        this.loadConversas(), this.loadWAStatus(), this.loadExames()
+      ]).catch(e => console.error('loadAll error:', e))
     },
 
     // Agenda

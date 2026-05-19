@@ -21,10 +21,18 @@ import { sendText } from '../../services/whatsapp.js'
 import { msg, invalidateCache } from '../../utils/messages.js'
 import { fmtHora, fmtData, notificarEncaixe } from '../../services/scheduler.js'
 import { requireAuth, hashPassword } from '../../services/auth.js'
-import { readFileSync } from 'fs'
+import { readFileSync, writeFileSync } from 'fs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const UPLOADS_DIR = join(__dirname, '../../../uploads')
+
+const DOCTORS_FILE = new URL('../../config/doctors.json', import.meta.url)
+function loadDoctorsConfig() {
+  try { return JSON.parse(readFileSync(DOCTORS_FILE, 'utf-8')) } catch { return { doctors: [], workingHours: {} } }
+}
+function saveDoctorsConfig(config) {
+  writeFileSync(DOCTORS_FILE, JSON.stringify(config, null, 2), 'utf-8')
+}
 if (!existsSync(UPLOADS_DIR)) mkdirSync(UPLOADS_DIR, { recursive: true })
 
 const upload = multer({
@@ -254,23 +262,13 @@ apiRouter.post('/agendamentos/manual', async (req, res) => {
 
 // GET /api/messages  (leitura das mensagens configuráveis)
 apiRouter.get('/messages', (req, res) => {
-  try {
-    const m = JSON.parse(readFileSync(
-      new URL('../../config/messages.json', import.meta.url), 'utf-8'
-    ))
-    res.json(m)
-  } catch (err) {
-    res.status(500).json({ error: err.message })
-  }
+  res.json(readMessages())
 })
 
 // PUT /api/messages  (admin only)
 apiRouter.put('/messages', requireAuth(['admin']), async (req, res) => {
   try {
-    const { writeFileSync } = await import('fs')
-    const filePath = new URL('../../config/messages.json', import.meta.url)
-    writeFileSync(filePath, JSON.stringify(req.body, null, 2), 'utf-8')
-    invalidateCache()
+    await writeMessages(req.body)
     res.json({ ok: true })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -279,18 +277,13 @@ apiRouter.put('/messages', requireAuth(['admin']), async (req, res) => {
 
 // GET /api/doctors/all  (admin — inclui inativos + workingHours)
 apiRouter.get('/doctors/all', requireAuth(['admin']), (req, res) => {
-  try {
-    const config = JSON.parse(readFileSync(new URL('../../config/doctors.json', import.meta.url), 'utf-8'))
-    res.json(config)
-  } catch { res.json({ doctors: [], workingHours: {} }) }
+  res.json(loadDoctorsConfig())
 })
 
 // POST /api/doctors  (admin — criar médico + cria Google Calendar automaticamente)
 apiRouter.post('/doctors', requireAuth(['admin']), async (req, res) => {
   try {
-    const { writeFileSync } = await import('fs')
-    const filePath = new URL('../../config/doctors.json', import.meta.url)
-    const config = JSON.parse(readFileSync(filePath, 'utf-8'))
+    const config = loadDoctorsConfig()
     const { nome, crm, especialidade, whatsapp, email, calendarId, slotDurationMinutes } = req.body
     if (!nome || !especialidade) return res.status(400).json({ error: 'nome e especialidade são obrigatórios.' })
 
@@ -313,36 +306,32 @@ apiRouter.post('/doctors', requireAuth(['admin']), async (req, res) => {
       active: true
     }
     config.doctors.push(doctor)
-    writeFileSync(filePath, JSON.stringify(config, null, 2), 'utf-8')
+    saveDoctorsConfig(config)
     res.json({ ok: true, doctor, calendarCriado, calendarId: resolvedCalendarId })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
 // PUT /api/doctors/:id  (admin — atualizar médico ou agenda)
-apiRouter.put('/doctors/:id', requireAuth(['admin']), async (req, res) => {
+apiRouter.put('/doctors/:id', requireAuth(['admin']), (req, res) => {
   try {
-    const { writeFileSync } = await import('fs')
-    const filePath = new URL('../../config/doctors.json', import.meta.url)
-    const config = JSON.parse(readFileSync(filePath, 'utf-8'))
+    const config = loadDoctorsConfig()
     const idx = config.doctors.findIndex(d => d.id === req.params.id)
     if (idx === -1) return res.status(404).json({ error: 'Médico não encontrado.' })
     const allowed = ['nome','crm','especialidade','whatsapp','calendarId','slotDurationMinutes','schedule','active']
     for (const key of allowed) {
       if (req.body[key] !== undefined) config.doctors[idx][key] = req.body[key]
     }
-    writeFileSync(filePath, JSON.stringify(config, null, 2), 'utf-8')
+    saveDoctorsConfig(config)
     res.json({ ok: true, doctor: config.doctors[idx] })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
 // PUT /api/config/working-hours  (admin — horário padrão da clínica)
-apiRouter.put('/config/working-hours', requireAuth(['admin']), async (req, res) => {
+apiRouter.put('/config/working-hours', requireAuth(['admin']), (req, res) => {
   try {
-    const { writeFileSync } = await import('fs')
-    const filePath = new URL('../../config/doctors.json', import.meta.url)
-    const config = JSON.parse(readFileSync(filePath, 'utf-8'))
+    const config = loadDoctorsConfig()
     config.workingHours = req.body
-    writeFileSync(filePath, JSON.stringify(config, null, 2), 'utf-8')
+    saveDoctorsConfig(config)
     res.json({ ok: true })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
@@ -350,11 +339,7 @@ apiRouter.put('/config/working-hours', requireAuth(['admin']), async (req, res) 
 // GET /api/doctors  (ativos — para formulários de marcação)
 apiRouter.get('/doctors', (req, res) => {
   try {
-    const config = JSON.parse(readFileSync(
-      new URL('../../config/doctors.json', import.meta.url),
-      'utf-8'
-    ))
-    res.json(config.doctors.filter(d => d.active))
+    res.json(loadDoctorsConfig().doctors.filter(d => d.active))
   } catch {
     res.json([])
   }
@@ -757,8 +742,7 @@ apiRouter.patch('/usuarios/:id/reset-senha', requireAuth(['admin']), (req, res) 
 // GET /api/medicos — lista médicos ativos
 apiRouter.get('/medicos', requireAuth(['admin','secretaria']), (req, res) => {
   try {
-    const config = JSON.parse(readFileSync(new URL('../../config/doctors.json', import.meta.url), 'utf-8'))
-    const medicos = (config.doctors || []).map(d => ({
+    const medicos = (loadDoctorsConfig().doctors || []).map(d => ({
       id: d.id, nome: d.nome, especialidade: d.especialidade, especialidades: d.especialidade,
       crm: d.crm || '', calendarId: d.calendarId, active: d.active !== false
     }))
@@ -767,11 +751,9 @@ apiRouter.get('/medicos', requireAuth(['admin','secretaria']), (req, res) => {
 })
 
 // POST /api/medicos — criar médico
-apiRouter.post('/medicos', requireAuth(['admin']), async (req, res) => {
+apiRouter.post('/medicos', requireAuth(['admin']), (req, res) => {
   try {
-    const { writeFileSync } = await import('fs')
-    const filePath = new URL('../../config/doctors.json', import.meta.url)
-    const config = JSON.parse(readFileSync(filePath, 'utf-8'))
+    const config = loadDoctorsConfig()
     const { nome, especialidade, especialidades, crm, email, whatsapp, calendarId, slotDurationMinutes, diasSemana, horarioInicio, horarioFim } = req.body
     if (!nome) return res.status(400).json({ error: 'nome é obrigatório.' })
     const doctor = {
@@ -779,40 +761,36 @@ apiRouter.post('/medicos', requireAuth(['admin']), async (req, res) => {
       nome, crm: crm || '', especialidade: especialidade || especialidades || '',
       email: email || '', whatsapp: whatsapp || '',
       calendarId: calendarId || '',
-      slotDurationMinutes: Number(slotDurationMinutes) || 30,
+      slotDurationMinutes: Math.max(15, Math.min(480, Number(slotDurationMinutes) || 30)),
       diasSemana: diasSemana || [], horarioInicio: horarioInicio || '08:00', horarioFim: horarioFim || '18:00',
       schedule: null, active: true
     }
     config.doctors.push(doctor)
-    writeFileSync(filePath, JSON.stringify(config, null, 2), 'utf-8')
+    saveDoctorsConfig(config)
     res.json({ ok: true, data: doctor })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
 // DELETE /api/medicos/:id — desativar médico
-apiRouter.delete('/medicos/:id', requireAuth(['admin']), async (req, res) => {
+apiRouter.delete('/medicos/:id', requireAuth(['admin']), (req, res) => {
   try {
-    const { writeFileSync } = await import('fs')
-    const filePath = new URL('../../config/doctors.json', import.meta.url)
-    const config = JSON.parse(readFileSync(filePath, 'utf-8'))
+    const config = loadDoctorsConfig()
     const idx = config.doctors.findIndex(d => d.id === req.params.id)
     if (idx === -1) return res.status(404).json({ error: 'Médico não encontrado.' })
     config.doctors[idx].active = false
-    writeFileSync(filePath, JSON.stringify(config, null, 2), 'utf-8')
+    saveDoctorsConfig(config)
     res.json({ ok: true })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
 // PATCH /api/medicos/:id/toggle — ativar/desativar médico
-apiRouter.patch('/medicos/:id/toggle', requireAuth(['admin']), async (req, res) => {
+apiRouter.patch('/medicos/:id/toggle', requireAuth(['admin']), (req, res) => {
   try {
-    const { writeFileSync } = await import('fs')
-    const filePath = new URL('../../config/doctors.json', import.meta.url)
-    const config = JSON.parse(readFileSync(filePath, 'utf-8'))
+    const config = loadDoctorsConfig()
     const idx = config.doctors.findIndex(d => d.id === req.params.id)
     if (idx === -1) return res.status(404).json({ error: 'Médico não encontrado.' })
     config.doctors[idx].active = !config.doctors[idx].active
-    writeFileSync(filePath, JSON.stringify(config, null, 2), 'utf-8')
+    saveDoctorsConfig(config)
     res.json({ ok: true, active: config.doctors[idx].active })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
@@ -834,9 +812,7 @@ apiRouter.get('/medicos/:id/slots', async (req, res) => {
 // PUT /api/textos — substituir todo o messages.json de uma vez
 apiRouter.put('/textos', requireAuth(['admin']), async (req, res) => {
   try {
-    const { writeFileSync } = await import('fs')
-    writeFileSync(MSG_FILE, JSON.stringify(req.body, null, 2), 'utf-8')
-    invalidateCache()
+    await writeMessages(req.body)
     res.json({ ok: true })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
