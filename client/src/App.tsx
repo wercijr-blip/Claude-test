@@ -43,12 +43,94 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
 }
 
 function CISDashboard() {
+  const { logout } = useAuth()
+  const abrirSessao = trpc.scriba.abrirSessao.useMutation()
+  const { data: notas, refetch: refetchNotas } = trpc.scriba.listarSoapNotes.useQuery(
+    { limit: 10 },
+    { retry: false },
+  )
+  const { data: alertas } = trpc.scriba.listarAlertas.useQuery(
+    { incluirVistos: false, limit: 5 },
+    { retry: false },
+  )
+
+  const handleAbrirSessao = () => {
+    abrirSessao.mutate(void 0, { onSuccess: () => refetchNotas() })
+  }
+
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold text-slate-800 mb-2">CIS — Dashboard</h1>
-        <p className="text-slate-500">Interface do médico em desenvolvimento.</p>
-      </div>
+    <div className="min-h-screen bg-slate-50">
+      <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+        <h1 className="text-lg font-semibold text-slate-800">CIS — Sistema de Inteligência Clínica</h1>
+        <button
+          onClick={logout}
+          className="text-sm text-slate-500 hover:text-slate-700 transition-colors"
+        >
+          Sair
+        </button>
+      </header>
+
+      <main className="max-w-3xl mx-auto px-6 py-8 space-y-6">
+        {alertas && alertas.length > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+            <p className="text-sm font-semibold text-amber-800 mb-2">
+              ⚠️ {alertas.length} alerta{alertas.length > 1 ? 's' : ''} de conduta pendente{alertas.length > 1 ? 's' : ''}
+            </p>
+            <ul className="space-y-1">
+              {alertas.map((a) => (
+                <li key={a.id} className="text-sm text-amber-700">
+                  <span className="font-medium capitalize">{a.nivelUrgencia}</span>
+                  {a.mensagemMedico ? ` — ${a.mensagemMedico}` : ''}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <div className="bg-white rounded-2xl border border-slate-200 p-6">
+          <h2 className="text-sm font-semibold text-slate-700 mb-4">Sessão Clínica</h2>
+          <button
+            onClick={handleAbrirSessao}
+            disabled={abrirSessao.isPending}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-5 rounded-xl transition-colors disabled:opacity-50 text-sm"
+          >
+            {abrirSessao.isPending ? 'Abrindo…' : 'Iniciar Atendimento'}
+          </button>
+          {abrirSessao.isSuccess && (
+            <p className="mt-3 text-sm text-green-600">
+              Sessão {abrirSessao.data.nova ? 'aberta' : 'retomada'} — ID {abrirSessao.data.sessionId}
+            </p>
+          )}
+          {abrirSessao.isError && (
+            <p className="mt-3 text-sm text-red-500">{abrirSessao.error.message}</p>
+          )}
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-200 p-6">
+          <h2 className="text-sm font-semibold text-slate-700 mb-4">Notas Recentes</h2>
+          {!notas || notas.length === 0 ? (
+            <p className="text-sm text-slate-400">Nenhuma nota registrada ainda.</p>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {notas.map((n) => (
+                <li key={n.id} className="py-3 flex items-start gap-3">
+                  <span className="mt-0.5 text-xs font-mono bg-slate-100 text-slate-500 px-2 py-0.5 rounded">
+                    {n.cid10 ?? '—'}
+                  </span>
+                  <div>
+                    <p className="text-sm font-medium text-slate-800">
+                      {n.diagnosticoPrincipal ?? 'Diagnóstico não definido'}
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      {n.template} · {new Date(n.createdAt).toLocaleString('pt-BR')}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </main>
     </div>
   )
 }

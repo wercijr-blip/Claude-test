@@ -58,6 +58,9 @@ export const soapNotes = mysqlTable('soap_notes', {
   pubmedQuery: text('pubmed_query'),
   sinteseEvidencias: text('sintese_evidencias'),
   evidenceMetadata: json('evidence_metadata'),
+  // CFM Res. 1821/2007: prontuário médico deve ser mantido por no mínimo 20 anos.
+  retencaoAte: datetime('retencao_ate').default(sql`DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 20 YEAR)`),
+  deletedAt: datetime('deleted_at'),
   createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (t) => ({
   sessionIdx: index('idx_soap_session').on(t.sessionId),

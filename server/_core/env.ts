@@ -39,7 +39,12 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   // Set to false when running a dedicated worker service (server/workers.ts).
   // Defaults to true so single-service deploys work without extra config.
-  WORKERS_ENABLED: z.coerce.boolean().default(true),
+  // z.coerce.boolean() uses Boolean() which converts string "false" → true (non-empty string bug).
+  // z.preprocess handles string env var values correctly.
+  WORKERS_ENABLED: z.preprocess(
+    v => v === 'false' || v === '0' ? false : v === undefined ? true : Boolean(v),
+    z.boolean(),
+  ),
 
   // Sentry — optional, wired up in a separate PR once DSNs are available
   SENTRY_DSN_SERVER: z.string().url().optional(),

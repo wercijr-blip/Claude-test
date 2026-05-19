@@ -2,11 +2,11 @@ import type { Request } from 'express'
 import { jwtVerify } from 'jose'
 import { env } from './env.ts'
 import { db } from '../db.ts'
-import { users } from '../../drizzle/schema.ts'
+import { users } from '../../drizzle/cis-schema.ts'
 import { eq, isNull, and } from 'drizzle-orm'
-import type { AuthUser, PatientSession } from '../../shared/types.ts'
+import type { AuthUser } from '../../shared/types.ts'
 
-export type SessionUser = AuthUser | PatientSession
+export type SessionUser = AuthUser
 
 export interface Context {
   req: Request
@@ -20,17 +20,6 @@ export async function createContext({ req }: { req: Request }): Promise<Context>
   try {
     const secret = new TextEncoder().encode(env.JWT_SECRET)
     const { payload } = await jwtVerify(token, secret)
-
-    if (payload['type'] === 'patient') {
-      return {
-        req,
-        session: {
-          type: 'patient',
-          tokenId: payload['tokenId'] as number,
-          pacienteId: (payload['pacienteId'] as number | null) ?? null,
-        },
-      }
-    }
 
     if (payload['type'] === 'staff' && payload.sub) {
       const user = await db
@@ -64,6 +53,6 @@ export async function createContext({ req }: { req: Request }): Promise<Context>
 function extractToken(req: Request): string | null {
   const auth = req.headers.authorization
   if (auth?.startsWith('Bearer ')) return auth.slice(7)
-  const cookie = req.cookies?.fp_session as string | undefined
+  const cookie = req.cookies?.cis_session as string | undefined
   return cookie ?? null
 }

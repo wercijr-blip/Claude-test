@@ -1081,7 +1081,7 @@ type DigestMensalParams = {
   cronogramaPublicacaoJson: string
 }
 
-const PROMPT_09_SYSTEM = `${DIGEST_BASE}
+const PROMPT_09_SYSTEM = `${DIGEST_BASE_STR}
 
 Gere o resumo mensal analítico. Máximo 1000 palavras. Seja analítico — identifique padrões, priorize informações acionáveis.
 

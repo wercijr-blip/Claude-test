@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { AuthUser, PatientSession } from '@shared/types.ts'
 
-const TOKEN_KEY = 'fp_token'
+const TOKEN_KEY = 'cis_token'
 
 export function isJwtExpired(token: string): boolean {
   try {
