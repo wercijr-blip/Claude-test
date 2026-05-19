@@ -12,7 +12,7 @@ import { redis } from './redis.ts'
 import { applySecurityMiddleware } from './security.ts'
 import { appRouter } from '../routers.ts'
 import { createContext } from './context.ts'
-import { authLimiter, tokenValidateLimiter, uploadLimiter, totpLimiter, dataRightsLimiter } from './rateLimiters.ts'
+import { authLimiter, tokenValidateLimiter, uploadLimiter, totpLimiter, dataRightsLimiter, globalLimiter } from './rateLimiters.ts'
 import { db } from '../db.ts'
 import { ensureSchema } from './ensureSchema.ts'
 import { Sentry } from './instrument.ts'
@@ -34,6 +34,7 @@ app.set('trust proxy', 1)
 
 applySecurityMiddleware(app)
 app.use(cookieParser())
+app.use(globalLimiter)
 
 // Request ID — assigns a short UUID per request, logs method/url/status/duration
 app.use((req, res, next) => {

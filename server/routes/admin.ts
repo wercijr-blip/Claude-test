@@ -13,7 +13,7 @@ import { TRPCError } from '@trpc/server'
 import { db } from '../db.ts'
 import { securityEvents, pacientes, exames, pdfs, consultasInicio } from '../../drizzle/schema.ts'
 import { eq, desc, inArray, count, and } from 'drizzle-orm'
-import { decrypt } from '../_core/encryption.ts'
+import { decrypt, safeDecrypt } from '../_core/encryption.ts'
 import { filtrarExamePorStatus } from '../examUtils.ts'
 import { inspecionarCertificado, assinarPdf } from '../pdfSigner.ts'
 import { gerarEEnviarLinkAcesso } from './intake.ts'
@@ -56,7 +56,7 @@ export const adminRouter = router({
 
       const decrypted = rows.map((p) => ({
         id: p.id,
-        nome: decrypt(p.nomeEncrypted),
+        nome: safeDecrypt(p.nomeEncrypted),
         cpfHash: p.cpfHash,
         status: p.status,
         tipoAtendimento: p.tipoAtendimento,
@@ -108,6 +108,7 @@ export const adminRouter = router({
         .from(exames)
         .leftJoin(pacientes, eq(pacientes.id, exames.pacienteId))
         .orderBy(desc(exames.createdAt))
+        .limit(500)
 
       const statusFiltro = input?.status ?? 'todos'
 
@@ -126,8 +127,8 @@ export const adminRouter = router({
           liberadoEm: r.liberadoEm,
           createdAt: r.createdAt,
           paciente: {
-            nome: r.pacienteNomeEncrypted ? decrypt(r.pacienteNomeEncrypted) : null,
-            email: r.pacienteEmailEncrypted ? decrypt(r.pacienteEmailEncrypted) : null,
+            nome: r.pacienteNomeEncrypted ? safeDecrypt(r.pacienteNomeEncrypted) : null,
+            email: r.pacienteEmailEncrypted ? safeDecrypt(r.pacienteEmailEncrypted) : null,
             status: r.pacienteStatus,
             tipoAtendimento: r.pacienteTipoAtendimento,
           },
@@ -187,7 +188,7 @@ export const adminRouter = router({
 
     return rows.map((p) => ({
       id: p.id,
-      nome: decrypt(p.nomeEncrypted),
+      nome: safeDecrypt(p.nomeEncrypted),
       status: p.status,
       currentStep: p.currentStep,
       tipoAtendimento: p.tipoAtendimento,

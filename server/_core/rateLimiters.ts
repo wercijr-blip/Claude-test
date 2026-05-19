@@ -2,13 +2,24 @@ import rateLimit from 'express-rate-limit'
 import { RedisStore } from 'rate-limit-redis'
 import { redis } from './redis.ts'
 import { RATE_LIMITS } from '../../shared/security-constants.ts'
+import type { SendCommandFn } from 'rate-limit-redis'
 
 function makeStore(prefix: string) {
   return new RedisStore({
-    sendCommand: ((...args: string[]) => redis.call(args[0], ...args.slice(1))) as any,
+    sendCommand: ((...args: string[]) => redis.call(args[0]!, ...args.slice(1))) as unknown as SendCommandFn,
     prefix: `rl:${prefix}:`,
   })
 }
+
+// Global IP limiter — blanket protection against floods across all endpoints
+export const globalLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 300,
+  message: { error: 'Muitas requisições. Tente novamente em 1 minuto.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: makeStore('global'),
+})
 
 export const authLimiter = rateLimit({
   windowMs: RATE_LIMITS.AUTH.windowMs,

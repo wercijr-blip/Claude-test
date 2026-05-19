@@ -1,4 +1,5 @@
 import { lazy, Suspense, Component, useEffect, useRef, useState, type ReactNode } from 'react'
+import * as Sentry from '@sentry/react'
 import { Route, Switch, useLocation } from 'wouter'
 import { useAuth, parseJwtPayload } from './_core/hooks/useAuth.ts'
 // Eager: needed immediately for the landing page and core auth flow
@@ -58,6 +59,10 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
     return { hasError: true }
   }
 
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    Sentry.captureException(error, { extra: { componentStack: info.componentStack } })
+  }
+
   render() {
     if (this.state.hasError) {
       return (
@@ -97,6 +102,22 @@ function FormularioGate({ pacienteId }: { pacienteId?: number }) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-600 rounded-full animate-spin" />
+      </div>
+    )
+  }
+
+  if (statusQuery.isError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <p className="text-slate-600">Não foi possível verificar o status do atendimento.</p>
+          <button
+            onClick={() => void statusQuery.refetch()}
+            className="text-blue-600 underline text-sm"
+          >
+            Tentar novamente
+          </button>
+        </div>
       </div>
     )
   }

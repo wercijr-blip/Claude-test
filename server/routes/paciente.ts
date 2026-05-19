@@ -124,6 +124,11 @@ export const pacienteRouter = router({
       const tipoAtendimento = tokenInfo?.tipo === 'convenio' ? 'convenio' : 'particular'
       const convenio = tokenInfo?.convenio ?? null
 
+      const cpfEncrypted = encrypt(input.cpf)
+      const nomeEncrypted = encrypt(input.nome)
+      const dataNascimentoEncrypted = encrypt(input.dataNascimento)
+      const nomeMaeEncrypted = encrypt(input.nomeMae)
+
       const targetId = ctx.session.pacienteId ?? await (async () => {
         const [existing] = await db
           .select({ id: pacientes.id })
@@ -137,11 +142,11 @@ export const pacienteRouter = router({
         await db
           .update(pacientes)
           .set({
-            cpfEncrypted: encrypt(input.cpf),
+            cpfEncrypted,
             cpfHash,
-            nomeEncrypted: encrypt(input.nome),
-            dataNascimentoEncrypted: encrypt(input.dataNascimento),
-            nomeMaeEncrypted: encrypt(input.nomeMae),
+            nomeEncrypted,
+            dataNascimentoEncrypted,
+            nomeMaeEncrypted,
             cns: input.cns,
             sexo: input.sexo,
             nomeSocial: input.nomeSocial,
@@ -163,11 +168,11 @@ export const pacienteRouter = router({
       // the existing row's ID on conflict, so insertId is always the right ID.
       await db.insert(pacientes).values({
         tokenId,
-        cpfEncrypted: encrypt(input.cpf),
+        cpfEncrypted,
         cpfHash,
-        nomeEncrypted: encrypt(input.nome),
-        dataNascimentoEncrypted: encrypt(input.dataNascimento),
-        nomeMaeEncrypted: encrypt(input.nomeMae),
+        nomeEncrypted,
+        dataNascimentoEncrypted,
+        nomeMaeEncrypted,
         cns: input.cns,
         sexo: input.sexo,
         nomeSocial: input.nomeSocial,
@@ -177,11 +182,11 @@ export const pacienteRouter = router({
         retentionUntil,
       }).onDuplicateKeyUpdate({
         set: {
-          cpfEncrypted: encrypt(input.cpf),
+          cpfEncrypted,
           cpfHash,
-          nomeEncrypted: encrypt(input.nome),
-          dataNascimentoEncrypted: encrypt(input.dataNascimento),
-          nomeMaeEncrypted: encrypt(input.nomeMae),
+          nomeEncrypted,
+          dataNascimentoEncrypted,
+          nomeMaeEncrypted,
           cns: input.cns,
           sexo: input.sexo,
           nomeSocial: input.nomeSocial,

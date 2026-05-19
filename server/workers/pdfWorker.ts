@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto'
 import { Worker } from 'bullmq'
 import { db } from '../db.ts'
 import { pacientes, pdfs, consultasInicio, accessTokens } from '../../drizzle/schema.ts'
@@ -16,6 +17,20 @@ import {
   PDF_QUEUE_NAME, QUEUE_PREFIX, connection, PDF_WORKER_OPTS,
   pdfQueue, pesquisaQueue, persistDlq,
 } from './queues.ts'
+
+async function assinarESalvar(
+  pacienteId: number,
+  rawBuf: Buffer,
+  titulo: string,
+  tipo: string,
+  suffix: string,
+): Promise<Buffer> {
+  const { buffer: signed, certificadoSerial, assinadoEm } = await assinarPdf(rawBuf, titulo)
+  const key = `pdfs/${pacienteId}/${randomUUID()}-${suffix}`
+  await uploadBuffer(key, signed, 'application/pdf')
+  await db.insert(pdfs).values({ pacienteId, s3Key: key, tipo, certificadoSerial, assinadoEm })
+  return signed
+}
 
 export async function enqueueGerarPdf(pacienteId: number) {
   // jobId determinístico evita enfileirar duplicados em clique duplo / retry de rede.
@@ -86,11 +101,7 @@ export function startPdfWorker() {
 
       // 1. Receita / Prescrição (sempre)
       const prescBuf = await gerarPrescricaoPdf(pacienteDecrypted)
-      const { buffer: signedPresc, certificadoSerial: serialPresc, assinadoEm: assinadoPresc } =
-        await assinarPdf(prescBuf, 'Receita PrEP — Facilita PrEP')
-      const prescKey = `pdfs/${pacienteId}/${Date.now() + 1}-prescricao.pdf`
-      await uploadBuffer(prescKey, signedPresc, 'application/pdf')
-      await db.insert(pdfs).values({ pacienteId, s3Key: prescKey, tipo: 'prescricao', certificadoSerial: serialPresc, assinadoEm: assinadoPresc })
+      const signedPresc = await assinarESalvar(pacienteId, prescBuf, 'Receita PrEP — Facilita PrEP', 'prescricao', 'prescricao.pdf')
       gerados.push({ filename: 'receita-prep.pdf', buffer: signedPresc })
 
       // 2. Cadastro SUS (somente primeiro atendimento)
@@ -115,11 +126,7 @@ export function startPdfWorker() {
           email,
           telefone,
         }))
-        const { buffer: signedCad, certificadoSerial: serialCad, assinadoEm: assinadoCad } =
-          await assinarPdf(cadastroBuf, 'Cadastro de Usuário SUS PrEP — Facilita PrEP')
-        const cadKey = `pdfs/${pacienteId}/${Date.now() + 2}-cadastro-sus.pdf`
-        await uploadBuffer(cadKey, signedCad, 'application/pdf')
-        await db.insert(pdfs).values({ pacienteId, s3Key: cadKey, tipo: 'cadastro', certificadoSerial: serialCad, assinadoEm: assinadoCad })
+        const signedCad = await assinarESalvar(pacienteId, cadastroBuf, 'Cadastro de Usuário SUS PrEP — Facilita PrEP', 'cadastro', 'cadastro-sus.pdf')
         gerados.push({ filename: 'cadastro-usuario-sus-prep.pdf', buffer: signedCad })
       }
 
@@ -140,11 +147,7 @@ export function startPdfWorker() {
         temSintomasDst: cond.temSintomasDst ?? null,
         usoDrogas: cond.usoDrogas ?? null,
       }, configClinica))
-      const { buffer: signedFicha, certificadoSerial: serialFicha, assinadoEm: assinadoFicha } =
-        await assinarPdf(fichaBuf, 'Ficha de Atendimento PrEP — Facilita PrEP')
-      const fichaKey = `pdfs/${pacienteId}/${Date.now() + 3}-ficha-atendimento.pdf`
-      await uploadBuffer(fichaKey, signedFicha, 'application/pdf')
-      await db.insert(pdfs).values({ pacienteId, s3Key: fichaKey, tipo: 'ficha_atendimento', certificadoSerial: serialFicha, assinadoEm: assinadoFicha })
+      const signedFicha = await assinarESalvar(pacienteId, fichaBuf, 'Ficha de Atendimento PrEP — Facilita PrEP', 'ficha_atendimento', 'ficha-atendimento.pdf')
       gerados.push({ filename: 'ficha-atendimento-prep.pdf', buffer: signedFicha })
 
       // 4. Pedidos de exame (sempre)
@@ -164,11 +167,7 @@ export function startPdfWorker() {
         ] as const
         for (const { buf, tipo, filename, titulo } of pedidosBuffers) {
           try {
-            const { buffer: signedBuf, certificadoSerial: serialPedido, assinadoEm: assinadoPedido } =
-              await assinarPdf(buf, titulo)
-            const signedKey = `pdfs/${pacienteId}/${Date.now() + 4}-${tipo}-assinado.pdf`
-            await uploadBuffer(signedKey, signedBuf, 'application/pdf')
-            await db.insert(pdfs).values({ pacienteId, s3Key: signedKey, tipo, certificadoSerial: serialPedido, assinadoEm: assinadoPedido })
+            const signedBuf = await assinarESalvar(pacienteId, buf, titulo, tipo, `${tipo}-assinado.pdf`)
             gerados.push({ filename, buffer: signedBuf })
           } catch (err) {
             logger.error('[pdfQueue] Falha ao assinar pedido (continuando)', { pacienteId, tipo, error: String(err) })
@@ -191,11 +190,7 @@ export function startPdfWorker() {
           densitometria: !!consulta?.pedidoDensitometriaS3Key,
         },
       })
-      const { buffer: signedOri, certificadoSerial: serialOri, assinadoEm: assinadoOri } =
-        await assinarPdf(orientacaoBuf, 'Documento de Orientação PrEP — Facilita PrEP')
-      const oriKey = `pdfs/${pacienteId}/${Date.now() + 4}-orientacao.pdf`
-      await uploadBuffer(oriKey, signedOri, 'application/pdf')
-      await db.insert(pdfs).values({ pacienteId, s3Key: oriKey, tipo: 'orientacao', certificadoSerial: serialOri, assinadoEm: assinadoOri })
+      const signedOri = await assinarESalvar(pacienteId, orientacaoBuf, 'Documento de Orientação PrEP — Facilita PrEP', 'orientacao', 'orientacao.pdf')
       gerados.push({ filename: 'orientacao-prep.pdf', buffer: signedOri })
 
       const emailAddr = email ?? (await db
