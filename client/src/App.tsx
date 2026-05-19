@@ -74,11 +74,14 @@ function CISDashboard() {
     isLoading: notasLoading,
     isError: notasError,
   } = trpc.scriba.listarSoapNotes.useQuery({ limit: 10 }, { retry: false });
-  const { data: alertas, isLoading: alertasLoading } =
-    trpc.scriba.listarAlertas.useQuery(
-      { incluirVistos: false, limit: 5 },
-      { retry: false },
-    );
+  const {
+    data: alertas,
+    isLoading: alertasLoading,
+    isError: alertasError,
+  } = trpc.scriba.listarAlertas.useQuery(
+    { incluirVistos: false, limit: 5 },
+    { retry: false },
+  );
   const marcarVisto = trpc.scriba.marcarAlertaVisto.useMutation({
     onSuccess: () => {
       utils.scriba.listarAlertas.invalidate();
@@ -104,7 +107,20 @@ function CISDashboard() {
       </header>
 
       <main className="max-w-3xl mx-auto px-6 py-8 space-y-6">
-        {!alertasLoading && alertaItems.length > 0 && (
+        {alertasLoading && (
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 animate-pulse">
+            <div className="h-4 bg-slate-200 rounded w-1/3 mb-2" />
+            <div className="h-3 bg-slate-200 rounded w-2/3" />
+          </div>
+        )}
+
+        {!alertasLoading && alertasError && (
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
+            <p className="text-sm text-red-600">Não foi possível carregar alertas.</p>
+          </div>
+        )}
+
+        {!alertasLoading && !alertasError && alertaItems.length > 0 && (
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
             <p className="text-sm font-semibold text-amber-800 mb-2">
               ⚠️ {alertaItems.length} alerta{alertaItems.length > 1 ? "s" : ""}{" "}
@@ -245,6 +261,9 @@ function AuthCallback() {
       const session = parseJwtPayload(data.token);
       const role = session?.type === "staff" ? session.role : null;
       navigate(role === "admin" ? "/admin" : "/medico");
+    },
+    onError: (err) => {
+      console.error("[auth.callback]", err.message);
     },
   });
 

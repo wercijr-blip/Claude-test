@@ -7,7 +7,7 @@
 
 ## Contexto
 
-Facilita PrEP é inicialmente desenvolvida para um único médico: **Dr. Werciley Saraiva Vieira Junior (CRM-DF 16381)**. O sistema gerencia prontuários, SOAP notes, Clinical Digest e assinatura digital de PDFs exclusivamente para esse profissional.
+O CIS é desenvolvido para um único médico: **Dr. Werciley Saraiva Vieira Junior (CRM-DF 16381)**. O sistema gerencia sessões clínicas, SOAP notes, Clinical Digest e síntese de evidências exclusivamente para esse profissional.
 
 Escalar para uma arquitetura multi-médico (multi-tenant) exigiria mudanças significativas:
 

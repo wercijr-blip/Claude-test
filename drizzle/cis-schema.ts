@@ -24,6 +24,7 @@ export const users = mysqlTable(
     role: varchar("role", { length: 50 }).notNull().default("medico"),
     ativo: boolean("ativo").notNull().default(true),
     totpEnabled: boolean("totp_enabled").notNull().default(false),
+    totpSecret: varchar("totp_secret", { length: 64 }),
     deletedAt: datetime("deleted_at"),
     createdAt: datetime("created_at")
       .notNull()
@@ -205,5 +206,29 @@ export const clinicalDigests = mysqlTable(
       t.tipo,
       t.periodoRef,
     ),
+  }),
+);
+
+// ── Audit Log ─────────────────────────────────────────────────────────────────
+
+export const auditLog = mysqlTable(
+  "audit_log",
+  {
+    id: int("id").primaryKey().autoincrement(),
+    actorId: int("actor_id"),
+    actorRole: varchar("actor_role", { length: 50 }),
+    action: varchar("action", { length: 100 }).notNull(),
+    resourceType: varchar("resource_type", { length: 50 }).notNull(),
+    resourceId: int("resource_id"),
+    detalhes: json("detalhes"),
+    ipAddress: varchar("ip_address", { length: 45 }),
+    createdAt: datetime("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (t) => ({
+    actorIdx: index("idx_audit_actor").on(t.actorId),
+    actionIdx: index("idx_audit_action").on(t.action),
+    createdAtIdx: index("idx_audit_created").on(t.createdAt),
   }),
 );

@@ -127,6 +127,21 @@ const DDL_STATEMENTS = [
     INDEX idx_cdigests_tipo (tipo),
     CONSTRAINT fk_digests_medico FOREIGN KEY (medico_id) REFERENCES users(id)
   )`,
+
+  `CREATE TABLE IF NOT EXISTS audit_log (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    actor_id INT,
+    actor_role VARCHAR(50),
+    action VARCHAR(100) NOT NULL,
+    resource_type VARCHAR(50) NOT NULL,
+    resource_id INT,
+    detalhes JSON,
+    ip_address VARCHAR(45),
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_audit_actor (actor_id),
+    INDEX idx_audit_action (action),
+    INDEX idx_audit_created (created_at)
+  )`,
 ];
 
 // Column patches for tables that may exist from an older schema version.
@@ -135,6 +150,7 @@ const COLUMN_PATCHES: Record<string, Array<{ name: string; ddl: string }>> = {
   users: [
     { name: "deleted_at", ddl: "DATETIME" },
     { name: "totp_enabled", ddl: "TINYINT(1) NOT NULL DEFAULT 0" },
+    { name: "totp_secret", ddl: "VARCHAR(64)" },
   ],
   clinical_sessions: [
     { name: "aberta_em", ddl: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" },
@@ -178,9 +194,7 @@ const COLUMN_PATCHES: Record<string, Array<{ name: string; ddl: string }>> = {
 
 async function getExistingColumns(table: string): Promise<Set<string>> {
   const rows = (await db.execute(
-    sql.raw(
-      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '${table}'`,
-    ),
+    sql`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ${table}`,
   )) as unknown as
     | Array<{ COLUMN_NAME?: string; column_name?: string }>
     | { rows?: Array<{ COLUMN_NAME?: string; column_name?: string }> };

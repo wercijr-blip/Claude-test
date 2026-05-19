@@ -1,4 +1,6 @@
 import { logger } from "./logger.ts";
+import { db } from "../db.ts";
+import { auditLog } from "../../drizzle/cis-schema.ts";
 
 export type AuditAction =
   | "user.login"
@@ -41,4 +43,22 @@ export function logAudit(entry: AuditEntry): void {
     ip: entry.ipAddress,
     ...entry.detalhes,
   });
+
+  // Persist to DB — fire-and-forget; never block the request path
+  db.insert(auditLog)
+    .values({
+      actorId: entry.actorId ?? null,
+      actorRole: entry.actorRole ?? null,
+      action: entry.action,
+      resourceType: entry.resourceType,
+      resourceId: entry.resourceId ?? null,
+      detalhes: entry.detalhes ?? null,
+      ipAddress: entry.ipAddress ?? null,
+    })
+    .catch((err) => {
+      logger.error("[audit] falha ao persistir no banco", {
+        error: String(err),
+        action: entry.action,
+      });
+    });
 }

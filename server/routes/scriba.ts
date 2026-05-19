@@ -770,11 +770,32 @@ export const scribaRouter = router({
           and(eq(soapNotes.medicoId, medicoId), isNull(soapNotes.deletedAt)),
         ),
       db
-        .select()
+        .select({
+          id: conductAlerts.id,
+          soapNoteId: conductAlerts.soapNoteId,
+          diagnostico: conductAlerts.diagnostico,
+          cid10: conductAlerts.cid10,
+          nivelUrgencia: conductAlerts.nivelUrgencia,
+          mensagemMedico: conductAlerts.mensagemMedico,
+          vistoEm: conductAlerts.vistoEm,
+          supressaoAte: conductAlerts.supressaoAte,
+          feedbackMedico: conductAlerts.feedbackMedico,
+          feedbackMotivo: conductAlerts.feedbackMotivo,
+          feedbackEm: conductAlerts.feedbackEm,
+          createdAt: conductAlerts.createdAt,
+        })
         .from(conductAlerts)
         .where(eq(conductAlerts.medicoId, medicoId)),
       db
-        .select()
+        .select({
+          id: clinicalDigests.id,
+          tipo: clinicalDigests.tipo,
+          periodoRef: clinicalDigests.periodoRef,
+          texto: clinicalDigests.texto,
+          totalConsultas: clinicalDigests.totalConsultas,
+          totalAlertas: clinicalDigests.totalAlertas,
+          geradoEm: clinicalDigests.geradoEm,
+        })
         .from(clinicalDigests)
         .where(eq(clinicalDigests.medicoId, medicoId)),
       db

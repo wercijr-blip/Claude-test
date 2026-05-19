@@ -19,7 +19,7 @@ import {
 } from "express";
 import { db } from "../db.ts";
 import { soapNotes, conductAlerts } from "../../drizzle/cis-schema.ts";
-import { eq, and, desc, gte, lte, sql } from "drizzle-orm";
+import { eq, and, desc, gte, lte, lt, sql } from "drizzle-orm";
 import { env } from "../_core/env.ts";
 import { logger } from "../_core/logger.ts";
 import { getOpusBudgetStatus } from "../clinicalIntelligence.ts";
@@ -112,7 +112,11 @@ cisRestRouter.get(
     if (!medicoId) return;
 
     const limit = Math.min(Math.max(Number(req.query["limit"]) || 20, 1), 100);
-    const offset = Math.max(Number(req.query["offset"]) || 0, 0);
+    const cursorId =
+      req.query["cursor"] !== undefined
+        ? Math.max(Number(req.query["cursor"]) || 0, 0)
+        : undefined;
+    const offset = cursorId !== undefined ? 0 : Math.max(Number(req.query["offset"]) || 0, 0);
     const cid10 =
       typeof req.query["cid10"] === "string" &&
       CID10_RE.test(req.query["cid10"])
@@ -136,6 +140,7 @@ cisRestRouter.get(
     if (template) conditions.push(eq(soapNotes.template, template));
     if (from) conditions.push(gte(soapNotes.createdAt, from));
     if (to) conditions.push(lte(soapNotes.createdAt, to));
+    if (cursorId) conditions.push(lt(soapNotes.id, cursorId));
 
     const [notas, [{ total }]] = await Promise.all([
       db
@@ -152,9 +157,9 @@ cisRestRouter.get(
         })
         .from(soapNotes)
         .where(and(...conditions))
-        .orderBy(desc(soapNotes.createdAt))
-        .limit(limit)
-        .offset(offset),
+        .orderBy(desc(soapNotes.id))
+        .limit(limit + 1)
+        .offset(cursorId !== undefined ? 0 : offset),
 
       db
         .select({ total: sql<number>`COUNT(*)` })
@@ -162,7 +167,18 @@ cisRestRouter.get(
         .where(and(...conditions)),
     ]);
 
-    res.json({ notas, total: Number(total), limit, offset });
+    const hasMore = notas.length > limit;
+    const items = hasMore ? notas.slice(0, limit) : notas;
+    const nextCursor = hasMore ? items[items.length - 1]!.id : null;
+
+    res.json({
+      notas: items,
+      total: Number(total),
+      limit,
+      ...(cursorId !== undefined
+        ? { nextCursor }
+        : { offset, nextCursor }),
+    });
   }),
 );
 

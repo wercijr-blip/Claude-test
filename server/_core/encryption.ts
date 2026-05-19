@@ -2,7 +2,7 @@ import {
   createCipheriv,
   createDecipheriv,
   randomBytes,
-  createHash,
+  scryptSync,
 } from "crypto";
 import { env } from "./env.ts";
 
@@ -42,7 +42,9 @@ export function decrypt(ciphertext: string): string {
 
 export function hashCpf(cpf: string): string {
   const normalized = cpf.replace(/\D/g, "");
-  return createHash("sha256")
-    .update(normalized + env.CPF_HASH_SALT)
-    .digest("hex");
+  return scryptSync(normalized, env.CPF_HASH_SALT, 32, {
+    N: 16384,
+    r: 8,
+    p: 1,
+  }).toString("hex");
 }

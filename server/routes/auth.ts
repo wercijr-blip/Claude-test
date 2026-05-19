@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { SignJWT } from "jose";
+import { SignJWT, jwtVerify } from "jose";
 import { TRPCError } from "@trpc/server";
 import { router, publicProcedure, protectedProcedure } from "../_core/trpc.ts";
 import { env } from "../_core/env.ts";
@@ -11,6 +11,11 @@ import { eq, isNull, and } from "drizzle-orm";
 import { JWT_EXPIRY_STAFF } from "../../shared/security-constants.ts";
 import { isAllowedRedirectUri } from "../_core/originValidator.ts";
 import { logAudit } from "../_core/audit.ts";
+import {
+  generateTotpSecret,
+  verifyTotpCode,
+  getTotpUri,
+} from "../_core/totp.ts";
 import type { Role } from "../../shared/types.ts";
 import type { ResultSetHeader } from "mysql2";
 
@@ -279,6 +284,95 @@ export const authRouter = router({
 
       return { token, role: input.role };
     }),
+
+  verifyTotp: publicProcedure
+    .input(z.object({ pendingToken: z.string(), code: z.string() }))
+    .mutation(async ({ input }) => {
+      const secret = new TextEncoder().encode(env.JWT_SECRET);
+      let payload: { type?: string; userId?: number; role?: string };
+      try {
+        const { payload: p } = await jwtVerify(input.pendingToken, secret);
+        payload = p as typeof payload;
+      } catch {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Token de 2FA inválido ou expirado",
+        });
+      }
+
+      if (
+        payload.type !== "pending_2fa" ||
+        !payload.userId ||
+        !payload.role
+      ) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Token de 2FA inválido",
+        });
+      }
+
+      const [user] = await db
+        .select({ id: users.id, totpSecret: users.totpSecret, openId: users.openId })
+        .from(users)
+        .where(and(eq(users.id, payload.userId), isNull(users.deletedAt)))
+        .limit(1);
+
+      if (!user?.totpSecret) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Configuração 2FA ausente",
+        });
+      }
+
+      if (!verifyTotpCode(user.totpSecret, input.code)) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Código TOTP inválido",
+        });
+      }
+
+      const role = payload.role as Role;
+      const token = await new SignJWT({ type: "staff", userId: user.id, role })
+        .setProtectedHeader({ alg: "HS256" })
+        .setSubject(user.openId)
+        .setIssuedAt()
+        .setExpirationTime(JWT_EXPIRY_STAFF)
+        .sign(secret);
+
+      logAudit({
+        actorId: user.id,
+        actorRole: role,
+        action: "user.login",
+        resourceType: "user",
+        resourceId: user.id,
+        detalhes: { via: "totp" },
+      });
+
+      return { token, role };
+    }),
+
+  enrollTotp: protectedProcedure.mutation(async ({ ctx }) => {
+    if (ctx.session.type !== "staff") {
+      throw new TRPCError({ code: "FORBIDDEN" });
+    }
+    const totpSecret = generateTotpSecret();
+    await db
+      .update(users)
+      .set({ totpSecret })
+      .where(eq(users.id, ctx.session.id));
+
+    const [user] = await db
+      .select({ email: users.email, nome: users.nome })
+      .from(users)
+      .where(eq(users.id, ctx.session.id))
+      .limit(1);
+
+    const identifier = user?.email ?? user?.nome ?? `user-${ctx.session.id}`;
+    return {
+      secret: totpSecret,
+      uri: getTotpUri(totpSecret, identifier),
+    };
+  }),
 
   me: protectedProcedure.query(({ ctx }) => {
     return ctx.session;
