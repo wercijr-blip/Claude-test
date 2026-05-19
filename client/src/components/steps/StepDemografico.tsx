@@ -44,15 +44,15 @@ export default function StepDemografico({ pacienteId, onNext, onBack }: Props) {
       <h2 className="text-lg font-semibold text-slate-800 mb-5">Dados Demográficos</h2>
 
       <form onSubmit={handleSubmit((d) => salvar.mutate(d))} className="space-y-4">
-        <Field label="Cor/Raça" error={errors.corRaca?.message}>
-          <select {...register('corRaca')} className={inputCls(!!errors.corRaca)} aria-invalid={errors.corRaca ? true : undefined}>
+        <Field label="Cor/Raça" error={errors.corRaca?.message} name="corRaca">
+          <select id="corRaca" {...register('corRaca')} className={inputCls(!!errors.corRaca)} aria-invalid={errors.corRaca ? true : undefined} aria-describedby={errors.corRaca ? 'corRaca-err' : undefined}>
             <option value="">Selecione</option>
             {COR_RACA_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </Field>
 
-        <Field label="Escolaridade" error={errors.escolaridade?.message}>
-          <select {...register('escolaridade')} className={inputCls(!!errors.escolaridade)} aria-invalid={errors.escolaridade ? true : undefined}>
+        <Field label="Escolaridade" error={errors.escolaridade?.message} name="escolaridade">
+          <select id="escolaridade" {...register('escolaridade')} className={inputCls(!!errors.escolaridade)} aria-invalid={errors.escolaridade ? true : undefined} aria-describedby={errors.escolaridade ? 'escolaridade-err' : undefined}>
             <option value="">Selecione</option>
             {ESCOLARIDADE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
@@ -96,12 +96,13 @@ export default function StepDemografico({ pacienteId, onNext, onBack }: Props) {
   )
 }
 
-function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
+function Field({ label, error, children, name }: { label: string; error?: string; children: React.ReactNode; name?: string }) {
+  const errorId = name && error ? `${name}-err` : undefined
   return (
     <div>
-      <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
+      <label htmlFor={name} className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
       {children}
-      {error && <p role="alert" className="mt-1 text-xs text-red-500">{error}</p>}
+      {error && <p id={errorId} role="alert" className="mt-1 text-xs text-red-500">{error}</p>}
     </div>
   )
 }

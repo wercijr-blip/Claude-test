@@ -201,6 +201,26 @@ app.use(
   }),
 )
 
+// Deep healthcheck — verifica DB, Redis e S3
+app.get('/api/health/deep', async (_req, res) => {
+  const { S3Client, HeadBucketCommand } = await import('@aws-sdk/client-s3')
+  const checks = await Promise.allSettled([
+    db.execute('SELECT 1').then(() => ({ name: 'db', ok: true })).catch((e: Error) => ({ name: 'db', ok: false, error: e.message })),
+    redis.ping().then((r) => ({ name: 'redis', ok: r === 'PONG' })).catch((e: Error) => ({ name: 'redis', ok: false, error: e.message })),
+    new S3Client({ region: env.AWS_REGION, credentials: { accessKeyId: env.AWS_ACCESS_KEY_ID, secretAccessKey: env.AWS_SECRET_ACCESS_KEY } })
+      .send(new HeadBucketCommand({ Bucket: env.AWS_S3_BUCKET }))
+      .then(() => ({ name: 's3', ok: true }))
+      .catch((e: Error) => ({ name: 's3', ok: false, error: e.message })),
+  ])
+  const results = checks.map((c) => c.status === 'fulfilled' ? c.value : { name: 'unknown', ok: false })
+  const allOk = results.every((r) => r.ok)
+  res.status(allOk ? 200 : 503).json({
+    status: allOk ? 'ok' : 'degraded',
+    checks: results,
+    timestamp: new Date().toISOString(),
+  })
+})
+
 // Healthcheck com verificação do banco e Redis
 app.get('/api/health', async (_req, res) => {
   const [dbOk, redisOk] = await Promise.all([
@@ -279,6 +299,24 @@ app.get('/api/metrics', async (_req, res) => {
   })
 })
 
+// LLM usage — consumo diário vs limite (admin/ops only — sem autenticação intencional: dados não sensíveis)
+app.get('/api/admin/usage', async (_req, res) => {
+  const today = new Date().toISOString().slice(0, 10)
+  const key = `llm:daily:${today}`
+  let llmToday = 0
+  try {
+    const val = await redis.get(key)
+    llmToday = val ? parseInt(val, 10) : 0
+  } catch { /* Redis may be unavailable */ }
+
+  const limit = env.LLM_DAILY_LIMIT ?? 200
+  const percentUsed = Math.round((llmToday / limit) * 100)
+  res.json({
+    llm: { today: llmToday, limit, percentUsed, alert: percentUsed >= 80 },
+    timestamp: new Date().toISOString(),
+  })
+})
+
 // Observability — confirma que Sentry está configurado no servidor
 app.get('/api/health/observability', (_req, res) => {
   res.json({
@@ -324,6 +362,19 @@ Sentry.setupExpressErrorHandler(app)
 await ensureSchema().catch((err) => {
   logger.error('[server] ensureSchema falhou (continuando)', { error: String(err) })
 })
+
+// Cert expiry alert — warn if ICP-Brasil certificate expires in < 30 days
+if (env.NODE_ENV === 'production') {
+  const { inspecionarCertificado } = await import('../pdfSigner.ts')
+  inspecionarCertificado().then((info) => {
+    if (info.status === 'configurado' && typeof info.diasRestantes === 'number' && info.diasRestantes < 30) {
+      logger.warn('[cert] Certificado ICP-Brasil expira em breve', {
+        diasRestantes: info.diasRestantes,
+        validoAte: info.validoAte,
+      })
+    }
+  }).catch(() => { /* non-critical */ })
+}
 
 // Configura a regra de lifecycle do S3 (exames-inicio/ expira em 30 dias)
 const { ensureS3Lifecycle } = await import('../storage.ts')

@@ -24,20 +24,20 @@ export default function MedicoDashboard() {
 
   const utils = trpc.useUtils()
 
-  const { data: pendentesPage } = trpc.medico.listarPendentes.useQuery({}, {
+  const { data: pendentesPage, isLoading: pendentesLoading } = trpc.medico.listarPendentes.useQuery({}, {
     refetchInterval: 30_000,
     refetchIntervalInBackground: false,
   })
   const pendentes = pendentesPage?.data
-  const { data: paciente } = trpc.medico.verPaciente.useQuery(
+  const { data: paciente, isLoading: pacienteLoading } = trpc.medico.verPaciente.useQuery(
     { pacienteId: selectedId! },
     { enabled: !!selectedId },
   )
-  const { data: examesRejeitados } = trpc.medico.listarExamesRejeitadosIa.useQuery(undefined, {
+  const { data: examesRejeitados, isLoading: examesRejeitadosLoading } = trpc.medico.listarExamesRejeitadosIa.useQuery(undefined, {
     refetchInterval: 30_000,
     refetchIntervalInBackground: false,
   })
-  const { data: revisoes } = trpc.consulta.medico.listarRevisoes.useQuery(undefined, {
+  const { data: revisoes, isLoading: revisoesLoading } = trpc.consulta.medico.listarRevisoes.useQuery(undefined, {
     refetchInterval: 30_000,
     refetchIntervalInBackground: false,
   })
@@ -128,7 +128,9 @@ export default function MedicoDashboard() {
                 {pendentes?.length ?? 0} paciente(s) pendente(s)
               </p>
             </div>
-            {pendentes?.map((p) => (
+            {pendentesLoading
+              ? Array.from({ length: 4 }).map((_, i) => <SkeletonItem key={i} />)
+              : pendentes?.map((p) => (
               <button
                 key={p.id}
                 onClick={() => setSelectedId(p.id)}
@@ -144,7 +146,14 @@ export default function MedicoDashboard() {
           </aside>
 
           <main className="flex-1 overflow-y-auto p-6">
-            {!selectedId && (
+            {selectedId && pacienteLoading && (
+              <div className="max-w-2xl space-y-4">
+                <SkeletonBlock height="h-48" />
+                <SkeletonBlock height="h-32" />
+                <SkeletonBlock height="h-24" />
+              </div>
+            )}
+            {!selectedId && !pacienteLoading && (
               <div className="flex items-center justify-center h-full text-slate-400">
                 Selecione um paciente para revisar
               </div>
@@ -239,7 +248,12 @@ export default function MedicoDashboard() {
             Estes exames foram <strong>rejeitados automaticamente pela IA</strong>. Revise cada um e, se considerar adequado, libere manualmente com uma justificativa.
           </div>
 
-          {!examesRejeitados?.length && (
+          {examesRejeitadosLoading && (
+            <div className="space-y-4">
+              {Array.from({ length: 3 }).map((_, i) => <SkeletonBlock key={i} height="h-36" />)}
+            </div>
+          )}
+          {!examesRejeitadosLoading && !examesRejeitados?.length && (
             <EmptyState message="Nenhum exame aguardando liberação manual." className="bg-white rounded-2xl border border-slate-200" />
           )}
 
@@ -576,5 +590,27 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
     >
       {children}
     </button>
+  )
+}
+
+function SkeletonItem() {
+  return (
+    <div className="p-4 border-b border-slate-100 animate-pulse">
+      <div className="h-3.5 bg-slate-200 rounded w-3/4 mb-2" />
+      <div className="h-2.5 bg-slate-100 rounded w-1/2" />
+    </div>
+  )
+}
+
+function SkeletonBlock({ height }: { height: string }) {
+  return (
+    <div className={`${height} bg-white rounded-2xl border border-slate-200 animate-pulse`}>
+      <div className="p-6 space-y-3">
+        <div className="h-4 bg-slate-200 rounded w-1/3" />
+        <div className="h-3 bg-slate-100 rounded w-full" />
+        <div className="h-3 bg-slate-100 rounded w-5/6" />
+        <div className="h-3 bg-slate-100 rounded w-4/6" />
+      </div>
+    </div>
   )
 }
