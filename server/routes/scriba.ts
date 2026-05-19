@@ -253,6 +253,7 @@ export const scribaRouter = router({
           cid10: soapNotes.cid10,
           certeza: soapNotes.certeza,
           createdAt: soapNotes.createdAt,
+          temSintese: sql<number>`CASE WHEN ${soapNotes.sinteseEvidencias} IS NOT NULL THEN 1 ELSE 0 END`,
         })
         .from(soapNotes)
         .where(and(...conditions))
@@ -265,6 +266,63 @@ export const scribaRouter = router({
         items,
         nextCursor: hasMore ? items[items.length - 1]!.id : null,
       };
+    }),
+
+  /** Re-enfileira síntese PubMed para uma nota com evidências desatualizadas. */
+  refreshEvidencia: medicoProcedure
+    .input(z.object({ soapNoteId: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const medicoId = ctx.session.id;
+
+      const [nota] = await db
+        .select({
+          id: soapNotes.id,
+          medicoId: soapNotes.medicoId,
+          pubmedQuery: soapNotes.pubmedQuery,
+          diagnosticoPrincipal: soapNotes.diagnosticoPrincipal,
+          cid10: soapNotes.cid10,
+          soapTexto: soapNotes.soapTexto,
+          template: soapNotes.template,
+          knowledgeMetadata: soapNotes.knowledgeMetadata,
+        })
+        .from(soapNotes)
+        .where(and(eq(soapNotes.id, input.soapNoteId), isNull(soapNotes.deletedAt)))
+        .limit(1);
+
+      assertOwnership(nota, medicoId);
+
+      if (!nota?.pubmedQuery) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Nota sem query PubMed — síntese não disponível",
+        });
+      }
+
+      const km = nota.knowledgeMetadata as Record<string, unknown> | null;
+      const perfil = (km?.perfil_paciente as Record<string, unknown>) ?? {};
+      const busca = (km?.busca_pubmed as Record<string, unknown>) ?? {};
+
+      const { enqueueSintesePubMed } = await import("../pubmedQueue.ts");
+      await enqueueSintesePubMed({
+        soapNoteId: nota.id,
+        medicoId,
+        pubmedQuery: nota.pubmedQuery,
+        diagnosticoPrincipal: nota.diagnosticoPrincipal ?? "",
+        cid10: nota.cid10 ?? "",
+        soapTexto: nota.soapTexto,
+        condutaAtual: Array.isArray(km?.plano_terapeutico)
+          ? (km.plano_terapeutico as string[]).join("\n")
+          : "",
+        populacao: typeof km?.populacao === "string" ? km.populacao : "",
+        perfilPacienteJson: JSON.stringify(perfil),
+        template: nota.template,
+        termosMesh: Array.isArray(busca?.termos_mesh)
+          ? (busca.termos_mesh as string[])
+          : [],
+        force: true,
+      });
+
+      return { ok: true };
     }),
 
   /** Retorna uma nota SOAP completa (texto + knowledge_metadata). */

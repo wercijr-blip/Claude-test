@@ -127,14 +127,19 @@ export function extrairGradeMetadata(sintese: string): EvidenceGradeMetadata {
 /**
  * Enfileira síntese PubMed para uma SOAP note.
  * jobId determinístico evita re-processamento se scriba rodar duas vezes.
+ * Quando `force` é true, gera jobId único contornando a deduplicação do BullMQ.
  */
 export async function enqueueSintesePubMed(
-  params: PubmedJobData & { requestId?: string },
+  params: PubmedJobData & { requestId?: string; force?: boolean },
 ): Promise<void> {
   if (!params.pubmedQuery?.trim()) return; // sem query não há o que buscar
 
+  const jobId = params.force
+    ? `pubmed-${params.soapNoteId}-${Date.now()}`
+    : `pubmed-${params.soapNoteId}`;
+
   await pubmedQueue.add("sintese-pubmed", params, {
-    jobId: `pubmed-${params.soapNoteId}`,
+    jobId,
     attempts: 2,
     backoff: { type: "exponential", delay: 60_000 },
   });
