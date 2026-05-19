@@ -71,6 +71,9 @@ if (process.env.NODE_ENV === 'production') {
 
 app.use(express.json({ limit: '1mb' }))
 
+// Health check (Railway / load-balancer)
+app.get('/health', (req, res) => res.json({ ok: true, uptime: process.uptime() }))
+
 // Webhook WhatsApp
 app.use('/webhook', webhookRouter)
 logger.info('Webhook ativo em /webhook')

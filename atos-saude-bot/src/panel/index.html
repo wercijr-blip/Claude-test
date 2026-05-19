@@ -1705,13 +1705,13 @@ function painel() {
     // WhatsApp / QR
     async desconectarWhatsApp() {
       if (!confirm('Desconectar o WhatsApp? O bot ficará offline até reconectar.')) return
-      try { await this.api('/whatsapp/logout', { method:'DELETE' }); this.waStatus = 'close'; this.loadQR() }
+      try { await this.api('/whatsapp/logout', { method:'POST' }); this.waStatus = 'close'; this.loadQR() }
       catch (e) { alert(e.message) }
     },
 
     async reiniciarWhatsApp() {
       if (!confirm('Reiniciar a conexão WhatsApp?')) return
-      try { await this.api('/whatsapp/restart', { method:'PUT' }); await this.loadWAStatus() }
+      try { await this.api('/whatsapp/restart', { method:'POST' }); await this.loadWAStatus() }
       catch (e) { alert(e.message) }
     },
 

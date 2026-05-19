@@ -2,6 +2,7 @@ import { Router } from 'express'
 import rateLimit from 'express-rate-limit'
 import { getUserByUsername, insertUser, getAllUsers, toggleUserActive, updateUserPassword } from '../../services/db.js'
 import { checkPassword, hashPassword, generateToken, requireAuth, PERMISSIONS } from '../../services/auth.js'
+import { logger } from '../../utils/logger.js'
 
 const authRouter = Router()
 
@@ -20,9 +21,11 @@ authRouter.post('/login', loginLimiter, (req, res) => {
 
   const user = getUserByUsername(username)
   if (!user || !checkPassword(password, user.password_hash)) {
+    logger.warn({ username, ip: req.ip }, 'Falha de login — credenciais inválidas')
     return res.status(401).json({ error: 'Usuário ou senha incorretos.' })
   }
 
+  logger.info({ username, role: user.role, ip: req.ip }, 'Login bem-sucedido')
   const token = generateToken(user)
   const perms = PERMISSIONS[user.role] || {}
 
