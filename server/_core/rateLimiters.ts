@@ -73,3 +73,12 @@ export const totpLimiter = rateLimit({
   legacyHeaders: false,
   store: makeStore('totp'),
 })
+
+export const cisLimiter = rateLimit({
+  windowMs: RATE_LIMITS.CIS_API.windowMs,
+  max: RATE_LIMITS.CIS_API.max,
+  message: { error: 'Rate limit excedido na CIS API. Máximo 60 requisições/minuto.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: makeStore('cis'),
+})

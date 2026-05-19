@@ -66,6 +66,10 @@ export async function getOpusBudgetStatus(): Promise<{
   }
 }
 
+// Status codes that warrant a retry with exponential backoff
+const RETRYABLE_STATUS = new Set([429, 502, 503])
+const MAX_API_RETRIES  = 3
+
 async function callClaude(
   systemPrompt: string,
   userContent: string,
@@ -86,37 +90,52 @@ async function callClaude(
     }
   }
 
-  try {
-    const response = await anthropic.messages.create({
-      model: effectiveModel,
-      max_tokens: maxTokens,
-      // System as array enables prompt caching for static system prompts.
-      system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
-      messages: [{ role: 'user', content: userContent }],
-      // Opus 4.7 removed temperature/top_p/top_k — omit them to avoid 400 errors.
-      ...(temperature !== undefined && effectiveModel !== MODEL_OPUS ? { temperature } : {}),
-    })
-
-    // Registra tokens consumidos se chamada Opus foi efetivamente executada
-    if (effectiveModel === MODEL_OPUS) {
-      const total = (response.usage.input_tokens ?? 0) + (response.usage.output_tokens ?? 0)
-      await incrOpusTokens(total)
-      logger.info('[cis] Tokens Opus registrados', { total, key: opusDateKey() })
-    }
-
-    const block = response.content[0]
-    return block?.type === 'text' ? block.text : ''
-  } catch (err) {
-    if (err instanceof Anthropic.APIError) {
-      logger.error('[cis] Erro na API Anthropic', {
-        status: err.status,
-        message: err.message,
+  for (let attempt = 0; attempt <= MAX_API_RETRIES; attempt++) {
+    try {
+      const response = await anthropic.messages.create({
         model: effectiveModel,
+        max_tokens: maxTokens,
+        // System as array enables prompt caching for static system prompts.
+        system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
+        messages: [{ role: 'user', content: userContent }],
+        // Opus 4.7 removed temperature/top_p/top_k — omit them to avoid 400 errors.
+        ...(temperature !== undefined && effectiveModel !== MODEL_OPUS ? { temperature } : {}),
       })
-      throw new Error(`Erro na API de IA (HTTP ${err.status}): ${err.message}`)
+
+      // Registra tokens consumidos se chamada Opus foi efetivamente executada
+      if (effectiveModel === MODEL_OPUS) {
+        const total = (response.usage.input_tokens ?? 0) + (response.usage.output_tokens ?? 0)
+        await incrOpusTokens(total)
+        logger.info('[cis] Tokens Opus registrados', { total, key: opusDateKey() })
+      }
+
+      const block = response.content[0]
+      return block?.type === 'text' ? block.text : ''
+    } catch (err) {
+      if (err instanceof Anthropic.APIError) {
+        if (RETRYABLE_STATUS.has(err.status) && attempt < MAX_API_RETRIES) {
+          const delayMs = (2 ** attempt) * 1000  // 1s → 2s → 4s
+          logger.warn('[cis] Erro transiente na API — aguardando para retry', {
+            attempt: attempt + 1,
+            status: err.status,
+            delayMs,
+            model: effectiveModel,
+          })
+          await new Promise(r => setTimeout(r, delayMs))
+          continue
+        }
+        logger.error('[cis] Erro na API Anthropic', {
+          status: err.status,
+          message: err.message,
+          model: effectiveModel,
+        })
+        throw new Error(`Erro na API de IA (HTTP ${err.status}): ${err.message}`)
+      }
+      throw err
     }
-    throw err
   }
+  // Unreachable — loop always returns or throws
+  throw new Error('[cis] callClaude: estado inesperado após retries')
 }
 
 // ─── Batch API ────────────────────────────────────────────────────────────────
@@ -190,8 +209,10 @@ export async function callClaudeBatch(
 }
 
 function parseJsonResponse<T>(text: string, context: string): T {
-  const match = text.match(/\{[\s\S]*\}/)
-  const jsonStr = match ? match[0] : text
+  // Strip markdown code fences if the model wrapped the JSON in ```json … ```
+  const stripped = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/)?.[1] ?? text
+  const match = stripped.match(/\{[\s\S]*\}/)
+  const jsonStr = match ? match[0] : stripped
   try {
     return JSON.parse(jsonStr) as T
   } catch (err) {

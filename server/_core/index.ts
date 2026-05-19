@@ -12,7 +12,7 @@ import { redis } from './redis.ts'
 import { applySecurityMiddleware } from './security.ts'
 import { appRouter } from '../routers.ts'
 import { createContext } from './context.ts'
-import { authLimiter, tokenValidateLimiter, uploadLimiter, totpLimiter, dataRightsLimiter } from './rateLimiters.ts'
+import { authLimiter, tokenValidateLimiter, uploadLimiter, totpLimiter, dataRightsLimiter, cisLimiter } from './rateLimiters.ts'
 import { db } from '../db.ts'
 import { ensureSchema } from './ensureSchema.ts'
 import { Sentry } from './instrument.ts'
@@ -259,7 +259,7 @@ app.get('/api/health/observability', (_req, res) => {
 
 // CIS REST API — integrações externas com autenticação por API key
 const { cisRestRouter } = await import('../routes/cisRest.ts')
-app.use('/api/cis', cisRestRouter)
+app.use('/api/cis', cisLimiter, cisRestRouter)
 
 // Upload de exames (lazy import para evitar carregar S3 client no boot)
 app.post('/api/upload', uploadLimiter, async (req, res) => {

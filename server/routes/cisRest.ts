@@ -28,6 +28,17 @@ function ar(fn: (req: Request, res: Response) => Promise<void>) {
 
 export const cisRestRouter = Router()
 
+// ─── Patterns para validação de query params ──────────────────────────────────
+
+const CID10_RE    = /^[A-Z]\d{2}(\.\d{1,2})?$/
+const TEMPLATE_RE = /^[a-z0-9_-]{1,60}$/
+
+function parseQueryDate(val: unknown): Date | undefined {
+  if (typeof val !== 'string') return undefined
+  const d = new Date(val)
+  return isNaN(d.getTime()) ? undefined : d
+}
+
 // ─── Auth middleware ──────────────────────────────────────────────────────────
 
 function autenticar(req: Request, res: Response): number | null {
@@ -41,7 +52,12 @@ function autenticar(req: Request, res: Response): number | null {
     chave.length === env.CIS_API_KEY!.length &&
     timingSafeEqual(Buffer.from(chave), Buffer.from(env.CIS_API_KEY!))
   if (!chaveValida) {
-    logger.warn('[cisRest] Tentativa com chave inválida', { ip: req.ip })
+    logger.warn('[cisRest] Falha de autenticação', {
+      ip: req.ip,
+      method: req.method,
+      path: req.path,
+      userAgent: req.get('user-agent') ?? 'desconhecido',
+    })
     res.status(401).json({ erro: 'Chave de API inválida' })
     return null
   }
@@ -49,13 +65,23 @@ function autenticar(req: Request, res: Response): number | null {
   return env.CIS_MEDICO_USER_ID
 }
 
+// ─── Cache em memória para /budget (TTL: 60s) ────────────────────────────────
+
+let budgetCache: { data: object; expiresAt: number } | null = null
+
 // ─── GET /api/cis/budget ─────────────────────────────────────────────────────
 
 cisRestRouter.get('/budget', ar(async (req, res) => {
   const medicoId = autenticar(req, res)
   if (!medicoId) return
 
+  if (budgetCache && Date.now() < budgetCache.expiresAt) {
+    res.json(budgetCache.data)
+    return
+  }
+
   const status = await getOpusBudgetStatus()
+  budgetCache = { data: status, expiresAt: Date.now() + 60_000 }
   res.json(status)
 }))
 
@@ -65,18 +91,23 @@ cisRestRouter.get('/notas', ar(async (req, res) => {
   const medicoId = autenticar(req, res)
   if (!medicoId) return
 
-  const limit  = Math.min(Number(req.query['limit'])  || 20, 100)
-  const offset = Math.max(Number(req.query['offset']) || 0,  0)
-  const cid10    = typeof req.query['cid10']    === 'string' ? req.query['cid10'] : undefined
-  const template = typeof req.query['template'] === 'string' ? req.query['template'] : undefined
-  const from     = typeof req.query['from']     === 'string' ? new Date(req.query['from']) : undefined
-  const to       = typeof req.query['to']       === 'string' ? new Date(req.query['to'])   : undefined
+  const limit  = Math.min(Math.max(Number(req.query['limit'])  || 20, 1), 100)
+  const offset = Math.max(Number(req.query['offset']) || 0, 0)
+  const cid10    = typeof req.query['cid10']    === 'string' && CID10_RE.test(req.query['cid10'])    ? req.query['cid10']    : undefined
+  const template = typeof req.query['template'] === 'string' && TEMPLATE_RE.test(req.query['template']) ? req.query['template'] : undefined
+  const from     = parseQueryDate(req.query['from'])
+  const to       = parseQueryDate(req.query['to'])
+
+  if (from && to && from > to) {
+    res.status(400).json({ erro: 'Parâmetro from deve ser anterior a to' })
+    return
+  }
 
   const conditions = [eq(soapNotes.medicoId, medicoId)]
   if (cid10)    conditions.push(eq(soapNotes.cid10, cid10))
   if (template) conditions.push(eq(soapNotes.template, template))
-  if (from && !isNaN(from.getTime())) conditions.push(gte(soapNotes.createdAt, from))
-  if (to   && !isNaN(to.getTime()))   conditions.push(lte(soapNotes.createdAt, to))
+  if (from)     conditions.push(gte(soapNotes.createdAt, from))
+  if (to)       conditions.push(lte(soapNotes.createdAt, to))
 
   const [notas, [{ total }]] = await Promise.all([
     db

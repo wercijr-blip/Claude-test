@@ -8,6 +8,8 @@ export const RATE_LIMITS = {
   DATA_RIGHTS: { windowMs: 60 * 60 * 1000, max: 3 },
   // TOTP verification — 2FA endpoints
   TOTP: { windowMs: 15 * 60 * 1000, max: 10 },
+  // CIS REST API — consumida por n8n/scripts; 60 req/min permite automações sem expor brute-force
+  CIS_API: { windowMs: 60 * 1000, max: 60 },
 } as const
 
 export const TOKEN_EXPIRY_DAYS = 7
