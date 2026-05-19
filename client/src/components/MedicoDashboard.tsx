@@ -23,10 +23,11 @@ export default function MedicoDashboard() {
 
   const utils = trpc.useUtils()
 
-  const { data: pendentes } = trpc.medico.listarPendentes.useQuery(undefined, {
+  const { data: pendentesPage } = trpc.medico.listarPendentes.useQuery({}, {
     refetchInterval: 30_000,
     refetchIntervalInBackground: false,
   })
+  const pendentes = pendentesPage?.data
   const { data: paciente } = trpc.medico.verPaciente.useQuery(
     { pacienteId: selectedId! },
     { enabled: !!selectedId },

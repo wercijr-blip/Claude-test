@@ -3,10 +3,11 @@ import { router, medicoProcedure } from '../_core/trpc.ts'
 import { TRPCError } from '@trpc/server'
 import { db } from '../db.ts'
 import { pacientes, exames } from '../../drizzle/schema.ts'
-import { eq, inArray } from 'drizzle-orm'
+import { eq, inArray, and, gt } from 'drizzle-orm'
 import { decrypt } from '../_core/encryption.ts'
 import { isExameRejeitadoIa } from '../examUtils.ts'
 import { okEmpty } from '../_core/response.ts'
+import { paginationInput, paginatedResponse } from '../_core/pagination.ts'
 
 type ResultadoIaJson = {
   status?: string
@@ -15,23 +16,32 @@ type ResultadoIaJson = {
 
 export const medicoRouter = router({
   // Listar pacientes pendentes de revisão
-  listarPendentes: medicoProcedure.query(async () => {
-    const rows = await db
-      .select()
-      .from(pacientes)
-      .where(inArray(pacientes.status, ['pendente', 'em_revisao']))
-      .orderBy(pacientes.createdAt)
-      .limit(500)
+  listarPendentes: medicoProcedure
+    .input(paginationInput)
+    .query(async ({ input }) => {
+      const { limit, cursor } = input
+      const rows = await db
+        .select()
+        .from(pacientes)
+        .where(
+          cursor
+            ? and(inArray(pacientes.status, ['pendente', 'em_revisao']), gt(pacientes.id, cursor))
+            : inArray(pacientes.status, ['pendente', 'em_revisao']),
+        )
+        .orderBy(pacientes.id)
+        .limit(limit + 1)
 
-    return rows.map((p) => ({
-      id: p.id,
-      nome: decrypt(p.nomeEncrypted),
-      status: p.status,
-      currentStep: p.currentStep,
-      tipoAtendimento: p.tipoAtendimento,
-      createdAt: p.createdAt,
-    }))
-  }),
+      const mapped = rows.map((p) => ({
+        id: p.id,
+        nome: decrypt(p.nomeEncrypted),
+        status: p.status,
+        currentStep: p.currentStep,
+        tipoAtendimento: p.tipoAtendimento,
+        createdAt: p.createdAt,
+      }))
+
+      return paginatedResponse(mapped, limit)
+    }),
 
   // Ver detalhe de um paciente
   verPaciente: medicoProcedure

@@ -29,6 +29,17 @@ describe('notificarStaff', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.resetModules()
+    // Restore full env after any test that overrides it with vi.doMock
+    vi.doMock('./_core/env.ts', () => ({
+      env: {
+        STAFF_WHATSAPP_MEDICOS: '+556198432878',
+        STAFF_WHATSAPP_SECRETARIAS: '+556140427188',
+        APP_URL: 'https://facilitaprep.com.br',
+        ZAPI_INSTANCE_ID: 'inst',
+        ZAPI_TOKEN: 'tok',
+        ZAPI_CLIENT_TOKEN: 'ctok',
+      },
+    }))
   })
 
   it('envia WhatsApp quando Redis permite (chave ausente)', async () => {
