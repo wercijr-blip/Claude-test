@@ -9,6 +9,7 @@ import {
 import { Route, Switch, useLocation } from "wouter";
 import { useAuth, parseJwtPayload } from "./_core/hooks/useAuth.ts";
 import LoginPage from "./components/LoginPage.tsx";
+import { ToastProvider, useToast } from "./components/Toast.tsx";
 import { trpc } from "./lib/trpc.ts";
 
 function PageLoader() {
@@ -56,9 +57,17 @@ class ErrorBoundary extends Component<
 
 function CISDashboard() {
   const { logout } = useAuth();
+  const { toast } = useToast();
   const utils = trpc.useUtils();
   const abrirSessao = trpc.scriba.abrirSessao.useMutation({
-    onSuccess: () => utils.scriba.listarSoapNotes.invalidate(),
+    onSuccess: (data) => {
+      utils.scriba.listarSoapNotes.invalidate();
+      toast(
+        data.nova ? "Sessão aberta com sucesso." : "Sessão retomada.",
+        "success",
+      );
+    },
+    onError: (err) => toast(err.message, "error"),
   });
   const {
     data: notas,
@@ -71,7 +80,11 @@ function CISDashboard() {
       { retry: false },
     );
   const marcarVisto = trpc.scriba.marcarAlertaVisto.useMutation({
-    onSuccess: () => utils.scriba.listarAlertas.invalidate(),
+    onSuccess: () => {
+      utils.scriba.listarAlertas.invalidate();
+      toast("Alerta marcado como visto.", "success");
+    },
+    onError: (err) => toast(err.message, "error"),
   });
 
   const alertaItems = alertas?.items ?? [];
@@ -134,14 +147,9 @@ function CISDashboard() {
             {abrirSessao.isPending ? "Abrindo…" : "Iniciar Atendimento"}
           </button>
           {abrirSessao.isSuccess && (
-            <p className="mt-3 text-sm text-green-600">
+            <p className="mt-3 text-sm text-slate-500">
               Sessão {abrirSessao.data.nova ? "aberta" : "retomada"} — ID{" "}
               {abrirSessao.data.sessionId}
-            </p>
-          )}
-          {abrirSessao.isError && (
-            <p className="mt-3 text-sm text-red-500">
-              {abrirSessao.error.message}
             </p>
           )}
         </div>
@@ -193,24 +201,26 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <Suspense fallback={<PageLoader />}>
-        <Switch>
-          <Route path="/auth/callback" component={AuthCallback} />
-          <Route path="/medico">
-            {role === "medico" || role === "admin" ? (
-              <CISDashboard />
-            ) : (
-              <LoginPage />
-            )}
-          </Route>
-          <Route path="/admin">
-            {role === "admin" ? <CISDashboard /> : <LoginPage />}
-          </Route>
-          <Route path="/login" component={LoginPage} />
-          <Route path="/" component={LoginPage} />
-          <Route component={NotFound} />
-        </Switch>
-      </Suspense>
+      <ToastProvider>
+        <Suspense fallback={<PageLoader />}>
+          <Switch>
+            <Route path="/auth/callback" component={AuthCallback} />
+            <Route path="/medico">
+              {role === "medico" || role === "admin" ? (
+                <CISDashboard />
+              ) : (
+                <LoginPage />
+              )}
+            </Route>
+            <Route path="/admin">
+              {role === "admin" ? <CISDashboard /> : <LoginPage />}
+            </Route>
+            <Route path="/login" component={LoginPage} />
+            <Route path="/" component={LoginPage} />
+            <Route component={NotFound} />
+          </Switch>
+        </Suspense>
+      </ToastProvider>
     </ErrorBoundary>
   );
 }

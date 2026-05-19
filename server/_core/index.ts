@@ -86,6 +86,12 @@ if (env.NODE_ENV === "production") {
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true }));
 
+// Ensure all JSON API responses declare charset explicitly
+app.use((_req, res, next) => {
+  res.charset = "utf-8";
+  next();
+});
+
 app.use("/trpc/auth.callback", authLimiter);
 app.use(
   "/trpc",

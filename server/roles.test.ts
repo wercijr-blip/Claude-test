@@ -79,7 +79,7 @@ describe("medicoProcedure", () => {
     expect(passed).toBe(true);
   });
 
-  it("bloqueia secretaria", async () => {
+  it("bloqueia role não-autorizada", async () => {
     const { medicoProcedure } = await import("./_core/trpc.ts");
     const mw = (
       medicoProcedure as unknown as {
@@ -87,8 +87,31 @@ describe("medicoProcedure", () => {
       }
     )._def.middlewares[0]!;
     await expect(
-      testMiddleware(mw as never, buildStaffCtx("secretaria")),
+      testMiddleware(mw as never, buildStaffCtx("viewer")),
     ).rejects.toThrow(TRPCError);
+  });
+
+  it("bloqueia sessão não autenticada", async () => {
+    const { medicoProcedure } = await import("./_core/trpc.ts");
+    const mw = (
+      medicoProcedure as unknown as {
+        _def: { middlewares: Array<(opts: unknown) => Promise<unknown>> };
+      }
+    )._def.middlewares[0]!;
+    await expect(testMiddleware(mw as never, buildNoAuthCtx())).rejects.toThrow(
+      TRPCError,
+    );
+  });
+
+  it("permite admin acessar rota de médico", async () => {
+    const { medicoProcedure } = await import("./_core/trpc.ts");
+    const mw = (
+      medicoProcedure as unknown as {
+        _def: { middlewares: Array<(opts: unknown) => Promise<unknown>> };
+      }
+    )._def.middlewares[0]!;
+    const passed = await testMiddleware(mw as never, buildStaffCtx("admin"));
+    expect(passed).toBe(true);
   });
 });
 
