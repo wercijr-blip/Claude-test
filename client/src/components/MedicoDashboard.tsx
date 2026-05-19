@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { trpc } from '../lib/trpc.ts'
 import { useAuth } from '../_core/hooks/useAuth.ts'
 import { PACIENTE_STATUS } from '@shared/const.ts'
+import { fmt } from '../lib/format.ts'
 
 type Tab = 'pacientes' | 'exames_inicio' | 'exames_rejeitados'
 type Acao = 'aprovar' | 'recusar' | 'solicitar_reenvio' | 'recomendar_consulta' | 'encaminhar_especialista' | 'solicitar_confirmacao'
@@ -132,7 +133,7 @@ export default function MedicoDashboard() {
               >
                 <p className="font-medium text-slate-800 text-sm">{p.nome}</p>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  {new Date(p.createdAt).toLocaleDateString('pt-BR')} · {p.tipoAtendimento}
+                  {fmt.date(p.createdAt)} · {p.tipoAtendimento}
                 </p>
                 <StatusBadge status={p.status} />
               </button>
@@ -250,7 +251,7 @@ export default function MedicoDashboard() {
                   <div>
                     <p className="font-medium text-slate-800">{exame.nomeArquivo}</p>
                     <p className="text-xs text-slate-400 mt-0.5">
-                      Paciente #{exame.pacienteId} · {exame.tipoExame ?? 'tipo não identificado'} · {new Date(exame.createdAt).toLocaleDateString('pt-BR')}
+                      Paciente #{exame.pacienteId} · {exame.tipoExame ?? 'tipo não identificado'} · {fmt.date(exame.createdAt)}
                     </p>
                   </div>
                   {jaLiberado ? (
@@ -290,7 +291,7 @@ export default function MedicoDashboard() {
 
                 {jaLiberado && exame.liberadoEm && (
                   <p className="text-xs text-green-600">
-                    Liberado em {new Date(exame.liberadoEm).toLocaleString('pt-BR')}
+                    Liberado em {fmt.datetime(exame.liberadoEm)}
                   </p>
                 )}
               </div>
@@ -372,7 +373,7 @@ function ExamesInicioTab({ revisoes }: { revisoes: Array<any> | undefined }) {
               {r.urgente && <span className="text-xs bg-red-600 text-white px-1.5 py-0.5 rounded font-bold">URGENTE</span>}
             </div>
             <p className="text-xs text-slate-400">
-              {r.tipoConsulta === 'ja_faco_prep' ? 'Já faz PrEP' : 'Primeiro atendimento'} · {new Date(r.createdAt).toLocaleDateString('pt-BR')}
+              {r.tipoConsulta === 'ja_faco_prep' ? 'Já faz PrEP' : 'Primeiro atendimento'} · {fmt.date(r.createdAt)}
             </p>
             {r.motivoRejeicao && <p className="text-xs text-amber-600 mt-0.5 truncate">{r.motivoRejeicao}</p>}
           </button>

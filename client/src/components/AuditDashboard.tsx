@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { trpc } from '../lib/trpc.ts'
 import { useAuth } from '../_core/hooks/useAuth.ts'
 import { Download } from 'lucide-react'
+import { fmt } from '../lib/format.ts'
 
 type ConfirmDeleteTarget = { id: number; nome: string | null; email: string | null }
 
@@ -282,7 +283,7 @@ export default function AuditDashboard() {
                       <td className="py-3 pr-4 text-slate-500">{p.convenio ?? '—'}</td>
                       <td className="py-3 pr-4 text-slate-400">{p.currentStep}/8</td>
                       <td className="py-3 text-slate-400 whitespace-nowrap">
-                        {new Date(p.createdAt).toLocaleDateString('pt-BR')}
+                        {fmt.date(p.createdAt)}
                       </td>
                     </tr>
                   ))}
@@ -344,7 +345,7 @@ export default function AuditDashboard() {
               {eventos?.map((e) => (
                 <div key={e.id} className="flex items-start gap-3 text-xs py-2 border-b border-slate-50">
                   <span className="text-slate-400 whitespace-nowrap">
-                    {new Date(e.createdAt).toLocaleString('pt-BR')}
+                    {fmt.datetime(e.createdAt)}
                   </span>
                   <span className={`font-medium ${e.tipoEvento.includes('fail') || e.tipoEvento.includes('invalid') || e.tipoEvento.includes('block') ? 'text-red-600' : 'text-slate-700'}`}>
                     {e.tipoEvento}
@@ -446,11 +447,11 @@ function PainelCertificado() {
             </div>
             <div>
               <dt className="text-xs text-slate-500">Válido a partir de</dt>
-              <dd className="text-slate-700">{data.validoDe ? new Date(data.validoDe).toLocaleDateString('pt-BR') : '—'}</dd>
+              <dd className="text-slate-700">{data.validoDe ? fmt.date(data.validoDe) : '—'}</dd>
             </div>
             <div>
               <dt className="text-xs text-slate-500">Válido até</dt>
-              <dd className="text-slate-700">{data.validoAte ? new Date(data.validoAte).toLocaleDateString('pt-BR') : '—'}</dd>
+              <dd className="text-slate-700">{data.validoAte ? fmt.date(data.validoAte) : '—'}</dd>
             </div>
           </dl>
         )}

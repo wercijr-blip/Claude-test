@@ -4,7 +4,7 @@ import { hashToken, generateToken } from '../_core/tokenUtils.ts'
 import { TRPCError } from '@trpc/server'
 import { db } from '../db.ts'
 import { precadastros, accessTokens, users, pacientes } from '../../drizzle/schema.ts'
-import { eq, desc, inArray, isNull, and } from 'drizzle-orm'
+import { eq, desc, lt, inArray, isNull, and } from 'drizzle-orm'
 import { encrypt, decrypt, hashCpf } from '../_core/encryption.ts'
 import { validarCpf, normalizarCpf } from '../_core/cpfValidator.ts'
 import { criarCobrancaIntake, obterPagamento, listarPagamentosPorReferencia } from '../asaas/client.ts'
@@ -16,6 +16,7 @@ import { TOKEN_EXPIRY_DAYS, JWT_EXPIRY_PATIENT } from '../../shared/security-con
 import { enqueueEnviarLinkAcesso } from '../pdfQueue.ts'
 import type { PagamentoMeta } from '../email.ts'
 import { ERROR_MESSAGES, HORARIO_ATENDIMENTO } from '../../shared/const.ts'
+import { paginationInput, paginatedResponse } from '../_core/pagination.ts'
 import { logger } from '../_core/logger.ts'
 import * as Sentry from '@sentry/node'
 
@@ -364,14 +365,20 @@ export const intakeRouter = router({
 
   // Secretaria: listar planos aguardando validação
   listarPendentes: staffProcedure
-    .query(async () => {
+    .input(paginationInput)
+    .query(async ({ input }) => {
+      const { limit, cursor } = input
       const rows = await db
         .select()
         .from(precadastros)
-        .where(eq(precadastros.status, 'aguardando_validacao'))
-        .orderBy(desc(precadastros.createdAt))
+        .where(cursor
+          ? and(eq(precadastros.status, 'aguardando_validacao'), lt(precadastros.id, cursor))
+          : eq(precadastros.status, 'aguardando_validacao'),
+        )
+        .orderBy(desc(precadastros.id))
+        .limit(limit + 1)
 
-      return rows.map(r => ({
+      const mapped = rows.map(r => ({
         id: r.id,
         nome: decrypt(r.nomeEncrypted),
         telefone: decrypt(r.telefoneEncrypted),
@@ -381,6 +388,8 @@ export const intakeRouter = router({
         documentoS3Key: r.documentoS3Key,
         createdAt: r.createdAt,
       }))
+
+      return paginatedResponse(mapped, limit)
     }),
 
   // Gerar URL pré-assinada para visualizar documento de intake (secretaria)

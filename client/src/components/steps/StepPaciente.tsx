@@ -5,6 +5,7 @@ import { trpc } from '../../lib/trpc.ts'
 import { useAuth } from '../../_core/hooks/useAuth.ts'
 import { validarCpf } from '../../../../server/_core/cpfValidator.ts'
 import { ERROR_MESSAGES } from '@shared/const.ts'
+import { useFormDraft } from '../../hooks/useFormDraft.ts'
 
 const schema = z.object({
   cpf: z.string().refine(validarCpf, ERROR_MESSAGES.CPF_INVALID),
@@ -28,14 +29,16 @@ export default function StepPaciente({ pacienteId, onNext, defaultValues }: Prop
   const hasIntakeCpf = !!defaultValues?.cpf
   const { setToken } = useAuth()
 
-  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
+  const form = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { nome: defaultValues?.nome ?? '', cpf: defaultValues?.cpf ?? '' },
   })
+  const { register, handleSubmit, formState: { errors } } = form
+  const { clearDraft } = useFormDraft(form, 'step-paciente-draft')
 
   const salvar = trpc.paciente.salvarStep1.useMutation({
     onSuccess: (data) => {
-      // Refresh the stored JWT so page reloads preserve pacienteId
+      clearDraft()
       if (data.newSessionToken) setToken(data.newSessionToken)
       onNext(data.pacienteId)
     },
