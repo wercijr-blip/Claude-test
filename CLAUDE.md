@@ -299,6 +299,38 @@ BUILT_IN_FORGE_API_KEY=sk-ant-...
 
 -----
 
+## 🧠 Princípios Karpathy — Ativos em Toda Sessão
+
+Estes princípios se aplicam **antes de qualquer tarefa**, independentemente do tema ou skill acionada.
+
+### 1. Pense Antes de Codar
+- Declare suposições explicitamente. Se incerto, pergunte.
+- Se existirem múltiplas interpretações, apresente-as — não escolha silenciosamente.
+- Se uma abordagem mais simples existir, diga. Questione quando necessário.
+- Se algo estiver confuso, pare. Nomeie o que está confuso. Pergunte.
+
+### 2. Simplicidade Primeiro
+- Código mínimo que resolve o problema. Nada especulativo.
+- Sem features além do que foi pedido.
+- Sem abstrações para código de uso único.
+- Sem tratamento de erros para cenários impossíveis.
+- Se escrever 200 linhas e puder ser 50, reescreva.
+
+### 3. Mudanças Cirúrgicas
+- Toque apenas no que for necessário. Não "melhore" código adjacente.
+- Não refatore o que não está quebrado.
+- Combine o estilo existente, mesmo que faria diferente.
+- Se notar código morto não relacionado, mencione — não delete.
+
+### 4. Execução Orientada a Metas
+- Defina critérios de sucesso verificáveis antes de executar.
+- Para tarefas de múltiplos passos, declare um plano breve com verificações.
+- Prefira: "escreva testes para X, depois faça-os passar" em vez de "faça X funcionar".
+
+> Fonte: [Andrej Karpathy](https://x.com/karpathy/status/2015883857489522876) — aplicado via skill `/karpathy-coder`
+
+-----
+
 ## ⚠️ Atenção ao Trabalhar no Projeto
 
 1. **Nunca commitar** `server/certs/*.pem`, `server/certs/*.pfx` ou `.env`
