@@ -13,7 +13,7 @@ import { redis } from "./redis.ts";
 import { applySecurityMiddleware } from "./security.ts";
 import { appRouter } from "../routers.ts";
 import { createContext } from "./context.ts";
-import { authLimiter, cisLimiter } from "./rateLimiters.ts";
+import { authLimiter, cisLimiter, totpLimiter } from "./rateLimiters.ts";
 import { db } from "../db.ts";
 import { ensureSchema } from "./ensureSchema.ts";
 import { Sentry } from "./instrument.ts";
@@ -93,6 +93,7 @@ app.use((_req, res, next) => {
 });
 
 app.use("/trpc/auth.callback", authLimiter);
+app.use("/trpc/auth.verifyTotp", totpLimiter);
 app.use(
   "/trpc",
   createExpressMiddleware({

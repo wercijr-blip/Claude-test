@@ -18,7 +18,7 @@ const REDACT_PATHS = [
 ];
 
 const pinoOpts: pino.LoggerOptions = {
-  level: env.NODE_ENV === "production" ? "info" : "debug",
+  level: env.LOG_LEVEL,
   redact: { paths: REDACT_PATHS, censor: "[redacted]" },
 };
 

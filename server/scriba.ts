@@ -37,6 +37,62 @@ import {
 import { publicarNotaSOAP } from "./obsidian.ts";
 import { notificarSOAP } from "./n8n.ts";
 
+export async function buscarHistoricoFeedback(
+  medicoId: number,
+  cid10: string,
+): Promise<FeedbackHistoricoItem[]> {
+  const [feedbackCid10, feedbackGlobal] = await Promise.all([
+    db
+      .select({
+        hashAlerta: conductAlerts.hashAlerta,
+        feedbackMedico: conductAlerts.feedbackMedico,
+        feedbackMotivo: conductAlerts.feedbackMotivo,
+      })
+      .from(conductAlerts)
+      .where(
+        and(
+          eq(conductAlerts.medicoId, medicoId),
+          eq(conductAlerts.cid10, cid10),
+          isNotNull(conductAlerts.feedbackMedico),
+        ),
+      )
+      .orderBy(desc(conductAlerts.feedbackEm))
+      .limit(10),
+
+    db
+      .select({
+        hashAlerta: conductAlerts.hashAlerta,
+        feedbackMedico: conductAlerts.feedbackMedico,
+        feedbackMotivo: conductAlerts.feedbackMotivo,
+        cid10: conductAlerts.cid10,
+      })
+      .from(conductAlerts)
+      .where(
+        and(
+          eq(conductAlerts.medicoId, medicoId),
+          ne(conductAlerts.cid10, cid10),
+          inArray(conductAlerts.feedbackMedico, ["discordo", "inaplicavel"]),
+        ),
+      )
+      .orderBy(desc(conductAlerts.feedbackEm))
+      .limit(5),
+  ]);
+
+  return [
+    ...feedbackCid10.map((r) => ({
+      hashAlerta: r.hashAlerta,
+      feedback: r.feedbackMedico!,
+      motivo: r.feedbackMotivo,
+    })),
+    ...feedbackGlobal.map((r) => ({
+      hashAlerta: r.hashAlerta,
+      feedback: r.feedbackMedico!,
+      motivo: r.feedbackMotivo,
+      cid10Origem: r.cid10 ?? undefined,
+    })),
+  ];
+}
+
 // ─── Whisper (OpenAI) ─────────────────────────────────────────────────────────
 // Mantido com OpenAI: Whisper é o modelo de transcrição mais robusto disponível
 // para português médico com sotaque regional. A API Claude não suporta áudio.
@@ -255,7 +311,7 @@ export async function processarConsulta(params: {
           eq(soapNotes.medicoId, params.medicoId),
         ),
       )
-      .orderBy(sql`${soapNotes.createdAt} DESC`)
+      .orderBy(desc(soapNotes.createdAt))
       .limit(1);
 
     if (!inserted)
@@ -362,60 +418,10 @@ export async function processarConsulta(params: {
             )
             .join("; ") || "Sem antibióticos documentados";
 
-        // Busca histórico de feedback — mesmo CID-10 (até 10) + padrões descartados globalmente (até 5)
-        const [feedbackCid10, feedbackGlobal] = await Promise.all([
-          db
-            .select({
-              hashAlerta: conductAlerts.hashAlerta,
-              feedbackMedico: conductAlerts.feedbackMedico,
-              feedbackMotivo: conductAlerts.feedbackMotivo,
-            })
-            .from(conductAlerts)
-            .where(
-              and(
-                eq(conductAlerts.medicoId, params.medicoId),
-                eq(conductAlerts.cid10, diag.cid10),
-                isNotNull(conductAlerts.feedbackMedico),
-              ),
-            )
-            .orderBy(desc(conductAlerts.feedbackEm))
-            .limit(10),
-
-          db
-            .select({
-              hashAlerta: conductAlerts.hashAlerta,
-              feedbackMedico: conductAlerts.feedbackMedico,
-              feedbackMotivo: conductAlerts.feedbackMotivo,
-              cid10: conductAlerts.cid10,
-            })
-            .from(conductAlerts)
-            .where(
-              and(
-                eq(conductAlerts.medicoId, params.medicoId),
-                ne(conductAlerts.cid10, diag.cid10),
-                inArray(conductAlerts.feedbackMedico, [
-                  "discordo",
-                  "inaplicavel",
-                ]),
-              ),
-            )
-            .orderBy(desc(conductAlerts.feedbackEm))
-            .limit(5),
-        ]);
-
-        const historicoFeedback: FeedbackHistoricoItem[] = [
-          ...feedbackCid10.map((r) => ({
-            hashAlerta: r.hashAlerta,
-            feedback: r.feedbackMedico!,
-            motivo: r.feedbackMotivo,
-          })),
-          ...feedbackGlobal.map((r) => ({
-            hashAlerta: r.hashAlerta,
-            feedback: r.feedbackMedico!,
-            motivo: r.feedbackMotivo,
-            cid10Origem: r.cid10 ?? undefined,
-          })),
-        ];
+        const historicoFeedback = await buscarHistoricoFeedback(
+          params.medicoId,
+          diag.cid10,
+        );
 
         const divergencia = await detectarDivergenciaConducta({
           condutaAtual,
@@ -495,7 +501,10 @@ export async function encerrarSessao(
   // Enfileira digest diário no BullMQ (digestQueue criado na próxima ação)
   try {
     const { enqueueDigestDiario } = await import("./digestQueue.ts");
-    const periodoRef = agora.toISOString().slice(0, 10); // "YYYY-MM-DD"
+    const BRT_OFFSET = -3 * 60 * 60_000; // BRT = UTC-3 (sem DST desde 2019)
+    const periodoRef = new Date(agora.getTime() + BRT_OFFSET)
+      .toISOString()
+      .slice(0, 10);
     await enqueueDigestDiario({ medicoId, sessionId, periodoRef });
     logger.info("[scriba] Digest diário enfileirado", { medicoId, periodoRef });
   } catch (err) {

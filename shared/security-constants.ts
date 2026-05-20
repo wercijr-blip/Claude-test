@@ -9,8 +9,6 @@ export const RATE_LIMITS = {
   CIS_API: { windowMs: 60 * 1000, max: 60 },
 } as const;
 
-export const TOKEN_EXPIRY_DAYS = 7;
-
 export const JWT_EXPIRY_STAFF = "8h";
 
 export const MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024; // 10MB per file

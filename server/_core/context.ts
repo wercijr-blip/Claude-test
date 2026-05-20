@@ -4,9 +4,10 @@ import { env } from "./env.ts";
 import { db } from "../db.ts";
 import { users } from "../../drizzle/cis-schema.ts";
 import { eq, isNull, and } from "drizzle-orm";
+import { isTokenBlocked } from "./jwtBlocklist.ts";
 import type { AuthUser } from "../../shared/types.ts";
 
-export type SessionUser = AuthUser;
+export type SessionUser = AuthUser & { jti?: string; exp?: number };
 
 export interface Context {
   req: Request;
@@ -26,6 +27,9 @@ export async function createContext({
     const { payload } = await jwtVerify(token, secret);
 
     if (payload["type"] === "staff" && payload.sub) {
+      const jti = typeof payload.jti === "string" ? payload.jti : undefined;
+      if (jti && (await isTokenBlocked(jti))) return { req, session: null };
+
       const user = await db
         .select()
         .from(users)
@@ -44,6 +48,8 @@ export async function createContext({
           nome: user.nome,
           email: user.email,
           role: user.role as AuthUser["role"],
+          jti,
+          exp: typeof payload.exp === "number" ? payload.exp : undefined,
         },
       };
     }

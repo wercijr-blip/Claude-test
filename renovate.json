@@ -1,0 +1,35 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "packageRules": [
+    {
+      "matchUpdateTypes": ["minor", "patch"],
+      "matchPackagePatterns": ["*"],
+      "automerge": true,
+      "automergeType": "pr",
+      "automergeStrategy": "squash"
+    },
+    {
+      "matchPackageNames": [
+        "anthropic",
+        "@anthropic-ai/sdk",
+        "drizzle-orm",
+        "drizzle-kit",
+        "@trpc/server",
+        "@trpc/client",
+        "jose",
+        "bullmq"
+      ],
+      "automerge": false,
+      "reviewers": ["wercijr-blip"]
+    },
+    {
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "reviewers": ["wercijr-blip"]
+    }
+  ],
+  "schedule": ["before 9am on Monday"],
+  "labels": ["dependencies"],
+  "commitMessagePrefix": "chore(deps):"
+}

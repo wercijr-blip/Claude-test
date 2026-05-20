@@ -48,6 +48,9 @@ const envSchema = z.object({
   NODE_ENV: z
     .enum(["development", "production", "test"])
     .default("development"),
+  LOG_LEVEL: z
+    .enum(["trace", "debug", "info", "warn", "error", "fatal"])
+    .default("info"),
   // Set to false when running a dedicated worker service (server/workers.ts).
   // Defaults to true so single-service deploys work without extra config.
   // z.coerce.boolean() uses Boolean() which converts string "false" → true (non-empty string bug).

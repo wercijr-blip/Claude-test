@@ -9,7 +9,7 @@ import { Sentry } from "./instrument.ts";
 // Lazily initialized so importing this module doesn't open a Redis connection
 // at startup (e.g., in test environments that mock bullmq).
 let dlq: Queue | null = null;
-function getDlq(): Queue {
+export function getDlq(): Queue {
   if (!dlq) {
     dlq = new Queue("dlq", {
       connection: redis,

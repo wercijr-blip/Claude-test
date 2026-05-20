@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { SignJWT, jwtVerify } from "jose";
 import { TRPCError } from "@trpc/server";
+import { randomUUID } from "crypto";
 import { router, publicProcedure, protectedProcedure } from "../_core/trpc.ts";
 import { env } from "../_core/env.ts";
 import { Sentry } from "../_core/instrument.ts";
@@ -11,6 +12,7 @@ import { eq, isNull, and } from "drizzle-orm";
 import { JWT_EXPIRY_STAFF } from "../../shared/security-constants.ts";
 import { isAllowedRedirectUri } from "../_core/originValidator.ts";
 import { logAudit } from "../_core/audit.ts";
+import { blockToken } from "../_core/jwtBlocklist.ts";
 import {
   generateTotpSecret,
   verifyTotpCode,
@@ -193,6 +195,7 @@ export const authRouter = router({
             .setProtectedHeader({ alg: "HS256" })
             .setSubject(data.openId)
             .setIssuedAt()
+            .setJti(randomUUID())
             .setExpirationTime("5m")
             .sign(secret);
           return { token: pendingToken, role, requiresTwoFactor: true };
@@ -202,6 +205,7 @@ export const authRouter = router({
           .setProtectedHeader({ alg: "HS256" })
           .setSubject(data.openId)
           .setIssuedAt()
+          .setJti(randomUUID())
           .setExpirationTime(JWT_EXPIRY_STAFF)
           .sign(secret);
 
@@ -279,6 +283,7 @@ export const authRouter = router({
         .setProtectedHeader({ alg: "HS256" })
         .setSubject(openId)
         .setIssuedAt()
+        .setJti(randomUUID())
         .setExpirationTime(JWT_EXPIRY_STAFF)
         .sign(secret);
 
@@ -336,6 +341,7 @@ export const authRouter = router({
         .setProtectedHeader({ alg: "HS256" })
         .setSubject(user.openId)
         .setIssuedAt()
+        .setJti(randomUUID())
         .setExpirationTime(JWT_EXPIRY_STAFF)
         .sign(secret);
 
@@ -425,7 +431,9 @@ export const authRouter = router({
     return ctx.session;
   }),
 
-  logout: protectedProcedure.mutation(() => {
+  logout: protectedProcedure.mutation(async ({ ctx }) => {
+    const { jti, exp } = ctx.session ?? {};
+    if (jti && exp) await blockToken(jti, exp);
     return { ok: true };
   }),
 });

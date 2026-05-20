@@ -66,6 +66,7 @@ function CISDashboard() {
   const [transcricao, setTranscricao] = useState<string | null>(null);
   const [sessaoId, setSessaoId] = useState<number | null>(null);
   const [refreshingId, setRefreshingId] = useState<number | null>(null);
+  const [pendingSynthesisNoteId, setPendingSynthesisNoteId] = useState<number | null>(null);
   const [tipoConsulta, setTipoConsulta] = useState<
     "primeira_consulta" | "retorno" | "seguimento"
   >("primeira_consulta");
@@ -94,7 +95,20 @@ function CISDashboard() {
     data: notas,
     isLoading: notasLoading,
     isError: notasError,
-  } = trpc.scriba.listarSoapNotes.useQuery({ limit: 10 }, { retry: false });
+  } = trpc.scriba.listarSoapNotes.useQuery(
+    { limit: 10 },
+    {
+      retry: false,
+      refetchInterval: pendingSynthesisNoteId ? 15_000 : false,
+      refetchIntervalInBackground: false,
+    },
+  );
+
+  useEffect(() => {
+    if (!pendingSynthesisNoteId || !notas?.items) return;
+    const nota = notas.items.find((n) => n.id === pendingSynthesisNoteId);
+    if (nota?.temSintese) setPendingSynthesisNoteId(null);
+  }, [pendingSynthesisNoteId, notas?.items]);
   const {
     data: alertas,
     isLoading: alertasLoading,
@@ -125,6 +139,7 @@ function CISDashboard() {
       toast(`SOAP gerada — nota #${data.soapNoteId}`, "success");
       setTranscricao(null);
       setPacienteNome("");
+      setPendingSynthesisNoteId(data.soapNoteId);
     },
     onError: (err) => toast(err.message, "error"),
   });
@@ -352,6 +367,10 @@ function CISDashboard() {
                         {n.temSintese ? (
                           <span className="ml-1 text-emerald-600">
                             · síntese ✓
+                          </span>
+                        ) : pendingSynthesisNoteId === n.id ? (
+                          <span className="ml-1 text-amber-600">
+                            · <span className="animate-pulse">●</span> PubMed em processamento…
                           </span>
                         ) : (
                           <span className="ml-1 text-slate-300">

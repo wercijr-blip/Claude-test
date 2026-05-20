@@ -13,7 +13,7 @@ import { env } from "./_core/env.ts";
 import { redis, QUEUE_PREFIX } from "./_core/redis.ts";
 import { db } from "./db.ts";
 import { soapNotes, conductAlerts } from "../drizzle/cis-schema.ts";
-import { eq, and, isNotNull, desc, gt, ne, inArray } from "drizzle-orm";
+import { eq, and, desc, gt } from "drizzle-orm";
 import { buscarArtigosDual } from "./pubmed.ts";
 import {
   enriquecerArtigos,
@@ -27,8 +27,8 @@ import {
 import {
   sintetizarArtigosPubMed,
   detectarDivergenciaConducta,
-  type FeedbackHistoricoItem,
 } from "./clinicalIntelligence.ts";
+import { buscarHistoricoFeedback } from "./scriba.ts";
 import { publicarNotaSintese, publicarAlertaConduta } from "./obsidian.ts";
 import { notificarAlertaConduta } from "./n8n.ts";
 import { logger } from "./_core/logger.ts";
@@ -277,62 +277,7 @@ export function startPubmedWorker() {
           return { soapNoteId, artigosEncontrados: artigos.length };
         }
 
-        // Busca histórico de feedback — mesmo CID-10 (até 10) + padrões descartados globalmente (até 5)
-        const [feedbackCid10, feedbackGlobal] = await Promise.all([
-          db
-            .select({
-              hashAlerta: conductAlerts.hashAlerta,
-              feedbackMedico: conductAlerts.feedbackMedico,
-              feedbackMotivo: conductAlerts.feedbackMotivo,
-              cid10: conductAlerts.cid10,
-            })
-            .from(conductAlerts)
-            .where(
-              and(
-                eq(conductAlerts.medicoId, medicoId),
-                eq(conductAlerts.cid10, cid10),
-                isNotNull(conductAlerts.feedbackMedico),
-              ),
-            )
-            .orderBy(desc(conductAlerts.feedbackEm))
-            .limit(10),
-
-          // Alertas descartados em outros diagnósticos — revela padrões sistemáticos do médico
-          db
-            .select({
-              hashAlerta: conductAlerts.hashAlerta,
-              feedbackMedico: conductAlerts.feedbackMedico,
-              feedbackMotivo: conductAlerts.feedbackMotivo,
-              cid10: conductAlerts.cid10,
-            })
-            .from(conductAlerts)
-            .where(
-              and(
-                eq(conductAlerts.medicoId, medicoId),
-                ne(conductAlerts.cid10, cid10),
-                inArray(conductAlerts.feedbackMedico, [
-                  "discordo",
-                  "inaplicavel",
-                ]),
-              ),
-            )
-            .orderBy(desc(conductAlerts.feedbackEm))
-            .limit(5),
-        ]);
-
-        const historicoFeedback: FeedbackHistoricoItem[] = [
-          ...feedbackCid10.map((r) => ({
-            hashAlerta: r.hashAlerta,
-            feedback: r.feedbackMedico!,
-            motivo: r.feedbackMotivo,
-          })),
-          ...feedbackGlobal.map((r) => ({
-            hashAlerta: r.hashAlerta,
-            feedback: r.feedbackMedico!,
-            motivo: r.feedbackMotivo,
-            cid10Origem: r.cid10 ?? undefined,
-          })),
-        ];
+        const historicoFeedback = await buscarHistoricoFeedback(medicoId, cid10);
 
         const alerta = await detectarDivergenciaConducta({
           diagnostico: diagnosticoPrincipal,
