@@ -54,6 +54,17 @@ export function useAuth() {
     return () => clearInterval(id);
   }, [token]);
 
+  useEffect(() => {
+    function onStorage(e: StorageEvent) {
+      if (e.key === TOKEN_KEY && !e.newValue) {
+        setTokenState(null);
+        if (window.location.pathname !== "/") window.location.href = "/";
+      }
+    }
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
   return { token, setToken, logout, getToken, isAuthenticated: !!token };
 }
 

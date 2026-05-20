@@ -20,7 +20,7 @@
     "test:coverage": "vitest run --coverage",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --env-file=.env scripts/migrate.ts",
-    "db:push": "drizzle-kit push",
+    "db:push": "[ \"$NODE_ENV\" != 'production' ] || { echo 'ERRO: db:push bloqueado em produção — use db:migrate'; exit 1; } && drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "format": "prettier --write .",
     "lint": "prettier --check \"server/**/*.ts\" \"shared/**/*.ts\"",

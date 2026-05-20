@@ -24,7 +24,7 @@ export const users = mysqlTable(
     role: varchar("role", { length: 50 }).notNull().default("medico"),
     ativo: boolean("ativo").notNull().default(true),
     totpEnabled: boolean("totp_enabled").notNull().default(false),
-    totpSecret: varchar("totp_secret", { length: 64 }),
+    totpSecret: varchar("totp_secret", { length: 255 }),
     deletedAt: datetime("deleted_at"),
     createdAt: datetime("created_at")
       .notNull()
@@ -132,6 +132,7 @@ export const conductAlerts = mysqlTable(
   },
   (t) => ({
     soapIdx: index("idx_calerts_soap").on(t.soapNoteId),
+    soapUniqIdx: uniqueIndex("idx_calerts_soap_uniq").on(t.soapNoteId),
     medicoIdx: index("idx_calerts_medico").on(t.medicoId),
     urgenciaIdx: index("idx_calerts_urgencia").on(t.nivelUrgencia),
     vistoIdx: index("idx_calerts_visto").on(t.vistoEm),

@@ -41,6 +41,10 @@ const WORKER_OPTS = {
 export const caseSeriesQueue = new Queue(CASE_SERIES_QUEUE_NAME, {
   connection: redis,
   prefix: QUEUE_PREFIX,
+  defaultJobOptions: {
+    attempts: 3,
+    backoff: { type: "exponential", delay: 30_000 },
+  },
 });
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────

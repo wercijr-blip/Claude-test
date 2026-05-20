@@ -66,7 +66,15 @@ function CISDashboard() {
   const [transcricao, setTranscricao] = useState<string | null>(null);
   const [sessaoId, setSessaoId] = useState<number | null>(null);
   const [refreshingId, setRefreshingId] = useState<number | null>(null);
-  const [pendingSynthesisNoteId, setPendingSynthesisNoteId] = useState<number | null>(null);
+  const [pendingSynthesisNoteId, setPendingSynthesisNoteIdState] = useState<number | null>(() => {
+    const v = sessionStorage.getItem("cis:pendingSynthesis");
+    return v ? parseInt(v, 10) : null;
+  });
+  const setPendingSynthesisNoteId = useCallback((id: number | null) => {
+    if (id === null) sessionStorage.removeItem("cis:pendingSynthesis");
+    else sessionStorage.setItem("cis:pendingSynthesis", String(id));
+    setPendingSynthesisNoteIdState(id);
+  }, []);
   const [tipoConsulta, setTipoConsulta] = useState<
     "primeira_consulta" | "retorno" | "seguimento"
   >("primeira_consulta");
@@ -444,6 +452,9 @@ function AuthCallback() {
   const { setToken } = useAuth();
   const [, navigate] = useLocation();
   const [timedOut, setTimedOut] = useState(false);
+  const [pendingToken, setPendingToken] = useState<string | null>(null);
+  const [totpCode, setTotpCode] = useState("");
+  const [totpError, setTotpError] = useState<string | null>(null);
 
   const [code] = useState(() => {
     const p = new URLSearchParams(window.location.search);
@@ -454,8 +465,23 @@ function AuthCallback() {
 
   const hasAttempted = useRef(false);
 
+  const verifyTotp = trpc.auth.verifyTotp.useMutation({
+    onSuccess: (data) => {
+      setToken(data.token);
+      navigate(data.role === "admin" ? "/admin" : "/medico");
+    },
+    onError: (err) => {
+      setTotpError(err.message ?? "Código inválido. Tente novamente.");
+      setTotpCode("");
+    },
+  });
+
   const callbackMutation = trpc.auth.callback.useMutation({
-    onSuccess: (data: { token: string }) => {
+    onSuccess: (data) => {
+      if (data.requiresTwoFactor) {
+        setPendingToken(data.token);
+        return;
+      }
       setToken(data.token);
       const session = parseJwtPayload(data.token);
       const role = session?.type === "staff" ? session.role : null;
@@ -486,6 +512,56 @@ function AuthCallback() {
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  if (pendingToken) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-full max-w-sm mx-auto px-6">
+          <h1 className="text-xl font-semibold text-slate-800 text-center mb-2">
+            Verificação em duas etapas
+          </h1>
+          <p className="text-sm text-slate-500 text-center mb-6">
+            Digite o código de 6 dígitos do seu autenticador.
+          </p>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (totpCode.replace(/\s/g, "").length === 6) {
+                setTotpError(null);
+                verifyTotp.mutate({ pendingToken, code: totpCode });
+              }
+            }}
+          >
+            <input
+              autoFocus
+              type="text"
+              inputMode="numeric"
+              maxLength={7}
+              placeholder="000 000"
+              value={totpCode}
+              onChange={(e) => setTotpCode(e.target.value)}
+              className="w-full text-center text-2xl tracking-widest border border-slate-300 rounded-xl px-4 py-3 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            {totpError && (
+              <p className="text-sm text-red-600 text-center mb-3">
+                {totpError}
+              </p>
+            )}
+            <button
+              type="submit"
+              disabled={
+                verifyTotp.isPending ||
+                totpCode.replace(/\s/g, "").length !== 6
+              }
+              className="w-full bg-blue-600 text-white py-2.5 rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+            >
+              {verifyTotp.isPending ? "Verificando…" : "Confirmar"}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   if (callbackMutation.isError || timedOut) {
     return (

@@ -7,6 +7,7 @@
 
 import { env } from "./_core/env.ts";
 import { logger } from "./_core/logger.ts";
+import { Sentry } from "./_core/instrument.ts";
 import { db } from "./db.ts";
 import {
   clinicalSessions,
@@ -510,6 +511,10 @@ export async function encerrarSessao(
   } catch (err) {
     logger.warn("[scriba] Falha ao enfileirar digest diário", {
       error: String(err),
+    });
+    Sentry.captureException(err, {
+      tags: { fn: "encerrarSessao" },
+      extra: { sessionId, medicoId },
     });
   }
 }

@@ -244,9 +244,8 @@ if (env.NODE_ENV === "production") {
 Sentry.setupExpressErrorHandler(app);
 
 await ensureSchema().catch((err) => {
-  logger.error("[server] ensureSchema falhou (continuando)", {
-    error: String(err),
-  });
+  logger.error("[server] ensureSchema falhou", { error: String(err) });
+  if (env.NODE_ENV === "production") process.exit(1);
 });
 
 const inProcessWorkers: Worker[] = [];

@@ -49,6 +49,10 @@ const WORKER_OPTS = {
 export const pubmedQueue = new Queue(PUBMED_QUEUE_NAME, {
   connection: redis,
   prefix: QUEUE_PREFIX,
+  defaultJobOptions: {
+    attempts: 3,
+    backoff: { type: "exponential", delay: 30_000 },
+  },
 });
 
 // ─── Tipos de job ─────────────────────────────────────────────────────────────

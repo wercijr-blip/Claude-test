@@ -38,7 +38,9 @@ const anthropic = new Anthropic({
 // ─── Opus daily budget (Redis counter) ───────────────────────────────────────
 
 function opusDateKey(): string {
-  return `cis:opus:tokens:${new Date().toISOString().slice(0, 10)}`;
+  const BRT_OFFSET = -3 * 60 * 60_000;
+  const brtDate = new Date(Date.now() + BRT_OFFSET).toISOString().slice(0, 10);
+  return `cis:opus:tokens:${brtDate}`;
 }
 
 async function getOpusTokensToday(): Promise<number> {

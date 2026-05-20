@@ -50,6 +50,10 @@ const DIGEST_WORKER_OPTS = {
 export const digestQueue = new Queue(DIGEST_QUEUE_NAME, {
   connection: redis,
   prefix: QUEUE_PREFIX,
+  defaultJobOptions: {
+    attempts: 2,
+    backoff: { type: "fixed", delay: 120_000 },
+  },
 });
 
 // ─── Tipos de job ─────────────────────────────────────────────────────────────

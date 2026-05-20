@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { router, medicoProcedure } from "../_core/trpc.ts";
 import { db } from "../db.ts";
 import {
+  users,
   clinicalSessions,
   soapNotes,
   conductAlerts,
@@ -33,9 +34,9 @@ import { logAudit, type AuditEntry } from "../_core/audit.ts";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function makeAudit(medicoId: number, role: string) {
-  return (fields: Omit<AuditEntry, "actorId" | "actorRole">) =>
-    logAudit({ actorId: medicoId, actorRole: role, ...fields });
+function makeAudit(medicoId: number, role: string, ipAddress?: string) {
+  return (fields: Omit<AuditEntry, "actorId" | "actorRole" | "ipAddress">) =>
+    logAudit({ actorId: medicoId, actorRole: role, ipAddress, ...fields });
 }
 
 function assertOwnership(
@@ -59,7 +60,7 @@ export const scribaRouter = router({
   /** Abre ou retorna a sessão clínica do dia para o médico autenticado. */
   abrirSessao: medicoProcedure.mutation(async ({ ctx }) => {
     const medicoId = ctx.session.id;
-    const audit = makeAudit(medicoId, ctx.session.role);
+    const audit = makeAudit(medicoId, ctx.session.role, ctx.req.ip);
     const sessao = await abrirSessao(medicoId);
     audit({
       action: "session.open",
@@ -74,7 +75,7 @@ export const scribaRouter = router({
     .input(z.object({ sessionId: z.number().int().positive() }))
     .mutation(async ({ input, ctx }) => {
       const medicoId = ctx.session.id;
-      const audit = makeAudit(medicoId, ctx.session.role);
+      const audit = makeAudit(medicoId, ctx.session.role, ctx.req.ip);
 
       const [sessao] = await db
         .select({
@@ -180,7 +181,7 @@ export const scribaRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       const medicoId = ctx.session.id;
-      const audit = makeAudit(medicoId, ctx.session.role);
+      const audit = makeAudit(medicoId, ctx.session.role, ctx.req.ip);
 
       const [sessao] = await db
         .select({
@@ -450,7 +451,7 @@ export const scribaRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       const medicoId = ctx.session.id;
-      const audit = makeAudit(medicoId, ctx.session.role);
+      const audit = makeAudit(medicoId, ctx.session.role, ctx.req.ip);
 
       const [alerta] = await db
         .select({ id: conductAlerts.id, medicoId: conductAlerts.medicoId })
@@ -494,7 +495,7 @@ export const scribaRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       const medicoId = ctx.session.id;
-      const audit = makeAudit(medicoId, ctx.session.role);
+      const audit = makeAudit(medicoId, ctx.session.role, ctx.req.ip);
 
       const [alerta] = await db
         .select({
@@ -534,7 +535,7 @@ export const scribaRouter = router({
     .input(z.object({ alertaId: z.number().int().positive() }))
     .mutation(async ({ input, ctx }) => {
       const medicoId = ctx.session.id;
-      const audit = makeAudit(medicoId, ctx.session.role);
+      const audit = makeAudit(medicoId, ctx.session.role, ctx.req.ip);
 
       const [alerta] = await db
         .select({ id: conductAlerts.id, medicoId: conductAlerts.medicoId })
@@ -817,7 +818,7 @@ export const scribaRouter = router({
    */
   exportarDadosPaciente: medicoProcedure.query(async ({ ctx }) => {
     const medicoId = ctx.session.id;
-    const audit = makeAudit(medicoId, ctx.session.role);
+    const audit = makeAudit(medicoId, ctx.session.role, ctx.req.ip);
 
     const [notas, alertas, digests, publicacoes] = await Promise.all([
       db

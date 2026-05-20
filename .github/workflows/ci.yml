@@ -43,3 +43,35 @@ jobs:
 
       - name: Security audit
         run: pnpm audit --audit-level=high
+
+  smoke:
+    name: Smoke (dist verification)
+    needs: ci
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "10.4.1"
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build production bundle
+        run: pnpm build
+
+      - name: Verify build artifacts
+        run: |
+          test -f dist/client/index.html || { echo "FAIL: dist/client/index.html missing"; exit 1; }
+          test -d dist/client/assets     || { echo "FAIL: dist/client/assets missing";    exit 1; }
+          echo "Smoke: dist OK"

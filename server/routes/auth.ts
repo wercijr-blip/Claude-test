@@ -13,11 +13,20 @@ import { JWT_EXPIRY_STAFF } from "../../shared/security-constants.ts";
 import { isAllowedRedirectUri } from "../_core/originValidator.ts";
 import { logAudit } from "../_core/audit.ts";
 import { blockToken } from "../_core/jwtBlocklist.ts";
+import { encrypt, decrypt } from "../_core/encryption.ts";
 import {
   generateTotpSecret,
   verifyTotpCode,
   getTotpUri,
 } from "../_core/totp.ts";
+
+function safeDecryptTotpSecret(stored: string): string {
+  try {
+    return decrypt(stored);
+  } catch {
+    return stored;
+  }
+}
 import type { Role } from "../../shared/types.ts";
 import type { ResultSetHeader } from "mysql2";
 
@@ -329,7 +338,7 @@ export const authRouter = router({
         });
       }
 
-      if (!verifyTotpCode(user.totpSecret, input.code)) {
+      if (!verifyTotpCode(safeDecryptTotpSecret(user.totpSecret), input.code)) {
         throw new TRPCError({
           code: "UNAUTHORIZED",
           message: "Código TOTP inválido",
@@ -364,7 +373,7 @@ export const authRouter = router({
     const totpSecret = generateTotpSecret();
     await db
       .update(users)
-      .set({ totpSecret })
+      .set({ totpSecret: encrypt(totpSecret) })
       .where(eq(users.id, ctx.session.id));
 
     const [user] = await db
@@ -402,7 +411,7 @@ export const authRouter = router({
         });
       }
 
-      if (!verifyTotpCode(user.totpSecret, input.code)) {
+      if (!verifyTotpCode(safeDecryptTotpSecret(user.totpSecret), input.code)) {
         throw new TRPCError({
           code: "UNAUTHORIZED",
           message: "Código TOTP inválido",
@@ -432,8 +441,17 @@ export const authRouter = router({
   }),
 
   logout: protectedProcedure.mutation(async ({ ctx }) => {
-    const { jti, exp } = ctx.session ?? {};
+    const { jti, exp, id: actorId, role: actorRole } = ctx.session ?? {};
     if (jti && exp) await blockToken(jti, exp);
+    if (actorId) {
+      logAudit({
+        actorId,
+        actorRole: actorRole ?? "medico",
+        action: "user.logout",
+        resourceType: "user",
+        resourceId: actorId,
+      });
+    }
     return { ok: true };
   }),
 });
