@@ -11,7 +11,7 @@ import CookieConsent from './components/CookieConsent.tsx'
 // IntakePage: already bundled with LandingPage (static import there), keep eager here too
 import IntakePage from './components/IntakePage.tsx'
 import { trpc } from './lib/trpc.ts'
-import { initClickListener, trackPageView, trackPurchase } from './lib/analytics.ts'
+import { initClickListener, initScrollDepth, initTimeOnPage, persistUtms, trackPageView, trackPurchase } from './lib/analytics.ts'
 
 // Lazy: secondary routes not needed on initial render — each becomes its own JS chunk
 const SegundaParteInicio = lazy(() => import('./components/SegundaParteInicio.tsx'))
@@ -43,10 +43,13 @@ function useTrackPageView() {
   }, [location])
 }
 
-/** Attach global [data-event] click tracker once. */
+/** Persist UTMs, attach scroll depth, time on page, and click tracker — all once on mount. */
 function useAnalyticsInit() {
   useEffect(() => {
+    persistUtms()
     initClickListener()
+    initScrollDepth()
+    initTimeOnPage()
   }, [])
 }
 

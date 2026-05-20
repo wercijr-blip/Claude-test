@@ -76,6 +76,12 @@ const envSchema = z.object({
   // Payment methods — toggle via Railway without code deploy.
   // Set ENABLE_DEBIT_CARD=true once Asaas account enables DEBIT_CARD billing.
   ENABLE_DEBIT_CARD: z.coerce.boolean().default(false),
+
+  // Meta Conversions API (CAPI) — server-side tracking sem dependência de cookie/browser.
+  // META_PIXEL_ID: ID numérico do pixel (ex: 123456789012345)
+  // META_CAPI_TOKEN: System User Access Token com permissão ads_management
+  META_PIXEL_ID: z.string().min(1).optional(),
+  META_CAPI_TOKEN: z.string().min(1).optional(),
 })
 
 const parsed = envSchema.safeParse(process.env)
