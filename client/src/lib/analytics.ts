@@ -3,8 +3,11 @@
  *
  * GTM loads via consent-gated /gtm-loader.js (LGPD compliant).
  * This module provides typed helpers for: dataLayer events, UTM persistence,
- * scroll depth, time on page, form step tracking, and CAPI event_id dedup.
+ * scroll depth, time on page, form step tracking, CAPI event_id dedup,
+ * Core Web Vitals reporting, and Google Consent Mode v2.
  */
+
+import { onLCP, onFCP, onCLS, onINP, onTTFB } from 'web-vitals'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -62,6 +65,54 @@ export function generateEventId(): string {
 }
 
 // ─── Initialisation ──────────────────────────────────────────────────────────
+
+/**
+ * Google Consent Mode v2 — call on every page load with default 'denied',
+ * then call again with 'granted' after user accepts cookies.
+ */
+export function updateConsentMode(consent: 'all' | 'essential' | 'default'): void {
+  if (typeof window === 'undefined') return
+  window.dataLayer = window.dataLayer ?? []
+  const granted = consent === 'all' ? 'granted' : 'denied'
+  const update = consent === 'default' ? 'default' : 'update'
+  window.dataLayer.push({
+    event: `consent_${update}`,
+    analytics_storage: granted,
+    ad_storage: granted,
+    ad_user_data: granted,
+    ad_personalization: granted,
+  })
+  if (typeof window.gtag === 'function') {
+    window.gtag('consent', update, {
+      analytics_storage: granted,
+      ad_storage: granted,
+      ad_user_data: granted,
+      ad_personalization: granted,
+    })
+  }
+}
+
+/** Report Core Web Vitals (LCP, FCP, CLS, INP, TTFB) to GA4 via dataLayer. */
+export function initWebVitals(): void {
+  if (typeof window === 'undefined') return
+  const report = ({ name, value, id }: { name: string; value: number; id: string }) => {
+    const rounded = Math.round(name === 'CLS' ? value * 1000 : value)
+    push('web_vital', { metric_name: name, metric_value: rounded, metric_id: id })
+    if (typeof window.gtag === 'function') {
+      window.gtag('event', name, {
+        event_category: 'Web Vitals',
+        event_label: id,
+        value: rounded,
+        non_interaction: true,
+      })
+    }
+  }
+  onLCP(report)
+  onFCP(report)
+  onCLS(report)
+  onINP(report)
+  onTTFB(report)
+}
 
 /** Inject GTM — called by CookieConsent when user accepts all cookies. Idempotent. */
 export function initGTM(): void {

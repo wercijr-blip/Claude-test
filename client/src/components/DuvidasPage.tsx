@@ -99,9 +99,20 @@ function Accordion({ items }: { items: typeof FAQS }) {
   )
 }
 
+const FAQ_SCHEMA = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: FAQS.map(({ q, a }) => ({
+    '@type': 'Question',
+    name: q,
+    acceptedAnswer: { '@type': 'Answer', text: a },
+  })),
+}
+
 export default function DuvidasPage() {
   return (
     <div className="bg-warm-bg min-h-screen">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_SCHEMA) }} />
 
       {/* Hero */}
       <div className="bg-gradient-to-br from-fp-dark via-fp-dark-mid to-fp-dark-soft text-white px-4 py-16 text-center">

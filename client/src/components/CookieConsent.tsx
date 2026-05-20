@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { initGTM, initGA4 } from '../lib/analytics.ts'
+import { initGTM, initGA4, updateConsentMode } from '../lib/analytics.ts'
 
 const STORAGE_KEY = 'cookies_accepted'
 const GA4_ID = import.meta.env.VITE_GA4_ID as string | undefined
@@ -26,7 +26,14 @@ export default function CookieConsent() {
   const [visible, setVisible] = useState(consent === null)
   const [fading, setFading] = useState(false)
 
+  // Set default denied state on mount (Google Consent Mode v2)
   useEffect(() => {
+    updateConsentMode(consent ?? 'default')
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    updateConsentMode(consent ?? 'default')
     if (consent !== 'all') return
     initGTM()
     if (GA4_ID) initGA4(GA4_ID)
