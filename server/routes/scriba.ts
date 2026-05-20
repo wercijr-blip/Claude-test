@@ -29,6 +29,7 @@ import {
   processarConsulta,
   transcribeWithChunking,
 } from "../scriba.ts";
+import { KnowledgeMetadataSchema } from "../clinicalIntelligence.ts";
 import { getPresignedUrl } from "../storage.ts";
 import { logAudit, type AuditEntry } from "../_core/audit.ts";
 
@@ -309,7 +310,8 @@ export const scribaRouter = router({
         });
       }
 
-      const km = nota.knowledgeMetadata as Record<string, unknown> | null;
+      const kmParsed = KnowledgeMetadataSchema.safeParse(nota.knowledgeMetadata);
+      const km = kmParsed.success ? kmParsed.data : (nota.knowledgeMetadata as Record<string, unknown> | null);
       const perfil = (km?.perfil_paciente as Record<string, unknown>) ?? {};
       const busca = (km?.busca_pubmed as Record<string, unknown>) ?? {};
 

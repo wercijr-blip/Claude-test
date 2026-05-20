@@ -3,6 +3,7 @@
  * CIS-02b — MedScribe: Knowledge Metadata
  */
 
+import { z } from "zod";
 import {
   callClaude,
   parseJsonResponse,
@@ -13,6 +14,99 @@ import {
   PII_GUARD,
   OUTPUT_CONTRACT_JSON,
 } from "./client.ts";
+
+export const KnowledgeMetadataSchema = z
+  .object({
+    diagnostico_principal: z
+      .object({
+        nome: z.string(),
+        cid10: z.string(),
+        certeza: z.enum(["confirmado", "provavel", "suspeito"]),
+        categoria: z.enum(["infeccioso", "nao_infeccioso", "misto"]),
+      })
+      .passthrough(),
+    diagnosticos_diferenciais: z.array(z.string()).default([]),
+    apresentacao_clinica: z
+      .object({
+        tempo_evolucao_dias: z.number(),
+        sintomas_principais: z.array(z.string()).default([]),
+        sinais_vitais_alterados: z.array(z.string()).default([]),
+        achados_exame_fisico: z.array(z.string()).default([]),
+      })
+      .passthrough(),
+    perfil_paciente: z
+      .object({
+        faixa_etaria: z.enum([
+          "pediatrico",
+          "adulto_jovem",
+          "adulto",
+          "idoso",
+        ]),
+        sexo: z.enum(["M", "F", "nao_informado"]),
+        imunocomprometido: z.boolean(),
+        tipo_imunocomprometimento: z
+          .enum([
+            "transplante",
+            "hiv",
+            "quimioterapia",
+            "corticoide",
+            "outro",
+          ])
+          .nullable(),
+        comorbidades: z.array(z.string()).default([]),
+      })
+      .passthrough(),
+    microbiologia: z
+      .object({
+        agente_identificado: z.string().nullable(),
+        metodo_diagnostico: z.array(z.string()).default([]),
+        perfil_resistencia: z.string().nullable(),
+      })
+      .passthrough(),
+    conduta: z
+      .object({
+        antibioticos: z
+          .array(
+            z
+              .object({
+                nome: z.string(),
+                dose: z.string(),
+                via: z.string(),
+                frequencia: z.string(),
+                duracao_dias: z.number(),
+              })
+              .passthrough(),
+          )
+          .default([]),
+        outros_medicamentos: z.array(z.string()).default([]),
+        internacao_indicada: z.boolean(),
+        nivel_cuidado: z.enum(["ambulatorial", "internacao", "UTI"]),
+      })
+      .passthrough(),
+    busca_pubmed: z
+      .object({
+        termos_mesh: z.array(z.string()).default([]),
+        query_sugerida: z.string(),
+        prioridade: z.enum(["alta", "media", "baixa"]),
+      })
+      .passthrough(),
+    palavras_gatilho_relatorio: z.array(z.string()).default([]),
+    caso_atipico: z
+      .object({
+        atipico: z.boolean(),
+        criterios_objetivos: z.array(z.string()).default([]),
+        tipo_sugerido: z.enum([
+          "relato_de_caso",
+          "serie_de_casos",
+          "nenhum",
+        ]),
+      })
+      .passthrough(),
+    tags: z.array(z.string()).default([]),
+    plano_terapeutico: z.array(z.string()).default([]),
+    populacao: z.string().optional(),
+  })
+  .passthrough();
 
 export interface KnowledgeMetadata {
   diagnostico_principal: {

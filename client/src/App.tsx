@@ -572,7 +572,7 @@ function AuthCallback() {
           </h1>
           <p className="text-slate-500 mb-4">
             {timedOut && !callbackMutation.isError
-              ? "O servidor demorou muito. Tente novamente."
+              ? "A verificação demorou mais de 15 segundos. Verifique sua conexão e tente novamente."
               : (callbackMutation.error?.message ??
                 "Não foi possível completar o login.")}
           </p>

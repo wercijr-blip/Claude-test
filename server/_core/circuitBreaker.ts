@@ -6,6 +6,7 @@
 export class CircuitBreaker {
   private failures = 0;
   private lastFailureAt = 0;
+  private halfOpenAt = 0;
 
   constructor(
     readonly name: string,
@@ -17,6 +18,7 @@ export class CircuitBreaker {
     if (this.failures < this.maxFailures) return false;
     if (Date.now() - this.lastFailureAt > this.resetMs) {
       this.failures = this.maxFailures - 1; // half-open: one trial request
+      this.halfOpenAt = Date.now();
       return false;
     }
     return true;
@@ -24,10 +26,15 @@ export class CircuitBreaker {
 
   recordSuccess(): void {
     this.failures = 0;
+    this.halfOpenAt = 0;
   }
 
   recordFailure(): void {
     this.failures++;
-    this.lastFailureAt = Date.now();
+    // When a half-open trial fails, pin lastFailureAt to the moment we entered
+    // half-open rather than now — prevents each failed trial from extending the
+    // recovery window by the full trial duration.
+    this.lastFailureAt = this.halfOpenAt > 0 ? this.halfOpenAt : Date.now();
+    this.halfOpenAt = 0;
   }
 }
