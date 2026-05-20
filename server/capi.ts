@@ -47,7 +47,11 @@ export interface CapiEventOpts {
  */
 export async function sendCapiEvent(opts: CapiEventOpts): Promise<void> {
   if (!env.META_PIXEL_ID || !env.META_CAPI_TOKEN) {
-    logger.debug('[capi] META_PIXEL_ID ou META_CAPI_TOKEN não configurados — evento ignorado')
+    if (env.NODE_ENV === 'production') {
+      logger.warn('[capi] META_PIXEL_ID ou META_CAPI_TOKEN não configurados — CAPI desabilitado em produção')
+    } else {
+      logger.debug('[capi] META_PIXEL_ID ou META_CAPI_TOKEN não configurados — evento ignorado')
+    }
     return
   }
 
@@ -76,6 +80,8 @@ export async function sendCapiEvent(opts: CapiEventOpts): Promise<void> {
     access_token: env.META_CAPI_TOKEN,
   }
 
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 5_000)
   try {
     const res = await fetch(
       `https://graph.facebook.com/${GRAPH_API_VERSION}/${env.META_PIXEL_ID}/events`,
@@ -83,8 +89,10 @@ export async function sendCapiEvent(opts: CapiEventOpts): Promise<void> {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
+        signal: controller.signal,
       },
     )
+    clearTimeout(timeoutId)
     if (!res.ok) {
       const body = await res.text().catch(() => '')
       logger.warn('[capi] Evento rejeitado pelo servidor Meta', { status: res.status, body })
@@ -92,7 +100,8 @@ export async function sendCapiEvent(opts: CapiEventOpts): Promise<void> {
       logger.debug('[capi] Evento enviado', { event: opts.eventName, eventId: opts.eventId })
     }
   } catch (err) {
-    // Network errors must not crash the request handler
+    clearTimeout(timeoutId)
+    // Network errors and timeouts must not crash the request handler
     logger.warn('[capi] Falha ao enviar evento CAPI', { error: String(err) })
   }
 }

@@ -13,7 +13,7 @@
  */
 
 import { Worker } from 'bullmq'
-import { sql } from 'drizzle-orm'
+import { Resend } from 'resend'
 import { db } from '../db.ts'
 import { precadastros } from '../../drizzle/schema.ts'
 import { and, eq, gt, lt, isNull, or } from 'drizzle-orm'
@@ -140,7 +140,6 @@ async function executarNutricao() {
       nomeEncrypted: precadastros.nomeEncrypted,
       emailEncrypted: precadastros.emailEncrypted,
       createdAt: precadastros.createdAt,
-      ultimoNutricaoAt: sql<Date | null>`NULL`.as('ultimo_nutricao_at'), // ver nota abaixo
     })
     .from(precadastros)
     .where(
@@ -165,9 +164,8 @@ async function executarNutricao() {
       const jaEnviado = await redis.get(redisKey)
       if (jaEnviado) continue
 
-      const template = getTemplate(dias, nome, env.APP_URL)
-      const { Resend } = await import('resend')
       if (!env.RESEND_API_KEY) continue
+      const template = getTemplate(dias, nome, env.APP_URL)
       const resend = new Resend(env.RESEND_API_KEY)
       const { error } = await resend.emails.send({
         from: env.EMAIL_FROM,
