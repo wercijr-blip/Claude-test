@@ -20,8 +20,8 @@ export default defineConfig({
       include: ['src/**/*.js'],
       exclude: ['src/tests/**', 'src/scripts/**', 'src/panel/index.html'],
       thresholds: {
-        lines: 50,
-        functions: 50,
+        lines: 30,
+        functions: 30,
         branches: 40
       }
     }

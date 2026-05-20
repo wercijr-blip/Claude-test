@@ -1494,11 +1494,16 @@ function painel() {
       finally { this.loginLoading = false }
     },
 
-    logout() {
-      this.token = ''; this.user = null; this.autenticado = false
-      localStorage.removeItem('token'); localStorage.removeItem('user')
-      clearInterval(this.qrTimer)
-      this._stopSSE()
+    async logout() {
+      try {
+        if (this.token) await this.api('/auth/logout', { method: 'POST' })
+      } catch { /* ignora erro de rede — token já pode ter expirado */ }
+      finally {
+        this.token = ''; this.user = null; this.autenticado = false
+        localStorage.removeItem('token'); localStorage.removeItem('user')
+        clearInterval(this.qrTimer)
+        this._stopSSE()
+      }
     },
 
     async salvarNovaSenha() {

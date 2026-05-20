@@ -585,6 +585,20 @@ export const openApiSpec = {
     },
     // ─── Pacientes / LGPD ─────────────────────────────────────────────────────
     '/api/pacientes/{phone}': {
+      get: {
+        tags: ['Pacientes'],
+        summary: 'Acesso a dados pessoais — LGPD art. 18 I (admin)',
+        description: 'Retorna todos os dados pessoais armazenados para o número de telefone informado (agendamentos, mensagens, satisfação, autorizações, exames).',
+        ...bearerAuth,
+        parameters: [
+          { name: 'phone', in: 'path', required: true, schema: { type: 'string', pattern: '^\\d{10,15}$' }, example: '5561999999999' }
+        ],
+        responses: {
+          200: { description: 'Dados do paciente', content: { 'application/json': { schema: { type: 'object', properties: { phone: { type: 'string' }, data: { type: 'object' } } } } } },
+          400: { description: 'Número de telefone inválido' },
+          403: { $ref: '#/components/responses/Forbidden' }
+        }
+      },
       delete: {
         tags: ['Pacientes'],
         summary: 'Direito ao esquecimento — LGPD art. 18 III (admin)',
