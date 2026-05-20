@@ -78,6 +78,7 @@ export const soapNotes = mysqlTable(
     template: varchar("template", { length: 50 })
       .notNull()
       .default("infectologia_geral"),
+    tipoConsulta: varchar("tipo_consulta", { length: 30 }),
     soapTexto: text("soap_texto").notNull(),
     knowledgeMetadata: json("knowledge_metadata"),
     diagnosticoPrincipal: varchar("diagnostico_principal", { length: 255 }),

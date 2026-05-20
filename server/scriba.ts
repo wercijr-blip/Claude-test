@@ -185,6 +185,7 @@ export async function processarConsulta(params: {
     | "neutropenia_febril"
     | "hiv_cronico"
     | "tb";
+  tipoConsulta?: "primeira_consulta" | "retorno" | "seguimento";
   /** Se fornecida, roda detecção de divergência de conduta (Prompt 06) */
   sinteseEvidencias?: string;
   /** Texto bruto do laudo laboratorial — Prompt 01 extrai estruturado antes do SOAP */
@@ -220,6 +221,7 @@ export async function processarConsulta(params: {
     transcricaoOuTexto: params.transcricao,
     dadosExamesJson,
     template,
+    tipoConsulta: params.tipoConsulta,
   });
   const knowledge_metadata = await gerarKnowledgeMetadata({
     soapTexto: soap,
@@ -235,6 +237,7 @@ export async function processarConsulta(params: {
       medicoId: params.medicoId,
       pacienteNomeEncrypted: params.pacienteNomeEncrypted,
       template,
+      tipoConsulta: params.tipoConsulta ?? null,
       soapTexto: soap,
       knowledgeMetadata: knowledge_metadata,
       diagnosticoPrincipal: diag?.nome ?? null,

@@ -170,6 +170,9 @@ export const scribaRouter = router({
             "tb",
           ])
           .default("infectologia_geral"),
+        tipoConsulta: z
+          .enum(["primeira_consulta", "retorno", "seguimento"])
+          .optional(),
         sinteseEvidencias: z.string().optional(),
         /** Texto bruto do laudo laboratorial — extraído via Prompt 01 antes do SOAP */
         examesTexto: z.string().max(8000).optional(),
@@ -206,6 +209,7 @@ export const scribaRouter = router({
         pacienteNomeEncrypted,
         transcricao: input.transcricao,
         template: input.template,
+        tipoConsulta: input.tipoConsulta,
         sinteseEvidencias: input.sinteseEvidencias,
         examesTexto: input.examesTexto,
       });
@@ -249,6 +253,7 @@ export const scribaRouter = router({
           id: soapNotes.id,
           sessionId: soapNotes.sessionId,
           template: soapNotes.template,
+          tipoConsulta: soapNotes.tipoConsulta,
           diagnosticoPrincipal: soapNotes.diagnosticoPrincipal,
           cid10: soapNotes.cid10,
           certeza: soapNotes.certeza,

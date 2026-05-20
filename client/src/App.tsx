@@ -66,6 +66,10 @@ function CISDashboard() {
   const [transcricao, setTranscricao] = useState<string | null>(null);
   const [sessaoId, setSessaoId] = useState<number | null>(null);
   const [refreshingId, setRefreshingId] = useState<number | null>(null);
+  const [tipoConsulta, setTipoConsulta] = useState<
+    "primeira_consulta" | "retorno" | "seguimento"
+  >("primeira_consulta");
+  const [pacienteNome, setPacienteNome] = useState("");
 
   const abrirSessao = trpc.scriba.abrirSessao.useMutation({
     onSuccess: (data) => {
@@ -79,10 +83,13 @@ function CISDashboard() {
     onError: (err) => toast(err.message, "error"),
   });
 
-  const handleTranscricao = useCallback((texto: string) => {
-    setTranscricao(texto);
-    toast("Transcrição concluída.", "success");
-  }, [toast]);
+  const handleTranscricao = useCallback(
+    (texto: string) => {
+      setTranscricao(texto);
+      toast("Transcrição concluída.", "success");
+    },
+    [toast],
+  );
   const {
     data: notas,
     isLoading: notasLoading,
@@ -108,6 +115,17 @@ function CISDashboard() {
     onMutate: ({ soapNoteId }) => setRefreshingId(soapNoteId),
     onSettled: () => setRefreshingId(null),
     onSuccess: () => toast("Síntese de evidências reagendada.", "success"),
+    onError: (err) => toast(err.message, "error"),
+  });
+
+  const processarConsulta = trpc.scriba.processarConsulta.useMutation({
+    onSuccess: (data) => {
+      utils.scriba.listarSoapNotes.invalidate();
+      utils.scriba.listarAlertas.invalidate();
+      toast(`SOAP gerada — nota #${data.soapNoteId}`, "success");
+      setTranscricao(null);
+      setPacienteNome("");
+    },
     onError: (err) => toast(err.message, "error"),
   });
 
@@ -137,7 +155,9 @@ function CISDashboard() {
 
         {!alertasLoading && alertasError && (
           <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center justify-between">
-            <p className="text-sm text-red-600">Não foi possível carregar alertas.</p>
+            <p className="text-sm text-red-600">
+              Não foi possível carregar alertas.
+            </p>
             <button
               onClick={() => utils.scriba.listarAlertas.invalidate()}
               className="text-xs text-red-600 underline hover:text-red-800"
@@ -184,26 +204,87 @@ function CISDashboard() {
             <>
               <div className="flex items-center gap-2 text-sm text-slate-500">
                 <span className="w-2 h-2 bg-green-500 rounded-full" />
-                Sessão {abrirSessao.data?.nova ? "aberta" : "retomada"} — ID {sessaoId}
+                Sessão {abrirSessao.data?.nova ? "aberta" : "retomada"} — ID{" "}
+                {sessaoId}
               </div>
 
-              <div className="border-t border-slate-100 pt-4">
-                <p className="text-xs font-medium text-slate-600 mb-3">
-                  Gravar consulta
-                </p>
-                <AudioRecorder
-                  sessionId={sessaoId}
-                  onTranscricao={handleTranscricao}
-                />
+              <div className="border-t border-slate-100 pt-4 space-y-4">
+                <div>
+                  <p className="text-xs font-medium text-slate-600 mb-2">
+                    Tipo de consulta
+                  </p>
+                  <div className="flex gap-2">
+                    {(
+                      [
+                        ["primeira_consulta", "Primeira Consulta"],
+                        ["retorno", "Retorno"],
+                        ["seguimento", "Seguimento"],
+                      ] as const
+                    ).map(([val, label]) => (
+                      <button
+                        key={val}
+                        onClick={() => setTipoConsulta(val)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
+                          tipoConsulta === val
+                            ? "bg-blue-600 text-white border-blue-600"
+                            : "bg-white text-slate-600 border-slate-200 hover:border-blue-400 hover:text-blue-700"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs font-medium text-slate-600 mb-2">
+                    Nome do paciente
+                  </p>
+                  <input
+                    type="text"
+                    value={pacienteNome}
+                    onChange={(e) => setPacienteNome(e.target.value)}
+                    placeholder="Nome completo"
+                    className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 placeholder-slate-300"
+                  />
+                </div>
+
+                <div>
+                  <p className="text-xs font-medium text-slate-600 mb-3">
+                    Gravar consulta
+                  </p>
+                  <AudioRecorder
+                    sessionId={sessaoId}
+                    onTranscricao={handleTranscricao}
+                  />
+                </div>
               </div>
 
               {transcricao && (
-                <div className="border-t border-slate-100 pt-4">
-                  <p className="text-xs text-slate-400 leading-relaxed">
-                    Transcrição disponível acima. Copie o texto e use{" "}
-                    <strong>Processar Consulta</strong> para gerar o SOAP note com
-                    inteligência clínica.
+                <div className="border-t border-slate-100 pt-4 space-y-3">
+                  <p className="text-xs font-medium text-slate-600">
+                    Transcrição concluída — pronto para processar
                   </p>
+                  <button
+                    onClick={() => {
+                      if (!pacienteNome.trim()) {
+                        toast("Informe o nome do paciente.", "error");
+                        return;
+                      }
+                      processarConsulta.mutate({
+                        sessionId: sessaoId,
+                        pacienteNome: pacienteNome.trim(),
+                        transcricao,
+                        tipoConsulta,
+                      });
+                    }}
+                    disabled={processarConsulta.isPending}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-medium py-2.5 rounded-xl transition-colors text-sm"
+                  >
+                    {processarConsulta.isPending
+                      ? "Processando consulta…"
+                      : "Processar Consulta"}
+                  </button>
                 </div>
               )}
             </>
@@ -249,12 +330,33 @@ function CISDashboard() {
                         {n.diagnosticoPrincipal ?? "Diagnóstico não definido"}
                       </p>
                       <p className="text-xs text-slate-400">
-                        {n.template} ·{" "}
-                        {new Date(n.createdAt).toLocaleString("pt-BR")}
+                        {n.template}
+                        {n.tipoConsulta && (
+                          <span
+                            className={`ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                              n.tipoConsulta === "primeira_consulta"
+                                ? "bg-blue-50 text-blue-600"
+                                : n.tipoConsulta === "retorno"
+                                  ? "bg-amber-50 text-amber-600"
+                                  : "bg-emerald-50 text-emerald-600"
+                            }`}
+                          >
+                            {n.tipoConsulta === "primeira_consulta"
+                              ? "1ª consulta"
+                              : n.tipoConsulta === "retorno"
+                                ? "retorno"
+                                : "seguimento"}
+                          </span>
+                        )}{" "}
+                        · {new Date(n.createdAt).toLocaleString("pt-BR")}
                         {n.temSintese ? (
-                          <span className="ml-1 text-emerald-600">· síntese ✓</span>
+                          <span className="ml-1 text-emerald-600">
+                            · síntese ✓
+                          </span>
                         ) : (
-                          <span className="ml-1 text-slate-300">· sem síntese</span>
+                          <span className="ml-1 text-slate-300">
+                            · sem síntese
+                          </span>
                         )}
                       </p>
                       {sinteseVelha && (
@@ -269,7 +371,9 @@ function CISDashboard() {
                             disabled={refreshingId === n.id}
                             className="text-xs text-blue-600 hover:text-blue-800 underline disabled:opacity-50"
                           >
-                            {refreshingId === n.id ? "Reagendando…" : "Atualizar"}
+                            {refreshingId === n.id
+                              ? "Reagendando…"
+                              : "Atualizar"}
                           </button>
                         </div>
                       )}

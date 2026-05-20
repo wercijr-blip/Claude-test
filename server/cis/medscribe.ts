@@ -83,14 +83,27 @@ export async function gerarSOAP(params: {
     | "neutropenia_febril"
     | "hiv_cronico"
     | "tb";
+  tipoConsulta?: "primeira_consulta" | "retorno" | "seguimento";
 }): Promise<string> {
+  const tipoConsultaLabel = {
+    primeira_consulta:
+      "PRIMEIRA CONSULTA — documente anamnese completa, antecedentes e epidemiologia detalhados.",
+    retorno:
+      "RETORNO — foque na evolução desde a última consulta: resposta ao tratamento, novos sintomas, resultados de exames pendentes.",
+    seguimento:
+      "SEGUIMENTO (condição crônica) — registre controle da doença, adesão, efeitos adversos, ajustes de conduta e metas terapêuticas.",
+  };
+  const tipoCtx = params.tipoConsulta
+    ? `\nTIPO DE CONSULTA: ${tipoConsultaLabel[params.tipoConsulta]}`
+    : "";
+
   const systemPrompt = `${INTEGRITY_GUARD}
 ${INJECTION_GUARD}
 ${PII_GUARD}
 
 Você é o MedScribe, assistente de documentação clínica especializado em Infectologia e Medicina Interna, treinado para o contexto brasileiro.
 
-TEMPLATE ATIVO: ${params.template}
+TEMPLATE ATIVO: ${params.template}${tipoCtx}
 
 Gere o SOAP note clínico completo no formato abaixo. Seja preciso, objetivo e use terminologia médica adequada.
 
