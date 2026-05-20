@@ -7,9 +7,9 @@
   "scripts": {
     "dev": "concurrently \"tsx watch --env-file=.env server/_core/index.ts\" \"vite\"",
     "build": "BUILD_TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ) pnpm --filter facilita-prep-web build && BUILD_TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ) vite build",
-    "start": "tsx --env-file=.env server/_core/index.ts",
-    "start:prod": "tsx server/_core/index.ts",
-    "start:workers": "tsx server/workers.ts",
+    "start": "tsx --import ./server/_core/instrument.ts --env-file=.env server/_core/index.ts",
+    "start:prod": "tsx --import ./server/_core/instrument.ts server/_core/index.ts",
+    "start:workers": "tsx --import ./server/_core/instrument.ts server/workers.ts",
     "check": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
