@@ -32,6 +32,18 @@ function push(event: string, params?: Record<string, unknown>): void {
 
 // ─── Initialisation ──────────────────────────────────────────────────────────
 
+/** Inject GTM — called by CookieConsent when user accepts all cookies. Idempotent. */
+export function initGTM(): void {
+  if (typeof window === 'undefined') return
+  if (document.getElementById('gtm-script')) return
+  window.dataLayer = window.dataLayer ?? []
+  window.dataLayer.push({ event: 'gtm.js', 'gtm.start': new Date().getTime() })
+  const s = document.createElement('script')
+  s.id = 'gtm-script'; s.async = true
+  s.src = 'https://www.googletagmanager.com/gtm.js?id=GTM-WCF38JBP'
+  document.head.appendChild(s)
+}
+
 /** Inject GA4 gtag.js independently of GTM — idempotent. */
 export function initGA4(id: string): void {
   if (typeof window === 'undefined' || !id) return

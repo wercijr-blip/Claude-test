@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { initGA4 } from '../lib/analytics.ts'
+import { initGTM, initGA4 } from '../lib/analytics.ts'
 
 const STORAGE_KEY = 'cookies_accepted'
 const GA4_ID = import.meta.env.VITE_GA4_ID as string | undefined
@@ -28,6 +28,7 @@ export default function CookieConsent() {
 
   useEffect(() => {
     if (consent !== 'all') return
+    initGTM()
     if (GA4_ID) initGA4(GA4_ID)
     if (META_PIXEL_ID) loadMetaPixel(META_PIXEL_ID)
   }, [consent])
