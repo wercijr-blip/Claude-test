@@ -1,4 +1,3 @@
-import './instrument.ts'
 import express from 'express'
 import compression from 'compression'
 import cookieParser from 'cookie-parser'
