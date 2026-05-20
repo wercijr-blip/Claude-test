@@ -177,3 +177,144 @@ describe('POST /api/auth/users', () => {
     expect(res.status).toBe(403)
   })
 })
+
+// ─── Médicos ──────────────────────────────────────────────────────────────────
+
+describe('GET /api/medicos', () => {
+  it('admin obtém lista de médicos', async () => {
+    const res = await request(app)
+      .get('/api/medicos')
+      .set('Authorization', `Bearer ${adminToken}`)
+    expect(res.status).toBe(200)
+    expect(res.body.data).toBeDefined()
+  })
+
+  it('secretaria obtém lista de médicos', async () => {
+    const res = await request(app)
+      .get('/api/medicos')
+      .set('Authorization', `Bearer ${secretariaToken}`)
+    expect(res.status).toBe(200)
+  })
+})
+
+// ─── Satisfação ───────────────────────────────────────────────────────────────
+
+describe('GET /api/satisfaction', () => {
+  it('retorna pesquisas de satisfação', async () => {
+    const res = await request(app)
+      .get('/api/satisfaction')
+      .set('Authorization', `Bearer ${adminToken}`)
+    expect(res.status).toBe(200)
+    expect(res.body.data).toBeDefined()
+  })
+})
+
+// ─── Encaixe ──────────────────────────────────────────────────────────────────
+
+describe('Fila de encaixe', () => {
+  it('GET /api/encaixe retorna fila', async () => {
+    const res = await request(app)
+      .get('/api/encaixe')
+      .set('Authorization', `Bearer ${adminToken}`)
+    expect(res.status).toBe(200)
+    expect(Array.isArray(res.body)).toBe(true)
+  })
+
+  it('POST /api/encaixe sem phone retorna 400', async () => {
+    const res = await request(app)
+      .post('/api/encaixe')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ nome: 'Paciente Teste' })
+    expect(res.status).toBe(400)
+  })
+})
+
+// ─── Conversas ────────────────────────────────────────────────────────────────
+
+describe('GET /api/conversations', () => {
+  it('retorna lista de conversas', async () => {
+    const res = await request(app)
+      .get('/api/conversations')
+      .set('Authorization', `Bearer ${adminToken}`)
+    expect(res.status).toBe(200)
+    expect(res.body.data).toBeDefined()
+  })
+
+  it('secretaria acessa conversas', async () => {
+    const res = await request(app)
+      .get('/api/conversations')
+      .set('Authorization', `Bearer ${secretariaToken}`)
+    expect(res.status).toBe(200)
+  })
+})
+
+// ─── DSAR — pacientes ─────────────────────────────────────────────────────────
+
+describe('LGPD — pacientes', () => {
+  it('GET /api/pacientes/:phone retorna dados (admin)', async () => {
+    const res = await request(app)
+      .get('/api/pacientes/5561000000001')
+      .set('Authorization', `Bearer ${adminToken}`)
+    expect(res.status).toBe(200)
+    expect(res.body.data).toBeDefined()
+  })
+
+  it('secretaria não acessa DSAR (403)', async () => {
+    const res = await request(app)
+      .get('/api/pacientes/5561000000001')
+      .set('Authorization', `Bearer ${secretariaToken}`)
+    expect(res.status).toBe(403)
+  })
+
+  it('DELETE /api/pacientes/:phone anonimiza dados (admin)', async () => {
+    const res = await request(app)
+      .delete('/api/pacientes/5561000000099')
+      .set('Authorization', `Bearer ${adminToken}`)
+    expect(res.status).toBe(200)
+    expect(res.body.ok).toBe(true)
+  })
+})
+
+// ─── Agendamentos — paginação ─────────────────────────────────────────────────
+
+describe('GET /api/agendamentos com paginação', () => {
+  it('retorna metadados de paginação quando limit fornecido', async () => {
+    const res = await request(app)
+      .get('/api/agendamentos?limit=5&offset=0')
+      .set('Authorization', `Bearer ${adminToken}`)
+    expect(res.status).toBe(200)
+    expect(typeof res.body.total).toBe('number')
+    expect(res.body.data).toBeDefined()
+  })
+})
+
+// ─── Medication requests ──────────────────────────────────────────────────────
+
+describe('GET /api/medication-requests', () => {
+  it('retorna solicitações de medicação', async () => {
+    const res = await request(app)
+      .get('/api/medication-requests')
+      .set('Authorization', `Bearer ${adminToken}`)
+    expect(res.status).toBe(200)
+    expect(res.body.data).toBeDefined()
+  })
+})
+
+// ─── Usuários ─────────────────────────────────────────────────────────────────
+
+describe('GET /api/usuarios', () => {
+  it('admin lista usuários', async () => {
+    const res = await request(app)
+      .get('/api/usuarios')
+      .set('Authorization', `Bearer ${adminToken}`)
+    expect(res.status).toBe(200)
+    expect(res.body.data).toBeDefined()
+  })
+
+  it('secretaria não acessa usuários (403)', async () => {
+    const res = await request(app)
+      .get('/api/usuarios')
+      .set('Authorization', `Bearer ${secretariaToken}`)
+    expect(res.status).toBe(403)
+  })
+})

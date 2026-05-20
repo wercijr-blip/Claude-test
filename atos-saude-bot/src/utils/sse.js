@@ -19,3 +19,10 @@ export function broadcastSSE(event, data = {}) {
     try { res.write(payload) } catch { clients.delete(res) }
   }
 }
+
+// Heartbeat a cada 25s — mantém conexões vivas e detecta clientes desconectados
+setInterval(() => {
+  for (const res of clients) {
+    try { res.write(':ping\n\n') } catch { clients.delete(res) }
+  }
+}, 25_000).unref()

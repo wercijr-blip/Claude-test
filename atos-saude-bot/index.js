@@ -132,15 +132,33 @@ const apiLimiter = rateLimit({
 })
 app.use('/api', apiLimiter)
 
-// Health check com validação real de dependências
-app.get('/health', (req, res) => {
+// Health check com validação de DB + Evolution API (timeout 2s)
+app.get('/health', async (req, res) => {
   let dbOk = false
   try { db.prepare('SELECT 1').get(); dbOk = true } catch {}
+
+  let whatsapp = 'unchecked'
+  const evoUrl = process.env.EVOLUTION_URL
+  const evoInstance = process.env.INSTANCE_NAME || 'atos-saude'
+  if (evoUrl) {
+    try {
+      const ctrl = new AbortController()
+      const t = setTimeout(() => ctrl.abort(), 2000)
+      const r = await fetch(
+        `${evoUrl}/instance/connectionState/${evoInstance}`,
+        { headers: { apikey: process.env.EVOLUTION_API_KEY || '' }, signal: ctrl.signal }
+      )
+      clearTimeout(t)
+      whatsapp = r.ok ? 'ok' : 'error'
+    } catch { whatsapp = 'error' }
+  }
+
   const status = dbOk ? 200 : 503
   res.status(status).json({
     ok: dbOk,
     uptime: process.uptime(),
     db: dbOk ? 'ok' : 'error',
+    whatsapp,
     ts: new Date().toISOString()
   })
 })

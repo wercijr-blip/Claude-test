@@ -2,6 +2,7 @@ import { timingSafeEqual } from 'crypto'
 import { sendText } from '../services/whatsapp.js'
 import { checkLimit } from '../utils/rate-limiter.js'
 import { getSession, insertMessageLog, isMessageProcessed, markMessageProcessed } from '../services/db.js'
+import { insertAuditLog } from '../services/migrations.js'
 import { logger } from '../utils/logger.js'
 import { router } from '../handlers/router.js'
 import { broadcastSSE } from '../utils/sse.js'
@@ -86,6 +87,9 @@ export async function handleWebhook(req, res) {
     logger.error({ err: err.message }, 'Erro no webhook')
     const rawPhone = req.body?.data?.messages?.[0]?.key?.remoteJid || ''
     const phone = rawPhone.replace('@s.whatsapp.net', '')
+    // DLQ: registra falha no audit_log para inspeção e reprocessamento manual
+    const failedMsgId = req.body?.data?.messages?.[0]?.key?.id
+    insertAuditLog({ action: 'webhook_error', targetType: 'message', targetId: failedMsgId, detail: err.message })
     if (phone) {
       await sendText(phone, 'Ocorreu um problema. Envie *oi* para recomeçar.')
     }

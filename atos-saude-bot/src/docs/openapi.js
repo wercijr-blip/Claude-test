@@ -941,6 +941,130 @@ export const openApiSpec = {
           200: { description: 'Solicitações de medicação', content: { 'application/json': { schema: { type: 'object', properties: { total: { type: 'integer' }, data: { type: 'array', items: { type: 'object' } } } } } } }
         }
       }
+    },
+    // ─── Auth (me + change-password + users) ──────────────────────────────────
+    '/api/auth/me': {
+      get: {
+        tags: ['Auth'],
+        summary: 'Dados do usuário autenticado',
+        ...bearerAuth,
+        responses: {
+          200: {
+            description: 'Usuário e permissões',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    user: { $ref: '#/components/schemas/Usuario' },
+                    permissions: { type: 'object' }
+                  }
+                }
+              }
+            }
+          },
+          401: { $ref: '#/components/responses/Unauthorized' }
+        }
+      }
+    },
+    '/api/auth/change-password': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Alterar própria senha',
+        ...bearerAuth,
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { type: 'object', required: ['currentPassword', 'newPassword'], properties: { currentPassword: { type: 'string', format: 'password' }, newPassword: { type: 'string', format: 'password', minLength: 6 } } } } }
+        },
+        responses: {
+          200: { description: 'Senha alterada', content: { 'application/json': { schema: { $ref: '#/components/schemas/Ok' } } } },
+          400: { description: 'Nova senha muito curta' },
+          401: { description: 'Senha atual incorreta' }
+        }
+      }
+    },
+    '/api/auth/users': {
+      get: {
+        tags: ['Usuários'],
+        summary: 'Listar todos os usuários (admin)',
+        ...bearerAuth,
+        responses: {
+          200: { description: 'Lista de usuários', content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/Usuario' } } } } },
+          403: { $ref: '#/components/responses/Forbidden' }
+        }
+      },
+      post: {
+        tags: ['Usuários'],
+        summary: 'Criar usuário (admin)',
+        ...bearerAuth,
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { type: 'object', required: ['username', 'password', 'name', 'role'], properties: { username: { type: 'string' }, password: { type: 'string', format: 'password', minLength: 6 }, name: { type: 'string' }, role: { type: 'string', enum: ['admin', 'secretaria', 'faturamento'] } } } } }
+        },
+        responses: {
+          200: { description: 'Usuário criado', content: { 'application/json': { schema: { type: 'object', properties: { ok: { type: 'boolean' }, id: { type: 'integer' } } } } } },
+          400: { description: 'Dados inválidos' },
+          409: { description: 'Usuário já existe' }
+        }
+      }
+    },
+    '/api/auth/users/{id}/toggle': {
+      patch: {
+        tags: ['Usuários'],
+        summary: 'Ativar / desativar usuário (admin)',
+        ...bearerAuth,
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', properties: { active: { type: 'boolean' } } } } } },
+        responses: { 200: { description: 'Status alterado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Ok' } } } } }
+      }
+    },
+    '/api/auth/users/{id}/reset-password': {
+      post: {
+        tags: ['Usuários'],
+        summary: 'Redefinir senha de outro usuário (admin)',
+        ...bearerAuth,
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['newPassword'], properties: { newPassword: { type: 'string', format: 'password', minLength: 6 } } } } } },
+        responses: { 200: { description: 'Senha redefinida', content: { 'application/json': { schema: { $ref: '#/components/schemas/Ok' } } } } }
+      }
+    },
+    // ─── Human waiting ────────────────────────────────────────────────────────
+    '/api/human-waiting': {
+      get: {
+        tags: ['Sessões'],
+        summary: 'Sessões aguardando atendimento humano há >10min',
+        ...bearerAuth,
+        responses: {
+          200: { description: 'Sessões em espera', content: { 'application/json': { schema: { type: 'object', properties: { total: { type: 'integer' }, data: { type: 'array', items: { type: 'object' } } } } } } }
+        }
+      }
+    },
+    // ─── Config ───────────────────────────────────────────────────────────────
+    '/api/config/working-hours': {
+      put: {
+        tags: ['Médicos'],
+        summary: 'Atualizar horário de funcionamento padrão (admin)',
+        ...bearerAuth,
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { type: 'object', properties: { start: { type: 'string', example: '08:00' }, end: { type: 'string', example: '18:00' }, slotDuration: { type: 'integer', example: 30 } } } } }
+        },
+        responses: { 200: { description: 'Configuração salva', content: { 'application/json': { schema: { $ref: '#/components/schemas/Ok' } } } } }
+      }
+    },
+    // ─── Agenda / bloqueio de dia ─────────────────────────────────────────────
+    '/api/agenda/bloquear': {
+      post: {
+        tags: ['Calendário'],
+        summary: 'Bloquear dia inteiro na agenda (admin/secretaria)',
+        description: 'Bloqueia todas as consultas do dia para um médico específico e notifica os pacientes afetados.',
+        ...bearerAuth,
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { type: 'object', required: ['data'], properties: { data: { type: 'string', format: 'date', example: '2025-12-25' }, medico_id: { type: 'string' }, obs: { type: 'string', example: 'Feriado' } } } } }
+        },
+        responses: { 200: { description: 'Dia bloqueado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Ok' } } } } }
+      }
     }
   }
 }
