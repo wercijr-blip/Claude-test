@@ -158,6 +158,20 @@ db.exec(`
     jti        TEXT PRIMARY KEY,
     expires_at DATETIME NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS processed_messages (
+    message_id   TEXT PRIMARY KEY,
+    processed_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS job_log (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    job_name     TEXT    NOT NULL,
+    status       TEXT    NOT NULL CHECK(status IN ('SUCCESS','FAILED')),
+    duration_ms  INTEGER,
+    detail       TEXT,
+    executed_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
 `)
 
 try { db.exec('CREATE INDEX IF NOT EXISTS idx_messages_log_phone    ON messages_log(phone)') } catch {}
@@ -555,6 +569,26 @@ export function isTokenRevoked(jti) {
 
 export function cleanupExpiredTokens() {
   db.prepare("DELETE FROM revoked_tokens WHERE expires_at <= datetime('now')").run()
+}
+
+// Message deduplication — idempotência do webhook (D06)
+export function isMessageProcessed(messageId) {
+  return !!db.prepare('SELECT 1 FROM processed_messages WHERE message_id = ?').get(messageId)
+}
+
+export function markMessageProcessed(messageId) {
+  db.prepare('INSERT OR IGNORE INTO processed_messages (message_id) VALUES (?)').run(messageId)
+}
+
+export function cleanupOldProcessedMessages(daysOld = 7) {
+  db.prepare("DELETE FROM processed_messages WHERE processed_at < datetime('now', '-' || ? || ' days')").run(daysOld)
+}
+
+// Job observability — auditoria de jobs agendados (D08)
+export function logJob(name, status, durationMs, detail) {
+  try {
+    db.prepare('INSERT INTO job_log (job_name, status, duration_ms, detail) VALUES (?, ?, ?, ?)').run(name, status, durationMs ?? null, detail ?? null)
+  } catch {}
 }
 
 // DSAR — acesso a dados pessoais (LGPD art. 18 I)

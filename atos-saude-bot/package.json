@@ -2,6 +2,9 @@
   "name": "atos-saude-bot",
   "version": "1.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "start": "node index.js",
     "test": "vitest run",
@@ -9,7 +12,8 @@
     "test:calendar": "node src/scripts/test-calendar.js",
     "add:doctor": "node src/scripts/add-doctor.js",
     "backup": "node src/scripts/backup.js",
-    "restore": "node src/scripts/restore.js"
+    "restore": "node src/scripts/restore.js",
+    "lint": "eslint src/ index.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.20.0",

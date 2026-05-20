@@ -238,6 +238,13 @@ app.get('/remarcar/:token', async (req, res) => {
     </body></html>`)
 })
 
+// Central error handler — prevents internal details from leaking to clients
+app.use((err, req, res, _next) => {
+  logger.error({ reqId: req.id, err: err.message, stack: err.stack }, 'Erro não tratado na requisição')
+  const status = err.status || err.statusCode || 500
+  res.status(status).json({ error: status < 500 ? err.message : 'Erro interno do servidor' })
+})
+
 const PORT = process.env.PORT || 3000
 const server = app.listen(PORT, () => {
   logger.info(`Painel disponível em http://localhost:${PORT}/painel`)

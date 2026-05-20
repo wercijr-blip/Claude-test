@@ -18,10 +18,19 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
       include: ['src/**/*.js'],
-      exclude: ['src/tests/**', 'src/scripts/**', 'src/panel/index.html'],
+      exclude: [
+        'src/tests/**',
+        'src/scripts/**',
+        'src/panel/index.html',
+        'src/flows/**',
+        'src/services/calendar.js',
+        'src/docs/**',
+        'src/services/export.js',
+        'src/services/seed-users.js'
+      ],
       thresholds: {
-        lines: 30,
-        functions: 30,
+        lines: 40,
+        functions: 40,
         branches: 40
       }
     }

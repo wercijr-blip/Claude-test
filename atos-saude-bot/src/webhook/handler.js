@@ -1,7 +1,7 @@
 import { timingSafeEqual } from 'crypto'
 import { sendText } from '../services/whatsapp.js'
 import { checkLimit } from '../utils/rate-limiter.js'
-import { getSession, insertMessageLog } from '../services/db.js'
+import { getSession, insertMessageLog, isMessageProcessed, markMessageProcessed } from '../services/db.js'
 import { logger } from '../utils/logger.js'
 import { router } from '../handlers/router.js'
 import { broadcastSSE } from '../utils/sse.js'
@@ -30,6 +30,12 @@ export async function handleWebhook(req, res) {
     const fromMe = msg.key?.fromMe
     const isGroup = msg.key?.remoteJid?.endsWith('@g.us')
     if (fromMe || isGroup) return
+
+    const messageId = msg.key?.id
+    if (messageId) {
+      if (isMessageProcessed(messageId)) return
+      markMessageProcessed(messageId)
+    }
 
     const rawPhone = msg.key?.remoteJid || ''
     const phone = rawPhone.replace('@s.whatsapp.net', '')

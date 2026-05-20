@@ -73,6 +73,36 @@ const MIGRATIONS = [
         try { db.exec(sql) } catch {}
       }
     }
+  },
+  {
+    version: 6,
+    name: 'processed_messages_dedup',
+    up: () => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS processed_messages (
+          message_id   TEXT PRIMARY KEY,
+          processed_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `)
+      try { db.exec('CREATE INDEX IF NOT EXISTS idx_pm_ts ON processed_messages(processed_at)') } catch {}
+    }
+  },
+  {
+    version: 7,
+    name: 'job_execution_log',
+    up: () => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS job_log (
+          id           INTEGER PRIMARY KEY AUTOINCREMENT,
+          job_name     TEXT    NOT NULL,
+          status       TEXT    NOT NULL CHECK(status IN ('SUCCESS','FAILED')),
+          duration_ms  INTEGER,
+          detail       TEXT,
+          executed_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `)
+      try { db.exec('CREATE INDEX IF NOT EXISTS idx_job_log_name ON job_log(job_name, executed_at)') } catch {}
+    }
   }
 ]
 

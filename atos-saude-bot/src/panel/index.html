@@ -1644,7 +1644,7 @@ function painel() {
         a.download = 'agendamentos_' + new Date().toISOString().slice(0, 10) + '.xlsx'
         a.click()
         setTimeout(() => URL.revokeObjectURL(a.href), 5000)
-      } catch (e) { alert(e.message) }
+      } catch (e) { this.showToast(e.message, 'error') }
     },
     abrirModalBloqueio() { this.bloqModal = true },
 
@@ -1705,22 +1705,22 @@ function painel() {
         this.textos = { ...this.textosEditados }
         this.textosSaved = true
         setTimeout(() => { this.textosSaved = false }, 3000)
-      } catch (e) { alert(e.message) }
+      } catch (e) { this.showToast(e.message, 'error') }
       finally { this.textosSaving = false }
     },
 
     async adicionarTexto() {
-      if (!this.novoTexto.nome || !this.novoTexto.conteudo) { alert('Preencha nome e conteúdo'); return }
+      if (!this.novoTexto.nome || !this.novoTexto.conteudo) { this.showToast('Preencha nome e conteúdo', 'error'); return }
       try {
         await this.api('/textos', { method:'POST', body: JSON.stringify(this.novoTexto) })
         this.novoTextoModal = false; this.novoTexto = { nome:'', conteudo:'' }; this.loadTextos()
-      } catch (e) { alert(e.message) }
+      } catch (e) { this.showToast(e.message, 'error') }
     },
 
     async removerTexto(id) {
       if (!confirm('Remover este texto?')) return
       try { await this.api('/textos/'+id, { method:'DELETE' }); this.loadTextos() }
-      catch (e) { alert(e.message) }
+      catch (e) { this.showToast(e.message, 'error') }
     },
 
     // Atendimento humano
@@ -1762,7 +1762,7 @@ function painel() {
     async removerEncaixe(id) {
       if (!confirm('Remover da fila?')) return
       try { await this.api('/encaixe/'+id, { method:'DELETE' }); this.loadEncaixe() }
-      catch (e) { alert(e.message) }
+      catch (e) { this.showToast(e.message, 'error') }
     },
 
     async adicionarEncaixe() {
@@ -1804,7 +1804,7 @@ function painel() {
       const acao = doc.ativo ? 'desativar' : 'ativar'
       if (!confirm(`Deseja ${acao} o médico ${doc.nome}?`)) return
       try { await this.api('/medicos/'+doc.id+'/toggle', { method:'PATCH' }); this.loadMedicos() }
-      catch (e) { alert(e.message) }
+      catch (e) { this.showToast(e.message, 'error') }
     },
 
     toggleDia(idx) {
@@ -1828,7 +1828,7 @@ function painel() {
     async removerMedico(id) {
       if (!confirm('Remover médico?')) return
       try { await this.api('/medicos/'+id, { method:'DELETE' }); this.loadMedicos() }
-      catch (e) { alert(e.message) }
+      catch (e) { this.showToast(e.message, 'error') }
     },
 
     // Usuários
@@ -1852,7 +1852,7 @@ function painel() {
       const acao = usr.active ? 'bloquear' : 'ativar'
       if (!confirm(`Deseja ${acao} o usuário ${usr.name}?`)) return
       try { await this.api('/usuarios/'+usr.id+'/toggle', { method:'PATCH' }); this.loadUsuarios() }
-      catch (e) { alert(e.message) }
+      catch (e) { this.showToast(e.message, 'error') }
     },
 
     resetarSenha(usr) {
@@ -1860,7 +1860,7 @@ function painel() {
     },
 
     async confirmarResetSenha() {
-      if (!this.resetSenhaPwd || this.resetSenhaPwd.length < 6) { alert('Mínimo 6 caracteres'); return }
+      if (!this.resetSenhaPwd || this.resetSenhaPwd.length < 6) { this.showToast('Mínimo 6 caracteres', 'error'); return }
       try {
         await this.api('/usuarios/'+this.resetSenhaTarget.id+'/reset-senha', { method:'PATCH', body: JSON.stringify({ password: this.resetSenhaPwd }) })
         this.resetSenhaModal = false; this.resetSenhaPwd = ''; this.resetSenhaTarget = null
@@ -1872,13 +1872,13 @@ function painel() {
     async desconectarWhatsApp() {
       if (!confirm('Desconectar o WhatsApp? O bot ficará offline até reconectar.')) return
       try { await this.api('/whatsapp/logout', { method:'POST' }); this.waStatus = 'close'; this.loadQR() }
-      catch (e) { alert(e.message) }
+      catch (e) { this.showToast(e.message, 'error') }
     },
 
     async reiniciarWhatsApp() {
       if (!confirm('Reiniciar a conexão WhatsApp?')) return
       try { await this.api('/whatsapp/restart', { method:'POST' }); await this.loadWAStatus() }
-      catch (e) { alert(e.message) }
+      catch (e) { this.showToast(e.message, 'error') }
     },
 
     async loadWAStatus() {
@@ -1911,17 +1911,17 @@ function painel() {
     },
 
     async salvarConhecimento() {
-      if (!this.novoConhecimento.filename || !this.novoConhecimento.content) { alert('Preencha título e conteúdo'); return }
+      if (!this.novoConhecimento.filename || !this.novoConhecimento.content) { this.showToast('Preencha título e conteúdo', 'error'); return }
       try {
         await this.api('/conhecimento', { method:'POST', body: JSON.stringify(this.novoConhecimento) })
         this.novoConhecimento = { filename:'', category:'', content:'' }; this.loadConhecimento()
-      } catch (e) { alert(e.message) }
+      } catch (e) { this.showToast(e.message, 'error') }
     },
 
     async removerConhecimento(id) {
       if (!confirm('Remover documento?')) return
       try { await this.api('/conhecimento/'+id, { method:'DELETE' }); this.loadConhecimento() }
-      catch (e) { alert(e.message) }
+      catch (e) { this.showToast(e.message, 'error') }
     },
 
     // Satisfação
@@ -1971,7 +1971,7 @@ function painel() {
         })
         this.replyText = ''
         await this.abrirConversa(this.conversaAberta)
-      } catch (e) { alert('Erro ao enviar: ' + e.message) }
+      } catch (e) { this.showToast('Erro ao enviar: ' + e.message, 'error') }
       finally { this.replySending = false }
     },
 

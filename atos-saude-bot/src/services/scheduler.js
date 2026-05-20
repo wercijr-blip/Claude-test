@@ -7,7 +7,8 @@ import { sendText } from './whatsapp.js'
 import {
   upsertSession, getAgendamentosComSlot, wasReminderSent, markReminderSent,
   insertRescheduleToken, getEncaixeByEspecialidade, markEncaixeNotificado,
-  deleteOldMessageLogs, cleanOldSessions, cleanupExpiredTokens
+  deleteOldMessageLogs, cleanOldSessions, cleanupExpiredTokens,
+  cleanupOldProcessedMessages, logJob
 } from './db.js'
 import { logger } from '../utils/logger.js'
 import { msg, hasMsg } from '../utils/messages.js'
@@ -41,15 +42,18 @@ export function fmtData(datetimeStr) {
 
 // Retry com backoff — garante que falhas transitórias não silenciam o job
 async function runJob(name, fn, maxRetries = 2) {
+  const start = Date.now()
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       await fn()
+      logJob(name, 'SUCCESS', Date.now() - start, null)
       return
     } catch (err) {
       logger.error({ job: name, attempt, maxRetries, err: err.message }, 'Falha no job agendado')
       if (attempt < maxRetries) {
         await new Promise(r => setTimeout(r, attempt * 2000))
       } else {
+        logJob(name, 'FAILED', Date.now() - start, err.message)
         logger.error({ job: name }, 'Job falhou em todas as tentativas — verifique o serviço manualmente')
       }
     }
@@ -239,7 +243,8 @@ export function initScheduler() {
     cleanOldSessions(30)
     deleteOldMessageLogs(90)
     cleanupExpiredTokens()
-    logger.info('Scheduler: limpeza — sessões expiradas, mensagens >90 dias e tokens revogados expirados')
+    cleanupOldProcessedMessages(7)
+    logger.info('Scheduler: limpeza — sessões expiradas, mensagens >90 dias, tokens revogados e mensagens processadas')
   }), { timezone: 'America/Sao_Paulo' })
 
   // Backup diário do banco — 2h Brasília

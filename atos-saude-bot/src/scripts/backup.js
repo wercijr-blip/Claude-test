@@ -50,9 +50,20 @@ async function uploadToS3(filePath, key) {
   }
 }
 
+async function alertAdmin(message) {
+  const adminPhone = process.env.ADMIN_PHONE
+  if (!adminPhone) return
+  try {
+    const { sendText } = await import('../services/whatsapp.js')
+    await sendText(adminPhone, `⚠️ *Alerta Atos Saúde Bot*\n${message}`)
+  } catch {}
+}
+
 export async function runBackup() {
   if (!existsSync(DB_PATH)) {
-    logger.warn({ dbPath: DB_PATH }, 'Backup ignorado — arquivo de banco não encontrado')
+    const warn = `Backup ignorado — arquivo de banco não encontrado: ${DB_PATH}`
+    logger.warn({ dbPath: DB_PATH }, warn)
+    await alertAdmin(warn)
     return
   }
   if (!existsSync(BACKUP_DIR)) mkdirSync(BACKUP_DIR, { recursive: true })
@@ -61,11 +72,17 @@ export async function runBackup() {
   const filename = `atos-saude-${ts}.db.gz`
   const dest = join(BACKUP_DIR, filename)
 
-  await pipeline(
-    createReadStream(DB_PATH),
-    createGzip({ level: 6 }),
-    createWriteStream(dest)
-  )
+  try {
+    await pipeline(
+      createReadStream(DB_PATH),
+      createGzip({ level: 6 }),
+      createWriteStream(dest)
+    )
+  } catch (err) {
+    logger.error({ err: err.message }, 'Falha ao criar backup local')
+    await alertAdmin(`Falha no backup local: ${err.message}`)
+    throw err
+  }
   logger.info({ dest }, 'Backup diário concluído')
 
   // Upload offsite para S3 (opcional — requer AWS_BACKUP_BUCKET)

@@ -6,12 +6,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN npm install -g pnpm@9
 
+RUN groupadd --gid 1001 nodeapp && \
+    useradd --uid 1001 --gid nodeapp --shell /bin/sh --create-home nodeapp
+
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
 COPY . .
+
+RUN chown -R nodeapp:nodeapp /app
+
+USER nodeapp
 
 EXPOSE 3000
 
