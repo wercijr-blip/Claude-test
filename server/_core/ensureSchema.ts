@@ -150,7 +150,7 @@ const COLUMN_PATCHES: Record<string, Array<{ name: string; ddl: string }>> = {
   users: [
     { name: "deleted_at", ddl: "DATETIME" },
     { name: "totp_enabled", ddl: "TINYINT(1) NOT NULL DEFAULT 0" },
-    { name: "totp_secret", ddl: "VARCHAR(64)" },
+    { name: "totp_secret", ddl: "VARCHAR(255)" },
   ],
   clinical_sessions: [
     { name: "aberta_em", ddl: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" },

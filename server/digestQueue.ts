@@ -644,7 +644,13 @@ export function startDigestWorker() {
   );
 
   worker.on("failed", (job, err) => {
-    sendToDlq("clinical-digest", job, err).catch(() => null);
+    sendToDlq("clinical-digest", job, err).catch((dlqErr) =>
+      logger.error("[digestQueue] falha crítica ao enfileirar na DLQ", {
+        jobId: job?.id,
+        error: String(dlqErr),
+        originalError: String(err),
+      }),
+    );
   });
 
   worker.on("completed", (job) => {

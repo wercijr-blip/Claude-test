@@ -201,7 +201,12 @@ export function startPubmedWorker() {
       // Salva artigos PubMed no Zotero em fire-and-forget — não bloqueia síntese
       if (zoteroItems) {
         for (const artigo of artigos)
-          salvarArtigoPubMed(artigo, { cid10, template }).catch(() => null);
+          salvarArtigoPubMed(artigo, { cid10, template }).catch((e) =>
+            logger.warn("[pubmedQueue] falha ao salvar artigo no Zotero", {
+              pmid: artigo.pmid,
+              error: String(e),
+            }),
+          );
       }
 
       // 2. Gerar síntese (Prompt 03)
@@ -244,7 +249,13 @@ export function startPubmedWorker() {
               diagnostico: diagnosticoPrincipal,
             }),
           )
-          .catch(() => null);
+          .catch((e) =>
+            logger.warn("[pubmedQueue] falha ao verificar acumulação de casos", {
+              soapNoteId,
+              cid10,
+              error: String(e),
+            }),
+          );
       }
 
       // 3b. Publicar síntese no Obsidian (best-effort)
@@ -254,7 +265,12 @@ export function startPubmedWorker() {
         cid10,
         sinteseTexto: sintese.texto,
         nArtigos: artigos.length,
-      }).catch(() => null);
+      }).catch((e) =>
+        logger.warn("[pubmedQueue] falha ao publicar síntese no Obsidian", {
+          soapNoteId,
+          error: String(e),
+        }),
+      );
 
       // 4. Re-executar divergência de conduta com síntese (best-effort)
       // Se falhar não bloqueia — alerta sem síntese já foi gerado em processarConsulta
@@ -328,7 +344,12 @@ export function startPubmedWorker() {
             diagnostico: diagnosticoPrincipal,
             cid10,
             alerta,
-          }).catch(() => null);
+          }).catch((e) =>
+            logger.warn("[pubmedQueue] falha ao publicar alerta no Obsidian", {
+              soapNoteId,
+              error: String(e),
+            }),
+          );
           notificarAlertaConduta({
             soapNoteId,
             diagnostico: diagnosticoPrincipal,
@@ -336,7 +357,12 @@ export function startPubmedWorker() {
             nivelUrgencia: alerta.nivel_urgencia ?? "baixo",
             hashAlerta: alerta.hash_alerta ?? null,
             mensagemMedico: alerta.mensagem_para_medico ?? null,
-          }).catch(() => null);
+          }).catch((e) =>
+            logger.warn("[pubmedQueue] falha ao notificar alerta no n8n", {
+              soapNoteId,
+              error: String(e),
+            }),
+          );
         }
       } catch (alertaErr) {
         logger.warn(
@@ -351,7 +377,13 @@ export function startPubmedWorker() {
   );
 
   worker.on("failed", (job, err) => {
-    sendToDlq("pubmed-synthesis", job, err).catch(() => null);
+    sendToDlq("pubmed-synthesis", job, err).catch((dlqErr) =>
+      logger.error("[pubmedQueue] falha crítica ao enfileirar na DLQ", {
+        jobId: job?.id,
+        error: String(dlqErr),
+        originalError: String(err),
+      }),
+    );
   });
 
   worker.on("completed", (job, result) => {

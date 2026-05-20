@@ -219,7 +219,12 @@ export function startCaseSeriesWorker() {
         cid10,
         nCasos: notas.length,
         texto: resultado.texto,
-      }).catch(() => null);
+      }).catch((e) =>
+        logger.warn("[caseSeriesQueue] falha ao publicar série no Obsidian", {
+          cid10,
+          error: String(e),
+        }),
+      );
 
       return { draftId: draft?.id, cid10, nCasos: notas.length };
     },
@@ -227,7 +232,13 @@ export function startCaseSeriesWorker() {
   );
 
   worker.on("failed", (job, err) => {
-    sendToDlq("case-series", job, err).catch(() => null);
+    sendToDlq("case-series", job, err).catch((dlqErr) =>
+      logger.error("[caseSeriesQueue] falha crítica ao enfileirar na DLQ", {
+        jobId: job?.id,
+        error: String(dlqErr),
+        originalError: String(err),
+      }),
+    );
   });
 
   worker.on("completed", (job, result) => {
