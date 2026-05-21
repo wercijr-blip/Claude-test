@@ -23,7 +23,11 @@
     "format:check": "prettier --check .",
     "seed": "tsx server/seed.ts",
     "dev:services": "docker compose up -d",
-    "dev:full": "pnpm dev:services && pnpm dev"
+    "dev:full": "pnpm dev:services && pnpm dev",
+    "electron:compile": "tsc --project electron/tsconfig.json",
+    "electron:dev": "pnpm electron:compile && VITE_API_URL=http://localhost:3000 electron dist/electron/main.js",
+    "electron:build": "pnpm build && pnpm electron:compile && electron-builder",
+    "electron:pack": "pnpm build && pnpm electron:compile && electron-builder --dir"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1050.0",
@@ -105,6 +109,8 @@
     "concurrently": "^9.2.1",
     "dotenv": "^17.4.2",
     "drizzle-kit": "^0.30.0",
+    "electron": "^42.2.0",
+    "electron-builder": "^26.8.1",
     "eslint": "^10.4.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "jsdom": "^29.1.1",
@@ -114,10 +120,37 @@
     "vite": "^6.0.0",
     "vitest": "2.1.9"
   },
+  "main": "dist/electron/main.js",
   "pnpm": {
     "overrides": {
       "crypto-js": "^4.2.0",
       "brace-expansion": "^2.0.1"
+    }
+  },
+  "build": {
+    "appId": "br.com.facilitaprep.recorder",
+    "productName": "Gravador de Reunião",
+    "directories": {
+      "output": "dist/electron-app"
+    },
+    "files": [
+      "dist/electron/**/*",
+      "dist/client/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.business",
+      "entitlements": "electron/entitlements.mac.plist",
+      "entitlementsInherit": "electron/entitlements.mac.plist",
+      "hardenedRuntime": true
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "client/public/icon.ico"
+    },
+    "linux": {
+      "target": "AppImage"
     }
   }
 }
