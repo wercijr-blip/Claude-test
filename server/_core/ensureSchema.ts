@@ -167,6 +167,7 @@ const COLUMN_PATCHES: Record<string, Array<{ name: string; ddl: string }>> = {
     { name: "mensagem_medico", ddl: "TEXT" },
     { name: "visto_por_id", ddl: "INT" },
     { name: "visto_em", ddl: "DATETIME" },
+    { name: "feedback_em", ddl: "DATETIME" },
   ],
   publication_drafts: [
     { name: "deleted_at", ddl: "DATETIME" },
@@ -236,11 +237,18 @@ async function patchTableColumns(
         column: col.name,
       });
     } catch (err) {
-      logger.error("[ensureSchema] Falha ao adicionar coluna (continuando)", {
+      const errMsg = String(err);
+      // MySQL 1060: Duplicate column — benign TOCTOU race between concurrent boots
+      if (errMsg.includes("1060") || errMsg.toLowerCase().includes("duplicate column")) {
+        logger.debug("[ensureSchema] Coluna já existe (race benigno)", { table, column: col.name });
+        continue;
+      }
+      logger.error("[ensureSchema] Falha ao adicionar coluna", {
         table,
         column: col.name,
-        error: String(err),
+        error: errMsg,
       });
+      if (process.env["NODE_ENV"] === "production") throw err;
     }
   }
 }

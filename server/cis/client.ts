@@ -4,6 +4,7 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
+import { Sentry } from "../_core/instrument.ts";
 import { env } from "../_core/env.ts";
 import { logger } from "../_core/logger.ts";
 import { redis } from "../_core/redis.ts";
@@ -117,6 +118,10 @@ export async function callClaude(
           ),
         },
       );
+      Sentry.captureMessage("[cis] Orçamento Opus em 80%", {
+        level: "warning",
+        extra: { tokensHoje, limite: env.OPUS_DAILY_TOKEN_BUDGET },
+      });
     }
     if (tokensHoje >= env.OPUS_DAILY_TOKEN_BUDGET) {
       logger.warn(

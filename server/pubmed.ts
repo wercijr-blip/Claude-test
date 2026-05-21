@@ -211,8 +211,9 @@ export async function buscarArtigosDual(
       logger.info("[pubmed] Cache hit", { cacheKey, n: parsed.length });
       return parsed;
     }
+    logger.debug("[pubmed] Cache miss", { cacheKey });
   } catch {
-    // Cache miss or Redis unavailable — proceed normally
+    // Redis unavailable — proceed normally
   }
 
   try {

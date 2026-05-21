@@ -191,17 +191,18 @@ REDIS_URL
 
 ---
 
-## 🧪 Suíte de Testes (128 testes)
+## 🧪 Suíte de Testes (181+ testes)
 
-| Arquivo                               | O que testa                                         |
-| ------------------------------------- | --------------------------------------------------- |
-| `server/clinicalIntelligence.test.ts` | 11 prompts, orçamento Opus, downgrade, JSON parsing |
-| `server/cisRest.test.ts`              | Endpoints REST, auth, paginação, PII isolation      |
-| `server/pubmed.test.ts`               | CircuitBreaker, cache Redis, E-utilities            |
-| `server/roles.test.ts`                | Sistema de permissões por role                      |
-| `server/security.test.ts`             | Payload bomb, CORS, CPF injection                   |
-| `server/token.test.ts`                | Ciclo de vida de tokens                             |
-| `server/pubmedQueue.test.ts`          | Worker queue BullMQ                                 |
+| Arquivo                                    | O que testa                                         |
+| ------------------------------------------ | --------------------------------------------------- |
+| `server/clinicalIntelligence.test.ts`      | 11 prompts, orçamento Opus, downgrade, JSON parsing |
+| `server/cisRest.test.ts`                   | Endpoints REST, auth, paginação, PII isolation      |
+| `server/pubmed.test.ts`                    | CircuitBreaker, cache Redis, E-utilities            |
+| `server/roles.test.ts`                     | Sistema de permissões por role                      |
+| `server/security.test.ts`                  | Payload bomb, CORS, CPF injection                   |
+| `server/token.test.ts`                     | Ciclo de vida de tokens                             |
+| `server/pubmedQueue.test.ts`               | Worker queue BullMQ                                 |
+| `server/_core/circuitBreaker.test.ts`      | Half-open timing, estados, trial falhado            |
 
 ---
 
@@ -225,3 +226,28 @@ REDIS_URL
 4. **Opus budget:** `OPUS_DAILY_TOKEN_BUDGET` controla custo — downgrade automático
 5. **Filas BullMQ:** prefixo `{cis-prod}` em prod — não usar prefixo `fp-*`
 6. **Projeto independente:** NÃO tem ligação com Facilita PrEP. São projetos completamente separados.
+
+---
+
+## 🔧 Troubleshooting
+
+### Banco de dados
+- **`ensureSchema` falha no boot em produção:** verificar `DATABASE_URL` e conectividade TiDB Cloud. O erro é fatal — servidor não sobe com schema incompleto.
+- **Coluna já existe (1060):** benign race condition entre dois boots simultâneos — `ensureSchema` ignora silenciosamente.
+
+### Redis
+- **Redis indisponível:** PubMed cache miss → busca prossegue normalmente. Opus budget → fail-open (não bloqueia chamada). Rate limiting → pode ficar sem limites temporariamente.
+
+### Filas BullMQ
+- **Worker travado / stalled:** `lockDuration` de 180s para pubmedQueue (síntese lenta). Verificar `maxStalledCount: 1`.
+- **DLQ acumulando:** monitorado em `/api/health/metrics` → alerta se `dlqCount ≥ 20`.
+
+### Autenticação
+- **`devLogin` retorna 404 em produção:** intencional — indistinguível de rota inexistente por segurança.
+- **TOTP: código recusado:** verificar sincronização de horário do dispositivo (RFC 6238 ± 30s).
+
+### Limites conhecidos
+- **Transcrição Whisper:** limite de 25MB por arquivo de áudio.
+- **Síntese PubMed:** máximo 10 artigos por consulta (5 free + 5 MeSH, deduplicados).
+- **Opus downgrade:** automático quando `OPUS_DAILY_TOKEN_BUDGET` atingido — verificar Redis key `cis:opus:tokens:{YYYY-MM-DD}` (BRT).
+- **Batch API timeout:** 30 minutos — digest semanal/mensal com muitos SOAPs pode estourar.

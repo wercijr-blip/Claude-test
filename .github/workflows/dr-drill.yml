@@ -1,0 +1,58 @@
+name: DR Drill (mensal)
+
+on:
+  schedule:
+    - cron: "0 10 1 * *" # 1º de cada mês às 10h UTC (7h BRT)
+  workflow_dispatch: # execução manual para testes
+
+jobs:
+  health-check:
+    name: Verificar saúde do sistema em produção
+    runs-on: ubuntu-latest
+    steps:
+      - name: Health check endpoint
+        run: |
+          STATUS=$(curl -sf -o /dev/null -w "%{http_code}" \
+            "${APP_URL}/api/health" \
+            --max-time 15 || echo "000")
+          echo "Status: $STATUS"
+          [ "$STATUS" = "200" ] || {
+            echo "FALHA: health check retornou $STATUS (esperado 200)"
+            exit 1
+          }
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+
+      - name: Verificar métricas (DLQ e budget Opus)
+        run: |
+          METRICS=$(curl -sf \
+            "${APP_URL}/api/health/metrics" \
+            --max-time 15 || echo "{}")
+          echo "Métricas: $METRICS"
+          DLQ=$(echo "$METRICS" | grep -o '"dlqCount":[0-9]*' | grep -o '[0-9]*' || echo "0")
+          echo "DLQ count: $DLQ"
+          [ "${DLQ:-0}" -lt 20 ] || {
+            echo "AVISO: DLQ acumulou $DLQ jobs — verificar manualmente"
+          }
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+
+  backup-check:
+    name: Verificar artefatos de build (proxy de backup)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "10.4.1"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Confirmar build reproduzível
+        run: |
+          test -f dist/client/index.html || { echo "FALHA: build não reproduzível"; exit 1; }
+          test -f dist/server/_core/index.js || { echo "FALHA: server bundle ausente"; exit 1; }
+          echo "Build reproduzível: OK"

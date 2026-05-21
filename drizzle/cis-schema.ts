@@ -138,6 +138,7 @@ export const conductAlerts = mysqlTable(
     vistoIdx: index("idx_calerts_visto").on(t.vistoEm),
     hashIdx: index("idx_calerts_hash").on(t.hashAlerta),
     feedbackIdx: index("idx_calerts_feedback").on(t.feedbackMedico),
+    feedbackEmIdx: index("idx_calerts_feedback_em").on(t.feedbackEm),
   }),
 );
 

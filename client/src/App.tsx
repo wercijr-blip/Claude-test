@@ -19,7 +19,11 @@ import { trpc } from "./lib/trpc.ts";
 function PageLoader() {
   return (
     <div className="min-h-screen flex items-center justify-center">
-      <div className="w-8 h-8 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin" />
+      <div
+        role="status"
+        aria-label="Carregando"
+        className="w-8 h-8 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin"
+      />
     </div>
   );
 }
@@ -45,12 +49,20 @@ class ErrorBoundary extends Component<
             <h1 className="text-2xl font-bold text-slate-700 mb-2">
               Algo deu errado
             </h1>
-            <button
-              className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-medium hover:bg-blue-700 transition-colors"
-              onClick={() => window.location.reload()}
-            >
-              Recarregar
-            </button>
+            <div className="flex gap-3 justify-center">
+              <button
+                className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-medium hover:bg-blue-700 transition-colors"
+                onClick={() => this.setState({ hasError: false })}
+              >
+                Tentar novamente
+              </button>
+              <button
+                className="bg-slate-100 text-slate-700 px-6 py-2.5 rounded-xl font-medium hover:bg-slate-200 transition-colors"
+                onClick={() => window.location.reload()}
+              >
+                Recarregar
+              </button>
+            </div>
           </div>
         </div>
       );
@@ -320,7 +332,11 @@ function CISDashboard() {
           </h2>
           {notasLoading ? (
             <div className="flex justify-center py-4">
-              <div className="w-5 h-5 border-2 border-slate-200 border-t-blue-600 rounded-full animate-spin" />
+              <div
+                role="status"
+                aria-label="Carregando notas"
+                className="w-5 h-5 border-2 border-slate-200 border-t-blue-600 rounded-full animate-spin"
+              />
             </div>
           ) : notasError ? (
             <div className="flex items-center gap-3">

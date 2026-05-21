@@ -142,11 +142,7 @@ export async function enqueueSintesePubMed(
     ? `pubmed-${params.soapNoteId}-${Date.now()}`
     : `pubmed-${params.soapNoteId}`;
 
-  await pubmedQueue.add("sintese-pubmed", params, {
-    jobId,
-    attempts: 2,
-    backoff: { type: "exponential", delay: 60_000 },
-  });
+  await pubmedQueue.add("sintese-pubmed", params, { jobId });
 }
 
 // ─── Worker ───────────────────────────────────────────────────────────────────
