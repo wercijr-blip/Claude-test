@@ -19,6 +19,18 @@ interface ToastCtx {
   toast: (message: string, variant?: ToastVariant) => void;
 }
 
+const ICONS: Record<ToastVariant, string> = {
+  success: "✓",
+  error: "✕",
+  info: "·",
+};
+
+const STYLES: Record<ToastVariant, string> = {
+  success: "bg-emerald-600 text-white",
+  error:   "bg-red-600 text-white",
+  info:    "bg-stone-800 text-white",
+};
+
 const ToastContext = createContext<ToastCtx>({ toast: () => undefined });
 
 let nextId = 0;
@@ -50,22 +62,23 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               if (!open) remove(t.id);
             }}
             className={[
-              "rounded-xl px-4 py-3 shadow-lg text-sm font-medium",
-              "flex items-center gap-2",
+              "rounded-2xl px-4 py-3 shadow-lg text-sm font-medium",
+              "flex items-center gap-2.5",
               "data-[state=open]:animate-in data-[state=closed]:animate-out",
               "data-[swipe=end]:animate-out data-[state=closed]:fade-out-80",
               "data-[state=open]:slide-in-from-bottom-2",
-              t.variant === "success"
-                ? "bg-green-600 text-white"
-                : t.variant === "error"
-                  ? "bg-red-600 text-white"
-                  : "bg-slate-800 text-white",
+              STYLES[t.variant],
             ].join(" ")}
           >
-            <RadixToast.Description>{t.message}</RadixToast.Description>
+            <span className="text-base font-bold opacity-80 shrink-0">
+              {ICONS[t.variant]}
+            </span>
+            <RadixToast.Description className="leading-snug">
+              {t.message}
+            </RadixToast.Description>
           </RadixToast.Root>
         ))}
-        <RadixToast.Viewport className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 w-80" />
+        <RadixToast.Viewport className="fixed bottom-5 right-5 z-50 flex flex-col gap-2 w-80" />
       </RadixToast.Provider>
     </ToastContext.Provider>
   );

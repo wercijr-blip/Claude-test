@@ -634,7 +634,6 @@ export default function AudioRecorder({
   if (state === "idle") {
     return (
       <div className="space-y-3">
-        <p className="text-xs text-slate-500">Selecione o modo de gravação:</p>
         <div className="grid grid-cols-3 gap-2">
           <ModeButton
             emoji="🎤"
@@ -664,9 +663,8 @@ export default function AudioRecorder({
             }}
           />
         </div>
-        <p className="text-xs text-slate-400">
-          <strong>App Desktop</strong> requer BlackHole (Mac) ou VB-Cable
-          (Windows) instalado — instruções disponíveis no próximo passo.
+        <p className="text-[11px] text-stone-400 leading-relaxed">
+          <strong className="text-stone-500">App Desktop</strong> requer BlackHole (Mac) ou VB-Cable (Windows) — instruções no próximo passo.
         </p>
       </div>
     );
@@ -684,8 +682,8 @@ export default function AudioRecorder({
   if (state === "requesting") {
     return (
       <div className="flex items-center gap-3 py-3">
-        <div className="w-4 h-4 border-2 border-slate-300 border-t-blue-600 rounded-full animate-spin" />
-        <p className="text-sm text-slate-500">Aguardando permissão de áudio…</p>
+        <div className="w-4 h-4 border-2 border-stone-200 border-t-blue-600 rounded-full animate-spin" />
+        <p className="text-sm text-stone-500">Aguardando permissão de áudio…</p>
       </div>
     );
   }
@@ -698,19 +696,19 @@ export default function AudioRecorder({
           ? "📱 Mic + cabo virtual"
           : "🎤 Microfone";
     return (
-      <div className="space-y-4">
-        <div className="flex items-center gap-3">
-          <span className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
-          <span className="text-sm font-mono font-medium text-slate-700">
+      <div className="space-y-3">
+        <div className="bg-red-50 border border-red-200 rounded-2xl px-4 py-3 flex items-center gap-3">
+          <span className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse shrink-0" />
+          <span className="text-sm font-mono font-semibold text-red-700 tabular-nums">
             {formatTime(elapsed)}
           </span>
-          <span className="text-xs text-slate-400 ml-auto">{modeLabel}</span>
+          <span className="text-xs text-red-400 ml-auto">{modeLabel}</span>
         </div>
         <button
           onClick={stopRecording}
-          className="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-2.5 rounded-xl transition-colors text-sm"
+          className="w-full bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-medium py-3 rounded-xl transition-colors text-sm shadow-sm"
         >
-          Parar gravação
+          ■ Parar gravação
         </button>
       </div>
     );
@@ -718,13 +716,16 @@ export default function AudioRecorder({
 
   if (state === "uploading" || state === "transcribing") {
     return (
-      <div className="flex items-center gap-3 py-3">
-        <div className="w-4 h-4 border-2 border-slate-300 border-t-blue-600 rounded-full animate-spin" />
-        <p className="text-sm text-slate-500">
-          {state === "uploading"
-            ? "Enviando áudio…"
-            : "Transcrevendo com Whisper…"}
-        </p>
+      <div className="bg-stone-50 border border-stone-200 rounded-2xl px-4 py-3 flex items-center gap-3">
+        <div className="w-4 h-4 border-2 border-stone-300 border-t-blue-600 rounded-full animate-spin shrink-0" />
+        <div>
+          <p className="text-sm text-stone-700 font-medium">
+            {state === "uploading" ? "Enviando áudio…" : "Transcrevendo com Whisper…"}
+          </p>
+          <p className="text-[11px] text-stone-400">
+            {state === "uploading" ? "Fazendo upload para processamento" : "Reconhecimento de fala em pt-BR médico"}
+          </p>
+        </div>
       </div>
     );
   }
@@ -735,7 +736,9 @@ export default function AudioRecorder({
         {state === "done" && transcricao && (
           <>
             <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-slate-600">Transcrição</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-stone-400">
+                Transcrição
+              </p>
               <button
                 onClick={() => {
                   navigator.clipboard.writeText(transcricao).catch(() => undefined);
@@ -750,18 +753,19 @@ export default function AudioRecorder({
               value={transcricao}
               onChange={(e) => setTranscricao(e.target.value)}
               rows={6}
-              className="w-full text-sm text-slate-700 border border-slate-200 rounded-xl p-3 resize-y focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full text-sm text-stone-700 border border-stone-200 rounded-xl p-3 resize-y focus:outline-none focus:ring-2 focus:ring-blue-500 bg-stone-50"
             />
           </>
         )}
         {state === "error" && (
-          <p className="text-sm text-red-500">
-            Falha na transcrição. Tente novamente.
-          </p>
+          <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+            <p className="text-sm text-red-600 font-medium">Falha na transcrição.</p>
+            <p className="text-xs text-red-400 mt-0.5">Verifique sua conexão e tente novamente.</p>
+          </div>
         )}
         <button
           onClick={reset}
-          className="text-sm text-slate-500 hover:text-slate-700 underline"
+          className="text-sm text-stone-500 hover:text-stone-700 underline"
         >
           Nova gravação
         </button>
@@ -787,21 +791,21 @@ function ModeButton({
   color: "blue" | "indigo" | "violet";
   onClick: () => void;
 }) {
-  const hoverBorder =
+  const activeHover =
     color === "blue"
-      ? "hover:border-blue-400 group-hover:text-blue-700"
+      ? "hover:border-blue-300 hover:bg-blue-50"
       : color === "indigo"
-        ? "hover:border-indigo-400 group-hover:text-indigo-700"
-        : "hover:border-violet-400 group-hover:text-violet-700";
+        ? "hover:border-indigo-300 hover:bg-indigo-50"
+        : "hover:border-violet-300 hover:bg-violet-50";
 
   return (
     <button
       onClick={onClick}
-      className={`group flex flex-col items-center gap-1 border-2 border-slate-200 ${hoverBorder} rounded-xl p-3 transition-colors`}
+      className={`group flex flex-col items-center gap-1.5 border border-stone-200 ${activeHover} rounded-2xl p-3.5 transition-colors bg-white active:scale-95`}
     >
       <span className="text-xl">{emoji}</span>
-      <span className="text-xs font-medium text-slate-700">{label}</span>
-      <span className="text-[10px] text-slate-400 text-center leading-tight">
+      <span className="text-xs font-medium text-stone-700">{label}</span>
+      <span className="text-[10px] text-stone-400 text-center leading-tight">
         {sub}
       </span>
     </button>

@@ -18,11 +18,11 @@ import { trpc } from "./lib/trpc.ts";
 
 function PageLoader() {
   return (
-    <div className="min-h-screen flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-center bg-stone-50">
       <div
         role="status"
         aria-label="Carregando"
-        className="w-8 h-8 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin"
+        className="w-8 h-8 border-3 border-stone-200 border-t-blue-600 rounded-full animate-spin"
       />
     </div>
   );
@@ -44,20 +44,26 @@ class ErrorBoundary extends Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-slate-700 mb-2">
+        <div className="min-h-screen flex items-center justify-center bg-stone-50">
+          <div className="text-center px-6">
+            <div className="w-14 h-14 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <span className="text-2xl">⚠️</span>
+            </div>
+            <h1 className="text-lg font-semibold text-stone-800 mb-1">
               Algo deu errado
             </h1>
+            <p className="text-sm text-stone-500 mb-6">
+              Um erro inesperado ocorreu na interface.
+            </p>
             <div className="flex gap-3 justify-center">
               <button
-                className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-medium hover:bg-blue-700 transition-colors"
+                className="bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors"
                 onClick={() => this.setState({ hasError: false })}
               >
                 Tentar novamente
               </button>
               <button
-                className="bg-slate-100 text-slate-700 px-6 py-2.5 rounded-xl font-medium hover:bg-slate-200 transition-colors"
+                className="bg-stone-100 text-stone-600 px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-stone-200 transition-colors"
                 onClick={() => window.location.reload()}
               >
                 Recarregar
@@ -70,6 +76,26 @@ class ErrorBoundary extends Component<
     return this.props.children;
   }
 }
+
+// ─── Skeleton loader para lista de notas ─────────────────────────────────────
+
+function NotesSkeleton() {
+  return (
+    <div className="animate-pulse space-y-0 divide-y divide-stone-100">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="py-3.5 flex items-start gap-3">
+          <div className="w-12 h-5 bg-stone-100 rounded-md mt-0.5" />
+          <div className="flex-1 space-y-2">
+            <div className="h-4 bg-stone-100 rounded w-3/5" />
+            <div className="h-3 bg-stone-100 rounded w-2/5" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Dashboard principal ──────────────────────────────────────────────────────
 
 function CISDashboard() {
   const { logout } = useAuth();
@@ -97,7 +123,7 @@ function CISDashboard() {
       utils.scriba.listarSoapNotes.invalidate();
       setSessaoId(data.sessionId);
       toast(
-        data.nova ? "Sessão aberta com sucesso." : "Sessão retomada.",
+        data.nova ? "Sessão aberta com sucesso." : "Sessão do dia retomada.",
         "success",
       );
     },
@@ -111,6 +137,7 @@ function CISDashboard() {
     },
     [toast],
   );
+
   const {
     data: notas,
     isLoading: notasLoading,
@@ -129,6 +156,7 @@ function CISDashboard() {
     const nota = notas.items.find((n) => n.id === pendingSynthesisNoteId);
     if (nota?.temSintese) setPendingSynthesisNoteId(null);
   }, [pendingSynthesisNoteId, notas?.items]);
+
   const {
     data: alertas,
     isLoading: alertasLoading,
@@ -137,6 +165,7 @@ function CISDashboard() {
     { incluirVistos: false, limit: 5 },
     { retry: false },
   );
+
   const marcarVisto = trpc.scriba.marcarAlertaVisto.useMutation({
     onSuccess: () => {
       utils.scriba.listarAlertas.invalidate();
@@ -166,36 +195,61 @@ function CISDashboard() {
 
   const alertaItems = alertas?.items ?? [];
 
+  const TIPO_LABELS = [
+    { val: "primeira_consulta" as const, label: "1ª Consulta" },
+    { val: "retorno" as const, label: "Retorno" },
+    { val: "seguimento" as const, label: "Seguimento" },
+  ];
+
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-slate-800">
-          CIS — Sistema de Inteligência Clínica
-        </h1>
-        <button
-          onClick={logout}
-          className="text-sm text-slate-500 hover:text-slate-700 transition-colors"
-        >
-          Sair
-        </button>
+    <div className="min-h-screen bg-stone-50">
+      {/* Header */}
+      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-sm border-b border-stone-200">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 bg-blue-600 rounded-xl flex items-center justify-center shrink-0">
+              <span className="text-white text-[11px] font-bold tracking-tight">CIS</span>
+            </div>
+            <span className="text-sm font-semibold text-stone-800 hidden sm:block">
+              Inteligência Clínica
+            </span>
+          </div>
+          <div className="flex items-center gap-4">
+            {sessaoId && (
+              <div className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                <span className="text-xs text-stone-500 hidden sm:block">
+                  Sessão #{sessaoId}
+                </span>
+              </div>
+            )}
+            {alertaItems.length > 0 && (
+              <div className="flex items-center gap-1">
+                <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
+                <span className="text-xs font-medium text-amber-600">
+                  {alertaItems.length}
+                </span>
+              </div>
+            )}
+            <button
+              onClick={logout}
+              className="text-xs text-stone-400 hover:text-stone-600 transition-colors px-2 py-1 rounded-lg hover:bg-stone-100"
+            >
+              Sair
+            </button>
+          </div>
+        </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-6 py-8 space-y-6">
-        {alertasLoading && (
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 animate-pulse">
-            <div className="h-4 bg-slate-200 rounded w-1/3 mb-2" />
-            <div className="h-3 bg-slate-200 rounded w-2/3" />
-          </div>
-        )}
+      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-4">
 
+        {/* ── Alertas ─────────────────────────────────────────────────────── */}
         {!alertasLoading && alertasError && (
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center justify-between">
-            <p className="text-sm text-red-600">
-              Não foi possível carregar alertas.
-            </p>
+          <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-4 flex items-center justify-between">
+            <p className="text-sm text-stone-500">Não foi possível carregar alertas.</p>
             <button
               onClick={() => utils.scriba.listarAlertas.invalidate()}
-              className="text-xs text-red-600 underline hover:text-red-800"
+              className="text-xs text-blue-600 hover:underline"
             >
               Tentar novamente
             </button>
@@ -203,235 +257,263 @@ function CISDashboard() {
         )}
 
         {!alertasLoading && !alertasError && alertaItems.length > 0 && (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
-            <p className="text-sm font-semibold text-amber-800 mb-2">
-              ⚠️ {alertaItems.length} alerta{alertaItems.length > 1 ? "s" : ""}{" "}
-              de conduta pendente{alertaItems.length > 1 ? "s" : ""}
+          <section>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-stone-400 mb-2 px-1">
+              {alertaItems.length} alerta{alertaItems.length > 1 ? "s" : ""} pendente{alertaItems.length > 1 ? "s" : ""}
             </p>
-            <ul className="space-y-2">
-              {alertaItems.map((a) => (
-                <AlertCard
-                  key={a.id}
-                  alerta={a}
-                  onVisto={(id) => marcarVisto.mutate({ alertaId: id })}
-                  onFeedback={() => utils.scriba.listarAlertas.invalidate()}
-                  vistoLoading={marcarVisto.isPending}
-                />
-              ))}
-            </ul>
-          </div>
+            <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden">
+              <ul className="divide-y divide-stone-100 px-4 py-1">
+                {alertaItems.map((a) => (
+                  <AlertCard
+                    key={a.id}
+                    alerta={a}
+                    onVisto={(id) => marcarVisto.mutate({ alertaId: id })}
+                    onFeedback={() => utils.scriba.listarAlertas.invalidate()}
+                    vistoLoading={marcarVisto.isPending}
+                  />
+                ))}
+              </ul>
+            </div>
+          </section>
         )}
 
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-5">
-          <h2 className="text-sm font-semibold text-slate-700">
-            Sessão Clínica
-          </h2>
+        {/* ── Sessão clínica ───────────────────────────────────────────────── */}
+        <section>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-stone-400 mb-2 px-1">
+            Sessão clínica
+          </p>
+          <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-5">
 
-          {!sessaoId ? (
-            <button
-              onClick={() => abrirSessao.mutate(void 0)}
-              disabled={abrirSessao.isPending}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-5 rounded-xl transition-colors disabled:opacity-50 text-sm"
-            >
-              {abrirSessao.isPending ? "Abrindo…" : "Iniciar Atendimento"}
-            </button>
-          ) : (
-            <>
-              <div className="flex items-center gap-2 text-sm text-slate-500">
-                <span className="w-2 h-2 bg-green-500 rounded-full" />
-                Sessão {abrirSessao.data?.nova ? "aberta" : "retomada"} — ID{" "}
-                {sessaoId}
+            {!sessaoId ? (
+              <div className="flex flex-col items-center py-6 gap-4">
+                <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center">
+                  <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
+                  </svg>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm font-medium text-stone-700">Pronto para atender?</p>
+                  <p className="text-xs text-stone-400 mt-0.5">Abra uma sessão para iniciar as consultas do dia.</p>
+                </div>
+                <button
+                  onClick={() => abrirSessao.mutate(void 0)}
+                  disabled={abrirSessao.isPending}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-6 rounded-xl transition-colors disabled:opacity-50 text-sm shadow-sm"
+                >
+                  {abrirSessao.isPending ? "Abrindo…" : "Iniciar Atendimento"}
+                </button>
               </div>
+            ) : (
+              <div className="space-y-5">
+                {/* Status da sessão */}
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 bg-emerald-500 rounded-full" />
+                  <span className="text-xs text-stone-500">
+                    Sessão {abrirSessao.data?.nova ? "iniciada" : "retomada"} — ID {sessaoId}
+                  </span>
+                </div>
 
-              <div className="border-t border-slate-100 pt-4 space-y-4">
-                <div>
-                  <p className="text-xs font-medium text-slate-600 mb-2">
-                    Tipo de consulta
-                  </p>
-                  <div className="flex gap-2">
-                    {(
-                      [
-                        ["primeira_consulta", "Primeira Consulta"],
-                        ["retorno", "Retorno"],
-                        ["seguimento", "Seguimento"],
-                      ] as const
-                    ).map(([val, label]) => (
-                      <button
-                        key={val}
-                        onClick={() => setTipoConsulta(val)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
-                          tipoConsulta === val
-                            ? "bg-blue-600 text-white border-blue-600"
-                            : "bg-white text-slate-600 border-slate-200 hover:border-blue-400 hover:text-blue-700"
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
+                <div className="border-t border-stone-100 pt-4 space-y-4">
+                  {/* Tipo de consulta */}
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-stone-400 mb-2">
+                      Tipo de consulta
+                    </p>
+                    <div className="flex gap-2">
+                      {TIPO_LABELS.map(({ val, label }) => (
+                        <button
+                          key={val}
+                          onClick={() => setTipoConsulta(val)}
+                          className={`flex-1 px-3 py-2 rounded-xl text-xs font-medium border transition-colors ${
+                            tipoConsulta === val
+                              ? "bg-blue-600 text-white border-blue-600"
+                              : "bg-white text-stone-600 border-stone-200 hover:border-blue-300 hover:text-blue-700"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Nome do paciente */}
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-stone-400 mb-2">
+                      Paciente
+                    </p>
+                    <input
+                      type="text"
+                      value={pacienteNome}
+                      onChange={(e) => setPacienteNome(e.target.value)}
+                      placeholder="Nome completo"
+                      className="w-full text-sm border border-stone-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 text-stone-700 placeholder-stone-300 bg-stone-50"
+                    />
+                  </div>
+
+                  {/* Gravar */}
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-stone-400 mb-2">
+                      Gravar consulta
+                    </p>
+                    <AudioRecorder
+                      sessionId={sessaoId}
+                      onTranscricao={handleTranscricao}
+                    />
                   </div>
                 </div>
 
-                <div>
-                  <p className="text-xs font-medium text-slate-600 mb-2">
-                    Nome do paciente
-                  </p>
-                  <input
-                    type="text"
-                    value={pacienteNome}
-                    onChange={(e) => setPacienteNome(e.target.value)}
-                    placeholder="Nome completo"
-                    className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 placeholder-slate-300"
-                  />
-                </div>
-
-                <div>
-                  <p className="text-xs font-medium text-slate-600 mb-3">
-                    Gravar consulta
-                  </p>
-                  <AudioRecorder
-                    sessionId={sessaoId}
-                    onTranscricao={handleTranscricao}
-                  />
-                </div>
-              </div>
-
-              {transcricao && (
-                <div className="border-t border-slate-100 pt-4 space-y-3">
-                  <p className="text-xs font-medium text-slate-600">
-                    Transcrição concluída — pronto para processar
-                  </p>
-                  <button
-                    onClick={() => {
-                      if (!pacienteNome.trim()) {
-                        toast("Informe o nome do paciente.", "error");
-                        return;
-                      }
-                      processarConsulta.mutate({
-                        sessionId: sessaoId,
-                        pacienteNome: pacienteNome.trim(),
-                        transcricao,
-                        tipoConsulta,
-                      });
-                    }}
-                    disabled={processarConsulta.isPending}
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-medium py-2.5 rounded-xl transition-colors text-sm"
-                  >
-                    {processarConsulta.isPending
-                      ? "Processando consulta…"
-                      : "Processar Consulta"}
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-
-        <div className="bg-white rounded-2xl border border-slate-200 p-6">
-          <h2 className="text-sm font-semibold text-slate-700 mb-4">
-            Notas Recentes
-          </h2>
-          {notasLoading ? (
-            <div className="flex justify-center py-4">
-              <div
-                role="status"
-                aria-label="Carregando notas"
-                className="w-5 h-5 border-2 border-slate-200 border-t-blue-600 rounded-full animate-spin"
-              />
-            </div>
-          ) : notasError ? (
-            <div className="flex items-center gap-3">
-              <p className="text-sm text-red-500">Erro ao carregar notas.</p>
-              <button
-                onClick={() => utils.scriba.listarSoapNotes.invalidate()}
-                className="text-xs text-red-500 underline hover:text-red-700"
-              >
-                Tentar novamente
-              </button>
-            </div>
-          ) : !notas?.items || notas.items.length === 0 ? (
-            <p className="text-sm text-slate-400">
-              Nenhuma nota registrada ainda.
-            </p>
-          ) : (
-            <ul className="divide-y divide-slate-100">
-              {notas.items.map((n) => {
-                const diasDesde = Math.floor(
-                  (Date.now() - new Date(n.createdAt).getTime()) / 86_400_000,
-                );
-                const sinteseVelha = n.temSintese && diasDesde > 365;
-                return (
-                  <li key={n.id} className="py-3 flex items-start gap-3">
-                    <span className="mt-0.5 text-xs font-mono bg-slate-100 text-slate-500 px-2 py-0.5 rounded">
-                      {n.cid10 ?? "—"}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-800">
-                        {n.diagnosticoPrincipal ?? "Diagnóstico não definido"}
+                {/* Processar */}
+                {transcricao && (
+                  <div className="border-t border-stone-100 pt-4">
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5 mb-3 flex items-center gap-2">
+                      <span className="text-emerald-600 text-sm">✓</span>
+                      <p className="text-xs text-emerald-700 font-medium">
+                        Transcrição concluída — pronto para processar
                       </p>
-                      <p className="text-xs text-slate-400">
-                        {n.template}
-                        {n.tipoConsulta && (
-                          <span
-                            className={`ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                              n.tipoConsulta === "primeira_consulta"
-                                ? "bg-blue-50 text-blue-600"
-                                : n.tipoConsulta === "retorno"
-                                  ? "bg-amber-50 text-amber-600"
-                                  : "bg-emerald-50 text-emerald-600"
-                            }`}
-                          >
-                            {n.tipoConsulta === "primeira_consulta"
-                              ? "1ª consulta"
-                              : n.tipoConsulta === "retorno"
-                                ? "retorno"
-                                : "seguimento"}
-                          </span>
-                        )}{" "}
-                        · {new Date(n.createdAt).toLocaleString("pt-BR")}
-                        {n.temSintese ? (
-                          <span className="ml-1 text-emerald-600">
-                            · síntese ✓
-                          </span>
-                        ) : pendingSynthesisNoteId === n.id ? (
-                          <span className="ml-1 text-amber-600">
-                            · <span className="animate-pulse">●</span> PubMed em processamento…
-                          </span>
-                        ) : (
-                          <span className="ml-1 text-slate-300">
-                            · sem síntese
-                          </span>
-                        )}
-                      </p>
-                      {sinteseVelha && (
-                        <div className="mt-1 flex items-center gap-2">
-                          <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
-                            Evidências &gt;1 ano
-                          </span>
-                          <button
-                            onClick={() =>
-                              refreshEvidencia.mutate({ soapNoteId: n.id })
-                            }
-                            disabled={refreshingId === n.id}
-                            className="text-xs text-blue-600 hover:text-blue-800 underline disabled:opacity-50"
-                          >
-                            {refreshingId === n.id
-                              ? "Reagendando…"
-                              : "Atualizar"}
-                          </button>
-                        </div>
-                      )}
                     </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
+                    <button
+                      onClick={() => {
+                        if (!pacienteNome.trim()) {
+                          toast("Informe o nome do paciente.", "error");
+                          return;
+                        }
+                        processarConsulta.mutate({
+                          sessionId: sessaoId,
+                          pacienteNome: pacienteNome.trim(),
+                          transcricao,
+                          tipoConsulta,
+                        });
+                      }}
+                      disabled={processarConsulta.isPending}
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-medium py-3 rounded-xl transition-colors text-sm shadow-sm"
+                    >
+                      {processarConsulta.isPending
+                        ? "Gerando SOAP…"
+                        : "Processar Consulta"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* ── Notas recentes ───────────────────────────────────────────────── */}
+        <section>
+          <div className="flex items-center justify-between mb-2 px-1">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-stone-400">
+              Notas recentes
+            </p>
+            {notas?.items && notas.items.length > 0 && (
+              <span className="text-[11px] text-stone-300">{notas.items.length} nota{notas.items.length !== 1 ? "s" : ""}</span>
+            )}
+          </div>
+          <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden">
+            {notasLoading ? (
+              <div className="px-4 py-1">
+                <NotesSkeleton />
+              </div>
+            ) : notasError ? (
+              <div className="px-4 py-5 flex items-center gap-3">
+                <p className="text-sm text-stone-400 flex-1">Erro ao carregar notas.</p>
+                <button
+                  onClick={() => utils.scriba.listarSoapNotes.invalidate()}
+                  className="text-xs text-blue-600 hover:underline"
+                >
+                  Tentar novamente
+                </button>
+              </div>
+            ) : !notas?.items || notas.items.length === 0 ? (
+              <div className="px-4 py-8 text-center">
+                <p className="text-sm text-stone-400">Nenhuma nota registrada ainda.</p>
+                <p className="text-xs text-stone-300 mt-1">As notas aparecem aqui após processar uma consulta.</p>
+              </div>
+            ) : (
+              <ul className="divide-y divide-stone-100">
+                {notas.items.map((n) => {
+                  const diasDesde = Math.floor(
+                    (Date.now() - new Date(n.createdAt).getTime()) / 86_400_000,
+                  );
+                  const sinteseVelha = n.temSintese && diasDesde > 365;
+                  const dataStr = diasDesde === 0
+                    ? "hoje"
+                    : diasDesde === 1
+                      ? "ontem"
+                      : `há ${diasDesde}d`;
+
+                  return (
+                    <li key={n.id} className="px-4 py-3.5 flex items-start gap-3 hover:bg-stone-50 transition-colors">
+                      <span className="mt-0.5 text-[11px] font-mono bg-stone-100 text-stone-500 px-2 py-0.5 rounded shrink-0">
+                        {n.cid10 ?? "—"}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <p className="text-sm font-medium text-stone-800 truncate">
+                            {n.diagnosticoPrincipal ?? "Diagnóstico não definido"}
+                          </p>
+                          <span className="text-[11px] text-stone-300 shrink-0">{dataStr}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                          <span className="text-[11px] text-stone-400">{n.template}</span>
+                          {n.tipoConsulta && (
+                            <span
+                              className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                                n.tipoConsulta === "primeira_consulta"
+                                  ? "bg-blue-50 text-blue-600"
+                                  : n.tipoConsulta === "retorno"
+                                    ? "bg-amber-50 text-amber-600"
+                                    : "bg-emerald-50 text-emerald-600"
+                              }`}
+                            >
+                              {n.tipoConsulta === "primeira_consulta"
+                                ? "1ª consulta"
+                                : n.tipoConsulta === "retorno"
+                                  ? "retorno"
+                                  : "seguimento"}
+                            </span>
+                          )}
+                          {n.temSintese ? (
+                            <span className="text-[11px] text-emerald-600 font-medium">· síntese ✓</span>
+                          ) : pendingSynthesisNoteId === n.id ? (
+                            <span className="text-[11px] text-amber-600 flex items-center gap-1">
+                              · <span className="animate-pulse">●</span> PubMed
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-stone-300">· sem síntese</span>
+                          )}
+                        </div>
+                        {sinteseVelha && (
+                          <div className="mt-1.5 flex items-center gap-2">
+                            <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">
+                              Evidências &gt;1 ano
+                            </span>
+                            <button
+                              onClick={() => refreshEvidencia.mutate({ soapNoteId: n.id })}
+                              disabled={refreshingId === n.id}
+                              className="text-[11px] text-blue-600 hover:text-blue-800 underline disabled:opacity-50"
+                            >
+                              {refreshingId === n.id ? "Reagendando…" : "Atualizar"}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </section>
+
+        {/* ── Produções científicas ────────────────────────────────────────── */}
         <PublicacoesPanel />
+
       </main>
     </div>
   );
 }
+
+// ─── Roteamento principal ─────────────────────────────────────────────────────
 
 export default function App() {
   const { token } = useAuth();
@@ -463,6 +545,8 @@ export default function App() {
     </ErrorBoundary>
   );
 }
+
+// ─── Auth callback ────────────────────────────────────────────────────────────
 
 function AuthCallback() {
   const { setToken } = useAuth();
@@ -531,14 +615,21 @@ function AuthCallback() {
 
   if (pendingToken) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-full max-w-sm mx-auto px-6">
-          <h1 className="text-xl font-semibold text-slate-800 text-center mb-2">
-            Verificação em duas etapas
-          </h1>
-          <p className="text-sm text-slate-500 text-center mb-6">
-            Digite o código de 6 dígitos do seu autenticador.
-          </p>
+      <div className="min-h-screen flex items-center justify-center bg-stone-50 p-4">
+        <div className="bg-white border border-stone-200 rounded-3xl shadow-sm p-8 w-full max-w-sm">
+          <div className="text-center mb-6">
+            <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
+              <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
+            <h1 className="text-base font-semibold text-stone-800">
+              Verificação em duas etapas
+            </h1>
+            <p className="text-sm text-stone-500 mt-1">
+              Digite o código do seu autenticador.
+            </p>
+          </div>
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -556,19 +647,14 @@ function AuthCallback() {
               placeholder="000 000"
               value={totpCode}
               onChange={(e) => setTotpCode(e.target.value)}
-              className="w-full text-center text-2xl tracking-widest border border-slate-300 rounded-xl px-4 py-3 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full text-center text-2xl tracking-widest border border-stone-200 rounded-2xl px-4 py-3 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-stone-50"
             />
             {totpError && (
-              <p className="text-sm text-red-600 text-center mb-3">
-                {totpError}
-              </p>
+              <p className="text-sm text-red-600 text-center mb-3">{totpError}</p>
             )}
             <button
               type="submit"
-              disabled={
-                verifyTotp.isPending ||
-                totpCode.replace(/\s/g, "").length !== 6
-              }
+              disabled={verifyTotp.isPending || totpCode.replace(/\s/g, "").length !== 6}
               className="w-full bg-blue-600 text-white py-2.5 rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
             >
               {verifyTotp.isPending ? "Verificando…" : "Confirmar"}
@@ -581,12 +667,17 @@ function AuthCallback() {
 
   if (callbackMutation.isError || timedOut) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-slate-700 mb-2">
+      <div className="min-h-screen flex items-center justify-center bg-stone-50 p-4">
+        <div className="bg-white border border-stone-200 rounded-3xl shadow-sm p-8 w-full max-w-sm text-center">
+          <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </div>
+          <h1 className="text-base font-semibold text-stone-800 mb-2">
             Falha na autenticação
           </h1>
-          <p className="text-slate-500 mb-4">
+          <p className="text-sm text-stone-500 mb-6">
             {timedOut && !callbackMutation.isError
               ? "A verificação demorou mais de 15 segundos. Verifique sua conexão e tente novamente."
               : (callbackMutation.error?.message ??
@@ -594,7 +685,7 @@ function AuthCallback() {
           </p>
           <a
             href="/login"
-            className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-medium hover:bg-blue-700 transition-colors inline-block"
+            className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-medium hover:bg-blue-700 transition-colors inline-block text-sm"
           >
             Tentar novamente
           </a>
@@ -604,20 +695,32 @@ function AuthCallback() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <p className="text-slate-500">Autenticando…</p>
+    <div className="min-h-screen flex items-center justify-center bg-stone-50">
+      <div className="flex flex-col items-center gap-3">
+        <div
+          role="status"
+          aria-label="Autenticando"
+          className="w-6 h-6 border-2 border-stone-200 border-t-blue-600 rounded-full animate-spin"
+        />
+        <p className="text-sm text-stone-400">Autenticando…</p>
+      </div>
     </div>
   );
 }
 
+// ─── 404 ──────────────────────────────────────────────────────────────────────
+
 function NotFound() {
   return (
-    <div className="min-h-screen flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-center bg-stone-50">
       <div className="text-center">
-        <h1 className="text-6xl font-bold text-slate-300">404</h1>
-        <p className="text-slate-500 mt-2">Página não encontrada</p>
-        <a href="/" className="mt-4 inline-block text-blue-600 underline">
-          Voltar
+        <p className="text-6xl font-bold text-stone-200">404</p>
+        <p className="text-stone-500 mt-3 mb-6">Página não encontrada</p>
+        <a
+          href="/"
+          className="text-sm text-blue-600 hover:underline"
+        >
+          Voltar ao início
         </a>
       </div>
     </div>
