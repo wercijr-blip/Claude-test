@@ -1,7 +1,12 @@
 import { Link } from 'wouter'
 import FooterCfm from './FooterCfm.tsx'
 
-const LAST_UPDATED = new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })
+const LAST_UPDATED = new Intl.DateTimeFormat('pt-BR', {
+  timeZone: 'America/Sao_Paulo',
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+}).format(new Date())
 
 export default function PrivacidadePage() {
   return (

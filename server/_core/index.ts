@@ -246,6 +246,15 @@ app.get('/api/health/version', (_req, res) => {
   })
 })
 
+// Protect ops endpoints — require x-ops-token header or ?ops_token query param.
+// OPS_TOKEN must be set in production; warn fires on boot if missing (env.ts).
+app.use(['/api/metrics', '/api/health/observability'], (req, res, next) => {
+  if (!env.OPS_TOKEN) { res.status(503).json({ error: 'OPS_TOKEN não configurado no servidor' }); return }
+  const token = (req.headers['x-ops-token'] ?? req.query['ops_token']) as string | undefined
+  if (token !== env.OPS_TOKEN) { res.status(401).json({ error: 'Token inválido' }); return }
+  next()
+})
+
 // Metrics — queue depth, memory, circuit breaker state
 app.get('/api/metrics', async (_req, res) => {
   const { getCircuitStatus } = await import('./circuitBreaker.ts')

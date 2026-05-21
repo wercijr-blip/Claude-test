@@ -1,6 +1,7 @@
 import type { Request } from 'express'
 import { jwtVerify } from 'jose'
 import { env } from './env.ts'
+import { logger } from './logger.ts'
 import { db } from '../db.ts'
 import { users } from '../../drizzle/schema.ts'
 import { eq, isNull, and } from 'drizzle-orm'
@@ -55,7 +56,7 @@ export async function createContext({ req }: { req: Request }): Promise<Context>
       }
     }
   } catch {
-    // token inválido ou expirado
+    logger.warn('[auth] JWT inválido ou expirado', { path: req.path, method: req.method })
   }
 
   return { req, session: null }

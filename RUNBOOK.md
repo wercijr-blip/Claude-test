@@ -193,3 +193,65 @@ Após resolução de qualquer incidente de P1 (site fora) ou P2 (feature crític
 1. Documentar no CHANGELOG.md: data, duração, causa raiz, ação corretiva
 2. Abrir issue no repositório com label `incident` se causa raiz foi bug de código
 3. Avaliar se o scorecard técnico precisa ser revisado (especialmente D07)
+
+---
+
+## 10. RTO e RPO por cenário
+
+| Cenário | RTO | RPO | Estratégia |
+|---------|-----|-----|------------|
+| TiDB Cloud down | 15 min | 0 (managed HA) | Failover automático TiDB; aguardar recuperação |
+| Redis / Upstash down | 5 min | N/A (cache) | Degradação graceful — rate limiting falha aberto, workers pausam |
+| Railway deploy travado | 10 min | último commit | Rollback para deployment anterior via dashboard |
+| S3 / AWS down | 30 min | 0 (managed HA) | Circuit breaker ativo; uploads falham, PDFs na fila até recuperar |
+| Comprometimento de chave | 4 h | último backup | Rotação de chaves + invalidação de sessões (seção 11) |
+
+---
+
+## 11. Rotação de chaves em caso de comprometimento
+
+### JWT_SECRET — invalida TODAS as sessões ativas (usuários precisam re-logar)
+```bash
+# 1. Gerar novo secret
+openssl rand -hex 32
+
+# 2. Railway Dashboard → Variables → JWT_SECRET → atualizar → Deploy
+# 3. Todas as sessões são invalidadas automaticamente no próximo request
+# 4. Comunicar equipe (WhatsApp staff) para re-logar
+```
+
+### ENCRYPTION_KEY — ⚠️ REQUER JANELA DE MANUTENÇÃO
+> Dados existentes ficam ilegíveis se a chave mudar sem re-encriptação.
+> NUNCA fazer sem backup completo do banco.
+
+```bash
+# 1. Backup completo via TiDB Cloud Dashboard → Backup → Create Backup
+# 2. Criar script de re-encriptação antes de precisar (não existe ainda — criar como prep)
+# 3. Aplicar script em banco de staging primeiro para validar
+# 4. Janela de manutenção: colocar site em modo de manutenção (Railway: variável MAINTENANCE=true)
+# 5. Executar re-encriptação em produção
+# 6. Atualizar ENCRYPTION_KEY no Railway → Deploy
+# 7. Verificar 10 registros manualmente (CPF + nome legíveis)
+```
+
+### TOTP_ENC_KEY — invalida todos os segredos 2FA (usuários precisam reconfigurar 2FA)
+```bash
+openssl rand -hex 32
+# Atualizar TOTP_ENC_KEY no Railway → Deploy
+# Notificar admin e medico para reconfigurar 2FA no próximo login
+```
+
+---
+
+## 12. DR Drill — Checklist Semestral
+
+Execute a cada 6 meses para validar que os procedimentos funcionam:
+
+- [ ] **DB down**: `DATABASE_URL=invalid pnpm start` → `/api/health` retorna `"db":"error"`, servidor não crasha
+- [ ] **Redis down**: `REDIS_URL=invalid pnpm start` → rate limiting falha aberto, servidor funciona
+- [ ] **Rollback**: Railway Dashboard → Deployments → selecionar release N-1 → Redeploy → confirmar commit via `/api/health/version`
+- [ ] **Backup**: TiDB Cloud → Backup → restaurar em instância de teste → verificar dados
+- [ ] **OPS_TOKEN**: `curl /api/metrics` sem token → 401; com token → 200 com dados
+- [ ] **DLQ**: forçar falha no pdfWorker → confirmar persistência na tabela `dlq_jobs`
+
+Registrar resultados com data e assinatura do responsável.
