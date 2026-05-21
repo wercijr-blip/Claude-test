@@ -9,13 +9,20 @@ import type { Request, Response } from 'express'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const WHISPER_MAX_BYTES = 25 * 1024 * 1024 // 25 MB — OpenAI limit
+// Multer accepts up to 200 MB so the server never blocks a segment.
+// Each segment from the client is always < 10 MB (16 kbps × 20 min = ~2.3 MB),
+// so this headroom only matters for externally produced audio files.
+const MULTER_MAX_BYTES = 200 * 1024 * 1024
+
+// Whisper's hard limit per API call. Segments produced by the client at
+// 16 kbps mono are guaranteed to stay well under this ceiling.
+const WHISPER_MAX_BYTES = 25 * 1024 * 1024
 
 // ─── Multer for audio upload ──────────────────────────────────────────────────
 
 const audioUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: WHISPER_MAX_BYTES },
+  limits: { fileSize: MULTER_MAX_BYTES },
   fileFilter: (_req, file, cb) => {
     if (file.mimetype.startsWith('audio/') || file.mimetype === 'application/octet-stream') {
       cb(null, true)
@@ -54,6 +61,18 @@ export async function transcribeAudio(req: Request, res: Response): Promise<void
   const file = req.file
   if (!file) {
     res.status(400).json({ error: 'Arquivo de áudio não encontrado' })
+    return
+  }
+
+  // Guard: Whisper rejects files > 25 MB. The client should always send
+  // pre-segmented chunks (< 10 MB each), but we check defensively here.
+  if (file.size > WHISPER_MAX_BYTES) {
+    const sizeMb = (file.size / (1024 * 1024)).toFixed(1)
+    logger.warn('[meeting] segmento acima do limite do Whisper', { sizeMb, file: file.originalname })
+    res.status(413).json({
+      error: `Segmento muito grande (${sizeMb} MB). Limite do Whisper é 25 MB por chamada. `
+        + 'Use a gravação integrada: ela segmenta automaticamente a cada 20 min.',
+    })
     return
   }
 
