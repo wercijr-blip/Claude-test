@@ -19,9 +19,9 @@ interface AlertCardProps {
 }
 
 const URGENCIA_CONFIG: Record<string, { label: string; border: string; badge: string }> = {
-  alto:  { label: "Alto",  border: "border-l-red-400",   badge: "bg-red-50 text-red-600" },
-  medio: { label: "Médio", border: "border-l-amber-400",  badge: "bg-amber-50 text-amber-600" },
-  baixo: { label: "Baixo", border: "border-l-yellow-300", badge: "bg-yellow-50 text-yellow-700" },
+  alto:  { label: "Alto",  border: "border-l-red-400",   badge: "bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400" },
+  medio: { label: "Médio", border: "border-l-amber-400",  badge: "bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400" },
+  baixo: { label: "Baixo", border: "border-l-yellow-300", badge: "bg-yellow-50 dark:bg-yellow-950 text-yellow-700 dark:text-yellow-400" },
 };
 
 export default function AlertCard({
@@ -59,26 +59,28 @@ export default function AlertCard({
   const cfg = URGENCIA_CONFIG[alerta.nivelUrgencia] ?? URGENCIA_CONFIG.baixo;
 
   return (
-    <li className={`py-3 border-l-2 pl-3 -ml-4 ${cfg.border}`}>
+    <li className={`py-3 border-l-2 pl-3 -ml-4 ${cfg.border}`} aria-label={`Alerta de urgência ${cfg.label}: ${alerta.mensagemMedico ?? ""}`}>
       {/* Linha principal */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-2 flex-1 min-w-0">
-          <span className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full capitalize mt-0.5 ${cfg.badge}`}>
+          <span className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full capitalize mt-0.5 ${cfg.badge}`} aria-hidden="true">
             {cfg.label}
           </span>
           {alerta.mensagemMedico && (
-            <p className="text-sm text-stone-700 leading-snug">{alerta.mensagemMedico}</p>
+            <p className="text-sm text-stone-700 dark:text-stone-200 leading-snug">{alerta.mensagemMedico}</p>
           )}
         </div>
         <div className="flex items-center gap-3 shrink-0">
           {jaTemFeedback ? (
-            <span className="text-[11px] text-stone-400">
+            <span className="text-[11px] text-stone-400 dark:text-stone-500">
               ✓ {alerta.feedbackMedico}
             </span>
           ) : (
             <button
               onClick={() => setShowFeedback((v) => !v)}
-              className="text-[11px] text-stone-400 hover:text-stone-600 underline"
+              aria-expanded={showFeedback}
+              aria-label={showFeedback ? "Cancelar feedback" : "Deixar feedback sobre este alerta"}
+              className="text-[11px] text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 underline"
             >
               {showFeedback ? "Cancelar" : "Feedback"}
             </button>
@@ -86,7 +88,8 @@ export default function AlertCard({
           <button
             onClick={() => onVisto(alerta.id)}
             disabled={vistoLoading}
-            className="text-[11px] text-stone-500 hover:text-stone-700 border border-stone-200 hover:border-stone-300 rounded-lg px-2 py-0.5 transition-colors disabled:opacity-40"
+            aria-label="Marcar alerta como visto"
+            className="text-[11px] text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 border border-stone-200 dark:border-stone-700 hover:border-stone-300 dark:hover:border-stone-600 rounded-lg px-2 py-0.5 transition-colors disabled:opacity-40"
           >
             Marcar visto
           </button>
@@ -95,25 +98,26 @@ export default function AlertCard({
 
       {/* Painel de feedback */}
       {showFeedback && (
-        <div className="mt-3 bg-stone-50 border border-stone-200 rounded-xl p-3 space-y-3">
-          <p className="text-[11px] text-stone-500 leading-relaxed">
+        <div className="mt-3 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl p-3 space-y-3" role="form" aria-label="Painel de feedback">
+          <p className="text-[11px] text-stone-500 dark:text-stone-400 leading-relaxed">
             Seu feedback reduz falsos positivos futuros para este diagnóstico.
           </p>
 
-          <div className="flex gap-1.5">
+          <div className="flex gap-1.5" role="group" aria-label="Avaliação do alerta">
             {(
               [
-                { v: "concordo" as const,     label: "Concordo",     active: "bg-emerald-600 text-white border-emerald-600" },
-                { v: "inaplicavel" as const,  label: "Não se aplica", active: "bg-stone-700 text-white border-stone-700" },
-                { v: "discordo" as const,     label: "Discordo",     active: "bg-red-600 text-white border-red-600" },
+                { v: "concordo" as const,     label: "Concordo",      active: "bg-emerald-600 text-white border-emerald-600" },
+                { v: "inaplicavel" as const,  label: "Não se aplica", active: "bg-stone-700 dark:bg-stone-600 text-white border-stone-700" },
+                { v: "discordo" as const,     label: "Discordo",      active: "bg-red-600 text-white border-red-600" },
               ]
             ).map(({ v, label, active }) => (
               <button
                 key={v}
                 onClick={() => setTipo(v)}
+                aria-pressed={tipo === v}
                 className={[
                   "flex-1 py-1.5 rounded-lg text-[11px] font-medium border transition-colors",
-                  tipo === v ? active : "border-stone-200 text-stone-600 hover:border-stone-300 bg-white",
+                  tipo === v ? active : "border-stone-200 dark:border-stone-600 text-stone-600 dark:text-stone-300 hover:border-stone-300 bg-white dark:bg-stone-900",
                 ].join(" ")}
               >
                 {label}
@@ -131,7 +135,8 @@ export default function AlertCard({
                   : "Observação opcional"
               }
               rows={2}
-              className="w-full text-xs text-stone-700 border border-stone-200 rounded-xl p-2.5 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              aria-label="Observação ou motivo do feedback"
+              className="w-full text-xs text-stone-700 dark:text-stone-200 border border-stone-200 dark:border-stone-600 rounded-xl p-2.5 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-stone-900"
             />
           )}
 

@@ -22,37 +22,37 @@ export default function PublicacoesPanel() {
   const items = data?.items ?? [];
 
   return (
-    <section>
+    <section aria-label="Produções científicas">
       <div className="flex items-center justify-between mb-2 px-1">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-stone-400">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-stone-400 dark:text-stone-500">
           Produções científicas
         </p>
         {items.length > 0 && (
-          <span className="text-[11px] text-stone-300">
+          <span className="text-[11px] text-stone-300 dark:text-stone-600">
             {items.length} produção{items.length > 1 ? "ões" : ""}
           </span>
         )}
       </div>
 
-      <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl shadow-sm overflow-hidden">
         {isLoading && (
           <div className="px-4 py-3 space-y-2 animate-pulse">
-            <div className="h-12 bg-stone-100 rounded-xl" />
-            <div className="h-12 bg-stone-100 rounded-xl" />
+            <div className="h-12 bg-stone-100 dark:bg-stone-800 rounded-xl" />
+            <div className="h-12 bg-stone-100 dark:bg-stone-800 rounded-xl" />
           </div>
         )}
 
         {!isLoading && items.length === 0 && (
           <div className="px-4 py-8 text-center">
-            <p className="text-sm text-stone-400">Nenhuma produção gerada ainda.</p>
-            <p className="text-[11px] text-stone-300 mt-1.5 leading-relaxed max-w-xs mx-auto">
+            <p className="text-sm text-stone-400 dark:text-stone-500">Nenhuma produção gerada ainda.</p>
+            <p className="text-[11px] text-stone-300 dark:text-stone-600 mt-1.5 leading-relaxed max-w-xs mx-auto">
               Após 3 consultas com o mesmo diagnóstico o CIS gera automaticamente uma série de casos.
             </p>
           </div>
         )}
 
         {!isLoading && items.length > 0 && (
-          <ul className="divide-y divide-stone-100">
+          <ul className="divide-y divide-stone-100 dark:divide-stone-800">
             {items.map((pub) => {
               const status = STATUS_CONFIG[pub.status] ?? STATUS_CONFIG.rascunho;
               const tipo = TIPO_LABEL[pub.tipo] ?? pub.tipo;
@@ -64,12 +64,12 @@ export default function PublicacoesPanel() {
               const criadoEm = new Date(pub.createdAt).toLocaleDateString("pt-BR");
 
               return (
-                <li key={pub.id} className="px-4 py-3.5 flex items-start gap-3 hover:bg-stone-50 transition-colors">
+                <li key={pub.id} className="px-4 py-3.5 flex items-start gap-3 hover:bg-stone-50 dark:hover:bg-stone-800/50 transition-colors">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-[11px] text-stone-400">{tipo}</span>
+                      <span className="text-[11px] text-stone-400 dark:text-stone-500">{tipo}</span>
                       {pub.cid10 && (
-                        <span className="text-[11px] font-mono bg-stone-100 text-stone-500 px-1.5 py-0.5 rounded">
+                        <span className="text-[11px] font-mono bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 px-1.5 py-0.5 rounded">
                           {pub.cid10}
                         </span>
                       )}
@@ -77,10 +77,10 @@ export default function PublicacoesPanel() {
                         {status.label}
                       </span>
                     </div>
-                    <p className="text-sm font-medium text-stone-700 mt-0.5 truncate">
+                    <p className="text-sm font-medium text-stone-700 dark:text-stone-200 mt-0.5 truncate">
                       {titulo}
                     </p>
-                    <p className="text-[11px] text-stone-400 mt-0.5">
+                    <p className="text-[11px] text-stone-400 dark:text-stone-500 mt-0.5">
                       {meta} · {criadoEm}
                       {pub.jornal ? ` · ${pub.jornal}` : ""}
                       {pub.doi ? (
@@ -90,7 +90,8 @@ export default function PublicacoesPanel() {
                             href={`https://doi.org/${pub.doi}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-blue-600 hover:underline"
+                            className="text-blue-600 dark:text-blue-400 hover:underline"
+                            aria-label={`Ver artigo com DOI ${pub.doi} (abre em nova aba)`}
                           >
                             DOI
                           </a>

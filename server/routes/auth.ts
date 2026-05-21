@@ -191,6 +191,8 @@ export const authRouter = router({
           .limit(1);
         const requires2fa =
           freshUser?.totpEnabled && ["admin", "medico"].includes(role);
+        const requiresTotpEnrollment =
+          role === "admin" && !freshUser?.totpEnabled;
 
         const secret = new TextEncoder().encode(env.JWT_SECRET);
 
@@ -207,7 +209,7 @@ export const authRouter = router({
             .setJti(randomUUID())
             .setExpirationTime("5m")
             .sign(secret);
-          return { token: pendingToken, role, requiresTwoFactor: true };
+          return { token: pendingToken, role, requiresTwoFactor: true, requiresTotpEnrollment: false };
         }
 
         const token = await new SignJWT({ type: "staff", userId, role })
@@ -231,7 +233,7 @@ export const authRouter = router({
           openId: data.openId,
           requires2fa,
         });
-        return { token, role, requiresTwoFactor: false };
+        return { token, role, requiresTwoFactor: false, requiresTotpEnrollment };
       } catch (err) {
         logger.error("[auth.callback] erro", {
           message: err instanceof Error ? err.message : String(err),

@@ -64,3 +64,11 @@ body {
   font-family: var(--font-body);
   color: #2e2838;
 }
+
+@media (prefers-color-scheme: dark) {
+  html,
+  body {
+    color: #e7e5e4; /* stone-200 */
+    background-color: #0c0a09; /* stone-950 */
+  }
+}

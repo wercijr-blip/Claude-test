@@ -18,11 +18,11 @@ import { trpc } from "./lib/trpc.ts";
 
 function PageLoader() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-stone-50">
+    <div className="min-h-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950">
       <div
         role="status"
         aria-label="Carregando"
-        className="w-8 h-8 border-3 border-stone-200 border-t-blue-600 rounded-full animate-spin"
+        className="w-8 h-8 border-3 border-stone-200 dark:border-stone-700 border-t-blue-600 rounded-full animate-spin"
       />
     </div>
   );
@@ -44,15 +44,15 @@ class ErrorBoundary extends Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-stone-50">
+        <div className="min-h-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950">
           <div className="text-center px-6">
-            <div className="w-14 h-14 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl">⚠️</span>
+            <div className="w-14 h-14 bg-red-50 dark:bg-red-950 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <span className="text-2xl" role="img" aria-label="Erro">⚠️</span>
             </div>
-            <h1 className="text-lg font-semibold text-stone-800 mb-1">
+            <h1 className="text-lg font-semibold text-stone-800 dark:text-stone-100 mb-1">
               Algo deu errado
             </h1>
-            <p className="text-sm text-stone-500 mb-6">
+            <p className="text-sm text-stone-500 dark:text-stone-400 mb-6">
               Um erro inesperado ocorreu na interface.
             </p>
             <div className="flex gap-3 justify-center">
@@ -63,7 +63,7 @@ class ErrorBoundary extends Component<
                 Tentar novamente
               </button>
               <button
-                className="bg-stone-100 text-stone-600 px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-stone-200 transition-colors"
+                className="bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors"
                 onClick={() => window.location.reload()}
               >
                 Recarregar
@@ -81,13 +81,13 @@ class ErrorBoundary extends Component<
 
 function NotesSkeleton() {
   return (
-    <div className="animate-pulse space-y-0 divide-y divide-stone-100">
+    <div className="animate-pulse space-y-0 divide-y divide-stone-100 dark:divide-stone-800">
       {[1, 2, 3].map((i) => (
         <div key={i} className="py-3.5 flex items-start gap-3">
-          <div className="w-12 h-5 bg-stone-100 rounded-md mt-0.5" />
+          <div className="w-12 h-5 bg-stone-100 dark:bg-stone-800 rounded-md mt-0.5" />
           <div className="flex-1 space-y-2">
-            <div className="h-4 bg-stone-100 rounded w-3/5" />
-            <div className="h-3 bg-stone-100 rounded w-2/5" />
+            <div className="h-4 bg-stone-100 dark:bg-stone-800 rounded w-3/5" />
+            <div className="h-3 bg-stone-100 dark:bg-stone-800 rounded w-2/5" />
           </div>
         </div>
       ))}
@@ -202,38 +202,39 @@ function CISDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-stone-50">
+    <div className="min-h-screen bg-stone-50 dark:bg-stone-950">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-sm border-b border-stone-200">
+      <header className="sticky top-0 z-40 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm border-b border-stone-200 dark:border-stone-800">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-blue-600 rounded-xl flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 bg-blue-600 rounded-xl flex items-center justify-center shrink-0" aria-hidden="true">
               <span className="text-white text-[11px] font-bold tracking-tight">CIS</span>
             </div>
-            <span className="text-sm font-semibold text-stone-800 hidden sm:block">
+            <span className="text-sm font-semibold text-stone-800 dark:text-stone-100 hidden sm:block">
               Inteligência Clínica
             </span>
           </div>
           <div className="flex items-center gap-4">
             {sessaoId && (
-              <div className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                <span className="text-xs text-stone-500 hidden sm:block">
+              <div className="flex items-center gap-1.5" aria-label={`Sessão ativa #${sessaoId}`}>
+                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" aria-hidden="true" />
+                <span className="text-xs text-stone-500 dark:text-stone-400 hidden sm:block">
                   Sessão #{sessaoId}
                 </span>
               </div>
             )}
             {alertaItems.length > 0 && (
-              <div className="flex items-center gap-1">
-                <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
-                <span className="text-xs font-medium text-amber-600">
+              <div className="flex items-center gap-1" aria-label={`${alertaItems.length} alertas pendentes`}>
+                <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" aria-hidden="true" />
+                <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
                   {alertaItems.length}
                 </span>
               </div>
             )}
             <button
               onClick={logout}
-              className="text-xs text-stone-400 hover:text-stone-600 transition-colors px-2 py-1 rounded-lg hover:bg-stone-100"
+              aria-label="Sair da sessão"
+              className="text-xs text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 transition-colors px-2 py-1 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800"
             >
               Sair
             </button>
@@ -245,11 +246,11 @@ function CISDashboard() {
 
         {/* ── Alertas ─────────────────────────────────────────────────────── */}
         {!alertasLoading && alertasError && (
-          <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-4 flex items-center justify-between">
-            <p className="text-sm text-stone-500">Não foi possível carregar alertas.</p>
+          <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl shadow-sm p-4 flex items-center justify-between">
+            <p className="text-sm text-stone-500 dark:text-stone-400">Não foi possível carregar alertas.</p>
             <button
               onClick={() => utils.scriba.listarAlertas.invalidate()}
-              className="text-xs text-blue-600 hover:underline"
+              className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
             >
               Tentar novamente
             </button>
@@ -257,11 +258,11 @@ function CISDashboard() {
         )}
 
         {!alertasLoading && !alertasError && alertaItems.length > 0 && (
-          <section>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-stone-400 mb-2 px-1">
+          <section aria-label="Alertas de conduta pendentes">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-stone-400 dark:text-stone-500 mb-2 px-1">
               {alertaItems.length} alerta{alertaItems.length > 1 ? "s" : ""} pendente{alertaItems.length > 1 ? "s" : ""}
             </p>
-            <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden">
+            <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl shadow-sm overflow-hidden">
               <ul className="divide-y divide-stone-100 px-4 py-1">
                 {alertaItems.map((a) => (
                   <AlertCard
@@ -278,26 +279,27 @@ function CISDashboard() {
         )}
 
         {/* ── Sessão clínica ───────────────────────────────────────────────── */}
-        <section>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-stone-400 mb-2 px-1">
+        <section aria-label="Sessão clínica">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-stone-400 dark:text-stone-500 mb-2 px-1">
             Sessão clínica
           </p>
-          <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-5">
+          <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl shadow-sm p-5">
 
             {!sessaoId ? (
               <div className="flex flex-col items-center py-6 gap-4">
-                <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center">
-                  <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="w-12 h-12 bg-blue-50 dark:bg-blue-950 rounded-2xl flex items-center justify-center" aria-hidden="true">
+                  <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
                   </svg>
                 </div>
                 <div className="text-center">
-                  <p className="text-sm font-medium text-stone-700">Pronto para atender?</p>
-                  <p className="text-xs text-stone-400 mt-0.5">Abra uma sessão para iniciar as consultas do dia.</p>
+                  <p className="text-sm font-medium text-stone-700 dark:text-stone-200">Pronto para atender?</p>
+                  <p className="text-xs text-stone-400 dark:text-stone-500 mt-0.5">Abra uma sessão para iniciar as consultas do dia.</p>
                 </div>
                 <button
                   onClick={() => abrirSessao.mutate(void 0)}
                   disabled={abrirSessao.isPending}
+                  aria-label="Iniciar sessão de atendimento"
                   className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-6 rounded-xl transition-colors disabled:opacity-50 text-sm shadow-sm"
                 >
                   {abrirSessao.isPending ? "Abrindo…" : "Iniciar Atendimento"}
@@ -307,27 +309,28 @@ function CISDashboard() {
               <div className="space-y-5">
                 {/* Status da sessão */}
                 <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-emerald-500 rounded-full" />
-                  <span className="text-xs text-stone-500">
+                  <span className="w-2 h-2 bg-emerald-500 rounded-full" aria-hidden="true" />
+                  <span className="text-xs text-stone-500 dark:text-stone-400">
                     Sessão {abrirSessao.data?.nova ? "iniciada" : "retomada"} — ID {sessaoId}
                   </span>
                 </div>
 
-                <div className="border-t border-stone-100 pt-4 space-y-4">
+                <div className="border-t border-stone-100 dark:border-stone-800 pt-4 space-y-4">
                   {/* Tipo de consulta */}
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-stone-400 mb-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-stone-400 dark:text-stone-500 mb-2" id="tipo-consulta-label">
                       Tipo de consulta
                     </p>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2" role="group" aria-labelledby="tipo-consulta-label">
                       {TIPO_LABELS.map(({ val, label }) => (
                         <button
                           key={val}
                           onClick={() => setTipoConsulta(val)}
+                          aria-pressed={tipoConsulta === val}
                           className={`flex-1 px-3 py-2 rounded-xl text-xs font-medium border transition-colors ${
                             tipoConsulta === val
                               ? "bg-blue-600 text-white border-blue-600"
-                              : "bg-white text-stone-600 border-stone-200 hover:border-blue-300 hover:text-blue-700"
+                              : "bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-700 hover:border-blue-300 hover:text-blue-700 dark:hover:border-blue-600"
                           }`}
                         >
                           {label}
@@ -338,21 +341,26 @@ function CISDashboard() {
 
                   {/* Nome do paciente */}
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-stone-400 mb-2">
+                    <label
+                      htmlFor="paciente-nome"
+                      className="text-[11px] font-semibold uppercase tracking-[0.08em] text-stone-400 dark:text-stone-500 mb-2 block"
+                    >
                       Paciente
-                    </p>
+                    </label>
                     <input
+                      id="paciente-nome"
                       type="text"
                       value={pacienteNome}
                       onChange={(e) => setPacienteNome(e.target.value)}
                       placeholder="Nome completo"
-                      className="w-full text-sm border border-stone-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 text-stone-700 placeholder-stone-300 bg-stone-50"
+                      autoComplete="off"
+                      className="w-full text-sm border border-stone-200 dark:border-stone-700 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 text-stone-700 dark:text-stone-200 placeholder-stone-300 dark:placeholder-stone-600 bg-stone-50 dark:bg-stone-800"
                     />
                   </div>
 
                   {/* Gravar */}
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-stone-400 mb-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-stone-400 dark:text-stone-500 mb-2">
                       Gravar consulta
                     </p>
                     <AudioRecorder
@@ -364,10 +372,10 @@ function CISDashboard() {
 
                 {/* Processar */}
                 {transcricao && (
-                  <div className="border-t border-stone-100 pt-4">
-                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5 mb-3 flex items-center gap-2">
-                      <span className="text-emerald-600 text-sm">✓</span>
-                      <p className="text-xs text-emerald-700 font-medium">
+                  <div className="border-t border-stone-100 dark:border-stone-800 pt-4">
+                    <div className="bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-800 rounded-xl px-4 py-2.5 mb-3 flex items-center gap-2" role="status">
+                      <span className="text-emerald-600 dark:text-emerald-400 text-sm" aria-hidden="true">✓</span>
+                      <p className="text-xs text-emerald-700 dark:text-emerald-300 font-medium">
                         Transcrição concluída — pronto para processar
                       </p>
                     </div>
@@ -385,6 +393,7 @@ function CISDashboard() {
                         });
                       }}
                       disabled={processarConsulta.isPending}
+                      aria-label="Gerar nota SOAP e alertas de conduta"
                       className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-medium py-3 rounded-xl transition-colors text-sm shadow-sm"
                     >
                       {processarConsulta.isPending
@@ -399,37 +408,37 @@ function CISDashboard() {
         </section>
 
         {/* ── Notas recentes ───────────────────────────────────────────────── */}
-        <section>
+        <section aria-label="Notas clínicas recentes">
           <div className="flex items-center justify-between mb-2 px-1">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-stone-400">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-stone-400 dark:text-stone-500">
               Notas recentes
             </p>
             {notas?.items && notas.items.length > 0 && (
-              <span className="text-[11px] text-stone-300">{notas.items.length} nota{notas.items.length !== 1 ? "s" : ""}</span>
+              <span className="text-[11px] text-stone-300 dark:text-stone-600">{notas.items.length} nota{notas.items.length !== 1 ? "s" : ""}</span>
             )}
           </div>
-          <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden">
+          <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl shadow-sm overflow-hidden">
             {notasLoading ? (
               <div className="px-4 py-1">
                 <NotesSkeleton />
               </div>
             ) : notasError ? (
               <div className="px-4 py-5 flex items-center gap-3">
-                <p className="text-sm text-stone-400 flex-1">Erro ao carregar notas.</p>
+                <p className="text-sm text-stone-400 dark:text-stone-500 flex-1">Erro ao carregar notas.</p>
                 <button
                   onClick={() => utils.scriba.listarSoapNotes.invalidate()}
-                  className="text-xs text-blue-600 hover:underline"
+                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
                 >
                   Tentar novamente
                 </button>
               </div>
             ) : !notas?.items || notas.items.length === 0 ? (
               <div className="px-4 py-8 text-center">
-                <p className="text-sm text-stone-400">Nenhuma nota registrada ainda.</p>
-                <p className="text-xs text-stone-300 mt-1">As notas aparecem aqui após processar uma consulta.</p>
+                <p className="text-sm text-stone-400 dark:text-stone-500">Nenhuma nota registrada ainda.</p>
+                <p className="text-xs text-stone-300 dark:text-stone-600 mt-1">As notas aparecem aqui após processar uma consulta.</p>
               </div>
             ) : (
-              <ul className="divide-y divide-stone-100">
+              <ul className="divide-y divide-stone-100 dark:divide-stone-800">
                 {notas.items.map((n) => {
                   const diasDesde = Math.floor(
                     (Date.now() - new Date(n.createdAt).getTime()) / 86_400_000,
@@ -442,27 +451,27 @@ function CISDashboard() {
                       : `há ${diasDesde}d`;
 
                   return (
-                    <li key={n.id} className="px-4 py-3.5 flex items-start gap-3 hover:bg-stone-50 transition-colors">
-                      <span className="mt-0.5 text-[11px] font-mono bg-stone-100 text-stone-500 px-2 py-0.5 rounded shrink-0">
+                    <li key={n.id} className="px-4 py-3.5 flex items-start gap-3 hover:bg-stone-50 dark:hover:bg-stone-800/50 transition-colors">
+                      <span className="mt-0.5 text-[11px] font-mono bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 px-2 py-0.5 rounded shrink-0">
                         {n.cid10 ?? "—"}
                       </span>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-baseline justify-between gap-2">
-                          <p className="text-sm font-medium text-stone-800 truncate">
+                          <p className="text-sm font-medium text-stone-800 dark:text-stone-100 truncate">
                             {n.diagnosticoPrincipal ?? "Diagnóstico não definido"}
                           </p>
-                          <span className="text-[11px] text-stone-300 shrink-0">{dataStr}</span>
+                          <span className="text-[11px] text-stone-300 dark:text-stone-600 shrink-0">{dataStr}</span>
                         </div>
                         <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                          <span className="text-[11px] text-stone-400">{n.template}</span>
+                          <span className="text-[11px] text-stone-400 dark:text-stone-500">{n.template}</span>
                           {n.tipoConsulta && (
                             <span
                               className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
                                 n.tipoConsulta === "primeira_consulta"
-                                  ? "bg-blue-50 text-blue-600"
+                                  ? "bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400"
                                   : n.tipoConsulta === "retorno"
-                                    ? "bg-amber-50 text-amber-600"
-                                    : "bg-emerald-50 text-emerald-600"
+                                    ? "bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400"
+                                    : "bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400"
                               }`}
                             >
                               {n.tipoConsulta === "primeira_consulta"
@@ -473,24 +482,25 @@ function CISDashboard() {
                             </span>
                           )}
                           {n.temSintese ? (
-                            <span className="text-[11px] text-emerald-600 font-medium">· síntese ✓</span>
+                            <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">· síntese ✓</span>
                           ) : pendingSynthesisNoteId === n.id ? (
-                            <span className="text-[11px] text-amber-600 flex items-center gap-1">
-                              · <span className="animate-pulse">●</span> PubMed
+                            <span className="text-[11px] text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                              · <span className="animate-pulse" aria-label="Buscando no PubMed">●</span> PubMed
                             </span>
                           ) : (
-                            <span className="text-[11px] text-stone-300">· sem síntese</span>
+                            <span className="text-[11px] text-stone-300 dark:text-stone-600">· sem síntese</span>
                           )}
                         </div>
                         {sinteseVelha && (
                           <div className="mt-1.5 flex items-center gap-2">
-                            <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">
+                            <span className="text-[10px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded-full">
                               Evidências &gt;1 ano
                             </span>
                             <button
                               onClick={() => refreshEvidencia.mutate({ soapNoteId: n.id })}
                               disabled={refreshingId === n.id}
-                              className="text-[11px] text-blue-600 hover:text-blue-800 underline disabled:opacity-50"
+                              aria-label={`Atualizar síntese de evidências da nota #${n.id}`}
+                              className="text-[11px] text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline disabled:opacity-50"
                             >
                               {refreshingId === n.id ? "Reagendando…" : "Atualizar"}
                             </button>
@@ -555,6 +565,9 @@ function AuthCallback() {
   const [pendingToken, setPendingToken] = useState<string | null>(null);
   const [totpCode, setTotpCode] = useState("");
   const [totpError, setTotpError] = useState<string | null>(null);
+  const [enrollData, setEnrollData] = useState<{ secret: string; uri: string } | null>(null);
+  const [enrollCode, setEnrollCode] = useState("");
+  const [enrollError, setEnrollError] = useState<string | null>(null);
 
   const [code] = useState(() => {
     const p = new URLSearchParams(window.location.search);
@@ -576,6 +589,18 @@ function AuthCallback() {
     },
   });
 
+  const enrollTotp = trpc.auth.enrollTotp.useMutation({
+    onSuccess: (data) => setEnrollData(data),
+  });
+
+  const ativarTotp = trpc.auth.ativarTotp.useMutation({
+    onSuccess: () => navigate("/admin"),
+    onError: (err: { message?: string }) => {
+      setEnrollError(err.message ?? "Código inválido.");
+      setEnrollCode("");
+    },
+  });
+
   const callbackMutation = trpc.auth.callback.useMutation({
     onSuccess: (data) => {
       if (data.requiresTwoFactor) {
@@ -583,6 +608,11 @@ function AuthCallback() {
         return;
       }
       setToken(data.token);
+      if (data.requiresTotpEnrollment) {
+        // Admin sem TOTP — configura token e inicia enrollment
+        enrollTotp.mutate(void 0);
+        return;
+      }
       const session = parseJwtPayload(data.token);
       const role = session?.type === "staff" ? session.role : null;
       navigate(role === "admin" ? "/admin" : "/medico");
@@ -613,20 +643,91 @@ function AuthCallback() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ── TOTP enrollment obrigatório para admin ────────────────────────────────
+  if (enrollData) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950 p-4">
+        <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl shadow-sm p-8 w-full max-w-sm">
+          <div className="text-center mb-6">
+            <div className="w-12 h-12 bg-blue-50 dark:bg-blue-950 rounded-2xl flex items-center justify-center mx-auto mb-3" aria-hidden="true">
+              <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+            </div>
+            <h1 className="text-base font-semibold text-stone-800 dark:text-stone-100">
+              Configure autenticação em 2 etapas
+            </h1>
+            <p className="text-sm text-stone-500 dark:text-stone-400 mt-1">
+              Obrigatório para acesso admin. Adicione o código abaixo ao seu aplicativo autenticador.
+            </p>
+          </div>
+
+          <div className="bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-2xl p-4 mb-4 text-center space-y-3">
+            <p className="text-[11px] text-stone-400 dark:text-stone-500 uppercase tracking-wider">Chave secreta</p>
+            <code className="text-sm font-mono text-stone-700 dark:text-stone-200 break-all select-all">
+              {enrollData.secret}
+            </code>
+            <a
+              href={enrollData.uri}
+              className="block text-xs text-blue-600 dark:text-blue-400 hover:underline mt-1"
+            >
+              Abrir no autenticador →
+            </a>
+          </div>
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (enrollCode.replace(/\s/g, "").length === 6) {
+                setEnrollError(null);
+                ativarTotp.mutate({ code: enrollCode });
+              }
+            }}
+          >
+            <label htmlFor="enroll-code" className="block text-xs text-stone-500 dark:text-stone-400 mb-1.5">
+              Código do autenticador
+            </label>
+            <input
+              id="enroll-code"
+              autoFocus
+              type="text"
+              inputMode="numeric"
+              maxLength={7}
+              placeholder="000 000"
+              value={enrollCode}
+              onChange={(e) => setEnrollCode(e.target.value)}
+              className="w-full text-center text-2xl tracking-widest border border-stone-200 dark:border-stone-700 rounded-2xl px-4 py-3 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-stone-50 dark:bg-stone-800 text-stone-800 dark:text-stone-100"
+            />
+            {enrollError && (
+              <p className="text-sm text-red-600 dark:text-red-400 text-center mb-3" role="alert">{enrollError}</p>
+            )}
+            <button
+              type="submit"
+              disabled={ativarTotp.isPending || enrollCode.replace(/\s/g, "").length !== 6}
+              className="w-full bg-blue-600 text-white py-2.5 rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+            >
+              {ativarTotp.isPending ? "Ativando…" : "Ativar 2FA e entrar"}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   if (pendingToken) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-stone-50 p-4">
-        <div className="bg-white border border-stone-200 rounded-3xl shadow-sm p-8 w-full max-w-sm">
+      <div className="min-h-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950 p-4">
+        <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl shadow-sm p-8 w-full max-w-sm">
           <div className="text-center mb-6">
-            <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
-              <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="w-12 h-12 bg-blue-50 dark:bg-blue-950 rounded-2xl flex items-center justify-center mx-auto mb-3" aria-hidden="true">
+              <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
             </div>
-            <h1 className="text-base font-semibold text-stone-800">
+            <h1 className="text-base font-semibold text-stone-800 dark:text-stone-100">
               Verificação em duas etapas
             </h1>
-            <p className="text-sm text-stone-500 mt-1">
+            <p className="text-sm text-stone-500 dark:text-stone-400 mt-1">
               Digite o código do seu autenticador.
             </p>
           </div>
@@ -639,7 +740,9 @@ function AuthCallback() {
               }
             }}
           >
+            <label htmlFor="totp-code" className="sr-only">Código do autenticador</label>
             <input
+              id="totp-code"
               autoFocus
               type="text"
               inputMode="numeric"
@@ -647,10 +750,10 @@ function AuthCallback() {
               placeholder="000 000"
               value={totpCode}
               onChange={(e) => setTotpCode(e.target.value)}
-              className="w-full text-center text-2xl tracking-widest border border-stone-200 rounded-2xl px-4 py-3 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-stone-50"
+              className="w-full text-center text-2xl tracking-widest border border-stone-200 dark:border-stone-700 rounded-2xl px-4 py-3 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-stone-50 dark:bg-stone-800 text-stone-800 dark:text-stone-100"
             />
             {totpError && (
-              <p className="text-sm text-red-600 text-center mb-3">{totpError}</p>
+              <p className="text-sm text-red-600 dark:text-red-400 text-center mb-3" role="alert">{totpError}</p>
             )}
             <button
               type="submit"
@@ -667,17 +770,17 @@ function AuthCallback() {
 
   if (callbackMutation.isError || timedOut) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-stone-50 p-4">
-        <div className="bg-white border border-stone-200 rounded-3xl shadow-sm p-8 w-full max-w-sm text-center">
-          <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div className="min-h-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950 p-4">
+        <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl shadow-sm p-8 w-full max-w-sm text-center">
+          <div className="w-12 h-12 bg-red-50 dark:bg-red-950 rounded-2xl flex items-center justify-center mx-auto mb-4" aria-hidden="true">
+            <svg className="w-6 h-6 text-red-500 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </div>
-          <h1 className="text-base font-semibold text-stone-800 mb-2">
+          <h1 className="text-base font-semibold text-stone-800 dark:text-stone-100 mb-2">
             Falha na autenticação
           </h1>
-          <p className="text-sm text-stone-500 mb-6">
+          <p className="text-sm text-stone-500 dark:text-stone-400 mb-6">
             {timedOut && !callbackMutation.isError
               ? "A verificação demorou mais de 15 segundos. Verifique sua conexão e tente novamente."
               : (callbackMutation.error?.message ??
@@ -695,14 +798,14 @@ function AuthCallback() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-stone-50">
+    <div className="min-h-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950">
       <div className="flex flex-col items-center gap-3">
         <div
           role="status"
           aria-label="Autenticando"
-          className="w-6 h-6 border-2 border-stone-200 border-t-blue-600 rounded-full animate-spin"
+          className="w-6 h-6 border-2 border-stone-200 dark:border-stone-700 border-t-blue-600 rounded-full animate-spin"
         />
-        <p className="text-sm text-stone-400">Autenticando…</p>
+        <p className="text-sm text-stone-400 dark:text-stone-500">Autenticando…</p>
       </div>
     </div>
   );
@@ -712,13 +815,13 @@ function AuthCallback() {
 
 function NotFound() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-stone-50">
+    <div className="min-h-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950">
       <div className="text-center">
-        <p className="text-6xl font-bold text-stone-200">404</p>
-        <p className="text-stone-500 mt-3 mb-6">Página não encontrada</p>
+        <p className="text-6xl font-bold text-stone-200 dark:text-stone-800" aria-hidden="true">404</p>
+        <p className="text-stone-500 dark:text-stone-400 mt-3 mb-6">Página não encontrada</p>
         <a
           href="/"
-          className="text-sm text-blue-600 hover:underline"
+          className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
         >
           Voltar ao início
         </a>

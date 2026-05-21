@@ -51,7 +51,8 @@ async function getOpusTokensToday(): Promise<number> {
     const n = parseInt(val, 10);
     return Number.isFinite(n) ? n : 0;
   } catch {
-    return 0; // Redis indisponível → fail open (não bloqueia chamada)
+    // Redis indisponível — propaga erro para callClaude fazer downgrade defensivo
+    throw new Error("redis_unavailable");
   }
 }
 
@@ -101,7 +102,15 @@ export async function callClaude(
   // Verifica orçamento diário antes de chamar Opus
   let effectiveModel = model;
   if (model === MODEL_OPUS && env.OPUS_DAILY_TOKEN_BUDGET > 0) {
-    const tokensHoje = await getOpusTokensToday();
+    let tokensHoje: number;
+    try {
+      tokensHoje = await getOpusTokensToday();
+    } catch {
+      // Redis indisponível — fail-safe: usa Sonnet para evitar uso não-contabilizado de Opus
+      logger.warn("[cis] Redis indisponível para verificação de budget — downgrade defensivo para Sonnet");
+      effectiveModel = MODEL_SONNET;
+      return callClaude(systemPrompt, userContent, maxTokens, MODEL_SONNET, temperature, fnName);
+    }
     const limiteAlerta = Math.floor(env.OPUS_DAILY_TOKEN_BUDGET * 0.8);
     if (
       tokensHoje >= limiteAlerta &&
