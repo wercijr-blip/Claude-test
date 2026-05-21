@@ -351,6 +351,9 @@ const server = app.listen(env.PORT, async () => {
 // Stop accepting new connections, wait for in-flight requests, then exit.
 async function shutdown(signal: string) {
   logger.info(`[server] ${signal} recebido — encerrando graciosamente...`)
+  // Force-close keep-alive connections after 10s so server.close() callback fires
+  setTimeout(() => server.closeAllConnections?.(), 10_000)
+
   server.close(async () => {
     const { redis } = await import('./redis.ts')
     await redis.quit().catch(() => undefined)

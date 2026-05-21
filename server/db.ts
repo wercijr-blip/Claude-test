@@ -15,6 +15,14 @@ const pool = mysql.createPool({
   idleTimeout: 300_000,
 })
 
+// Cancel any query running longer than 30s — prevents slow queries from holding
+// the connection pool and cascading into a full outage under load.
+pool.on('connection', (conn) => {
+  conn.query('SET SESSION MAX_EXECUTION_TIME = 30000').catch((err: Error) => {
+    console.warn('[db] SET MAX_EXECUTION_TIME falhou (TiDB pode ignorar):', err.message)
+  })
+})
+
 export const db = drizzle(pool, { schema: { ...schema, ...relations }, mode: 'default' })
 
 export type Db = typeof db

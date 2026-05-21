@@ -54,3 +54,4 @@ pdf-preview/
 # ── Aplicações externas (não fazem parte do FacilitaPrEP) ─
 marketing-agents/
 web/out/
+!.vscode/extensions.json
