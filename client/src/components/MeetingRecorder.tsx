@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Mic, MicOff, Square, Play, Download, FileText, Loader2, Copy, Check, Trash2 } from 'lucide-react'
+import { Mic, Square, Download, FileText, Loader2, Copy, Check, Trash2, Monitor, Info, Upload } from 'lucide-react'
 import { trpc } from '../lib/trpc.ts'
 import { toast } from '../lib/use-toast.ts'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type State = 'idle' | 'recording' | 'stopped' | 'summarizing' | 'done'
+type Mode = 'mic' | 'reuniao'
+type State = 'idle' | 'recording' | 'transcribing' | 'stopped' | 'summarizing' | 'done'
 
 interface Resumo {
   resumoGeral: string
@@ -19,14 +20,14 @@ interface Resumo {
 // ─── Speech Recognition shim ─────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnySpeechRecognition = any
+type AnySR = any
 
-function getSpeechRecognition(): (new () => AnySpeechRecognition) | null {
+function getSR(): (new () => AnySR) | null {
   const w = window as unknown as Record<string, unknown>
-  return (w['SpeechRecognition'] ?? w['webkitSpeechRecognition'] ?? null) as (new () => AnySpeechRecognition) | null
+  return (w['SpeechRecognition'] ?? w['webkitSpeechRecognition'] ?? null) as (new () => AnySR) | null
 }
 
-// ─── Helper: format duration ──────────────────────────────────────────────────
+// ─── Helper ───────────────────────────────────────────────────────────────────
 
 function formatDuration(seconds: number) {
   const h = Math.floor(seconds / 3600)
@@ -36,7 +37,12 @@ function formatDuration(seconds: number) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+function formatBytes(b: number) {
+  if (b < 1024 * 1024) return `${(b / 1024).toFixed(0)} KB`
+  return `${(b / (1024 * 1024)).toFixed(1)} MB`
+}
+
+// ─── Sub-component ────────────────────────────────────────────────────────────
 
 function SectionCard({ title, items, icon }: { title: string; items: string[]; icon: string }) {
   if (items.length === 0) return null
@@ -60,41 +66,40 @@ function SectionCard({ title, items, icon }: { title: string; items: string[]; i
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function MeetingRecorder() {
+  const [mode, setMode] = useState<Mode>('reuniao')
   const [state, setState] = useState<State>('idle')
   const [transcricao, setTranscricao] = useState('')
   const [titulo, setTitulo] = useState('')
   const [resumo, setResumo] = useState<Resumo | null>(null)
   const [elapsed, setElapsed] = useState(0)
   const [copied, setCopied] = useState(false)
-  const [srSupported, setSrSupported] = useState(true)
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
+  const [audioUrl, setAudioUrl] = useState<string | null>(null)
 
-  const recognitionRef = useRef<AnySpeechRecognition | null>(null)
+  const recognitionRef = useRef<AnySR | null>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const audioUrlRef = useRef<string | null>(null)
+  const audioCtxRef = useRef<AudioContext | null>(null)
   const transcricaoRef = useRef(transcricao)
   transcricaoRef.current = transcricao
 
+  const configQuery = trpc.meeting.config.useQuery()
+  const whisperDisponivel = configQuery.data?.whisperDisponivel ?? false
+
   const resumirMutation = trpc.meeting.resumir.useMutation({
-    onSuccess: (data) => {
-      setResumo(data)
-      setState('done')
-    },
-    onError: (err) => {
-      toast({ title: 'Erro ao gerar resumo', description: err.message, variant: 'error' })
-      setState('stopped')
-    },
+    onSuccess: (data) => { setResumo(data); setState('done') },
+    onError: (err) => { toast({ title: 'Erro ao gerar resumo', description: err.message, variant: 'error' }); setState('stopped') },
   })
 
   useEffect(() => {
-    if (!getSpeechRecognition()) setSrSupported(false)
     return () => {
       stopTimer()
       recognitionRef.current?.abort()
-      if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current)
+      audioCtxRef.current?.close()
+      if (audioUrl) URL.revokeObjectURL(audioUrl)
     }
-  }, [])
+  }, [audioUrl])
 
   // ── Timer ──────────────────────────────────────────────────────────────────
 
@@ -102,15 +107,14 @@ export default function MeetingRecorder() {
     setElapsed(0)
     timerRef.current = setInterval(() => setElapsed(s => s + 1), 1000)
   }
-
   const stopTimer = () => {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
   }
 
-  // ── Speech Recognition ─────────────────────────────────────────────────────
+  // ── Speech Recognition (microfone local — pré-visualização ao vivo) ────────
 
-  const startSpeechRecognition = useCallback(() => {
-    const SR = getSpeechRecognition()
+  const startSR = useCallback((micStream: MediaStream) => {
+    const SR = getSR()
     if (!SR) return
 
     const recognition = new SR()
@@ -119,83 +123,182 @@ export default function MeetingRecorder() {
     recognition.interimResults = true
     recognitionRef.current = recognition
 
+    // Feed the mic stream to SR (Chrome ignores this param but it's spec-compliant)
+    try { recognition.stream = micStream } catch { /* ignored */ }
+
     let finalBuffer = ''
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onresult = (event: any) => {
-      let interimText = ''
+      let interim = ''
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript as string
-        if (event.results[i].isFinal) {
-          finalBuffer += transcript + ' '
-        } else {
-          interimText = transcript
-        }
+        const t = event.results[i][0].transcript as string
+        if (event.results[i].isFinal) finalBuffer += t + ' '
+        else interim = t
       }
-      setTranscricao(finalBuffer + (interimText ? `[${interimText}]` : ''))
+      setTranscricao(finalBuffer + (interim ? `[${interim}]` : ''))
     }
 
     recognition.onend = () => {
-      // Auto-restart if still recording (browser stops after ~60s of silence)
-      if (recognitionRef.current === recognition && timerRef.current !== null) {
-        recognition.start()
-      }
+      if (recognitionRef.current === recognition && timerRef.current !== null) recognition.start()
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onerror = (e: any) => {
       if (e.error === 'not-allowed') {
         toast({ title: 'Permissão de microfone negada', variant: 'error' })
-        stopRecording()
+        void stopRecording()
       }
     }
 
     recognition.start()
   }, [])
 
-  // ── MediaRecorder ──────────────────────────────────────────────────────────
+  // ── Mixed audio recorder (reunião: aba + microfone) ────────────────────────
 
-  const startMediaRecorder = useCallback(async () => {
+  const buildMixedRecorder = useCallback(async () => {
+    // 1. Microfone
+    const micStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+
+    // 2. Áudio da aba/tela (getDisplayMedia — Chrome exige video:true para mostrar o picker)
+    let displayStream: MediaStream | null = null
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const recorder = new MediaRecorder(stream)
-      audioChunksRef.current = []
-      recorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data) }
-      recorder.onstop = () => {
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
-        if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current)
-        audioUrlRef.current = URL.createObjectURL(blob)
-        stream.getTracks().forEach(t => t.stop())
-      }
-      recorder.start(1000)
-      mediaRecorderRef.current = recorder
+      displayStream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,   // needed to show the browser's "Share" dialog
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        audio: { echoCancellation: false, noiseSuppression: false } as any,
+      })
+      // Descarta trilhas de vídeo — só queremos o áudio
+      displayStream.getVideoTracks().forEach(t => t.stop())
     } catch {
-      // Audio recording is optional — transcription via SR still works
+      toast({
+        title: 'Captura de áudio da reunião não autorizada',
+        description: 'Gravando apenas microfone. Para capturar ambos os lados, autorize o compartilhamento de aba com áudio.',
+        variant: 'warning',
+      })
     }
+
+    // 3. Mistura via AudioContext
+    const ctx = new AudioContext()
+    audioCtxRef.current = ctx
+    const dest = ctx.createMediaStreamDestination()
+
+    ctx.createMediaStreamSource(micStream).connect(dest)
+    if (displayStream) {
+      const displayAudioTracks = displayStream.getAudioTracks()
+      if (displayAudioTracks.length > 0) {
+        const displayAudioStream = new MediaStream(displayAudioTracks)
+        ctx.createMediaStreamSource(displayAudioStream).connect(dest)
+      }
+    }
+
+    return { mixedStream: dest.stream, micStream }
   }, [])
 
-  // ── Start / Stop ───────────────────────────────────────────────────────────
+  // ── Start recording ────────────────────────────────────────────────────────
 
   const startRecording = useCallback(async () => {
     setTranscricao('')
     setResumo(null)
+    setAudioBlob(null)
+    if (audioUrl) { URL.revokeObjectURL(audioUrl); setAudioUrl(null) }
+
+    let micStream: MediaStream
+    let recordStream: MediaStream
+
+    if (mode === 'reuniao') {
+      try {
+        const { mixedStream, micStream: ms } = await buildMixedRecorder()
+        micStream = ms
+        recordStream = mixedStream
+      } catch (err) {
+        toast({ title: 'Erro ao iniciar captura', description: (err as Error).message, variant: 'error' })
+        return
+      }
+    } else {
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        recordStream = micStream
+      } catch {
+        toast({ title: 'Permissão de microfone negada', variant: 'error' })
+        return
+      }
+    }
+
+    // MediaRecorder on the mixed (or mic-only) stream
+    audioChunksRef.current = []
+    const options = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+      ? { mimeType: 'audio/webm;codecs=opus', audioBitsPerSecond: 32000 }
+      : {}
+    const recorder = new MediaRecorder(recordStream, options)
+    recorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data) }
+    recorder.onstop = () => {
+      const blob = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' })
+      setAudioBlob(blob)
+      setAudioUrl(URL.createObjectURL(blob))
+      micStream.getTracks().forEach(t => t.stop())
+    }
+    recorder.start(1000)
+    mediaRecorderRef.current = recorder
+
+    // Speech Recognition on mic for live preview
+    startSR(micStream)
+
     setState('recording')
     startTimer()
-    startSpeechRecognition()
-    await startMediaRecorder()
-  }, [startSpeechRecognition, startMediaRecorder])
+  }, [mode, audioUrl, buildMixedRecorder, startSR])
 
-  const stopRecording = useCallback(() => {
+  // ── Stop recording ─────────────────────────────────────────────────────────
+
+  const stopRecording = useCallback(async () => {
     stopTimer()
     recognitionRef.current?.stop()
     recognitionRef.current = null
-    mediaRecorderRef.current?.stop()
+
+    // Clean up interim markers from SR
+    setTranscricao(t => t.replace(/\[.*?\]/g, '').trim())
+
+    await new Promise<void>(resolve => {
+      if (!mediaRecorderRef.current || mediaRecorderRef.current.state === 'inactive') {
+        resolve(); return
+      }
+      mediaRecorderRef.current.addEventListener('stop', () => resolve(), { once: true })
+      mediaRecorderRef.current.stop()
+    })
     mediaRecorderRef.current = null
+    audioCtxRef.current?.close()
+    audioCtxRef.current = null
+
     setState('stopped')
   }, [])
 
+  // ── Whisper transcription ──────────────────────────────────────────────────
+
+  const transcreverWhisper = useCallback(async (blob: Blob) => {
+    setState('transcribing')
+    const form = new FormData()
+    form.append('audio', blob, `reuniao-${Date.now()}.webm`)
+
+    try {
+      const res = await fetch('/api/meeting/transcribe', {
+        method: 'POST',
+        body: form,
+        credentials: 'include',
+      })
+      const data = await res.json() as { transcricao?: string; error?: string }
+      if (!res.ok || !data.transcricao) throw new Error(data.error ?? `HTTP ${res.status}`)
+      setTranscricao(data.transcricao)
+      toast({ title: 'Transcrição completa', variant: 'success' })
+    } catch (err) {
+      toast({ title: 'Erro na transcrição', description: (err as Error).message, variant: 'error' })
+    }
+    setState('stopped')
+  }, [])
+
+  // ── Generate summary ───────────────────────────────────────────────────────
+
   const gerarResumo = useCallback(() => {
-    const texto = transcricaoRef.current.replace(/\[.*?\]/g, '').trim()
+    const texto = transcricaoRef.current.trim()
     if (texto.length < 20) {
       toast({ title: 'Transcrição muito curta para resumir', variant: 'warning' })
       return
@@ -210,21 +313,23 @@ export default function MeetingRecorder() {
     setResumo(null)
     setElapsed(0)
     setTitulo('')
-    if (audioUrlRef.current) { URL.revokeObjectURL(audioUrlRef.current); audioUrlRef.current = null }
-  }, [])
+    setAudioBlob(null)
+    if (audioUrl) { URL.revokeObjectURL(audioUrl); setAudioUrl(null) }
+    audioCtxRef.current?.close()
+    audioCtxRef.current = null
+  }, [audioUrl])
 
   const copiarResumo = useCallback(() => {
     if (!resumo) return
-    const texto = [
+    const linhas = [
       resumo.resumoGeral,
-      '',
-      resumo.participantes.length ? `Participantes:\n${resumo.participantes.map(p => `• ${p}`).join('\n')}` : '',
+      resumo.participantes.length ? `\nParticipantes:\n${resumo.participantes.map(p => `• ${p}`).join('\n')}` : '',
       resumo.pontosPrincipais.length ? `\nPontos Principais:\n${resumo.pontosPrincipais.map(p => `• ${p}`).join('\n')}` : '',
       resumo.decisoes.length ? `\nDecisões:\n${resumo.decisoes.map(p => `• ${p}`).join('\n')}` : '',
       resumo.proximosPassos.length ? `\nPróximos Passos:\n${resumo.proximosPassos.map(p => `• ${p}`).join('\n')}` : '',
       resumo.destaques.length ? `\nDestaques:\n${resumo.destaques.map(p => `• ${p}`).join('\n')}` : '',
     ].filter(Boolean).join('\n')
-    void navigator.clipboard.writeText(texto).then(() => {
+    void navigator.clipboard.writeText(linhas).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     })
@@ -233,24 +338,66 @@ export default function MeetingRecorder() {
   // ─── Render ────────────────────────────────────────────────────────────────
 
   const isRecording = state === 'recording'
-  const canSummarize = state === 'stopped' && transcricao.replace(/\[.*?\]/g, '').trim().length >= 20
+  const isTranscribing = state === 'transcribing'
+  const canSummarize = (state === 'stopped' || state === 'done') && transcricao.trim().length >= 20
+  const busy = isRecording || isTranscribing || state === 'summarizing'
 
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="max-w-3xl mx-auto px-4 py-8">
 
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-6">
           <h1 className="text-2xl font-bold text-slate-800">Gravador de Reunião</h1>
           <p className="text-slate-500 text-sm mt-1">
             Transcrição em tempo real + resumo automático com IA
           </p>
         </div>
 
-        {!srSupported && (
-          <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
-            <strong>Navegador não suportado.</strong> A transcrição em tempo real requer Chrome ou Edge.
-            Você ainda pode digitar ou colar a transcrição manualmente.
+        {/* Mode selector */}
+        {state === 'idle' && (
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 mb-4">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Modo de captura</p>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setMode('reuniao')}
+                className={`flex flex-col items-start gap-1 p-3 rounded-xl border text-left transition-all ${mode === 'reuniao' ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:bg-slate-50'}`}
+              >
+                <span className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                  <Monitor className="w-4 h-4" />
+                  Capturar reunião
+                  {mode === 'reuniao' && <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">Recomendado</span>}
+                </span>
+                <span className="text-xs text-slate-400 leading-snug">
+                  Captura o áudio da aba (Google Meet, Teams…) + microfone
+                </span>
+              </button>
+              <button
+                onClick={() => setMode('mic')}
+                className={`flex flex-col items-start gap-1 p-3 rounded-xl border text-left transition-all ${mode === 'mic' ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:bg-slate-50'}`}
+              >
+                <span className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                  <Mic className="w-4 h-4" />
+                  Apenas microfone
+                </span>
+                <span className="text-xs text-slate-400 leading-snug">
+                  Transcrição ao vivo, captura só o que você fala
+                </span>
+              </button>
+            </div>
+
+            {mode === 'reuniao' && (
+              <div className="mt-3 bg-amber-50 border border-amber-100 rounded-xl p-3 flex gap-2">
+                <Info className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                <p className="text-xs text-amber-800 leading-relaxed">
+                  Ao clicar em <strong>Iniciar</strong>, o Chrome pedirá para compartilhar uma aba.
+                  Selecione a aba da sua reunião e <strong>marque "Compartilhar áudio da aba"</strong>.
+                  {whisperDisponivel
+                    ? ' A gravação completa será transcrita pelo Whisper após encerrar.'
+                    : ' A transcrição ao vivo capturará seu microfone; para transcrição completa, configure OPENAI_API_KEY.'}
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -261,49 +408,48 @@ export default function MeetingRecorder() {
             placeholder="Título da reunião (opcional)"
             value={titulo}
             onChange={e => setTitulo(e.target.value)}
-            disabled={isRecording || state === 'summarizing'}
+            disabled={busy}
             className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 text-sm"
           />
         </div>
 
         {/* Controls */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 mb-4">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 mb-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               {isRecording && (
                 <span className="flex items-center gap-2 text-sm font-medium text-red-600">
                   <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                  Gravando
+                  Gravando {mode === 'reuniao' ? '(aba + mic)' : '(microfone)'}
                 </span>
               )}
-              {state === 'stopped' && (
-                <span className="text-sm text-slate-500">Gravação encerrada</span>
+              {isTranscribing && (
+                <span className="flex items-center gap-2 text-sm text-blue-600">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Transcrevendo com Whisper…
+                </span>
               )}
-              {state === 'idle' && (
-                <span className="text-sm text-slate-400">Pronto para gravar</span>
-              )}
+              {state === 'stopped' && <span className="text-sm text-slate-500">Gravação encerrada</span>}
+              {state === 'idle' && <span className="text-sm text-slate-400">Pronto para gravar</span>}
             </div>
-            {(isRecording || state === 'stopped') && (
-              <span className="text-slate-600 font-mono text-sm tabular-nums">
-                {formatDuration(elapsed)}
-              </span>
+            {(isRecording || state === 'stopped' || state === 'done') && elapsed > 0 && (
+              <span className="text-slate-600 font-mono text-sm tabular-nums">{formatDuration(elapsed)}</span>
             )}
           </div>
 
-          <div className="flex gap-3 flex-wrap">
+          <div className="flex gap-2 flex-wrap">
             {state === 'idle' && (
               <button
                 onClick={() => void startRecording()}
                 className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white px-5 py-2.5 rounded-xl font-medium text-sm transition-colors"
               >
-                <Mic className="w-4 h-4" />
+                {mode === 'reuniao' ? <Monitor className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
                 Iniciar gravação
               </button>
             )}
 
             {isRecording && (
               <button
-                onClick={stopRecording}
+                onClick={() => void stopRecording()}
                 className="flex items-center gap-2 bg-slate-700 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl font-medium text-sm transition-colors"
               >
                 <Square className="w-4 h-4" />
@@ -313,22 +459,25 @@ export default function MeetingRecorder() {
 
             {state === 'stopped' && (
               <>
-                <button
-                  onClick={() => void startRecording()}
-                  className="flex items-center gap-2 border border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-2.5 rounded-xl font-medium text-sm transition-colors"
-                >
-                  <Play className="w-4 h-4" />
-                  Continuar
-                </button>
-                {audioUrlRef.current && (
+                {audioBlob && audioUrl && (
                   <a
-                    href={audioUrlRef.current}
+                    href={audioUrl}
                     download={`reuniao-${new Date().toISOString().slice(0, 10)}.webm`}
                     className="flex items-center gap-2 border border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-2.5 rounded-xl font-medium text-sm transition-colors"
                   >
                     <Download className="w-4 h-4" />
-                    Baixar áudio
+                    Baixar áudio {audioBlob ? `(${formatBytes(audioBlob.size)})` : ''}
                   </a>
+                )}
+
+                {whisperDisponivel && audioBlob && (
+                  <button
+                    onClick={() => void transcreverWhisper(audioBlob)}
+                    className="flex items-center gap-2 border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-2.5 rounded-xl font-medium text-sm transition-colors"
+                  >
+                    <Upload className="w-4 h-4" />
+                    Transcrever com Whisper
+                  </button>
                 )}
               </>
             )}
@@ -346,39 +495,40 @@ export default function MeetingRecorder() {
         </div>
 
         {/* Transcript */}
-        {(isRecording || state === 'stopped' || state === 'summarizing' || state === 'done') && (
+        {state !== 'idle' && (
           <div className="bg-white border border-slate-200 rounded-2xl p-5 mb-4">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-2">
                 <Mic className="w-4 h-4" />
                 Transcrição
+                {mode === 'reuniao' && isRecording && (
+                  <span className="text-xs font-normal text-amber-600 normal-case">(microfone ao vivo — transcrição completa após encerrar)</span>
+                )}
               </h2>
-              <span className="text-xs text-slate-400">{transcricao.replace(/\[.*?\]/g, '').trim().length} caracteres</span>
+              <span className="text-xs text-slate-400">{transcricao.trim().length} chars</span>
             </div>
             <textarea
               value={transcricao}
               onChange={e => setTranscricao(e.target.value)}
-              disabled={isRecording || state === 'summarizing'}
-              placeholder={isRecording ? 'Fale — a transcrição aparecerá aqui...' : 'Edite a transcrição se necessário'}
+              disabled={isRecording || isTranscribing || state === 'summarizing'}
+              placeholder={isRecording ? 'O que você fala aparecerá aqui…' : 'Edite a transcrição se necessário'}
               rows={10}
               className="w-full text-sm text-slate-700 placeholder:text-slate-300 resize-y focus:outline-none disabled:cursor-default leading-relaxed"
             />
           </div>
         )}
 
-        {/* Summarize button */}
+        {/* Summarize */}
         {(state === 'stopped' || state === 'summarizing' || state === 'done') && (
           <div className="mb-4">
             <button
               onClick={gerarResumo}
-              disabled={!canSummarize}
+              disabled={!canSummarize || resumirMutation.isPending}
               className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white px-5 py-3 rounded-xl font-medium text-sm transition-colors"
             >
-              {resumirMutation.isPending ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> Gerando resumo...</>
-              ) : (
-                <><FileText className="w-4 h-4" /> Gerar resumo com IA</>
-              )}
+              {resumirMutation.isPending
+                ? <><Loader2 className="w-4 h-4 animate-spin" /> Gerando resumo…</>
+                : <><FileText className="w-4 h-4" /> Gerar resumo com IA</>}
             </button>
           </div>
         )}
@@ -392,11 +542,12 @@ export default function MeetingRecorder() {
                 onClick={copiarResumo}
                 className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 border border-slate-200 px-3 py-1.5 rounded-lg transition-colors"
               >
-                {copied ? <><Check className="w-3.5 h-3.5 text-green-500" /> Copiado!</> : <><Copy className="w-3.5 h-3.5" /> Copiar</>}
+                {copied
+                  ? <><Check className="w-3.5 h-3.5 text-green-500" /> Copiado!</>
+                  : <><Copy className="w-3.5 h-3.5" /> Copiar</>}
               </button>
             </div>
 
-            {/* Resumo geral */}
             <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
               <p className="text-sm text-blue-900 leading-relaxed">{resumo.resumoGeral}</p>
             </div>
@@ -406,18 +557,6 @@ export default function MeetingRecorder() {
             <SectionCard title="Decisões" items={resumo.decisoes} icon="✅" />
             <SectionCard title="Próximos Passos" items={resumo.proximosPassos} icon="🎯" />
             <SectionCard title="Destaques" items={resumo.destaques} icon="⚠️" />
-          </div>
-        )}
-
-        {/* Manual entry hint */}
-        {state === 'idle' && !srSupported && (
-          <div className="mt-4">
-            <button
-              onClick={() => setState('stopped')}
-              className="text-sm text-blue-600 hover:underline"
-            >
-              Colar transcrição manualmente →
-            </button>
           </div>
         )}
 
