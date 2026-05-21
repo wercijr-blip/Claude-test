@@ -100,3 +100,8 @@ if (env.NODE_ENV === 'development' && process.env['RAILWAY_ENVIRONMENT']) {
   console.error('❌ NODE_ENV=development detectado em ambiente Railway. Defina NODE_ENV=production.')
   process.exit(1)
 }
+
+// Warn if ops endpoints are unprotected in production.
+if (env.NODE_ENV === 'production' && !env.OPS_TOKEN) {
+  console.warn('⚠️  OPS_TOKEN não configurado — /api/metrics e /api/admin/usage estão sem autenticação.')
+}
