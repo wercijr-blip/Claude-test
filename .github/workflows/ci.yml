@@ -53,6 +53,11 @@ jobs:
           console.log('✅ Env schema OK — NODE_ENV:', env.NODE_ENV)
         EOF
 
+      # Catches schema.ts changes that were not captured in a migration file.
+      # Run db:generate locally before pushing if this step fails.
+      - name: Migration drift check
+        run: DATABASE_URL=mysql://root:root@localhost:3306/test pnpm db:check
+
       - name: Tests
         run: pnpm test:coverage
         env:

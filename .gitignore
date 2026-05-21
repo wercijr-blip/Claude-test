@@ -45,8 +45,10 @@ desktop.ini
 *.swp
 *.swo
 
-# ── Drizzle (arquivos gerados) ────────────────────────────
-drizzle/meta/
+# ── Drizzle ──────────────────────────────────────────────
+# migration files (0000_*.sql etc) and meta/ MUST be committed
+# only ignore local studio cache if ever generated
+.drizzle/
 
 # ── PDFs de teste/preview (gerados localmente) ────────────
 pdf-preview/
