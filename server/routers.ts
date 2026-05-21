@@ -12,6 +12,7 @@ import { configRouter } from './routes/config.ts'
 import { verificacaoRouter } from './routes/verificacao.ts'
 import { twoFactorRouter } from './routes/twoFactor.ts'
 import { meRouter } from './routes/me.ts'
+import { meetingRouter } from './routes/meeting.ts'
 
 export const appRouter = router({
   auth: authRouter,
@@ -27,6 +28,7 @@ export const appRouter = router({
   verificacao: verificacaoRouter,
   twoFactor: twoFactorRouter,
   me: meRouter,
+  meeting: meetingRouter,
 })
 
 export type AppRouter = typeof appRouter

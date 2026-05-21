@@ -26,6 +26,7 @@ const PrivacidadePage = lazy(() => import('./components/PrivacidadePage.tsx'))
 const TermosPage = lazy(() => import('./components/TermosPage.tsx'))
 const PesquisaSatisfacao = lazy(() => import('./components/PesquisaSatisfacao.tsx'))
 const ReenviarAcesso = lazy(() => import('./components/ReenviarAcesso.tsx'))
+const MeetingRecorder = lazy(() => import('./components/MeetingRecorder.tsx'))
 
 function PageLoader() {
   return (
@@ -179,6 +180,9 @@ export default function App() {
             </Route>
             <Route path="/auditoria">
               {role === 'admin' ? <AuditoriaPage /> : <LoginPage />}
+            </Route>
+            <Route path="/reuniao">
+              {['secretaria', 'medico', 'admin'].includes(role ?? '') ? <MeetingRecorder /> : <LoginPage />}
             </Route>
             <Route path="/" component={LandingPage} />
             <Route component={NotFound} />
