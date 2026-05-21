@@ -221,6 +221,10 @@ app.get("/api/health/version", (_req, res) => {
 const { cisRestRouter } = await import("../routes/cisRest.ts");
 app.use("/api/cis", cisLimiter, cisRestRouter);
 
+// WhatsApp audio → SOAP automático (Evolution API / n8n)
+const { whatsappRouter } = await import("../routes/whatsapp.ts");
+app.use("/api/whatsapp", cisLimiter, whatsappRouter);
+
 if (env.NODE_ENV === "production") {
   const clientDist = path.resolve(__dirname, "../../dist/client");
   app.get("*", (req, res) => {
