@@ -191,7 +191,7 @@ REDIS_URL
 
 ---
 
-## 🧪 Suíte de Testes (181+ testes)
+## 🧪 Suíte de Testes (256+ testes)
 
 | Arquivo                                    | O que testa                                         |
 | ------------------------------------------ | --------------------------------------------------- |
@@ -203,6 +203,12 @@ REDIS_URL
 | `server/token.test.ts`                     | Ciclo de vida de tokens                             |
 | `server/pubmedQueue.test.ts`               | Worker queue BullMQ                                 |
 | `server/_core/circuitBreaker.test.ts`      | Half-open timing, estados, trial falhado            |
+| `server/scriba.test.ts`                    | Sessões, SOAP, alertas, transcrição                 |
+| `server/audit.test.ts`                     | Audit trail, erros de DB insert                     |
+| `server/caseSeriesQueue.test.ts`           | Worker série de casos automática                    |
+| `server/digestQueue.test.ts`               | Worker digest diário/semanal/mensal                 |
+| `server/_core/dlq.test.ts`                 | Dead letter queue, Sentry capture                   |
+| `server/totp.test.ts`                      | TOTP enrollment, verificação, rotação               |
 
 ---
 
