@@ -85,6 +85,8 @@ const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID ?? 'GTM-WCF38JBP'
 const META_PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID
 const GOOGLE_ADS_ID = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID
 const TIKTOK_PIXEL_ID = process.env.NEXT_PUBLIC_TIKTOK_PIXEL_ID
+const CLARITY_ID = process.env.NEXT_PUBLIC_CLARITY_ID
+const GA4_ID = process.env.NEXT_PUBLIC_GA4_ID
 
 const SCHEMA_LD = {
   '@context': 'https://schema.org',
@@ -170,6 +172,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           metaPixelId={META_PIXEL_ID}
           googleAdsId={GOOGLE_ADS_ID}
           tiktokPixelId={TIKTOK_PIXEL_ID}
+          clarityId={CLARITY_ID}
+          ga4Id={GA4_ID}
         />
         {/* GTM script — afterInteractive para não bloquear LCP */}
         {GTM_ID && (
