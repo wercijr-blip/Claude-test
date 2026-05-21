@@ -66,11 +66,22 @@ const envSchema = z.object({
 
   // TOTP 2FA — chave AES separada para encriptar segredos TOTP
   // Gerar com: openssl rand -hex 32
+  // Obrigatório quando há usuários com totpEnabled=true; opcional no boot para não bloquear deploy
   TOTP_ENC_KEY: z.string().length(64).optional(),
+
+  // Ops endpoints protection (/api/metrics, /api/admin/usage)
+  // Gerar com: openssl rand -hex 32
+  OPS_TOKEN: z.string().min(32).optional(),
 
   // Payment methods — toggle via Railway without code deploy.
   // Set ENABLE_DEBIT_CARD=true once Asaas account enables DEBIT_CARD billing.
   ENABLE_DEBIT_CARD: z.coerce.boolean().default(false),
+
+  // Meta Conversions API (CAPI) — server-side tracking sem dependência de cookie/browser.
+  // META_PIXEL_ID: ID numérico do pixel (ex: 123456789012345)
+  // META_CAPI_TOKEN: System User Access Token com permissão ads_management
+  META_PIXEL_ID: z.string().min(1).optional(),
+  META_CAPI_TOKEN: z.string().min(1).optional(),
 })
 
 const parsed = envSchema.safeParse(process.env)
@@ -88,9 +99,4 @@ export const env = parsed.data
 if (env.NODE_ENV === 'development' && process.env['RAILWAY_ENVIRONMENT']) {
   console.error('❌ NODE_ENV=development detectado em ambiente Railway. Defina NODE_ENV=production.')
   process.exit(1)
-}
-
-// Warn if ops endpoints are unprotected in production.
-if (env.NODE_ENV === 'production' && !env.OPS_TOKEN) {
-  console.warn('⚠️  OPS_TOKEN não configurado — /api/metrics e /api/admin/usage estão sem autenticação. Defina OPS_TOKEN no Railway.')
 }

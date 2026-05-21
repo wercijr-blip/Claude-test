@@ -2,6 +2,30 @@
 
 ## [Unreleased]
 
+### Segurança / Conformidade
+- **LGPD D04:** pixels GTM, Meta e GA4 agora só carregam após consentimento (`cookies_accepted=all`); `gtm-loader.js` tem guard no início
+- Removida tag `<noscript>` do GTM que carregava unconditionally via iframe
+- Removido `CookieBanner.tsx` legado (usava chave `cookie_consent` diferente da canônica `cookies_accepted`)
+
+### Adicionado
+- `server/capi.ts`: infraestrutura Meta Conversions API server-side (SHA-256 de PII, dedup por `event_id`, AbortController 5s, no-op silencioso sem env vars)
+- `server/workers/nutricaoWorker.ts`: drip de 5 e-mails (dias 1/2/3/7/14) para leads não convertidos com dedup Redis TTL 25h
+- `client/src/lib/analytics.ts`: persistência de UTMs em sessionStorage, `generateEventId()`, scroll depth 25/50/75/90%, time-on-page 30/60/120s, Enhanced Conversions dataLayer
+- `MARKETING.md`: scorecard completo (45 dimensões), budget scaling, calendário sazonal, brief criativo
+- `EXPERIMENTOS.md`: framework A/B com 7 regras e 10 testes priorizados
+- `RUNBOOK.md`: procedimentos de DR para TiDB, Redis, Railway, certificado ICP-Brasil, variáveis de ambiente
+- `server/capi.test.ts`: testes de no-op, hash SHA-256, tolerância a falhas de rede e timeout
+- `client/src/lib/analytics.test.ts`: testes de UTM persistence, `generateEventId`, eventos dataLayer
+- Fontes auto-hospedadas via `@fontsource/dm-sans` e `@fontsource/cormorant-garamond` (elimina dependência do Google Fonts CDN)
+
+### Melhorado
+- `server/capi.ts`: warn em produção quando CAPI não está configurado (era debug silencioso)
+- `server/capi.ts`: `AbortController` com timeout de 5s na chamada ao Graph API
+- `server/workers/nutricaoWorker.ts`: `import { Resend }` movido para top-level (era dynamic import dentro do loop)
+- `server/workers/nutricaoWorker.ts`: removida coluna `sql\`NULL\`` fictícia do SELECT (dedup já é feito via Redis)
+- `/api/metrics`: fila `nutricao-lead` incluída no relatório de queue depth
+- `client/index.html`: removidos preconnects do Google Fonts (desnecessários após auto-hospedagem)
+
 ### ⚠️ Breaking Changes
 - **Telefone:** campo `telefone` agora exige formato E.164 (`+5561999998888`). Números legados (10-11 dígitos sem `+55`) são normalizados automaticamente na leitura; o script `server/scripts/backfillTelefoneE164.ts` migra os registros no banco. Execute-o uma vez após o deploy.
 

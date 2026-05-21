@@ -9,13 +9,13 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: pnpm/action-setup@v3
+      - uses: pnpm/action-setup@v6
         with:
           version: 10.4.1
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: '22'
           cache: 'pnpm'
@@ -31,6 +31,28 @@ jobs:
       - name: Format check
         run: pnpm prettier --check .
 
+      # Validates that server/env.ts parses successfully with a complete env set.
+      # Catches cases where a previously-optional var is made required without
+      # updating Railway variables — the exact cause of the May 2026 boot crash.
+      - name: Env schema smoke test
+        run: node --input-type=module <<'EOF'
+          process.env.NODE_ENV = 'test'
+          process.env.DATABASE_URL = 'mysql://root:root@localhost:3306/test'
+          process.env.JWT_SECRET = 'test-secret-minimum-32-characters-long-xx'
+          process.env.ENCRYPTION_KEY = '0'.repeat(64)
+          process.env.CPF_HASH_SALT = 'test-cpf-hash-salt-minimum-32-characters-xx'
+          process.env.TOTP_ENC_KEY = '0'.repeat(64)
+          process.env.AWS_ACCESS_KEY_ID = 'test'
+          process.env.AWS_SECRET_ACCESS_KEY = 'test'
+          process.env.AWS_S3_BUCKET = 'test'
+          process.env.AWS_REGION = 'us-east-1'
+          process.env.GOOGLE_CLIENT_ID = 'test'
+          process.env.GOOGLE_CLIENT_SECRET = 'test'
+          process.env.OWNER_OPEN_ID = 'test'
+          const { env } = await import('./server/_core/env.ts')
+          console.log('✅ Env schema OK — NODE_ENV:', env.NODE_ENV)
+        EOF
+
       - name: Tests
         run: pnpm test:coverage
         env:
@@ -39,6 +61,7 @@ jobs:
           JWT_SECRET: test-secret-minimum-32-characters-long-xx
           ENCRYPTION_KEY: 0000000000000000000000000000000000000000000000000000000000000000
           CPF_HASH_SALT: test-cpf-hash-salt-minimum-32-characters
+          TOTP_ENC_KEY: 0000000000000000000000000000000000000000000000000000000000000000
           AWS_ACCESS_KEY_ID: test
           AWS_SECRET_ACCESS_KEY: test
           AWS_S3_BUCKET: test

@@ -6,9 +6,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig({
   test: {
-    environment: 'node',
     globals: true,
-    include: ['server/**/*.test.ts'],
+    include: ['server/**/*.test.ts', 'client/src/**/*.test.ts'],
+    environmentMatchGlobs: [
+      ['client/src/**/*.test.ts', 'jsdom'],
+      ['server/**/*.test.ts', 'node'],
+    ],
     alias: {
       '@shared': path.resolve(__dirname, 'shared'),
     },
