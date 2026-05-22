@@ -55,8 +55,9 @@ export interface ResultadoIa {
   confianca: number
   observacoes?: string
   processadoEm: string
-  /** Status set by the exam queue worker after auto-approval logic runs */
-  status?: 'pendente' | 'aprovado_automaticamente' | 'rejeitado_ia' | 'pendente_revisao'
+  status?: 'pendente' | 'aprovado_automaticamente' | 'rejeitado_ia' | 'rejeitado' | 'pendente_revisao' | 'liberado_manualmente'
+  observacoesMedico?: string | null
+  liberadoEm?: string
 }
 
 export interface AuthUser {
