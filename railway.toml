@@ -6,3 +6,14 @@ restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
 healthcheckPath = "/api/health"
 healthcheckTimeout = 30
+
+# ──────────────────────────────────────────────────────────────────────────────
+# CRON JOB — Healthcheck diário
+# Criar manualmente no Railway Dashboard:
+#   1. New Service → Empty Service → renomear para "healthcheck-diario"
+#   2. Settings → Deploy → Enable Cron
+#   3. Schedule: 0 3 * * *   (03:00 UTC = 00:00 BRT)
+#   4. Start Command: tsx server/scripts/healthcheck.ts
+#   5. Variables → "Share Variables from" → production
+#   6. Salvar — Railway envia e-mail se exit code ≠ 0
+# ──────────────────────────────────────────────────────────────────────────────

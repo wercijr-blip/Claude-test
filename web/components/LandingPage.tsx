@@ -86,6 +86,14 @@ export default function LandingPage({ variant }: { variant?: Variant }) {
           <LogoWordmark size={36} mode="light" />
           <div className="flex items-center gap-3">
             <a
+              href="https://blog.facilitaprep.com.br"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden sm:block text-sm text-fp-dark-soft hover:text-fp-accent transition-colors font-medium"
+            >
+              Blog
+            </a>
+            <a
               href="/duvidas"
               className="hidden sm:block text-sm text-fp-dark-soft hover:text-fp-accent transition-colors font-medium"
             >

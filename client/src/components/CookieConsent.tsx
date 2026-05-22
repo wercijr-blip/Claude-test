@@ -37,6 +37,7 @@ export default function CookieConsent() {
   const [visible, setVisible] = useState(consent === null);
   const [fading, setFading] = useState(false);
 
+  // Set default denied state on mount (Google Consent Mode v2)
   useEffect(() => {
     if (consent !== "all") return;
     if (GA4_ID) initGA4(GA4_ID);

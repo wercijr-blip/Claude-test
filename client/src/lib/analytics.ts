@@ -1,12 +1,15 @@
 /**
  * Analytics (Vite SPA — client/)
  *
- * GTM loads immediately via client/index.html.
- * This module provides typed helpers for dataLayer events and
- * wires a global [data-event] click listener.
+ * GTM loads via consent-gated /gtm-loader.js (LGPD compliant).
+ * This module provides typed helpers for: dataLayer events, UTM persistence,
+ * scroll depth, time on page, form step tracking, CAPI event_id dedup,
+ * Core Web Vitals reporting, and Google Consent Mode v2.
  */
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+import { onLCP, onFCP, onCLS, onINP, onTTFB } from 'web-vitals'
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface DataLayerEvent {
   event: string;
@@ -26,7 +29,7 @@ declare global {
   }
 }
 
-// ─── Internal helpers ────────────────────────────────────────────────────────
+// ─── Internal helpers ─────────────────────────────────────────────────────────
 
 function push(event: string, params?: Record<string, unknown>): void {
   if (typeof window === "undefined") return;
@@ -34,7 +37,96 @@ function push(event: string, params?: Record<string, unknown>): void {
   window.dataLayer.push({ event, ...params });
 }
 
+// ─── UTM Persistence (D01) ────────────────────────────────────────────────────
+
+const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'] as const
+
+/** Capture UTMs from the URL and persist in sessionStorage. Call on every page load. */
+export function persistUtms(): void {
+  if (typeof window === 'undefined') return
+  const params = new URLSearchParams(window.location.search)
+  const stored: Record<string, string> = {}
+  UTM_KEYS.forEach(k => { const v = params.get(k); if (v) stored[k] = v })
+  if (Object.keys(stored).length > 0) {
+    sessionStorage.setItem('_fp_utms', JSON.stringify(stored))
+  }
+}
+
+/** Read persisted UTMs to include in conversion events. */
+export function getStoredUtms(): Record<string, string> {
+  if (typeof window === 'undefined') return {}
+  try { return JSON.parse(sessionStorage.getItem('_fp_utms') ?? '{}') }
+  catch { return {} }
+}
+
+// ─── Event ID for CAPI deduplication (D01 / D02) ─────────────────────────────
+
+/** Generate a unique event ID. Must match the event_id sent via CAPI server-side. */
+export function generateEventId(): string {
+  return `fp-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+}
+
 // ─── Initialisation ──────────────────────────────────────────────────────────
+
+/**
+ * Google Consent Mode v2 — call on every page load with default 'denied',
+ * then call again with 'granted' after user accepts cookies.
+ */
+export function updateConsentMode(consent: 'all' | 'essential' | 'default'): void {
+  if (typeof window === 'undefined') return
+  window.dataLayer = window.dataLayer ?? []
+  const granted = consent === 'all' ? 'granted' : 'denied'
+  const update = consent === 'default' ? 'default' : 'update'
+  window.dataLayer.push({
+    event: `consent_${update}`,
+    analytics_storage: granted,
+    ad_storage: granted,
+    ad_user_data: granted,
+    ad_personalization: granted,
+  })
+  if (typeof window.gtag === 'function') {
+    window.gtag('consent', update, {
+      analytics_storage: granted,
+      ad_storage: granted,
+      ad_user_data: granted,
+      ad_personalization: granted,
+    })
+  }
+}
+
+/** Report Core Web Vitals (LCP, FCP, CLS, INP, TTFB) to GA4 via dataLayer. */
+export function initWebVitals(): void {
+  if (typeof window === 'undefined') return
+  const report = ({ name, value, id }: { name: string; value: number; id: string }) => {
+    const rounded = Math.round(name === 'CLS' ? value * 1000 : value)
+    push('web_vital', { metric_name: name, metric_value: rounded, metric_id: id })
+    if (typeof window.gtag === 'function') {
+      window.gtag('event', name, {
+        event_category: 'Web Vitals',
+        event_label: id,
+        value: rounded,
+        non_interaction: true,
+      })
+    }
+  }
+  onLCP(report)
+  onFCP(report)
+  onCLS(report)
+  onINP(report)
+  onTTFB(report)
+}
+
+/** Inject GTM — called by CookieConsent when user accepts all cookies. Idempotent. */
+export function initGTM(): void {
+  if (typeof window === 'undefined') return
+  if (document.getElementById('gtm-script')) return
+  window.dataLayer = window.dataLayer ?? []
+  window.dataLayer.push({ event: 'gtm.js', 'gtm.start': new Date().getTime() })
+  const s = document.createElement('script')
+  s.id = 'gtm-script'; s.async = true
+  s.src = 'https://www.googletagmanager.com/gtm.js?id=GTM-WCF38JBP'
+  document.head.appendChild(s)
+}
 
 /** Inject GA4 gtag.js independently of GTM — idempotent. */
 export function initGA4(id: string): void {
@@ -70,6 +162,41 @@ export function initClickListener(): void {
       el.textContent?.trim().slice(0, 60);
     push(name, { event_label: label ?? undefined });
   });
+}
+
+/** Track scroll depth milestones (25 / 50 / 75 / 90%). Fires once per milestone per page. */
+export function initScrollDepth(): void {
+  if (typeof window === 'undefined') return
+  if (window.__fp_scroll_attached__) return
+  window.__fp_scroll_attached__ = true
+  const marks = [25, 50, 75, 90]
+  const fired = new Set<number>()
+  window.addEventListener('scroll', () => {
+    const scrolled = window.scrollY + window.innerHeight
+    const total = document.documentElement.scrollHeight
+    if (total <= window.innerHeight) return
+    const pct = Math.round((scrolled / total) * 100)
+    marks.forEach(m => {
+      if (pct >= m && !fired.has(m)) {
+        fired.add(m)
+        push('scroll_depth', { depth_percent: m, page_path: window.location.pathname })
+      }
+    })
+  }, { passive: true })
+}
+
+/** Track time-on-page milestones (30s / 60s / 120s). Call after each SPA navigation. */
+export function initTimeOnPage(): void {
+  if (typeof window === 'undefined') return
+  const path = window.location.pathname
+  ;[30, 60, 120].forEach(seconds => {
+    setTimeout(() => {
+      // Only fire if user is still on the same route
+      if (window.location.pathname === path) {
+        push('time_on_page', { seconds, page_path: path })
+      }
+    }, seconds * 1000)
+  })
 }
 
 // ─── Generic ─────────────────────────────────────────────────────────────────

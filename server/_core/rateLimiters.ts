@@ -12,6 +12,16 @@ function makeStore(prefix: string) {
   });
 }
 
+// Global IP limiter — blanket protection against floods across all endpoints
+export const globalLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 300,
+  message: { error: 'Muitas requisições. Tente novamente em 1 minuto.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: makeStore('global'),
+})
+
 export const authLimiter = rateLimit({
   windowMs: RATE_LIMITS.AUTH.windowMs,
   max: RATE_LIMITS.AUTH.max,

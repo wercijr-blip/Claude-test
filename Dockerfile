@@ -35,6 +35,9 @@ RUN pnpm install --frozen-lockfile --prod
 # Copy Vite build output
 COPY --from=builder /app/dist ./dist
 
+# Copy Next.js static export (marketing site — web/out/)
+COPY --from=builder /app/web/out ./web/out
+
 # Copy server source (transpiled at runtime by tsx)
 COPY server ./server
 COPY shared ./shared

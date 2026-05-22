@@ -150,12 +150,6 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className={`${cormorant.variable} ${dmSans.variable}`}>
       <head>
-        {/* GTM — loads immediately, consent handled via CookieConsent dataLayer events */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${GTM_ID}');`,
-          }}
-        />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(SCHEMA_LD) }}
@@ -180,6 +174,8 @@ export default function RootLayout({
           metaPixelId={META_PIXEL_ID}
           googleAdsId={GOOGLE_ADS_ID}
           tiktokPixelId={TIKTOK_PIXEL_ID}
+          clarityId={CLARITY_ID}
+          ga4Id={GA4_ID}
         />
         {/* GTM script — afterInteractive para não bloquear LCP */}
         {GTM_ID && (

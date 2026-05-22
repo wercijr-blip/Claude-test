@@ -40,6 +40,15 @@ export function decrypt(ciphertext: string): string {
   }
 }
 
+export function safeDecrypt(ciphertext: string | null | undefined, fallback = '—'): string {
+  if (!ciphertext) return fallback
+  try {
+    return decrypt(ciphertext)
+  } catch {
+    return fallback
+  }
+}
+
 export function hashCpf(cpf: string): string {
   const normalized = cpf.replace(/\D/g, "");
   return scryptSync(normalized, env.CPF_HASH_SALT, 32, {

@@ -53,6 +53,8 @@ function Root() {
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
         <App />
+        <CookieBanner />
+        <Toaster />
       </QueryClientProvider>
     </trpc.Provider>
   );

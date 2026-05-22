@@ -41,6 +41,10 @@ class ErrorBoundary extends Component<
     return { hasError: true };
   }
 
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    Sentry.captureException(error, { extra: { componentStack: info.componentStack } })
+  }
+
   render() {
     if (this.state.hasError) {
       return (

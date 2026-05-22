@@ -26,11 +26,17 @@ const envSchema = z.object({
 
   BUILT_IN_FORGE_API_URL: z.string().url().default("https://api.anthropic.com"),
   BUILT_IN_FORGE_API_KEY: z.string().optional(),
+  LLM_DAILY_LIMIT: z.coerce.number().int().positive().default(200),
 
   REDIS_URL: z.string().default("redis://localhost:6379"),
 
   ZAPI_INSTANCE_ID: z.string().optional(),
   ZAPI_TOKEN: z.string().optional(),
+  ZAPI_CLIENT_TOKEN: z.string().optional(),
+
+  // WhatsApp pra staff — número compartilhado por papel, formato E.164 (ex: +556198432878)
+  STAFF_WHATSAPP_MEDICOS: z.string().optional(),
+  STAFF_WHATSAPP_SECRETARIAS: z.string().optional(),
 
   MEDICO_NOME: z.string().default(""),
   MEDICO_CRM: z.string().default(""),
@@ -136,4 +142,9 @@ if (
   console.warn(
     "⚠️  CIS configurado mas BUILT_IN_FORGE_API_KEY ausente — todos os prompts CIS falharão com 401.",
   );
+}
+
+// Warn if ops endpoints are unprotected in production.
+if (env.NODE_ENV === 'production' && !env.OPS_TOKEN) {
+  console.warn('⚠️  OPS_TOKEN não configurado — /api/metrics e /api/admin/usage estão sem autenticação.')
 }

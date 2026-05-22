@@ -54,7 +54,7 @@ export async function createContext({
       };
     }
   } catch {
-    // token inválido ou expirado
+    logger.warn('[auth] JWT inválido ou expirado', { path: req.path, method: req.method })
   }
 
   return { req, session: null };
