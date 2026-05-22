@@ -29,9 +29,6 @@ const envSchema = z.object({
   BUILT_IN_FORGE_API_KEY: z.string().optional(),
   LLM_DAILY_LIMIT: z.coerce.number().int().positive().default(200),
 
-  // OpenAI Whisper — opcional, habilita transcrição de áudio de reuniões
-  OPENAI_API_KEY: z.string().optional(),
-
   REDIS_URL: z.string().default('redis://localhost:6379'),
 
   // Certificado ICP-Brasil (Railway: base64 do .pfx; dev: arquivo em server/certs/)

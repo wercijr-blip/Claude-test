@@ -357,11 +357,6 @@ app.post('/api/upload', uploadLimiter, async (req, res) => {
   await uploadExame(req, res)
 })
 
-// Transcrição de áudio de reunião via Whisper (OpenAI)
-app.post('/api/meeting/transcribe', uploadLimiter, async (req, res) => {
-  const { transcribeAudio } = await import('../routes/meeting.ts')
-  await transcribeAudio(req, res)
-})
 
 // Catch-all: servir index.html para rotas do SPA em produção.
 // Importante: NÃO servir index.html para assets ausentes (.css, .js, etc) —
