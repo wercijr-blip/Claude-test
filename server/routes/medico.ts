@@ -108,7 +108,7 @@ export const medicoRouter = router({
             observacoesMedico: input.observacoes,
             updatedAt: new Date(),
           })
-          .where(eq(pacientes.id, input.pacienteId))
+          .where(and(eq(pacientes.id, input.pacienteId), inArray(pacientes.status, ['pendente', 'em_revisao'])))
       })
 
       return okEmpty()
@@ -133,7 +133,7 @@ export const medicoRouter = router({
             observacoesMedico: input.motivo,
             updatedAt: new Date(),
           })
-          .where(eq(pacientes.id, input.pacienteId))
+          .where(and(eq(pacientes.id, input.pacienteId), inArray(pacientes.status, ['pendente', 'em_revisao'])))
       })
 
       return okEmpty()
