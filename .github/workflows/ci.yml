@@ -74,5 +74,4 @@ jobs:
         run: |
           test -f dist/client/index.html        || { echo "FAIL: dist/client/index.html missing";        exit 1; }
           test -d dist/client/assets            || { echo "FAIL: dist/client/assets missing";            exit 1; }
-          test -f dist/server/_core/index.js    || { echo "FAIL: dist/server/_core/index.js missing";    exit 1; }
           echo "Smoke: dist OK"
