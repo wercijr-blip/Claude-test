@@ -40,11 +40,19 @@ export function applySecurityMiddleware(app: Express): void {
           defaultSrc: ["'self'"],
           scriptSrc: [
             "'self'",
-            // Development: Vite HMR requires unsafe-inline
-            ...(env.NODE_ENV === 'development' ? ["'unsafe-inline'"] : []),
+            // GTM and Next.js app router require inline scripts (flight data, GTM init).
+            // Static export cannot use nonces — unsafe-inline is the only viable option.
+            "'unsafe-inline'",
             // Google Analytics and Tag Manager
             'https://www.googletagmanager.com',
             'https://www.google-analytics.com',
+            // Microsoft Clarity heatmaps
+            'https://www.clarity.ms',
+            // Meta Pixel
+            'https://connect.facebook.net',
+            // TikTok Pixel
+            'https://analytics.tiktok.com',
+            'https://sc-static.net',
             // Cloudflare Web Analytics (injected automatically by Cloudflare proxy)
             'https://static.cloudflareinsights.com',
           ],
@@ -52,9 +60,13 @@ export function applySecurityMiddleware(app: Express): void {
           // support it — list must mirror scriptSrc to avoid regression
           scriptSrcElem: [
             "'self'",
-            ...(env.NODE_ENV === 'development' ? ["'unsafe-inline'"] : []),
+            "'unsafe-inline'",
             'https://www.googletagmanager.com',
             'https://www.google-analytics.com',
+            'https://www.clarity.ms',
+            'https://connect.facebook.net',
+            'https://analytics.tiktok.com',
+            'https://sc-static.net',
             'https://static.cloudflareinsights.com',
           ],
           // React inline style={{}} attributes require 'unsafe-inline' for style-src
@@ -86,6 +98,15 @@ export function applySecurityMiddleware(app: Express): void {
             'https://viacep.com.br',
             // Cloudflare Web Analytics beacon data endpoint
             'https://cloudflareinsights.com',
+            // Microsoft Clarity
+            'https://www.clarity.ms',
+            // Meta Pixel
+            'https://www.facebook.com',
+            // TikTok Pixel
+            'https://analytics.tiktok.com',
+            // Google Tag Manager / Ads
+            'https://www.googletagmanager.com',
+            'https://stats.g.doubleclick.net',
           ],
           // Sentry Replay uses Web Workers via blob: URLs
           workerSrc: [
