@@ -16,21 +16,22 @@ export function startExamWorker() {
   const worker = new Worker(
     EXAM_QUEUE_NAME,
     async (job) => {
-      const { exameId } = job.data as { exameId: number }
+      const { exameId, requestId } = job.data as { exameId: number; requestId?: string }
+      const logCtx = { exameId, requestId }
 
       // 1. Run AI analysis (updates exames.resultadoIa with status: 'pendente')
       let resultado: ResultadoIa
       try {
         resultado = await analisarExame(exameId)
       } catch (err) {
-        logger.error(`[examQueue] Falha na análise do exame ${exameId}`, { error: (err as Error).message })
+        logger.error(`[examQueue] Falha na análise do exame ${exameId}`, { ...logCtx, error: (err as Error).message })
         throw err // Let BullMQ retry
       }
 
       // 2. Fetch the exam to get pacienteId
       const [exame] = await db.select().from(exames).where(eq(exames.id, exameId)).limit(1)
       if (!exame) {
-        logger.error(`[examQueue] Exame ${exameId} não encontrado após análise`)
+        logger.error(`[examQueue] Exame ${exameId} não encontrado após análise`, logCtx)
         return
       }
 
@@ -50,7 +51,7 @@ export function startExamWorker() {
             .where(eq(pacientes.id, pacienteId))
         })
 
-        logger.info(`[examQueue] Exame ${exameId} aprovado automaticamente`, { confianca: resultado.confianca, pacienteId })
+        logger.info(`[examQueue] Exame ${exameId} aprovado automaticamente`, { ...logCtx, confianca: resultado.confianca, pacienteId })
       } else if (resultado.resultado === 'reagente' || resultado.confianca < EXAM_RULES.LOW_CONFIDENCE_THRESHOLD) {
         // Reactive result or low confidence → flag for medico review
         const novoResultado: ResultadoIa = { ...resultado, status: 'rejeitado_ia' }
@@ -59,9 +60,8 @@ export function startExamWorker() {
           .set({ resultadoIa: novoResultado })
           .where(eq(exames.id, exameId))
 
-        logger.warn(`[examQueue] Exame ${exameId} rejeitado pela IA`, { resultado: resultado.resultado, confianca: resultado.confianca })
-        // Notification: log for now, replace with enviarNotificacaoMedico when email template is ready
-        logger.info(`[examQueue] Notificação pendente: exame ${exameId} aguarda revisão médica`, { motivo: 'resultado_reagente' })
+        logger.warn(`[examQueue] Exame ${exameId} rejeitado pela IA`, { ...logCtx, resultado: resultado.resultado, confianca: resultado.confianca })
+        logger.info(`[examQueue] Notificação pendente: exame ${exameId} aguarda revisão médica`, { ...logCtx, motivo: 'resultado_reagente' })
       } else {
         // Inconclusive or unidentified → flag for medico review
         const novoResultado: ResultadoIa = { ...resultado, status: 'pendente_revisao' }
@@ -70,12 +70,11 @@ export function startExamWorker() {
           .set({ resultadoIa: novoResultado })
           .where(eq(exames.id, exameId))
 
-        logger.warn(`[examQueue] Exame ${exameId} inconclusivo`, { resultado: resultado.resultado, confianca: resultado.confianca })
-        // Notification: log for now, replace with enviarNotificacaoMedico when email template is ready
-        logger.info(`[examQueue] Notificação pendente: exame ${exameId} aguarda revisão médica`, { motivo: 'resultado_inconclusivo' })
+        logger.warn(`[examQueue] Exame ${exameId} inconclusivo`, { ...logCtx, resultado: resultado.resultado, confianca: resultado.confianca })
+        logger.info(`[examQueue] Notificação pendente: exame ${exameId} aguarda revisão médica`, { ...logCtx, motivo: 'resultado_inconclusivo' })
       }
 
-      return { exameId, resultado: resultado.resultado, status: resultado.status }
+      return { exameId, requestId, resultado: resultado.resultado, status: resultado.status }
     },
     { ...EXAM_WORKER_OPTS, connection, concurrency: 5, prefix: QUEUE_PREFIX },
   )
