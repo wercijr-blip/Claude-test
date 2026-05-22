@@ -154,7 +154,7 @@ export const medicoRouter = router({
       })
       .from(exames)
       .where(
-        sql`JSON_UNQUOTE(JSON_EXTRACT(resultado_ia, '$.status')) IN ('rejeitado_ia', 'pendente_revisao')`
+        sql`JSON_UNQUOTE(JSON_EXTRACT(resultado_ia, '$.status')) IN ('rejeitado_ia', 'rejeitado', 'pendente_revisao')`
       )
       .orderBy(exames.createdAt)
       .limit(200)
