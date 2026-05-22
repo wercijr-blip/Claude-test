@@ -93,21 +93,23 @@ export const medicoRouter = router({
   aprovar: medicoProcedure
     .input(z.object({ pacienteId: z.number(), observacoes: z.string().optional() }))
     .mutation(async ({ input, ctx }) => {
-      const [p] = await db.select().from(pacientes).where(eq(pacientes.id, input.pacienteId)).limit(1)
-      if (!p) throw new TRPCError({ code: 'NOT_FOUND' })
-      if (p.medicoId !== null && p.medicoId !== ctx.session.id && ctx.session.role !== 'admin') {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Paciente em revisão por outro médico.' })
-      }
+      await db.transaction(async (tx) => {
+        const [p] = await tx.select().from(pacientes).where(eq(pacientes.id, input.pacienteId)).limit(1)
+        if (!p) throw new TRPCError({ code: 'NOT_FOUND' })
+        if (p.medicoId !== null && p.medicoId !== ctx.session.id && ctx.session.role !== 'admin') {
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'Paciente em revisão por outro médico.' })
+        }
 
-      await db
-        .update(pacientes)
-        .set({
-          status: 'aprovado',
-          medicoId: ctx.session.id,
-          observacoesMedico: input.observacoes,
-          updatedAt: new Date(),
-        })
-        .where(eq(pacientes.id, input.pacienteId))
+        await tx
+          .update(pacientes)
+          .set({
+            status: 'aprovado',
+            medicoId: ctx.session.id,
+            observacoesMedico: input.observacoes,
+            updatedAt: new Date(),
+          })
+          .where(eq(pacientes.id, input.pacienteId))
+      })
 
       return okEmpty()
     }),
@@ -116,21 +118,23 @@ export const medicoRouter = router({
   rejeitar: medicoProcedure
     .input(z.object({ pacienteId: z.number(), motivo: z.string().min(10) }))
     .mutation(async ({ input, ctx }) => {
-      const [p] = await db.select().from(pacientes).where(eq(pacientes.id, input.pacienteId)).limit(1)
-      if (!p) throw new TRPCError({ code: 'NOT_FOUND' })
-      if (p.medicoId !== null && p.medicoId !== ctx.session.id && ctx.session.role !== 'admin') {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Paciente em revisão por outro médico.' })
-      }
+      await db.transaction(async (tx) => {
+        const [p] = await tx.select().from(pacientes).where(eq(pacientes.id, input.pacienteId)).limit(1)
+        if (!p) throw new TRPCError({ code: 'NOT_FOUND' })
+        if (p.medicoId !== null && p.medicoId !== ctx.session.id && ctx.session.role !== 'admin') {
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'Paciente em revisão por outro médico.' })
+        }
 
-      await db
-        .update(pacientes)
-        .set({
-          status: 'rejeitado',
-          medicoId: ctx.session.id,
-          observacoesMedico: input.motivo,
-          updatedAt: new Date(),
-        })
-        .where(eq(pacientes.id, input.pacienteId))
+        await tx
+          .update(pacientes)
+          .set({
+            status: 'rejeitado',
+            medicoId: ctx.session.id,
+            observacoesMedico: input.motivo,
+            updatedAt: new Date(),
+          })
+          .where(eq(pacientes.id, input.pacienteId))
+      })
 
       return okEmpty()
     }),
