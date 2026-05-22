@@ -41,7 +41,7 @@ export const medicoRouter = router({
   // Ver detalhe de um paciente
   verPaciente: medicoProcedure
     .input(z.object({ pacienteId: z.number() }))
-    .query(async ({ input, ctx }) => {
+    .mutation(async ({ input, ctx }) => {
       const [p] = await db
         .select()
         .from(pacientes)

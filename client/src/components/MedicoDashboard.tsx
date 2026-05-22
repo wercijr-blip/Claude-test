@@ -29,10 +29,9 @@ export default function MedicoDashboard() {
     refetchIntervalInBackground: false,
   })
   const pendentes = pendentesPage?.data
-  const { data: paciente, isLoading: pacienteLoading } = trpc.medico.verPaciente.useQuery(
-    { pacienteId: selectedId! },
-    { enabled: !!selectedId },
-  )
+  const verPacienteMutation = trpc.medico.verPaciente.useMutation()
+  const paciente = verPacienteMutation.data
+  const pacienteLoading = verPacienteMutation.isPending
   const { data: examesRejeitados, isLoading: examesRejeitadosLoading } = trpc.medico.listarExamesRejeitadosIa.useQuery(undefined, {
     refetchInterval: 30_000,
     refetchIntervalInBackground: false,
@@ -48,10 +47,10 @@ export default function MedicoDashboard() {
   }
 
   const aprovar = trpc.medico.aprovar.useMutation({
-    onSuccess: () => { setSelectedId(null); invalidarListas() },
+    onSuccess: () => { setSelectedId(null); verPacienteMutation.reset(); invalidarListas() },
   })
   const rejeitar = trpc.medico.rejeitar.useMutation({
-    onSuccess: () => { setSelectedId(null); invalidarListas() },
+    onSuccess: () => { setSelectedId(null); verPacienteMutation.reset(); invalidarListas() },
   })
   const liberarExame = trpc.medico.liberarExameSemValidacao.useMutation({
     onSuccess: () => invalidarListas(),
@@ -133,7 +132,7 @@ export default function MedicoDashboard() {
               : pendentes?.map((p) => (
               <button
                 key={p.id}
-                onClick={() => setSelectedId(p.id)}
+                onClick={() => { setSelectedId(p.id); verPacienteMutation.mutate({ pacienteId: p.id }) }}
                 className={`w-full text-left p-4 border-b border-slate-100 hover:bg-slate-50 transition-colors ${selectedId === p.id ? 'bg-blue-50 border-l-2 border-l-blue-500' : ''}`}
               >
                 <p className="font-medium text-slate-800 text-sm">{p.nome}</p>
