@@ -1,6 +1,5 @@
-// O step "Serviço" foi removido do fluxo — não tinha campo útil pro
-// paciente (tipo de atendimento e convênio já vêm do intake/Stripe).
-// Pacientes existentes com currentStep=6 (estavam no Serviço antigo)
+// O step "Serviço" foi removido do fluxo — tipo de atendimento e convênio
+// vêm do intake (accessToken). Pacientes com currentStep=6 (step antigo)
 // passam direto pro TCLE — comportamento idempotente.
 export const FORM_STEPS = [
   { step: 1, titulo: 'Dados Pessoais', rota: 'paciente' },

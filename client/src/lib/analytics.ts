@@ -237,8 +237,8 @@ export function trackBeginCheckout(plan: string, value: number): void {
 }
 
 /**
- * Stripe payment confirmed — call from /pagamento/sucesso.
- * userEmail is hashed client-side for Enhanced Conversions (D03).
+ * Payment confirmed — call from /pagamento/sucesso.
+ * userEmail is hashed client-side for Enhanced Conversions.
  */
 export function trackPurchase(orderId: string, value: number, userEmail?: string): void {
   const eventId = generateEventId()

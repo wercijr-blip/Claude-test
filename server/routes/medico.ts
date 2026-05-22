@@ -8,11 +8,7 @@ import { decrypt } from '../_core/encryption.ts'
 import { isExameRejeitadoIa } from '../examUtils.ts'
 import { okEmpty } from '../_core/response.ts'
 import { paginationInput, paginatedResponse } from '../_core/pagination.ts'
-
-type ResultadoIaJson = {
-  status?: string
-  [key: string]: unknown
-}
+import type { ResultadoIa } from '../../shared/types.ts'
 
 export const medicoRouter = router({
   // Listar pacientes pendentes de revisão
@@ -132,7 +128,7 @@ export const medicoRouter = router({
   // Listar exames com rejeição de IA (status rejeitado_ia no resultadoIa)
   listarExamesRejeitadosIa: medicoProcedure.query(async () => {
     const rows = await db.select().from(exames).orderBy(exames.createdAt).limit(200)
-    return rows.filter((e) => isExameRejeitadoIa(e.resultadoIa as ResultadoIaJson | null)).map((e) => ({
+    return rows.filter((e) => isExameRejeitadoIa(e.resultadoIa)).map((e) => ({
       id: e.id,
       pacienteId: e.pacienteId,
       nomeArquivo: e.nomeArquivo,
@@ -154,10 +150,10 @@ export const medicoRouter = router({
       const [exame] = await db.select().from(exames).where(eq(exames.id, input.exameId)).limit(1)
       if (!exame) throw new TRPCError({ code: 'NOT_FOUND', message: 'Exame não encontrado.' })
 
-      const resultadoAtual = exame.resultadoIa as ResultadoIaJson | null
+      const resultadoAtual = exame.resultadoIa
       if (
-        resultadoAtual?.status !== 'rejeitado_ia' &&
-        resultadoAtual?.status !== 'rejeitado'
+        !resultadoAtual ||
+        (resultadoAtual.status !== 'rejeitado_ia' && resultadoAtual.status !== 'rejeitado')
       ) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
@@ -165,7 +161,7 @@ export const medicoRouter = router({
         })
       }
 
-      const novoResultado: ResultadoIaJson = {
+      const novoResultado: ResultadoIa = {
         ...resultadoAtual,
         status: 'liberado_manualmente',
         observacoesMedico: input.observacoes ?? null,

@@ -91,7 +91,7 @@ export function startExamWorker() {
         queue: EXAM_QUEUE_NAME,
         jobId: job?.id ? String(job.id) : null,
         jobName: job?.name ?? 'analisar',
-        data: job?.data ?? null,
+        data: (job?.data as Record<string, unknown>) ?? null,
         failReason: err.message,
         attempts: job?.attemptsMade ?? 0,
       }).catch((e: unknown) => logger.error('[dlq] falha ao persistir job', { error: String(e) }))

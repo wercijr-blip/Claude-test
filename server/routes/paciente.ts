@@ -113,7 +113,7 @@ export const pacienteRouter = router({
       retentionUntil.setFullYear(retentionUntil.getFullYear() + 20)
 
       // Deriva tipoAtendimento e convenio do accessToken (preenchido pelo
-      // intake/Stripe). O Step "Serviço" foi removido do fluxo, então
+      // intake). O Step "Serviço" foi removido do fluxo, então
       // precisamos capturar essas informações na criação do paciente —
       // continuam sendo usadas em dashboards (medico, admin, secretaria).
       const [tokenInfo] = await db

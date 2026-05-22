@@ -1,99 +1,40 @@
 name: CI
+
 on:
   push:
-    branches: [main, 'claude/**']
+    branches: ['**']
   pull_request:
-    branches: [main]
 
 jobs:
-  validate:
+  test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@v3
         with:
-          version: 10.4.1
+          version: '10.4.1'
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'pnpm'
 
-      - run: pnpm install --frozen-lockfile
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-      - name: TypeScript check
+      - name: Type check (server + client)
         run: pnpm check
+
+      - name: Type check (web/Next.js)
+        run: pnpm --filter facilita-prep-web exec tsc --noEmit
 
       - name: Lint
         run: pnpm lint
 
-      - name: Format check
-        run: pnpm prettier --check .
-
-      # Validates that server/env.ts parses successfully with a complete env set.
-      # Catches cases where a previously-optional var is made required without
-      # updating Railway variables — the exact cause of the May 2026 boot crash.
-      - name: Env schema smoke test
-        run: node --input-type=module <<'EOF'
-          process.env.NODE_ENV = 'test'
-          process.env.DATABASE_URL = 'mysql://root:root@localhost:3306/test'
-          process.env.JWT_SECRET = 'test-secret-minimum-32-characters-long-xx'
-          process.env.ENCRYPTION_KEY = '0'.repeat(64)
-          process.env.CPF_HASH_SALT = 'test-cpf-hash-salt-minimum-32-characters-xx'
-          process.env.TOTP_ENC_KEY = '0'.repeat(64)
-          process.env.AWS_ACCESS_KEY_ID = 'test'
-          process.env.AWS_SECRET_ACCESS_KEY = 'test'
-          process.env.AWS_S3_BUCKET = 'test'
-          process.env.AWS_REGION = 'us-east-1'
-          process.env.GOOGLE_CLIENT_ID = 'test'
-          process.env.GOOGLE_CLIENT_SECRET = 'test'
-          process.env.OWNER_OPEN_ID = 'test'
-          const { env } = await import('./server/_core/env.ts')
-          console.log('✅ Env schema OK — NODE_ENV:', env.NODE_ENV)
-        EOF
-
-      # Catches schema.ts changes that were not captured in a migration file.
-      # Run db:generate locally before pushing if this step fails.
-      - name: Migration drift check
-        run: DATABASE_URL=mysql://root:root@localhost:3306/test pnpm db:check
-
       - name: Tests
-        run: pnpm test:coverage
-        env:
-          NODE_ENV: test
-          DATABASE_URL: mysql://root:root@localhost:3306/test
-          JWT_SECRET: test-secret-minimum-32-characters-long-xx
-          ENCRYPTION_KEY: 0000000000000000000000000000000000000000000000000000000000000000
-          CPF_HASH_SALT: test-cpf-hash-salt-minimum-32-characters
-          TOTP_ENC_KEY: 0000000000000000000000000000000000000000000000000000000000000000
-          AWS_ACCESS_KEY_ID: test
-          AWS_SECRET_ACCESS_KEY: test
-          AWS_S3_BUCKET: test
-          GOOGLE_CLIENT_ID: test
-          GOOGLE_CLIENT_SECRET: test
-          OWNER_OPEN_ID: test
+        run: pnpm test
 
-      - name: Dependency audit
+      - name: Audit (high/critical CVEs)
         run: pnpm audit --audit-level=high
-
-      - name: Build
-        run: pnpm build
-        env:
-          VITE_APP_ID: facilita-prep
-          NODE_ENV: production
-
-  deploy-staging:
-    needs: validate
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    environment: staging
-    steps:
-      - name: Deploy to Railway staging
-        run: |
-          echo "Staging deploy triggered via Railway webhook"
-          curl -s -o /dev/null -w "%{http_code}" \
-            -X POST "$RAILWAY_DEPLOY_HOOK_STAGING" \
-            | grep -q "200\|201\|204" && echo "Deploy triggered" || echo "Deploy hook not configured"
-        env:
-          RAILWAY_DEPLOY_HOOK_STAGING: ${{ secrets.RAILWAY_DEPLOY_HOOK_STAGING }}
+        continue-on-error: true

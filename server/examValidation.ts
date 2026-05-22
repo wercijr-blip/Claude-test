@@ -1,22 +1,9 @@
 import { env } from './_core/env.ts'
 import { logger } from './_core/logger.ts'
 import { getPresignedUrl } from './storage.ts'
+import type { ExtracacaoExame } from '../shared/types.ts'
 
-export interface ExtracacaoExame {
-  // Tipo de exame identificado pela IA — usado para garantir que estamos
-  // analisando um exame de HIV e não outro (creatinina, hepatite, etc).
-  tipoExameDetectado: 'hiv' | 'outro' | 'nao_identificado'
-  nomeExame: string | null
-  resultadoHiv: 'reagente' | 'nao_reagente' | 'inconclusivo' | 'nao_identificado'
-  // Texto literal do resultado conforme escrito no laudo
-  // (ex.: "Não reagente", "Negativo", "Anti-HIV: NEGATIVO"). Auditoria.
-  resultadoTexto: string | null
-  dataColeta: string | null // DD/MM/YYYY — data da coleta do material
-  dataResultado: string | null // DD/MM/YYYY — data de emissão/liberação do laudo
-  dataExame: string | null // DD/MM/YYYY — efetiva: a MAIS RECENTE entre coleta e resultado
-  confianca: number // 0–1
-  processadoEm: string
-}
+export type { ExtracacaoExame }
 
 // ─── Utility: fuzzy name similarity (normalized Levenshtein) ─────────────────
 

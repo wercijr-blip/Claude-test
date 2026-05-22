@@ -10,6 +10,7 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/mysql-core'
 import { sql } from 'drizzle-orm'
+import type { Conduta, Prescricao, Autorizado, ResultadoIa, ExtracacaoExame } from '../shared/types.ts'
 
 // ── Usuários (staff: secretaria, médico, admin) ──────────────
 
@@ -23,7 +24,7 @@ export const users = mysqlTable('users', {
   // TOTP 2FA — obrigatório para admin e medico
   totpSecretEncrypted: text('totp_secret_encrypted'),
   totpEnabled: boolean('totp_enabled').notNull().default(false),
-  totpBackupCodes: json('totp_backup_codes'),  // string[] (hashed, each single-use)
+  totpBackupCodes: json('totp_backup_codes').$type<string[]>(),
   // Soft delete — LGPD audit trail; never hard-delete staff records
   deletedAt: datetime('deleted_at'),
   deletedBy: int('deleted_by'),
@@ -96,10 +97,10 @@ export const pacientes = mysqlTable('pacientes', {
   estado: varchar('estado', { length: 2 }),
 
   // Step 4 — Conduta (dados clínicos como JSON)
-  condutaJson: json('conduta_json'),
+  condutaJson: json('conduta_json').$type<Conduta>(),
 
   // Step 5 — Prescrição
-  prescricaoJson: json('prescricao_json'),
+  prescricaoJson: json('prescricao_json').$type<Prescricao>(),
   prepModalidade: varchar('prep_modalidade', { length: 30 }),  // 'PrEP diária' | 'PrEP sob demanda'
 
   // Step 6 — Serviço
@@ -109,7 +110,7 @@ export const pacientes = mysqlTable('pacientes', {
   valorCentavos: int('valor_centavos'),
 
   // Step 7 — Autorizados
-  autorizadosJson: json('autorizados_json'),
+  autorizadosJson: json('autorizados_json').$type<Autorizado[]>(),
 
   // Metadata
   status: varchar('status', { length: 50 }).notNull().default('rascunho'),
@@ -136,15 +137,7 @@ export const exames = mysqlTable('exames', {
   tipoExame: varchar('tipo_exame', { length: 100 }),
   mimeType: varchar('mime_type', { length: 100 }),
   tamanhoBytes: int('tamanho_bytes'),
-  // resultadoIa JSON shape (see shared/types.ts ResultadoIa):
-  //   tipoExame: TipoExame
-  //   resultado: 'reagente' | 'nao_reagente' | 'inconclusivo' | 'nao_identificado'
-  //   confianca: number (0–1)
-  //   observacoes?: string
-  //   processadoEm: ISO timestamp (set by analisarExame)
-  //   status: 'pendente' | 'aprovado_automaticamente' | 'rejeitado_ia' | 'pendente_revisao'
-  //           (set by examQueue worker after auto-approval logic)
-  resultadoIa: json('resultado_ia'),
+  resultadoIa: json('resultado_ia').$type<ResultadoIa>(),
   revisadoPorId: int('revisado_por_id').references(() => users.id),
   revisadoEm: datetime('revisado_em'),
   liberadoPorMedicoId: int('liberado_por_medico_id').references(() => users.id),
@@ -191,7 +184,7 @@ export const securityEvents = mysqlTable('security_events', {
   userId: int('user_id').references(() => users.id),
   ipAddress: varchar('ip_address', { length: 45 }),
   userAgent: text('user_agent'),
-  detalhes: json('detalhes'),
+  detalhes: json('detalhes').$type<Record<string, unknown>>(),
   createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (t) => ({
   tipoIdx: index('idx_sec_tipo').on(t.tipoEvento),
@@ -233,7 +226,7 @@ export const consultasInicio = mysqlTable('consultas_inicio', {
   //   rejeitado_data_invalida | pendente_revisao_medica | pendente_revisao_medica_urgente |
   //   aprovado_ia | aprovado | rejeitado | em_validacao_medica | expirado
   status: varchar('status', { length: 50 }).notNull().default('aguardando_escolha'),
-  resultadoIa: json('resultado_ia'),
+  resultadoIa: json('resultado_ia').$type<ExtracacaoExame>(),
   motivoRejeicao: varchar('motivo_rejeicao', { length: 200 }),
   tentativasReenvio: int('tentativas_reenvio').notNull().default(0),
   validadoPorId: int('validado_por_id').references(() => users.id),
@@ -267,7 +260,6 @@ export const precadastros = mysqlTable('precadastros', {
   documentoS3Key: varchar('documento_s3_key', { length: 500 }),
   // Status do fluxo
   status: varchar('status', { length: 50 }).notNull().default('aguardando'),
-  stripeSessionId: varchar('stripe_session_id', { length: 200 }),
   accessTokenId: int('access_token_id').references(() => accessTokens.id),
   validadoPorId: int('validado_por_id').references(() => users.id),
   validadoEm: datetime('validado_em'),
@@ -276,7 +268,6 @@ export const precadastros = mysqlTable('precadastros', {
 }, (t) => ({
   cpfHashIdx: index('idx_precad_cpf_hash').on(t.cpfHash),
   statusIdx: index('idx_precad_status').on(t.status),
-  sessionIdx: index('idx_precad_session').on(t.stripeSessionId),
 }))
 
 // ── Pesquisa de satisfação ────────────────────────────────────
@@ -300,22 +291,19 @@ export const pagamentos = mysqlTable('pagamentos', {
   pacienteId: int('paciente_id').notNull().references(() => pacientes.id),
   provider: varchar('provider', { length: 20 }).notNull().default('asaas'),
   asaasPaymentId: varchar('asaas_payment_id', { length: 100 }),
-  // Deprecated — kept for historical rows that went through Stripe
-  stripePaymentId: varchar('stripe_payment_id', { length: 100 }),
-  stripeSessionId: varchar('stripe_session_id', { length: 100 }),
   status: varchar('status', { length: 50 }).notNull().default('pendente'),
   valorCentavos: int('valor_centavos').notNull(),
   createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (t) => ({
   pacienteIdx: index('idx_pagamentos_paciente').on(t.pacienteId),
   asaasIdx: index('idx_pagamentos_asaas').on(t.asaasPaymentId),
-  sessionIdx: index('idx_pagamentos_session').on(t.stripeSessionId),
 }))
 
-// ── Eventos Stripe (idempotência de webhook) ──────────────────
+// ── Idempotência de webhook (Asaas / pagamentos) ──────────────
 // Registra event.id processado para evitar reprocessamento em caso de retry.
+// Tabela mantida com nome histórico stripe_events no banco.
 
-export const stripeEvents = mysqlTable('stripe_events', {
+export const webhookEvents = mysqlTable('stripe_events', {
   eventId: varchar('event_id', { length: 100 }).primaryKey(),
   type: varchar('type', { length: 100 }).notNull(),
   processadoEm: datetime('processado_em').notNull().default(sql`CURRENT_TIMESTAMP`),
@@ -336,7 +324,7 @@ export const auditLog = mysqlTable('audit_log', {
   resourceType: varchar('resource_type', { length: 50 }).notNull(),
   resourceId: int('resource_id'),
   // Contexto adicional (campos acessados, motivo, etc.)
-  detalhes: json('detalhes'),
+  detalhes: json('detalhes').$type<Record<string, unknown>>(),
   // Rastreabilidade de rede
   ipAddress: varchar('ip_address', { length: 45 }),
   userAgent: text('user_agent'),
@@ -370,7 +358,7 @@ export const dlqJobs = mysqlTable('dlq_jobs', {
   queue: varchar('queue', { length: 100 }).notNull(),
   jobId: varchar('job_id', { length: 200 }),
   jobName: varchar('job_name', { length: 100 }).notNull(),
-  data: json('data'),
+  data: json('data').$type<Record<string, unknown>>(),
   failReason: text('fail_reason'),
   attempts: int('attempts').default(0),
   // Set when a reprocess is in-flight; prevents double-processing on retry clicks

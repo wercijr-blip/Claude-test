@@ -2,7 +2,7 @@ import { timingSafeEqual, randomUUID } from 'crypto'
 import type { Request, Response } from 'express'
 import { env } from '../_core/env.ts'
 import { db } from '../db.ts'
-import { pagamentos, precadastros, stripeEvents } from '../../drizzle/schema.ts'
+import { pagamentos, precadastros, webhookEvents } from '../../drizzle/schema.ts'
 import { eq } from 'drizzle-orm'
 import { gerarEEnviarLinkAcesso } from '../routes/intake.ts'
 import { emitirNfseAsaas } from './client.ts'
@@ -59,12 +59,11 @@ export async function handleAsaasWebhook(req: Request, res: Response): Promise<v
     return
   }
 
-  // Idempotency key reuses stripeEvents table (same PK uniqueness pattern)
   const eventId = `asaas-${eventType}-${paymentId}`
   log('INFO', `Webhook received: ${eventType}`, { eventId })
 
   try {
-    await db.insert(stripeEvents).values({ eventId, type: eventType })
+    await db.insert(webhookEvents).values({ eventId, type: eventType })
   } catch (claimErr) {
     if ((claimErr as NodeJS.ErrnoException).code === 'ER_DUP_ENTRY') {
       log('INFO', `Event already processed — returning 200 (idempotent): ${eventId}`)
@@ -91,7 +90,7 @@ export async function handleAsaasWebhook(req: Request, res: Response): Promise<v
       extra: { eventType, eventId },
     })
     // Remove idempotency claim so Asaas can retry
-    await db.delete(stripeEvents).where(eq(stripeEvents.eventId, eventId)).catch(() => {})
+    await db.delete(webhookEvents).where(eq(webhookEvents.eventId, eventId)).catch(() => {})
     res.status(500).json({ error: 'Erro interno ao processar webhook' })
     return
   }

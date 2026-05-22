@@ -103,15 +103,13 @@ const DDL_STATEMENTS = [
     carteirinha_s3_key VARCHAR(500),
     documento_s3_key VARCHAR(500),
     status VARCHAR(50) NOT NULL DEFAULT 'aguardando',
-    stripe_session_id VARCHAR(200),
     access_token_id INT,
     validado_por_id INT,
     validado_em DATETIME,
     observacoes TEXT,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_precad_cpf_hash (cpf_hash),
-    INDEX idx_precad_status (status),
-    INDEX idx_precad_session (stripe_session_id)
+    INDEX idx_precad_status (status)
   )`,
 
   `CREATE TABLE IF NOT EXISTS exames (
@@ -223,14 +221,11 @@ const DDL_STATEMENTS = [
     paciente_id INT NOT NULL,
     provider VARCHAR(20) NOT NULL DEFAULT 'asaas',
     asaas_payment_id VARCHAR(100),
-    stripe_payment_id VARCHAR(100),
-    stripe_session_id VARCHAR(100),
     status VARCHAR(50) NOT NULL DEFAULT 'pendente',
     valor_centavos INT NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_pagamentos_paciente (paciente_id),
-    INDEX idx_pagamentos_asaas (asaas_payment_id),
-    INDEX idx_pagamentos_session (stripe_session_id)
+    INDEX idx_pagamentos_asaas (asaas_payment_id)
   )`,
 
   `CREATE TABLE IF NOT EXISTS stripe_events (
@@ -352,16 +347,14 @@ const COLUMN_PATCHES: Record<string, Array<{ name: string; ddl: string }>> = {
   pagamentos: [
     { name: 'provider', ddl: "VARCHAR(20) NOT NULL DEFAULT 'asaas'" },
     { name: 'asaas_payment_id', ddl: 'VARCHAR(100)' },
-    { name: 'stripe_payment_id', ddl: 'VARCHAR(100)' },
-    { name: 'stripe_session_id', ddl: 'VARCHAR(100)' },
     { name: 'status', ddl: "VARCHAR(50) NOT NULL DEFAULT 'pendente'" },
     // valor_centavos é NOT NULL sem DEFAULT — ALTER TABLE ADD COLUMN
     // com NOT NULL falha em tabela com dados, então não é patchável.
     // Em ambientes pré-existentes a coluna já deve existir; deploys
     // novos pegam via CREATE TABLE.
   ],
-  // stripe_events e pesquisa_tokens só têm colunas NOT NULL essenciais
-  // (event_id PK / token / expira_em). Nada para patch.
+  // stripe_events (tabela de idempotência de webhooks) e pesquisa_tokens
+  // só têm colunas NOT NULL essenciais. Nada para patch.
 }
 
 // Mapa de tabela.coluna -> DDL para conversão de NOT NULL → NULL.
