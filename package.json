@@ -14,6 +14,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "db:reset": "docker compose exec -T mysql mysql -u root -proot -e \"DROP DATABASE IF EXISTS facilita_prep; CREATE DATABASE facilita_prep CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;\" && DATABASE_URL=mysql://root:root@127.0.0.1:3306/facilita_prep pnpm db:push",
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
