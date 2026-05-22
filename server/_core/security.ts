@@ -73,7 +73,11 @@ export function applySecurityMiddleware(app: Express): void {
             "'self'",
             'data:',
             'blob:',
-            'https:',
+            'https://www.googletagmanager.com',
+            'https://www.google-analytics.com',
+            'https://www.facebook.com',
+            'https://www.clarity.ms',
+            'https://analytics.tiktok.com',
           ],
           connectSrc: [
             "'self'",

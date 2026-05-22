@@ -218,6 +218,15 @@ export const MOTIVO_REJEICAO_EXAME = {
   RESULTADO_POSITIVO: 'resultado_positivo',
 } as const
 
+export const EXAME_IA_STATUS = {
+  PENDENTE: 'pendente',
+  APROVADO_AUTO: 'aprovado_automaticamente',
+  REJEITADO_IA: 'rejeitado_ia',
+  REJEITADO: 'rejeitado',
+  PENDENTE_REVISAO: 'pendente_revisao',
+  LIBERADO_MANUALMENTE: 'liberado_manualmente',
+} as const
+
 // ── Estrutura de exame com código TUSS ───────────────────────
 export interface Exame {
   nome: string

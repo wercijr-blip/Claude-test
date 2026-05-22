@@ -186,7 +186,42 @@ curl -H "x-ops-token: $OPS_TOKEN" https://facilitaprep.com.br/api/metrics | jq .
 
 ---
 
-## 9. Pós-incidente
+## 9. Branch errado em produção
+
+**Sintomas:** Funcionalidades críticas desapareceram; logs mostram erros de módulo inexistente; schema de DB diferente do esperado.
+
+**Como identificar:**
+```bash
+curl https://facilitaprep.com.br/api/health/version | jq .commit
+git log --oneline origin/claude/review-facilita-prep-setup-ZDKky -5
+```
+
+**Recovery imediato:**
+```bash
+# Verificar estado local
+git log --oneline -5
+
+# Force-push para restaurar estado correto
+# ATENÇÃO: confirmar que o branch local está no estado desejado antes deste comando
+git push --force-with-lease origin claude/review-facilita-prep-setup-ZDKky
+```
+
+Railway faz redeploy automático ao detectar o push.
+
+---
+
+## 9b. Vazamento de dados (LGPD Art. 48 — prazo 72h ANPD)
+
+1. **Isolar sistema** imediatamente: Railway → Variables → `MAINTENANCE_MODE=true` → Redeploy
+2. **Mapear escopo**: consultar `security_events` e `audit_log` para identificar pacientes afetados
+3. **Notificar ANPD**: https://www.gov.br/anpd/pt-br/assuntos/noticias/incidentes (prazo 72h)
+4. **Notificar titulares**: e-mail individualizado com dados afetados e medidas tomadas
+5. **Documentar**: data/hora descoberta, causa raiz, dados afetados, ações corretivas
+6. **Post-mortem**: criar `docs/post-mortems/YYYY-MM-DD-<titulo>.md`
+
+---
+
+## 10. Pós-incidente
 
 Após resolução de qualquer incidente de P1 (site fora) ou P2 (feature crítica inoperante):
 

@@ -1,18 +1,14 @@
 import { Queue, Worker } from 'bullmq'
-import { redis } from './_core/redis.ts'
-import { env } from './_core/env.ts'
 import { logger } from './_core/logger.ts'
 import { db } from './db.ts'
-import { exames, pacientes, dlqJobs } from '../drizzle/schema.ts'
+import { exames, pacientes } from '../drizzle/schema.ts'
 import { eq } from 'drizzle-orm'
 import { analisarExame } from './examAnalysis.ts'
 import { EXAM_RULES } from '../shared/security-constants.ts'
 import type { ResultadoIa } from '../shared/types.ts'
+import { connection, QUEUE_PREFIX, persistDlq } from './workers/queues.ts'
 
 export const EXAM_QUEUE_NAME = 'exam-analysis'
-
-const connection = redis
-const QUEUE_PREFIX = env.NODE_ENV === 'production' ? '{fp-prod}' : `{fp-${env.NODE_ENV}}`
 
 export const examQueue = new Queue(EXAM_QUEUE_NAME, { connection, prefix: QUEUE_PREFIX })
 
@@ -87,22 +83,16 @@ export function startExamWorker() {
   worker.on('failed', (job, err) => {
     logger.error(`[examQueue] Job ${job?.id} falhou (${job?.attemptsMade} tentativas)`, { error: err.message })
     if ((job?.attemptsMade ?? 0) >= (job?.opts?.attempts ?? 3)) {
-      db.insert(dlqJobs).values({
-        queue: EXAM_QUEUE_NAME,
-        jobId: job?.id ? String(job.id) : null,
-        jobName: job?.name ?? 'analisar',
-        data: job?.data ?? null,
-        failReason: err.message,
-        attempts: job?.attemptsMade ?? 0,
-      }).catch((e: unknown) => logger.error('[dlq] falha ao persistir job', { error: String(e) }))
+      persistDlq(EXAM_QUEUE_NAME, job, err)
     }
   })
 
   return worker
 }
 
-export async function enqueueAnalisarExame(exameId: number) {
-  return examQueue.add('analisar', { exameId }, {
+export async function enqueueAnalisarExame(exameId: number, requestId?: string) {
+  return examQueue.add('analisar', { exameId, requestId }, {
+    jobId: `exam-${exameId}`,
     attempts: 3,
     backoff: { type: 'exponential', delay: 5000 },
   })

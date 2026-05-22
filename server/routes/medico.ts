@@ -3,9 +3,8 @@ import { router, medicoProcedure } from '../_core/trpc.ts'
 import { TRPCError } from '@trpc/server'
 import { db } from '../db.ts'
 import { pacientes, exames } from '../../drizzle/schema.ts'
-import { eq, inArray, and, gt } from 'drizzle-orm'
+import { eq, inArray, and, gt, sql } from 'drizzle-orm'
 import { decrypt } from '../_core/encryption.ts'
-import { isExameRejeitadoIa } from '../examUtils.ts'
 import { okEmpty } from '../_core/response.ts'
 import { paginationInput, paginatedResponse } from '../_core/pagination.ts'
 
@@ -55,10 +54,11 @@ export const medicoRouter = router({
 
       if (!p) throw new TRPCError({ code: 'NOT_FOUND' })
 
+      // Only claim 'em_revisao' if still 'pendente' — avoids overwriting another doctor's lock
       await db
         .update(pacientes)
         .set({ status: 'em_revisao', medicoId: ctx.session.id, updatedAt: new Date() })
-        .where(eq(pacientes.id, input.pacienteId))
+        .where(and(eq(pacientes.id, input.pacienteId), inArray(pacientes.status, ['pendente'])))
 
       const examesDoP = await db
         .select()
@@ -129,19 +129,25 @@ export const medicoRouter = router({
       return okEmpty()
     }),
 
-  // Listar exames com rejeição de IA (status rejeitado_ia no resultadoIa)
+  // Listar exames com rejeição de IA — filtra diretamente no SQL, sem carregar 200 linhas em memória
   listarExamesRejeitadosIa: medicoProcedure.query(async () => {
-    const rows = await db.select().from(exames).orderBy(exames.createdAt).limit(200)
-    return rows.filter((e) => isExameRejeitadoIa(e.resultadoIa as ResultadoIaJson | null)).map((e) => ({
-      id: e.id,
-      pacienteId: e.pacienteId,
-      nomeArquivo: e.nomeArquivo,
-      tipoExame: e.tipoExame,
-      resultadoIa: e.resultadoIa,
-      liberadoPorMedicoId: e.liberadoPorMedicoId,
-      liberadoEm: e.liberadoEm,
-      createdAt: e.createdAt,
-    }))
+    return db
+      .select({
+        id: exames.id,
+        pacienteId: exames.pacienteId,
+        nomeArquivo: exames.nomeArquivo,
+        tipoExame: exames.tipoExame,
+        resultadoIa: exames.resultadoIa,
+        liberadoPorMedicoId: exames.liberadoPorMedicoId,
+        liberadoEm: exames.liberadoEm,
+        createdAt: exames.createdAt,
+      })
+      .from(exames)
+      .where(
+        sql`JSON_UNQUOTE(JSON_EXTRACT(resultado_ia, '$.status')) IN ('rejeitado_ia', 'pendente_revisao')`
+      )
+      .orderBy(exames.createdAt)
+      .limit(200)
   }),
 
   // Liberar exame que foi rejeitado pela IA (aprovação manual pelo médico)

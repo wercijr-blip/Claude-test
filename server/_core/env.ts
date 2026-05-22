@@ -101,7 +101,8 @@ if (env.NODE_ENV === 'development' && process.env['RAILWAY_ENVIRONMENT']) {
   process.exit(1)
 }
 
-// Warn if ops endpoints are unprotected in production.
+// Require OPS_TOKEN in production — metrics and usage endpoints expose internal state.
 if (env.NODE_ENV === 'production' && !env.OPS_TOKEN) {
-  console.warn('⚠️  OPS_TOKEN não configurado — /api/metrics e /api/admin/usage estão sem autenticação.')
+  console.error('❌ OPS_TOKEN não configurado em produção. Defina OPS_TOKEN (mín 32 chars) no Railway.')
+  process.exit(1)
 }
