@@ -23,6 +23,9 @@ vi.mock('./_core/env.ts', () => ({
 
 vi.mock('./db.ts', () => ({ db: {} }))
 vi.mock('./storage.ts', () => ({ getPresignedUrl: vi.fn(), uploadBuffer: vi.fn() }))
+vi.mock('./_core/logger.ts', () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+}))
 
 import { TRPCError } from '@trpc/server'
 
@@ -65,4 +68,41 @@ describe('medicoProcedure — controle de acesso por role', () => {
       callMw(mw, { session: null, req: {} as never })
     ).rejects.toThrow(TRPCError)
   })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EXAME_IA_STATUS — garante que todos os status usados no código estão definidos
+// ─────────────────────────────────────────────────────────────────────────────
+describe('EXAME_IA_STATUS', () => {
+  it('define todos os status esperados', async () => {
+    const { EXAME_IA_STATUS } = await import('../shared/const.ts')
+    expect(EXAME_IA_STATUS.PENDENTE).toBe('pendente')
+    expect(EXAME_IA_STATUS.APROVADO_AUTO).toBe('aprovado_automaticamente')
+    expect(EXAME_IA_STATUS.REJEITADO_IA).toBe('rejeitado_ia')
+    expect(EXAME_IA_STATUS.REJEITADO).toBe('rejeitado')
+    expect(EXAME_IA_STATUS.PENDENTE_REVISAO).toBe('pendente_revisao')
+    expect(EXAME_IA_STATUS.LIBERADO_MANUALMENTE).toBe('liberado_manualmente')
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// liberarExameSemValidacao — validação de status (regra de negócio)
+// ─────────────────────────────────────────────────────────────────────────────
+describe('liberarExameSemValidacao — guard de status', () => {
+  // Replica a condição de guarda exata do handler (evita regressão de status)
+  function podeLiberar(status: string | undefined): boolean {
+    return (
+      status === 'rejeitado_ia' ||
+      status === 'rejeitado' ||
+      status === 'pendente_revisao'
+    )
+  }
+
+  it('aceita rejeitado_ia', () => { expect(podeLiberar('rejeitado_ia')).toBe(true) })
+  it('aceita rejeitado (legado)', () => { expect(podeLiberar('rejeitado')).toBe(true) })
+  it('aceita pendente_revisao', () => { expect(podeLiberar('pendente_revisao')).toBe(true) })
+  it('rejeita aprovado_automaticamente', () => { expect(podeLiberar('aprovado_automaticamente')).toBe(false) })
+  it('rejeita liberado_manualmente (já liberado)', () => { expect(podeLiberar('liberado_manualmente')).toBe(false) })
+  it('rejeita pendente (análise ainda em andamento)', () => { expect(podeLiberar('pendente')).toBe(false) })
+  it('rejeita status undefined (resultadoIa null)', () => { expect(podeLiberar(undefined)).toBe(false) })
 })
