@@ -44,6 +44,9 @@ RUN pnpm install --frozen-lockfile --prod
 # Copy Vite build output
 COPY --from=builder /app/dist ./dist
 
+# Copy Next.js static export (marketing site — web/out/)
+COPY --from=builder /app/web/out ./web/out
+
 # Copy server source (transpiled at runtime by tsx)
 COPY server ./server
 COPY shared ./shared
@@ -52,4 +55,6 @@ COPY drizzle.config.ts ./
 
 EXPOSE ${PORT:-3000}
 
-CMD ["pnpm", "exec", "tsx", "server/_core/index.ts"]
+# --import loads instrument.ts before any other module so Sentry can
+# properly instrument Express in ESM mode (required by @sentry/node).
+CMD ["pnpm", "exec", "tsx", "--import", "./server/_core/instrument.ts", "server/_core/index.ts"]
