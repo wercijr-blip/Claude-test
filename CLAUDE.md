@@ -76,7 +76,6 @@
 │   ├── examAnalysis.ts           # Análise de exames via LLM
 │   ├── email.ts                  # Templates e envio de e-mails
 │   ├── storage.ts                # Upload S3
-│   ├── focusnfe.ts               # Emissão NFS-e
 │   ├── stripe/
 │   │   ├── products.ts
 │   │   └── webhook.ts
@@ -190,14 +189,11 @@ AWS_S3_BUCKET=nome-do-bucket
 GMAIL_USER=seu@gmail.com
 GMAIL_APP_PASSWORD=senha_de_app_gmail
 
-# FocusNFe (NFS-e)
-FOCUSNFE_TOKEN_HOMOLOGACAO=token_homologacao
-FOCUSNFE_TOKEN_PRODUCAO=token_producao
-FOCUSNFE_ENVIRONMENT=homologacao  # ou producao
+# NFS-e via Asaas (automático com pagamento)
+# Sem configuração extra — emissão via ASAAS_API_KEY
 
-# Stripe
-STRIPE_SECRET_KEY=sk_test_...
-STRIPE_WEBHOOK_SECRET=whsec_...
+# Stripe (legado — não usar)
+# STRIPE_SECRET_KEY=sk_test_...
 
 # LLM para análise de exames
 BUILT_IN_FORGE_API_URL=https://api.anthropic.com
@@ -251,7 +247,6 @@ BUILT_IN_FORGE_API_KEY=sk-ant-...
 |`server/token.test.ts`      |Ciclo de vida de tokens de acesso               |
 |`server/email.test.ts`      |Templates e envio de notificações               |
 |`server/examReview.test.ts` |Análise de exames por IA                        |
-|`server/focusnfe.test.ts`   |Emissão de NFS-e                                |
 |`server/auth.logout.test.ts`|Logout e invalidação de sessão                  |
 
 **Convenção de testes:** Vitest com `describe/it/expect`. Mocks com `vi.mock()`. Todos os testes ficam em `server/**/*.test.ts`.

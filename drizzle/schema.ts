@@ -208,7 +208,6 @@ export const nfseRegistros = mysqlTable('nfse_registros', {
   numeroNfse: varchar('numero_nfse', { length: 50 }),
   status: varchar('status', { length: 50 }).notNull().default('pendente'),
   valorCentavos: int('valor_centavos').notNull(),
-  focusnfeRef: varchar('focusnfe_ref', { length: 100 }),
   erroDescricao: text('erro_descricao'),
   emitidoEm: datetime('emitido_em'),
   createdAt: datetime('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),

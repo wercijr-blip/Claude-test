@@ -172,7 +172,6 @@ const DDL_STATEMENTS = [
     numero_nfse VARCHAR(50),
     status VARCHAR(50) NOT NULL DEFAULT 'pendente',
     valor_centavos INT NOT NULL,
-    focusnfe_ref VARCHAR(100),
     erro_descricao TEXT,
     emitido_em DATETIME,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -319,7 +318,6 @@ const COLUMN_PATCHES: Record<string, Array<{ name: string; ddl: string }>> = {
   nfse_registros: [
     { name: 'precadastro_id', ddl: 'INT' },
     { name: 'numero_nfse', ddl: 'VARCHAR(50)' },
-    { name: 'focusnfe_ref', ddl: 'VARCHAR(100)' },
     { name: 'erro_descricao', ddl: 'TEXT' },
     { name: 'emitido_em', ddl: 'DATETIME' },
   ],
