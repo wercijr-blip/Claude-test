@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Script from 'next/script'
+import { configCrossDomainLinker } from '@web/lib/analytics'
 
 const CONSENT_KEY = 'fp_lgpd_consent'
 
@@ -10,9 +11,11 @@ interface Props {
   metaPixelId?: string
   googleAdsId?: string
   tiktokPixelId?: string
+  clarityId?: string
+  ga4Id?: string
 }
 
-export default function CookieConsent({ gtmId, metaPixelId, googleAdsId, tiktokPixelId }: Props) {
+export default function CookieConsent({ gtmId, metaPixelId, googleAdsId, tiktokPixelId, clarityId, ga4Id }: Props) {
   const [consent, setConsent] = useState<boolean | null>(null)
 
   useEffect(() => {
@@ -26,6 +29,16 @@ export default function CookieConsent({ gtmId, metaPixelId, googleAdsId, tiktokP
     if (typeof window !== 'undefined') {
       window.dataLayer = window.dataLayer ?? []
       window.dataLayer.push({ event: 'cookies_accepted', method: 'all' })
+      // Google Consent Mode v2 — update signals after user acceptance
+      if (typeof window.gtag === 'function') {
+        window.gtag('consent', 'update', {
+          ad_storage: 'granted',
+          analytics_storage: 'granted',
+          ad_user_data: 'granted',
+          ad_personalization: 'granted',
+        })
+      }
+      if (ga4Id) configCrossDomainLinker(ga4Id)
     }
   }
 
@@ -35,10 +48,18 @@ export default function CookieConsent({ gtmId, metaPixelId, googleAdsId, tiktokP
     if (typeof window !== 'undefined') {
       window.dataLayer = window.dataLayer ?? []
       window.dataLayer.push({ event: 'cookies_declined' })
+      if (typeof window.gtag === 'function') {
+        window.gtag('consent', 'update', {
+          ad_storage: 'denied',
+          analytics_storage: 'denied',
+          ad_user_data: 'denied',
+          ad_personalization: 'denied',
+        })
+      }
     }
   }
 
-  const hasPixels = gtmId || metaPixelId || googleAdsId || tiktokPixelId
+  const hasPixels = gtmId || metaPixelId || googleAdsId || tiktokPixelId || clarityId
   if (!hasPixels) return null
 
   return (
@@ -86,6 +107,15 @@ export default function CookieConsent({ gtmId, metaPixelId, googleAdsId, tiktokP
               strategy="afterInteractive"
               dangerouslySetInnerHTML={{
                 __html: `!function(w,d,t){w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie"],ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e},ttq.load=function(e,n){var i="https://analytics.tiktok.com/i18n/pixel/events.js";ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=i,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};n=document.createElement("script");n.type="text/javascript",n.async=!0,n.src=i+"?sdkid="+e+"&lib="+t;e=document.getElementsByTagName("script")[0];e.parentNode.insertBefore(n,e)};ttq.load('${tiktokPixelId}');ttq.page()}(window,document,'ttq');`,
+              }}
+            />
+          )}
+          {clarityId && (
+            <Script
+              id="microsoft-clarity"
+              strategy="afterInteractive"
+              dangerouslySetInnerHTML={{
+                __html: `(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y)})(window,document,"clarity","script","${clarityId}");`,
               }}
             />
           )}

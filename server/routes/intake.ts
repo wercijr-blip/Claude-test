@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { randomUUID } from 'crypto'
 import { router, publicProcedure, staffProcedure } from '../_core/trpc.ts'
 import { hashToken, generateToken } from '../_core/tokenUtils.ts'
 import { TRPCError } from '@trpc/server'
@@ -21,6 +22,7 @@ import { paginationInput, paginatedResponse } from '../_core/pagination.ts'
 import { logger } from '../_core/logger.ts'
 import * as Sentry from '@sentry/node'
 import { okEmpty } from '../_core/response.ts'
+import { sendCapiLead } from '../capi.ts'
 
 function _isDentroHorarioAtendimento(): boolean {
   const agora = new Date()
@@ -161,7 +163,7 @@ export const intakeRouter = router({
       carteirinhaS3Key: z.string().optional(),
       documentoS3Key: z.string().optional(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       if (!validarCpf(input.cpf)) {
         throw new TRPCError({ code: 'BAD_REQUEST', message: ERROR_MESSAGES.CPF_INVALID })
       }
@@ -211,6 +213,18 @@ export const intakeRouter = router({
         await notificarStaff('secretaria', 'plano-pendente', staffTemplates.secretariaPlanoSaudePendente).catch((e: unknown) => logger.warn('[intake] staff WhatsApp falhou', { error: String(e) }))
         await enviarConfirmacaoPlano(input.email, input.nome).catch((e: unknown) => logger.warn('[intake] notificação falhou', { error: String(e) }))
       }
+
+      const [firstName, ...restName] = input.nome.trim().split(' ')
+      const clientIp = (ctx.req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim() ?? ctx.req.ip ?? ''
+      sendCapiLead({
+        eventId: randomUUID(),
+        email: input.email,
+        phone: input.telefone,
+        firstName,
+        lastName: restName.length > 0 ? restName[restName.length - 1] : undefined,
+        clientIp,
+        clientUserAgent: ctx.req.headers['user-agent'] ?? '',
+      }).catch(() => {})
 
       return { precadastroId: inserted.id }
     }),

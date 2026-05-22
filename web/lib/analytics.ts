@@ -185,3 +185,18 @@ export function trackWhatsApp(local: string): void {
     window.fbq('track', 'Contact')
   }
 }
+
+/**
+ * Configure GA4 cross-domain linker so sessions aren't broken when users navigate
+ * between www.facilitaprep.com.br, facilitaprep.com.br, and blog.facilitaprep.com.br.
+ * Call once after GA4 is initialised (e.g. from CookieConsent accept handler).
+ */
+export function configCrossDomainLinker(ga4Id: string): void {
+  if (typeof window === 'undefined' || typeof window.gtag !== 'function' || !ga4Id) return
+  window.gtag('config', ga4Id, {
+    linker: {
+      domains: ['facilitaprep.com.br', 'www.facilitaprep.com.br', 'blog.facilitaprep.com.br'],
+      accept_incoming: true,
+    },
+  })
+}

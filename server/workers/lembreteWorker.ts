@@ -101,6 +101,7 @@ export function startLembreteWorker() {
         const diasRestantes = Math.ceil((p.linkExpiresAt!.getTime() - agora.getTime()) / (24 * 60 * 60 * 1000))
         const isUrgente = diasRestantes <= 1
 
+
         if (!p.patientEmail || !p.tokenId) continue
 
         const nome = p.precadNome ? decrypt(p.precadNome).split(' ')[0] : 'Paciente'

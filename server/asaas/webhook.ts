@@ -1,4 +1,4 @@
-import { timingSafeEqual } from 'crypto'
+import { timingSafeEqual, randomUUID } from 'crypto'
 import type { Request, Response } from 'express'
 import { env } from '../_core/env.ts'
 import { db } from '../db.ts'
@@ -8,6 +8,8 @@ import { gerarEEnviarLinkAcesso } from '../routes/intake.ts'
 import { emitirNfseAsaas } from './client.ts'
 import { logger } from '../_core/logger.ts'
 import { Sentry } from '../_core/instrument.ts'
+import { decrypt } from '../_core/encryption.ts'
+import { sendCapiPurchase } from '../capi.ts'
 
 interface AsaasWebhookPayment {
   id: string
@@ -137,6 +139,17 @@ async function handlePaymentConfirmed(payment: AsaasWebhookPayment): Promise<voi
     })
 
     log('INFO', `Link sent for precadastroId=${precadastroId}`)
+
+    // CAPI Purchase event — fire-and-forget, non-fatal
+    const [capiFirst] = decrypt(precad.nomeEncrypted).trim().split(' ')
+    sendCapiPurchase({
+      eventId: `pay-${paymentId}`,
+      email: decrypt(precad.emailEncrypted),
+      phone: decrypt(precad.telefoneEncrypted),
+      firstName: capiFirst,
+      value,
+    }).catch(() => {})
+
 
     // NFS-e via Asaas native endpoint (fire-and-forget — non-fatal)
     if (precad.tipo === 'particular') {

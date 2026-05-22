@@ -80,10 +80,7 @@ const escolaridadeMap: Record<string, string> = {
   pos_graduacao:          'De 12 a mais anos',
 }
 
-function formatarDataBR(iso: string): string {
-  const [y, m, d] = iso.split('-')
-  return `${d}/${m}/${y}`
-}
+import { formatarDataBR } from './utils.ts'
 
 export async function preencherCadastroSUS(
   dados: DadosCadastroSUS,

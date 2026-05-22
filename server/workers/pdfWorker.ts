@@ -32,6 +32,7 @@ async function assinarESalvar(
   return signed
 }
 
+
 export async function enqueueGerarPdf(pacienteId: number) {
   // jobId determinístico evita enfileirar duplicados em clique duplo / retry de rede.
   return pdfQueue.add('gerar', { pacienteId }, {

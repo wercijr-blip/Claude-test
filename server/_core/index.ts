@@ -286,8 +286,17 @@ app.get('/api/health/version', (_req, res) => {
   })
 })
 
+// Protect ops endpoints — require x-ops-token header or ?ops_token query param.
+// OPS_TOKEN must be set in production; warn fires on boot if missing (env.ts).
+app.use(['/api/metrics', '/api/health/observability', '/api/admin/usage'], (req, res, next) => {
+  if (!env.OPS_TOKEN) { res.status(503).json({ error: 'OPS_TOKEN não configurado no servidor' }); return }
+  const token = (req.headers['x-ops-token'] ?? req.query['ops_token']) as string | undefined
+  if (token !== env.OPS_TOKEN) { res.status(401).json({ error: 'Token inválido' }); return }
+  next()
+})
+
 // Metrics — queue depth, memory, circuit breaker state
-app.get('/api/metrics', requireOpsToken, async (_req, res) => {
+app.get('/api/metrics', async (_req, res) => {
   const { getCircuitStatus } = await import('./circuitBreaker.ts')
   let pdfWaiting = -1
   let linkWaiting = -1
@@ -322,8 +331,9 @@ app.get('/api/metrics', requireOpsToken, async (_req, res) => {
   })
 })
 
+
 // LLM usage — consumo diário vs limite
-app.get('/api/admin/usage', requireOpsToken, async (_req, res) => {
+app.get('/api/admin/usage', async (_req, res) => {
   const today = new Date().toISOString().slice(0, 10)
   const key = `llm:daily:${today}`
   let llmToday = 0
@@ -339,6 +349,7 @@ app.get('/api/admin/usage', requireOpsToken, async (_req, res) => {
     timestamp: new Date().toISOString(),
   })
 })
+
 
 // Observability — confirma que Sentry está configurado no servidor
 app.get('/api/health/observability', (_req, res) => {
@@ -435,6 +446,9 @@ const server = app.listen(env.PORT, async () => {
 // Stop accepting new connections, wait for in-flight requests, then exit.
 async function shutdown(signal: string) {
   logger.info(`[server] ${signal} recebido — encerrando graciosamente...`)
+  // Force-close keep-alive connections after 10s so server.close() callback fires
+  setTimeout(() => server.closeAllConnections?.(), 10_000)
+
   server.close(async () => {
     if (_activeWorkers.length > 0) {
       await Promise.allSettled(_activeWorkers.map((w) => w.close()))

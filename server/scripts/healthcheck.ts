@@ -18,7 +18,7 @@ import { env } from '../_core/env.ts'
 import { dlqJobs } from '../../drizzle/schema.ts'
 import { S3Client, HeadBucketCommand } from '@aws-sdk/client-s3'
 import * as Sentry from '@sentry/node'
-import { sql, count, lt } from 'drizzle-orm'
+import { sql, count, lt, gt } from 'drizzle-orm'
 
 interface CheckResult {
   name: string
@@ -64,10 +64,20 @@ await runCheck('dlq', async () => {
   const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
   await db.delete(dlqJobs).where(lt(dlqJobs.createdAt, cutoff))
 
-  // Alert if too many stuck jobs — indicates a systemic failure
+  // Warn if recent failures (last 24h) are elevated — early signal of systemic issue
+  const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000)
+  const [{ recent }] = await db.select({ recent: count() }).from(dlqJobs).where(gt(dlqJobs.createdAt, since24h))
+  if (recent > 5) {
+    Sentry.captureMessage(`DLQ: ${recent} falhas nas últimas 24h — investigar`, {
+      level: 'warning',
+      tags: { check: 'dlq_24h', script: 'healthcheck' },
+    })
+  }
+
+  // Error (exit 1) if total accumulated jobs is too high — indicates persistent failure
   const [{ total }] = await db.select({ total: count() }).from(dlqJobs)
   if (total > 20) {
-    throw new Error(`DLQ com ${total} jobs — investigar falhas persistentes`)
+    throw new Error(`DLQ com ${total} jobs acumulados — investigar falhas persistentes`)
   }
 })
 
