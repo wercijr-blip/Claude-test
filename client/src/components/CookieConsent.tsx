@@ -1,12 +1,18 @@
 import { useState, useEffect } from 'react'
 import { initGTM, initGA4, updateConsentMode } from '../lib/analytics.ts'
 
-const STORAGE_KEY = 'cookies_accepted'
+export const STORAGE_KEY = 'cookies_accepted'
 const GA4_ID = import.meta.env.VITE_GA4_ID as string | undefined
 const META_PIXEL_ID = import.meta.env.VITE_META_PIXEL_ID as string | undefined
 
 type Consent = 'all' | 'essential' | null
 
+/** Call this from anywhere (e.g. footer link) to re-open the consent banner. */
+export function revogarConsentimento() {
+  localStorage.removeItem(STORAGE_KEY)
+  updateConsentMode('default')
+  window.dispatchEvent(new CustomEvent('cookie-consent-reset'))
+}
 
 function loadMetaPixel(id: string) {
   if (document.getElementById('meta-pixel-script')) return
@@ -30,6 +36,17 @@ export default function CookieConsent() {
   useEffect(() => {
     updateConsentMode(consent ?? 'default')
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Re-open banner when revogarConsentimento() is called from anywhere
+  useEffect(() => {
+    function onReset() {
+      setConsent(null)
+      setFading(false)
+      setVisible(true)
+    }
+    window.addEventListener('cookie-consent-reset', onReset)
+    return () => window.removeEventListener('cookie-consent-reset', onReset)
   }, [])
 
   useEffect(() => {

@@ -1,4 +1,5 @@
 import { LogoWordmark } from './Logo.tsx'
+import { revogarConsentimento } from './CookieConsent.tsx'
 
 export default function FooterCfm() {
   return (
@@ -107,6 +108,13 @@ export default function FooterCfm() {
           <a href="mailto:dpo@facilitaprep.com.br" className="text-slate-400 hover:text-white transition-colors">
             DPO / LGPD
           </a>
+          <button
+            onClick={revogarConsentimento}
+            className="text-slate-400 hover:text-white transition-colors"
+            type="button"
+          >
+            Preferências de cookies
+          </button>
           <a href="/duvidas" className="text-slate-400 hover:text-white transition-colors">
             Dúvidas sobre PrEP →
           </a>
