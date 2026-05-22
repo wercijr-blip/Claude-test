@@ -77,6 +77,29 @@ jobs:
       - name: Dependency audit
         run: pnpm audit --audit-level=high
 
+      - name: License check
+        run: |
+          pnpm licenses list --prod --json > /tmp/licenses.json
+          node --input-type=module <<'EOF'
+            import { readFileSync } from 'fs'
+            const data = JSON.parse(readFileSync('/tmp/licenses.json', 'utf8'))
+            // Block AGPL and SSPL — copyleft that extends to network use (SaaS risk)
+            // LGPL is allowed (dynamic linking safe); pure GPL packages are rare in Node
+            const bad = Object.keys(data).filter(lic =>
+              /AGPL|SSPL/.test(lic)
+            )
+            if (bad.length) {
+              console.error('Forbidden licenses found:', bad.join(', '))
+              for (const lic of bad) {
+                const pkgs = data[lic].map(p => p.name).join(', ')
+                console.error(`  ${lic}: ${pkgs}`)
+              }
+              process.exit(1)
+            }
+            const total = Object.values(data).flat().length
+            console.log(`License check passed — ${total} packages, no AGPL/SSPL`)
+          EOF
+
       - name: Build
         run: pnpm build
         env:
