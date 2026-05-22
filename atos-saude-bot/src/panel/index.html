@@ -9,151 +9,207 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 <style>
+  :root {
+    --brand:       #0D9488;
+    --brand-dark:  #0F766E;
+    --brand-2:     #0891B2;
+    --brand-glow:  rgba(13,148,136,.22);
+    --sidebar-bg:  #0B1120;
+    --bg:          #EFF3F8;
+    --surface:     #FFFFFF;
+    --border:      #E4EAF2;
+    --border-2:    #D1DBE8;
+    --text-1:      #1A2332;
+    --text-2:      #4A5568;
+    --text-3:      #8FA0B5;
+    --radius-card: 18px;
+    --radius-btn:  10px;
+    --shadow-card: 0 1px 2px rgba(15,23,42,.04), 0 4px 20px rgba(15,23,42,.06);
+    --shadow-hover:0 4px 24px rgba(15,23,42,.10), 0 1px 4px rgba(15,23,42,.06);
+    --shadow-btn:  0 2px 8px var(--brand-glow);
+  }
+  *, *::before, *::after { box-sizing: border-box; }
   * { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
   [x-cloak] { display: none !important; }
+  html { scroll-behavior: smooth; }
 
-  /* ── SIDEBAR ─────────────────────────────────────────── */
-  .nav-item {
-    display: flex; align-items: center; gap: 10px;
-    padding: 9px 14px; border-radius: 10px;
-    font-size: 13px; transition: all .18s ease; cursor: pointer;
-    width: 100%; text-align: left; color: #94A3B8; font-weight: 500;
+  /* ── SIDEBAR NAV ───────────────────────────────────────── */
+  .nav-section {
+    padding: 16px 12px 4px; font-size: 9.5px; font-weight: 700;
+    letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.25);
+    user-select: none;
   }
-  .nav-item:hover { background: rgba(255,255,255,0.07); color: #E2E8F0; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+    border-radius: 9px; font-size: 13px; transition: all .15s ease; cursor: pointer;
+    width: 100%; text-align: left; color: rgba(255,255,255,.5); font-weight: 500;
+  }
+  .nav-item:hover { background: rgba(255,255,255,.07); color: rgba(255,255,255,.85); }
   .nav-item.active {
-    background: linear-gradient(135deg, #0D9488 0%, #0891B2 100%);
+    background: linear-gradient(135deg, var(--brand) 0%, var(--brand-2) 100%);
     color: #fff; font-weight: 600;
-    box-shadow: 0 4px 14px rgba(13,148,136,0.35);
+    box-shadow: 0 3px 12px var(--brand-glow), inset 0 1px 0 rgba(255,255,255,.15);
   }
   .nav-badge {
-    margin-left: auto; background: #EF4444; color: #fff;
-    font-size: 10px; font-weight: 700; border-radius: 999px;
-    min-width: 18px; height: 18px; padding: 0 4px;
+    margin-left: auto; background: #EF4444; color: #fff; font-size: 10px; font-weight: 700;
+    border-radius: 999px; min-width: 18px; height: 18px; padding: 0 5px;
     display: flex; align-items: center; justify-content: center;
     animation: pulse 2s cubic-bezier(.4,0,.6,1) infinite;
+    box-shadow: 0 2px 6px rgba(239,68,68,.4);
   }
 
   /* ── CARDS ─────────────────────────────────────────────── */
   .card {
-    background: #fff; border-radius: 16px;
-    box-shadow: 0 1px 3px rgba(15,23,42,.05), 0 4px 16px rgba(15,23,42,.05);
-    border: 1px solid #F1F5F9;
+    background: var(--surface); border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card); border: 1px solid var(--border);
+  }
+
+  /* ── STAT CARDS ────────────────────────────────────────── */
+  .stat-card {
+    background: var(--surface); border-radius: 16px; padding: 18px 20px;
+    border: 1px solid var(--border); box-shadow: var(--shadow-card);
+    transition: transform .2s ease, box-shadow .2s ease;
+    overflow: hidden; position: relative;
+  }
+  .stat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-hover); }
+  .stat-card::before {
+    content: ''; position: absolute; inset: 0 auto 0 0;
+    width: 4px; border-radius: 16px 0 0 16px;
+    background: var(--stat-color, #64748B);
   }
 
   /* ── TABLE ─────────────────────────────────────────────── */
   .tbl-head th {
-    background: #F8FAFC; color: #64748B; font-size: 11px; font-weight: 700;
-    text-transform: uppercase; letter-spacing: .06em; padding: 12px 16px; text-align: left;
-    border-bottom: 1px solid #E2E8F0;
+    background: #F6F9FC; color: var(--text-3); font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .065em; padding: 11px 16px; text-align: left;
+    border-bottom: 1px solid var(--border); white-space: nowrap;
   }
-  .tbl-row td { padding: 11px 16px; font-size: 13px; border-bottom: 1px solid #F8FAFC; color: #334155; }
+  .tbl-row td {
+    padding: 11px 16px; font-size: 13px; border-bottom: 1px solid #F4F7FB;
+    color: var(--text-1); vertical-align: middle;
+  }
   .tbl-row:last-child td { border-bottom: none; }
-  .tbl-row:hover td { background: #F8FAFC; transition: background .1s; }
+  .tbl-row { transition: background .1s; }
+  .tbl-row:hover td { background: #F6FFFE; }
 
   /* ── BUTTONS ───────────────────────────────────────────── */
   .btn-primary {
-    background: linear-gradient(135deg, #0D9488 0%, #0891B2 100%);
-    color: #fff; border-radius: 10px; padding: 8px 18px;
-    font-size: 13px; font-weight: 600; transition: all .18s;
-    box-shadow: 0 2px 8px rgba(13,148,136,0.28);
+    background: linear-gradient(135deg, var(--brand) 0%, var(--brand-2) 100%);
+    color: #fff; border-radius: var(--radius-btn); padding: 8px 18px;
+    font-size: 13px; font-weight: 600; transition: all .18s ease;
+    box-shadow: var(--shadow-btn); cursor: pointer; border: none;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   }
-  .btn-primary:hover { opacity: .92; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(13,148,136,0.38); }
-  .btn-primary:disabled { opacity: .45; cursor: not-allowed; transform: none; box-shadow: none; }
+  .btn-primary:hover { filter: brightness(1.07); transform: translateY(-1px); box-shadow: 0 5px 16px var(--brand-glow); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:disabled { opacity: .45; cursor: not-allowed; transform: none; filter: none; box-shadow: none; }
   .btn-danger {
-    background: linear-gradient(135deg, #EF4444, #DC2626);
-    color: #fff; border-radius: 10px; padding: 8px 18px;
-    font-size: 13px; font-weight: 600; transition: all .18s;
-    box-shadow: 0 2px 8px rgba(239,68,68,0.22);
+    background: linear-gradient(135deg, #F87171, #EF4444);
+    color: #fff; border-radius: var(--radius-btn); padding: 8px 18px;
+    font-size: 13px; font-weight: 600; transition: all .18s ease;
+    box-shadow: 0 2px 8px rgba(239,68,68,.22); cursor: pointer; border: none;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   }
-  .btn-danger:hover { opacity: .9; transform: translateY(-1px); }
+  .btn-danger:hover { filter: brightness(1.06); transform: translateY(-1px); }
+  .btn-danger:disabled { opacity: .45; cursor: not-allowed; transform: none; }
   .btn-ghost {
-    background: #F1F5F9; color: #475569; border-radius: 10px; padding: 8px 18px;
-    font-size: 13px; font-weight: 600; transition: all .15s;
-    border: 1px solid #E2E8F0;
+    background: #F0F5FB; color: var(--text-2); border-radius: var(--radius-btn);
+    padding: 8px 18px; font-size: 13px; font-weight: 600; transition: all .15s ease;
+    border: 1px solid var(--border); cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   }
-  .btn-ghost:hover { background: #E2E8F0; color: #1E293B; }
+  .btn-ghost:hover { background: var(--border); color: var(--text-1); }
+  .btn-icon {
+    width: 30px; height: 30px; border-radius: 8px; border: none; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 13px; transition: all .15s ease;
+  }
+  .btn-icon-teal { background: #CCFBF1; color: #0F766E; }
+  .btn-icon-teal:hover { background: #0D9488; color: #fff; }
+  .btn-icon-red  { background: #FEE2E2; color: #991B1B; }
+  .btn-icon-red:hover  { background: #EF4444; color: #fff; }
+  .btn-icon-blue { background: #DBEAFE; color: #1D4ED8; }
+  .btn-icon-blue:hover { background: #3B82F6; color: #fff; }
 
   /* ── BADGES ────────────────────────────────────────────── */
+  .badge { border-radius: 6px; padding: 3px 9px; font-size: 11px; font-weight: 600; display: inline-block; }
   .badge-pendente   { background: #FEF3C7; color: #92400E; }
   .badge-confirmado { background: #D1FAE5; color: #065F46; }
   .badge-cancelado  { background: #FEE2E2; color: #991B1B; }
   .badge-convenio   { background: #E0F2FE; color: #0369A1; }
   .badge-particular { background: #FEF9C3; color: #854D0E; }
-  .badge { border-radius: 6px; padding: 3px 10px; font-size: 11px; font-weight: 600; }
 
   /* ── ROW TINTS ─────────────────────────────────────────── */
-  .row-particular { background: #FFFBEB; }
-  .row-infusao    { background: #FAF5FF; }
-  .row-medicacao  { background: #F0FDF4; }
+  .row-particular td { background: #FFFDF0 !important; }
+  .row-infusao    td { background: #FAF5FF !important; }
+  .row-medicacao  td { background: #F0FDF4 !important; }
 
   /* ── INPUTS ────────────────────────────────────────────── */
   .inp {
-    border: 1.5px solid #E2E8F0; border-radius: 10px; padding: 9px 13px;
-    font-size: 13px; width: 100%; transition: all .15s; outline: none;
-    background: #fff; color: #1E293B;
+    border: 1.5px solid var(--border-2); border-radius: var(--radius-btn);
+    padding: 9px 13px; font-size: 13px; width: 100%;
+    transition: border-color .15s, box-shadow .15s; outline: none;
+    background: var(--surface); color: var(--text-1); font-family: inherit;
   }
-  .inp:focus { border-color: #0D9488; box-shadow: 0 0 0 3px rgba(13,148,136,0.12); }
+  .inp:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(13,148,136,.12); }
+  .inp::placeholder { color: var(--text-3); }
   select.inp { cursor: pointer; }
+  textarea.inp { line-height: 1.6; }
 
   /* ── DRAG OVER ─────────────────────────────────────────── */
-  .drag-over { border-color: #0D9488 !important; background: #CCFBF1 !important; }
-
-  /* ── STAT CARDS ────────────────────────────────────────── */
-  .stat-card {
-    background: #fff; border-radius: 16px; padding: 16px;
-    border: 1px solid #F1F5F9;
-    box-shadow: 0 1px 3px rgba(15,23,42,.04), 0 4px 16px rgba(15,23,42,.04);
-    transition: transform .18s, box-shadow .18s;
-  }
-  .stat-card:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(15,23,42,.08); }
+  .drag-over { border-color: var(--brand) !important; background: #CCFBF1 !important; }
 
   /* ── SCROLLBAR ─────────────────────────────────────────── */
-  .sidebar-nav::-webkit-scrollbar { width: 4px; }
+  .sidebar-nav::-webkit-scrollbar { width: 3px; }
   .sidebar-nav::-webkit-scrollbar-track { background: transparent; }
-  .sidebar-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 4px; }
-
-  /* ── SMOOTH SCROLLING ──────────────────────────────────── */
-  html { scroll-behavior: smooth; }
+  .sidebar-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 3px; }
 
   /* ── SKELETON LOADER ───────────────────────────────────── */
   .skeleton {
-    background: linear-gradient(90deg, #F1F5F9 25%, #E8EDF2 50%, #F1F5F9 75%);
-    background-size: 200% 100%;
-    animation: shimmer 1.4s infinite;
-    border-radius: 6px;
+    background: linear-gradient(90deg, #EEF2F7 25%, #E4EAF2 50%, #EEF2F7 75%);
+    background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 6px;
   }
-  @keyframes shimmer {
-    0%   { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
-  }
+  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
   /* ── TOAST ─────────────────────────────────────────────── */
   .toast-item {
-    padding: 12px 16px; border-radius: 10px; font-size: 13px; font-weight: 600;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.12); display: flex; align-items: center;
-    gap: 10px; min-width: 240px; max-width: 340px; pointer-events: auto;
-    animation: toastIn .22s ease;
+    padding: 12px 16px; border-radius: 12px; font-size: 13px; font-weight: 600;
+    box-shadow: 0 8px 24px rgba(0,0,0,.12), 0 2px 6px rgba(0,0,0,.06);
+    display: flex; align-items: center; gap: 10px;
+    min-width: 260px; max-width: 360px; pointer-events: auto;
+    animation: toastIn .25s cubic-bezier(.34,1.56,.64,1);
   }
   @keyframes toastIn {
-    from { transform: translateX(110%); opacity: 0; }
-    to   { transform: translateX(0);    opacity: 1; }
+    from { transform: translateX(120%) scale(.95); opacity: 0; }
+    to   { transform: translateX(0)    scale(1);   opacity: 1; }
   }
-  .toast-success { background: #D1FAE5; color: #065F46; border-left: 4px solid #10B981; }
-  .toast-error   { background: #FEE2E2; color: #991B1B; border-left: 4px solid #EF4444; }
-  .toast-info    { background: #E0F2FE; color: #0369A1; border-left: 4px solid #3B82F6; }
+  .toast-success { background: #ECFDF5; color: #065F46; border-left: 4px solid #10B981; }
+  .toast-error   { background: #FEF2F2; color: #991B1B; border-left: 4px solid #EF4444; }
+  .toast-info    { background: #EFF6FF; color: #1E40AF; border-left: 4px solid #3B82F6; }
 
   /* ── EMPTY STATE ────────────────────────────────────────── */
-  .empty-state { padding: 52px 24px; text-align: center; }
-  .empty-state-icon { font-size: 48px; opacity: .18; margin-bottom: 12px; }
-  .empty-state-title { font-size: 14px; font-weight: 600; color: #94A3B8; }
-  .empty-state-sub   { font-size: 12px; color: #CBD5E1; margin-top: 4px; }
+  .empty-state { padding: 56px 24px; text-align: center; }
+  .empty-state-icon  { font-size: 44px; opacity: .15; margin-bottom: 14px; }
+  .empty-state-title { font-size: 14px; font-weight: 600; color: var(--text-3); }
+  .empty-state-sub   { font-size: 12px; color: #CBD5E1; margin-top: 5px; }
 
   /* ── RATING BAR ─────────────────────────────────────────── */
-  .rating-bar-track { height: 8px; background: #F1F5F9; border-radius: 4px; overflow: hidden; flex: 1; }
-  .rating-bar-fill  { height: 100%; border-radius: 4px; transition: width .7s cubic-bezier(.4,0,.2,1); }
+  .rating-bar-track { height: 8px; background: var(--bg); border-radius: 4px; overflow: hidden; flex: 1; }
+  .rating-bar-fill  { height: 100%; border-radius: 4px; transition: width .8s cubic-bezier(.4,0,.2,1); }
+
+  /* ── MODAL BACKDROP ─────────────────────────────────────── */
+  .modal-bg { background: rgba(11,17,32,.6); backdrop-filter: blur(4px); }
+
+  /* ── CHAT BUBBLE ─────────────────────────────────────────── */
+  .bubble-in  { background: var(--surface); border: 1px solid var(--border); color: var(--text-1); border-radius: 16px 16px 16px 4px; }
+  .bubble-out { background: linear-gradient(135deg, var(--brand), var(--brand-2)); color: #fff; border-radius: 16px 16px 4px 16px; }
+
+  /* ── FILTER LABEL ───────────────────────────────────────── */
+  .filter-label { display: block; font-size: 10.5px; font-weight: 700;
+    color: var(--text-3); margin-bottom: 5px; text-transform: uppercase; letter-spacing: .04em; }
 </style>
 </head>
-<body class="bg-[#F1F5F9]" x-data="painel()" x-init="init()">
+<body style="background:var(--bg)" x-data="painel()" x-init="init()">
 
 <!-- ═══════════════════ TOAST CONTAINER ═══════════════════ -->
 <div class="fixed top-4 right-4 z-[9999] flex flex-col gap-2" style="pointer-events:none" aria-live="polite">
@@ -167,68 +223,79 @@
 </div>
 
 <!-- ═══════════════════ TELA DE LOGIN ═══════════════════ -->
-<div x-show="!autenticado" x-cloak
-  class="min-h-screen flex items-center justify-center"
-  style="background: linear-gradient(135deg, #0F172A 0%, #0D9488 100%)">
-  <div class="card p-8 w-full max-w-sm mx-4">
+<div x-show="!autenticado" x-cloak class="min-h-screen flex items-center justify-center relative overflow-hidden"
+  style="background: linear-gradient(145deg, #060D1A 0%, #0B1A2C 45%, #0D2E2E 100%)">
+  <!-- Decorative blobs -->
+  <div class="absolute top-0 right-0 w-96 h-96 rounded-full opacity-10 pointer-events-none"
+    style="background:radial-gradient(circle, #0D9488 0%, transparent 70%); transform:translate(30%,-30%)"></div>
+  <div class="absolute bottom-0 left-0 w-80 h-80 rounded-full opacity-10 pointer-events-none"
+    style="background:radial-gradient(circle, #0891B2 0%, transparent 70%); transform:translate(-30%,30%)"></div>
 
-    <!-- Logo -->
-    <div class="flex flex-col items-center mb-7">
-      <svg viewBox="0 0 160 56" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-44 mb-1">
-        <!-- Símbolo teal -->
-        <circle cx="18" cy="12" r="9" fill="#2D8C8C" opacity=".9"/>
-        <circle cx="9"  cy="26" r="9" fill="#2D8C8C" opacity=".75"/>
-        <circle cx="27" cy="26" r="9" fill="#8FD4D4" opacity=".65"/>
-        <circle cx="18" cy="40" r="9" fill="#8FD4D4" opacity=".55"/>
-        <!-- Texto ATOS -->
-        <text x="44" y="28" font-family="Arial Black,sans-serif" font-weight="900"
-          font-size="24" fill="#3A2169">ATOS</text>
-        <!-- Texto HOSPITAL DIA -->
-        <text x="44" y="44" font-family="Arial,sans-serif" font-size="9"
-          letter-spacing="2" fill="#2D8C8C">HOSPITAL DIA</text>
-      </svg>
-      <p class="text-xs text-gray-400 mt-1">Painel Administrativo</p>
-    </div>
+  <div class="relative z-10 w-full max-w-sm mx-4">
+    <!-- Card -->
+    <div class="rounded-2xl p-8"
+      style="background:rgba(255,255,255,.97); box-shadow:0 24px 60px rgba(0,0,0,.35), 0 4px 16px rgba(0,0,0,.2)">
 
-    <div class="space-y-4">
-      <div>
-        <label class="block text-xs font-semibold text-gray-500 mb-1">Usuário</label>
-        <input type="text" x-model="login.username" @keydown.enter="fazerLogin()"
-          placeholder="seu.usuario" class="inp">
+      <!-- Logo -->
+      <div class="flex flex-col items-center mb-8">
+        <div class="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
+          style="background:linear-gradient(135deg,#0D9488,#0891B2); box-shadow:0 8px 24px rgba(13,148,136,.35)">
+          <svg viewBox="0 0 32 32" fill="none" class="w-9 h-9">
+            <circle cx="16" cy="8"  r="5.5" fill="white" opacity=".95"/>
+            <circle cx="9"  cy="19" r="5.5" fill="white" opacity=".8"/>
+            <circle cx="23" cy="19" r="5.5" fill="white" opacity=".65"/>
+            <circle cx="16" cy="28" r="4"   fill="white" opacity=".5"/>
+          </svg>
+        </div>
+        <h1 class="text-xl font-black tracking-tight" style="color:#1A2332">Atos Hospital Dia</h1>
+        <p class="text-xs font-medium mt-1" style="color:#8FA0B5">Painel Administrativo</p>
       </div>
-      <div>
-        <label class="block text-xs font-semibold text-gray-500 mb-1">Senha</label>
-        <input type="password" x-model="login.password" @keydown.enter="fazerLogin()"
-          placeholder="••••••••" class="inp">
+
+      <div class="space-y-4">
+        <div>
+          <label class="filter-label" style="color:#4A5568">Usuário</label>
+          <input type="text" x-model="login.username" @keydown.enter="fazerLogin()"
+            placeholder="seu.usuario" class="inp" autocomplete="username">
+        </div>
+        <div>
+          <label class="filter-label" style="color:#4A5568">Senha</label>
+          <input type="password" x-model="login.password" @keydown.enter="fazerLogin()"
+            placeholder="••••••••" class="inp" autocomplete="current-password">
+        </div>
+        <div x-show="login.erro" x-cloak
+          class="flex items-center gap-2 text-red-700 text-xs bg-red-50 border border-red-100 px-3 py-2.5 rounded-lg">
+          <span>⚠️</span><span x-text="login.erro"></span>
+        </div>
+        <button @click="fazerLogin()" :disabled="login.loading"
+          class="btn-primary w-full py-3 text-sm" style="border-radius:12px">
+          <span x-show="!login.loading">Entrar no painel</span>
+          <span x-show="login.loading">Autenticando…</span>
+        </button>
       </div>
-      <div x-show="login.erro" x-text="login.erro"
-        class="text-red-600 text-xs text-center bg-red-50 p-2 rounded-lg"></div>
-      <button @click="fazerLogin()" :disabled="login.loading" class="btn-primary w-full py-3 mt-1">
-        <span x-show="!login.loading">Entrar</span>
-        <span x-show="login.loading">Autenticando…</span>
-      </button>
     </div>
+    <p class="text-center text-xs mt-5" style="color:rgba(255,255,255,.25)">© 2025 Atos Saúde Integrada</p>
   </div>
 </div>
 <!-- ═══════════════════ MODAL TROCA DE SENHA ═══════════════════ -->
 <div x-show="autenticado && showChangePwd" x-cloak
-  class="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-  <div class="card p-8 w-full max-w-sm mx-4">
-    <div class="text-center mb-5">
-      <div class="w-12 h-12 rounded-full bg-[#EDE9FA] flex items-center justify-center mx-auto mb-3">
+  class="fixed inset-0 flex items-center justify-center z-50 modal-bg">
+  <div class="card p-8 w-full max-w-sm mx-4" style="box-shadow:0 24px 60px rgba(0,0,0,.2)">
+    <div class="text-center mb-6">
+      <div class="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
+        style="background:linear-gradient(135deg,#6D28D9,#7C3AED); box-shadow:0 6px 18px rgba(109,40,217,.3)">
         <span class="text-2xl">🔐</span>
       </div>
-      <h2 class="text-lg font-bold text-slate-800">Troque sua senha</h2>
-      <p class="text-xs text-gray-400 mt-1">Por segurança, defina uma senha pessoal antes de continuar.</p>
+      <h2 class="text-lg font-bold" style="color:var(--text-1)">Troque sua senha</h2>
+      <p class="text-xs mt-1" style="color:var(--text-3)">Por segurança, defina uma senha pessoal antes de continuar.</p>
     </div>
     <div class="space-y-3">
-      <input type="password" x-model="changePwd.current" placeholder="Senha atual" class="inp">
-      <input type="password" x-model="changePwd.new1"    placeholder="Nova senha (mín. 6 caracteres)" class="inp">
-      <input type="password" x-model="changePwd.new2"    placeholder="Confirmar nova senha" class="inp">
+      <input type="password" x-model="changePwd.current" placeholder="Senha atual" class="inp" autocomplete="current-password">
+      <input type="password" x-model="changePwd.new1"    placeholder="Nova senha (mín. 6 caracteres)" class="inp" autocomplete="new-password">
+      <input type="password" x-model="changePwd.new2"    placeholder="Confirmar nova senha" class="inp" autocomplete="new-password">
       <div x-show="changePwd.erro" x-text="changePwd.erro"
-        class="text-red-600 text-xs bg-red-50 p-2 rounded-lg"></div>
+        class="text-red-700 text-xs bg-red-50 border border-red-100 px-3 py-2 rounded-lg"></div>
       <div x-show="changePwd.ok"
-        class="text-green-700 text-xs bg-green-50 p-2 rounded-lg">✅ Senha alterada com sucesso!</div>
+        class="text-green-700 text-xs bg-green-50 border border-green-100 px-3 py-2 rounded-lg">✅ Senha alterada com sucesso!</div>
       <button @click="trocarSenha()" :disabled="changePwd.loading" class="btn-primary w-full py-2.5">
         <span x-show="!changePwd.loading">Salvar nova senha</span>
         <span x-show="changePwd.loading">Salvando…</span>
@@ -239,13 +306,18 @@
 
 <!-- ═══════════════════ MODAL BLOQUEAR AGENDA ═══════════════════ -->
 <div x-show="modalBloqueio" x-cloak
-  class="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-  <div class="card p-6 w-full max-w-md mx-4">
-    <h2 class="text-base font-bold text-red-700 mb-1">🚫 Bloquear Agenda do Médico</h2>
-    <p class="text-xs text-gray-400 mb-4">
-      Cancela <strong>todas as consultas</strong> do período, remove do Google Calendar
-      e <strong>notifica cada paciente</strong> pelo WhatsApp.
-    </p>
+  class="fixed inset-0 flex items-center justify-center z-50 modal-bg">
+  <div class="card p-6 w-full max-w-md mx-4" style="box-shadow:0 24px 60px rgba(0,0,0,.2)">
+    <div class="flex items-center gap-3 mb-1">
+      <div class="w-10 h-10 rounded-xl flex items-center justify-center bg-red-100 shrink-0">
+        <span class="text-lg">🚫</span>
+      </div>
+      <div>
+        <h2 class="text-base font-bold text-red-700">Bloquear Agenda do Médico</h2>
+        <p class="text-xs text-red-400 mt-0.5">Cancela consultas, remove do Calendar e notifica pacientes.</p>
+      </div>
+    </div>
+    <div class="h-px bg-red-100 my-4"></div>
     <div class="space-y-3">
       <div>
         <label class="block text-xs font-semibold text-gray-500 mb-1">Médico</label>
@@ -289,62 +361,102 @@
   <!-- SIDEBAR -->
   <aside class="fixed left-0 top-0 h-screen w-60 flex flex-col z-30 transition-transform duration-200"
     :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
-    style="background:linear-gradient(180deg,#0F172A 0%,#111827 100%);box-shadow:4px 0 24px rgba(0,0,0,0.18)"
+    style="background:linear-gradient(180deg,#0B1120 0%,#0D1526 100%);box-shadow:4px 0 32px rgba(0,0,0,0.28)"
     aria-label="Navegação principal">
 
     <!-- Logo -->
-    <div class="px-5 py-5 border-b" style="border-color:rgba(255,255,255,0.07)">
-      <svg viewBox="0 0 160 52" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full max-w-[148px]">
-        <circle cx="16" cy="11" r="8" fill="#2D8C8C" opacity=".95"/>
-        <circle cx="8"  cy="24" r="8" fill="#2D8C8C" opacity=".8"/>
-        <circle cx="24" cy="24" r="8" fill="#8FD4D4" opacity=".7"/>
-        <circle cx="16" cy="37" r="8" fill="#8FD4D4" opacity=".6"/>
-        <text x="40" y="26" font-family="Arial Black,sans-serif" font-weight="900"
-          font-size="22" fill="white">ATOS</text>
-        <text x="40" y="41" font-family="Arial,sans-serif" font-size="8"
-          letter-spacing="2" fill="#8FD4D4">HOSPITAL DIA</text>
-      </svg>
+    <div class="px-5 py-5 flex items-center gap-3" style="border-bottom:1px solid rgba(255,255,255,.06)">
+      <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+        style="background:linear-gradient(135deg,#0D9488,#0891B2);box-shadow:0 4px 12px rgba(13,148,136,.35)">
+        <svg viewBox="0 0 24 24" fill="none" class="w-5 h-5">
+          <circle cx="12" cy="5"  r="4" fill="white" opacity=".95"/>
+          <circle cx="6"  cy="14" r="4" fill="white" opacity=".75"/>
+          <circle cx="18" cy="14" r="4" fill="white" opacity=".6"/>
+          <circle cx="12" cy="21" r="3" fill="white" opacity=".45"/>
+        </svg>
+      </div>
+      <div>
+        <p class="text-sm font-black text-white leading-tight">ATOS</p>
+        <p class="text-xs font-medium leading-tight" style="color:rgba(255,255,255,.35);letter-spacing:.06em">HOSPITAL DIA</p>
+      </div>
     </div>
 
-    <!-- Nav -->
-    <nav class="flex-1 p-3 overflow-y-auto sidebar-nav space-y-0.5">
-      <template x-for="navItem in tabs.filter(t => permissions?.tabs?.includes(t.id))" :key="navItem.id">
+    <!-- Nav com seções -->
+    <nav class="flex-1 px-3 py-2 overflow-y-auto sidebar-nav">
+
+      <!-- Atendimento -->
+      <p class="nav-section">Atendimento</p>
+      <template x-for="navItem in tabs.filter(t => ['agenda','marcacao','atendimento','encaixe'].includes(t.id) && permissions?.tabs?.includes(t.id))" :key="navItem.id">
         <button @click="activeTab = navItem.id"
           :class="activeTab === navItem.id ? 'nav-item active' : 'nav-item'"
           :aria-current="activeTab === navItem.id ? 'page' : undefined">
-          <span x-text="navItem.icon" class="text-base w-5 shrink-0 text-center" aria-hidden="true"></span>
-          <span x-text="navItem.label" class="truncate"></span>
+          <span x-text="navItem.icon" class="text-sm w-5 text-center shrink-0" aria-hidden="true"></span>
+          <span x-text="navItem.label" class="truncate flex-1"></span>
           <span x-show="navItem.id === 'atendimento' && humanWaiting.length > 0"
             class="nav-badge" x-text="humanWaiting.length > 9 ? '9+' : humanWaiting.length"></span>
+        </button>
+      </template>
+
+      <!-- Gestão -->
+      <template x-if="permissions?.tabs?.some(t => ['medicos','usuarios','exames','medicacoes'].includes(t))">
+        <p class="nav-section">Gestão</p>
+      </template>
+      <template x-for="navItem in tabs.filter(t => ['medicos','usuarios','exames','medicacoes'].includes(t.id) && permissions?.tabs?.includes(t.id))" :key="navItem.id">
+        <button @click="activeTab = navItem.id"
+          :class="activeTab === navItem.id ? 'nav-item active' : 'nav-item'"
+          :aria-current="activeTab === navItem.id ? 'page' : undefined">
+          <span x-text="navItem.icon" class="text-sm w-5 text-center shrink-0" aria-hidden="true"></span>
+          <span x-text="navItem.label" class="truncate flex-1"></span>
+        </button>
+      </template>
+
+      <!-- Comunicação -->
+      <template x-if="permissions?.tabs?.some(t => ['conversas','whatsapp'].includes(t))">
+        <p class="nav-section">Comunicação</p>
+      </template>
+      <template x-for="navItem in tabs.filter(t => ['conversas','whatsapp'].includes(t.id) && permissions?.tabs?.includes(t.id))" :key="navItem.id">
+        <button @click="activeTab = navItem.id"
+          :class="activeTab === navItem.id ? 'nav-item active' : 'nav-item'"
+          :aria-current="activeTab === navItem.id ? 'page' : undefined">
+          <span x-text="navItem.icon" class="text-sm w-5 text-center shrink-0" aria-hidden="true"></span>
+          <span x-text="navItem.label" class="truncate flex-1"></span>
+        </button>
+      </template>
+
+      <!-- Conteúdo & Análise -->
+      <template x-if="permissions?.tabs?.some(t => ['textos','conhecimento','satisfacao'].includes(t))">
+        <p class="nav-section">Conteúdo & Análise</p>
+      </template>
+      <template x-for="navItem in tabs.filter(t => ['textos','conhecimento','satisfacao'].includes(t.id) && permissions?.tabs?.includes(t.id))" :key="navItem.id">
+        <button @click="activeTab = navItem.id"
+          :class="activeTab === navItem.id ? 'nav-item active' : 'nav-item'"
+          :aria-current="activeTab === navItem.id ? 'page' : undefined">
+          <span x-text="navItem.icon" class="text-sm w-5 text-center shrink-0" aria-hidden="true"></span>
+          <span x-text="navItem.label" class="truncate flex-1"></span>
         </button>
       </template>
     </nav>
 
     <!-- User + logout -->
-    <div class="p-4 border-t" style="border-color:rgba(255,255,255,0.07)">
+    <div class="p-3 mx-3 mb-3 rounded-xl" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06)">
       <div class="flex items-center gap-3 mb-3">
-        <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+        <div class="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold shrink-0"
           style="background:linear-gradient(135deg,#0D9488,#0891B2);color:#fff"
-          x-text="(currentUser?.name || 'U').charAt(0).toUpperCase()">
-        </div>
-        <div class="overflow-hidden">
-          <p class="text-sm font-semibold text-white truncate" x-text="currentUser?.name"></p>
-          <span class="text-xs px-2 py-0.5 rounded-full font-medium"
+          x-text="(currentUser?.name || 'U').charAt(0).toUpperCase()"></div>
+        <div class="overflow-hidden flex-1">
+          <p class="text-sm font-semibold text-white truncate leading-tight" x-text="currentUser?.name"></p>
+          <span class="text-xs px-2 py-0.5 rounded-md font-medium leading-tight mt-0.5 inline-block"
             :class="{
-              'bg-red-400/30 text-red-200':    currentUser?.role==='admin',
-              'bg-blue-400/30 text-blue-200':  currentUser?.role==='secretaria',
-              'bg-green-400/30 text-green-200':currentUser?.role==='faturamento'
+              'bg-red-500/20 text-red-300':    currentUser?.role==='admin',
+              'bg-blue-500/20 text-blue-300':  currentUser?.role==='secretaria',
+              'bg-green-500/20 text-green-300':currentUser?.role==='faturamento'
             }"
             x-text="{'admin':'Admin','secretaria':'Secretaria','faturamento':'Faturamento'}[currentUser?.role]">
           </span>
         </div>
       </div>
-      <button @click="sairSessao()"
-        class="w-full text-xs py-2 rounded-lg transition-colors text-center font-medium"
-        style="background:rgba(255,255,255,0.06);color:#94A3B8"
-        onmouseover="this.style.background='rgba(255,255,255,0.1)'"
-        onmouseout="this.style.background='rgba(255,255,255,0.06)'">
-        Sair da conta
+      <button @click="sairSessao()" class="nav-item w-full text-xs py-2 justify-center" style="color:rgba(255,255,255,.4)">
+        ↩ Sair da conta
       </button>
     </div>
   </aside>
@@ -356,48 +468,57 @@
     @click="sidebarOpen=false"></div>
 
   <!-- MAIN CONTENT -->
-  <main class="lg:ml-60 flex-1 min-h-screen flex flex-col">
+  <main class="lg:ml-60 flex-1 min-h-screen flex flex-col" style="background:var(--bg)">
 
     <!-- TOP BAR -->
-    <header class="bg-white/90 backdrop-blur border-b border-slate-100 px-4 lg:px-6 py-3 flex items-center justify-between sticky top-0 z-20"
-      style="box-shadow:0 1px 12px rgba(15,23,42,0.06)">
+    <header class="sticky top-0 z-20 flex items-center justify-between px-4 lg:px-6 py-3"
+      style="background:rgba(239,243,248,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);box-shadow:0 1px 16px rgba(15,23,42,.05)">
       <div class="flex items-center gap-3">
         <button @click="sidebarOpen=!sidebarOpen"
-          class="lg:hidden w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600"
+          class="lg:hidden w-9 h-9 flex items-center justify-center rounded-xl text-lg transition-colors"
+          style="background:var(--surface);border:1px solid var(--border);color:var(--text-2)"
           aria-label="Abrir menu">☰</button>
-        <span class="text-lg" x-text="tabs.find(t=>t.id===activeTab)?.icon || '📋'"></span>
-        <h1 class="text-base font-bold text-slate-800"
-          x-text="tabs.find(t=>t.id===activeTab)?.label || 'Painel'"></h1>
+        <div class="flex items-center gap-2">
+          <span class="text-lg" x-text="tabs.find(t=>t.id===activeTab)?.icon || '📋'"></span>
+          <h1 class="text-base font-bold" style="color:var(--text-1)"
+            x-text="tabs.find(t=>t.id===activeTab)?.label || 'Painel'"></h1>
+        </div>
       </div>
-      <div class="flex items-center gap-5">
+      <div class="flex items-center gap-3">
         <!-- Alert fila humana -->
-        <div x-show="humanWaiting.length > 0"
+        <button x-show="humanWaiting.length > 0" x-cloak
           @click="activeTab='atendimento'"
-          class="flex items-center gap-2 cursor-pointer bg-red-50 border border-red-200 text-red-700 text-xs font-semibold px-3 py-1.5 rounded-full animate-pulse hover:bg-red-100 transition-colors">
-          <span>🔴</span>
-          <span x-text="humanWaiting.length + ' aguardando atendimento'"></span>
-        </div>
+          class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold animate-pulse transition-colors"
+          style="background:#FEF2F2;border:1px solid #FECACA;color:#991B1B">
+          <span class="w-2 h-2 bg-red-500 rounded-full"></span>
+          <span x-text="humanWaiting.length + ' aguardando'"></span>
+        </button>
         <div class="text-right hidden md:block">
-          <p class="text-xs font-semibold text-gray-600" x-text="currentDate"></p>
-          <p class="text-xs text-gray-400 font-mono" x-text="currentTime"></p>
+          <p class="text-xs font-semibold" style="color:var(--text-2)" x-text="currentDate"></p>
+          <p class="text-xs font-mono" style="color:var(--text-3)" x-text="currentTime"></p>
         </div>
-        <button @click="loadAll()" title="Atualizar"
-          class="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition-colors">
+        <button @click="loadAll()" title="Atualizar dados"
+          class="w-9 h-9 rounded-xl flex items-center justify-center transition-colors text-base"
+          style="background:var(--surface);border:1px solid var(--border);color:var(--text-2)"
+          onmouseover="this.style.background='#E4EAF2'" onmouseout="this.style.background='var(--surface)'">
           🔄
         </button>
       </div>
     </header>
 
     <!-- STATS BAR -->
-    <div class="px-6 pt-5 pb-2 grid grid-cols-2 md:grid-cols-6 gap-3">
+    <div class="px-6 pt-5 pb-3 grid grid-cols-2 md:grid-cols-6 gap-3">
       <template x-for="card in statCards" :key="card.label">
-        <div class="stat-card flex items-center gap-3 text-left"
-          :style="`border-left: 4px solid ${card.color}`">
+        <div class="stat-card flex items-center gap-3 pl-6"
+          :style="`--stat-color:${card.color}`">
           <div class="flex-1 min-w-0">
-            <p class="text-2xl font-extrabold leading-none" :style="'color:' + card.color" x-text="stats[card.key] ?? 0"></p>
-            <p class="text-xs text-slate-400 mt-1 font-medium" x-text="card.label"></p>
+            <p class="text-2xl font-extrabold leading-none" :style="'color:'+card.color" x-text="stats[card.key] ?? 0"></p>
+            <p class="text-xs mt-1.5 font-medium" style="color:var(--text-3)" x-text="card.label"></p>
           </div>
-          <span class="text-2xl opacity-40 shrink-0" x-text="card.icon || '📊'" aria-hidden="true"></span>
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0"
+            :style="`background:color-mix(in srgb, ${card.color} 12%, white)`">
+            <span x-text="card.icon || '📊'"></span>
+          </div>
         </div>
       </template>
     </div>
@@ -408,37 +529,39 @@
     <!-- ── Tab: Agenda ──────────────────────────────────────── -->
     <div x-show="activeTab==='agenda'" x-cloak class="pt-4 space-y-4">
       <!-- Filtros -->
-      <div class="card p-4 flex flex-wrap gap-3 items-end">
-        <div>
-          <label class="block text-xs font-semibold text-gray-400 mb-1">Tipo</label>
-          <select x-model="filters.tipo" @change="loadAgenda()" class="inp w-32">
-            <option value="">Todos</option>
-            <option>CONSULTA</option><option>INFUSAO</option><option>MEDICACAO</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-xs font-semibold text-gray-400 mb-1">Especialidade</label>
-          <input x-model="filters.especialidade" @input.debounce.500ms="loadAgenda()" placeholder="Ex: Infectologia" class="inp w-36">
-        </div>
-        <div>
-          <label class="block text-xs font-semibold text-gray-400 mb-1">Data</label>
-          <input type="date" x-model="filters.data" @change="loadAgenda()" class="inp w-36">
-        </div>
-        <div>
-          <label class="block text-xs font-semibold text-gray-400 mb-1">Status</label>
-          <select x-model="filters.status" @change="loadAgenda()" class="inp w-32">
-            <option value="">Todos</option>
-            <option>PENDENTE</option><option>CONFIRMADO</option><option>CANCELADO</option>
-          </select>
-        </div>
-        <button @click="loadAgenda()" class="btn-primary px-4 py-2">🔍 Filtrar</button>
-        <div class="ml-auto flex gap-2 flex-wrap">
-          <button x-show="permissions?.canBlock" @click="abrirModalBloqueio()"
-            class="btn-danger px-3 py-2 text-xs">🚫 Bloquear Agenda</button>
-          <button x-show="permissions?.canExport" @click="exportar(false)"
-            class="btn-primary px-3 py-2 text-xs" style="background:#059669">📥 Pendentes</button>
-          <button x-show="permissions?.canExport" @click="exportar(true)"
-            class="btn-ghost px-3 py-2 text-xs">📋 Todos</button>
+      <div class="card p-4">
+        <div class="flex flex-wrap gap-3 items-end">
+          <div>
+            <label class="filter-label">Tipo</label>
+            <select x-model="filters.tipo" @change="loadAgenda()" class="inp w-32">
+              <option value="">Todos</option>
+              <option>CONSULTA</option><option>INFUSAO</option><option>MEDICACAO</option>
+            </select>
+          </div>
+          <div>
+            <label class="filter-label">Especialidade</label>
+            <input x-model="filters.especialidade" @input.debounce.500ms="loadAgenda()" placeholder="Ex: Infectologia" class="inp w-36">
+          </div>
+          <div>
+            <label class="filter-label">Data</label>
+            <input type="date" x-model="filters.data" @change="loadAgenda()" class="inp w-36">
+          </div>
+          <div>
+            <label class="filter-label">Status</label>
+            <select x-model="filters.status" @change="loadAgenda()" class="inp w-32">
+              <option value="">Todos</option>
+              <option>PENDENTE</option><option>CONFIRMADO</option><option>CANCELADO</option>
+            </select>
+          </div>
+          <button @click="loadAgenda()" class="btn-primary px-4 py-2 text-xs">🔍 Filtrar</button>
+          <div class="ml-auto flex gap-2 flex-wrap">
+            <button x-show="permissions?.canBlock" @click="abrirModalBloqueio()"
+              class="btn-danger px-3 py-2 text-xs">🚫 Bloquear</button>
+            <button x-show="permissions?.canExport" @click="exportar(false)"
+              class="btn-primary px-3 py-2 text-xs" style="background:#059669">📥 Exportar Pendentes</button>
+            <button x-show="permissions?.canExport" @click="exportar(true)"
+              class="btn-ghost px-3 py-2 text-xs">📋 Exportar Todos</button>
+          </div>
         </div>
       </div>
       <!-- Tabela -->
@@ -446,21 +569,15 @@
         <table class="w-full">
           <thead><tr class="tbl-head">
             <th>#</th><th>Tipo</th><th>Especialidade</th><th>Médico</th>
-            <th>Data/Hora</th><th>Tipo Atend.</th><th>Convênio</th>
-            <th>Nome</th><th>Nascimento</th><th>Telefone</th><th>Status</th><th>Ação</th>
+            <th>Data / Hora</th><th>Atend.</th><th>Convênio</th>
+            <th>Paciente</th><th>Nasc.</th><th>Telefone</th><th>Status</th><th>Ação</th>
           </tr></thead>
           <tbody>
-            <!-- Skeleton loader -->
             <template x-if="agendaLoading">
               <template x-for="i in [1,2,3,4,5]" :key="i">
-                <tr>
-                  <td colspan="12" class="px-4 py-2">
-                    <div class="skeleton h-5 w-full"></div>
-                  </td>
-                </tr>
+                <tr><td colspan="12" class="px-4 py-2.5"><div class="skeleton h-4 w-full"></div></td></tr>
               </template>
             </template>
-            <!-- Empty state -->
             <template x-if="!agendaLoading && agendamentos.length===0">
               <tr><td colspan="12">
                 <div class="empty-state">
@@ -472,23 +589,23 @@
             </template>
             <template x-for="row in agendamentos" :key="row.id">
               <tr class="tbl-row" :class="rowClass(row)">
-                <td class="font-mono text-xs text-gray-400" x-text="row.id"></td>
+                <td class="font-mono text-xs" style="color:var(--text-3)" x-text="row.id"></td>
                 <td><span class="badge" :class="tipoClass(row.tipo)" x-text="row.tipo"></span></td>
-                <td x-text="row.especialidade||'—'"></td>
-                <td x-text="row.medico_nome||'—'"></td>
-                <td x-text="formatDate(row.slot_datetime)"></td>
+                <td class="text-xs" x-text="row.especialidade||'—'"></td>
+                <td class="text-xs font-medium" x-text="row.medico_nome||'—'"></td>
+                <td class="text-xs whitespace-nowrap" x-text="formatDate(row.slot_datetime)"></td>
                 <td><span class="badge" :class="row.tipo_atendimento==='PARTICULAR'?'badge-particular':'badge-convenio'"
                   x-text="row.tipo_atendimento||'—'"></span></td>
-                <td x-text="row.convenio_informado||'—'"></td>
-                <td class="font-medium" x-text="row.nome"></td>
-                <td x-text="row.nascimento"></td>
-                <td x-text="row.telefone_contato"></td>
+                <td class="text-xs" x-text="row.convenio_informado||'—'"></td>
+                <td class="font-semibold text-sm" x-text="row.nome"></td>
+                <td class="text-xs" x-text="row.nascimento"></td>
+                <td class="font-mono text-xs" x-text="row.telefone_contato"></td>
                 <td><span class="badge" :class="statusClass(row.status)" x-text="row.status"></span></td>
                 <td>
                   <button x-show="permissions?.canCancel && row.status!=='CANCELADO'"
                     @click="cancelarAgendamento(row)"
-                    class="text-xs text-red-600 hover:text-red-800 font-semibold underline">Cancelar</button>
-                  <span x-show="row.status==='CANCELADO'" class="text-xs text-gray-300">—</span>
+                    class="btn-icon btn-icon-red" title="Cancelar">✕</button>
+                  <span x-show="row.status==='CANCELADO'" style="color:var(--text-3)" class="text-xs">—</span>
                 </td>
               </tr>
             </template>
@@ -501,8 +618,14 @@
     <!-- ── Tab: Nova Marcação ───────────────────────────────── -->
     <div x-show="activeTab==='marcacao'" x-cloak class="pt-4">
       <div class="card p-6 max-w-2xl mx-auto">
-        <h2 class="text-base font-bold text-slate-800 mb-1">📝 Nova Marcação Manual</h2>
-        <p class="text-xs text-gray-400 mb-5">Lembretes de 24h e 2h + pesquisa de satisfação disparam automaticamente.</p>
+        <div class="flex items-center gap-3 mb-5">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0"
+            style="background:linear-gradient(135deg,#0D9488,#0891B2);box-shadow:0 4px 12px var(--brand-glow)">📝</div>
+          <div>
+            <h2 class="text-base font-bold" style="color:var(--text-1)">Nova Marcação Manual</h2>
+            <p class="text-xs" style="color:var(--text-3)">Lembretes de 24h e 2h + pesquisa de satisfação disparam automaticamente.</p>
+          </div>
+        </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="md:col-span-2">
             <label class="block text-xs font-semibold text-gray-500 mb-1">Médico *</label>
@@ -536,8 +659,8 @@
               </template>
             </div>
           </div>
-          <div class="md:col-span-2 border-t pt-4 mt-1">
-            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Dados do Paciente</p>
+          <div class="md:col-span-2 border-t pt-4 mt-1" style="border-color:var(--border)">
+            <p class="text-xs font-bold uppercase tracking-widest mb-3" style="color:var(--text-3)">Dados do Paciente</p>
           </div>
           <div class="md:col-span-2">
             <label class="block text-xs font-semibold text-gray-500 mb-1">Nome completo *</label>
@@ -582,14 +705,13 @@
     <div x-show="activeTab==='textos'" x-cloak class="pt-4">
       <div class="max-w-3xl mx-auto space-y-4">
         <div class="card p-5">
-          <div class="flex items-start justify-between mb-3">
+          <div class="flex items-center justify-between mb-4">
             <div>
-              <h2 class="text-base font-bold text-slate-800">✏️ Editar Textos do Bot</h2>
-              <p class="text-xs text-gray-400 mt-0.5">Alterações entram em vigor imediatamente.</p>
+              <h2 class="text-base font-bold" style="color:var(--text-1)">✏️ Textos do Bot</h2>
+              <p class="text-xs mt-0.5" style="color:var(--text-3)">Alterações entram em vigor imediatamente.</p>
             </div>
             <div class="flex gap-2">
-              <button @click="novoTextoModal=true"
-                class="btn-ghost px-4 py-2 text-xs">+ Novo Texto</button>
+              <button @click="novoTextoModal=true" class="btn-ghost px-3 py-2 text-xs">+ Novo</button>
               <button @click="salvarTextos()" :disabled="textosSaving" class="btn-primary px-4 py-2 text-xs">
                 <span x-show="!textosSaving&&!textosSaved">💾 Salvar</span>
                 <span x-show="textosSaving">Salvando…</span>
@@ -597,14 +719,11 @@
               </button>
             </div>
           </div>
-          <div class="bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-700">
-            💡 <strong>Variáveis:</strong>
-            <code class="mx-1 bg-blue-100 px-1 rounded">{nome}</code>
-            <code class="mx-1 bg-blue-100 px-1 rounded">{medico}</code>
-            <code class="mx-1 bg-blue-100 px-1 rounded">{especialidade}</code>
-            <code class="mx-1 bg-blue-100 px-1 rounded">{data}</code>
-            <code class="mx-1 bg-blue-100 px-1 rounded">{hora}</code>
-            <code class="mx-1 bg-blue-100 px-1 rounded">{diaSemana}</code>
+          <div class="flex flex-wrap gap-1.5 p-3 rounded-xl text-xs" style="background:#EFF6FF;border:1px solid #BFDBFE">
+            <span style="color:#1E40AF">💡 Variáveis disponíveis:</span>
+            <template x-for="v in ['{nome}','{medico}','{especialidade}','{data}','{hora}','{diaSemana}']" :key="v">
+              <code class="px-2 py-0.5 rounded-md font-mono" style="background:#DBEAFE;color:#1D4ED8" x-text="v"></code>
+            </template>
           </div>
         </div>
         <template x-for="[chave, valor] in Object.entries(textosEditados).filter(([k])=>!k.startsWith('_'))" :key="chave">
@@ -634,40 +753,41 @@
     <!-- ── Tab: Atendimento ─────────────────────────────────── -->
     <div x-show="activeTab==='atendimento'" x-cloak class="pt-4">
       <div class="card overflow-auto">
-        <div class="p-4 flex items-center justify-between border-b border-gray-50">
+        <div class="p-4 flex items-center justify-between" style="border-bottom:1px solid var(--border)">
           <div class="flex items-center gap-3">
-            <h2 class="font-bold text-slate-800">👩‍⚕️ Fila de Atendimento Humano</h2>
-            <span x-show="humanWaiting.length>0"
-              class="nav-badge static animate-pulse" x-text="humanWaiting.length"></span>
+            <h2 class="font-bold" style="color:var(--text-1)">👩‍⚕️ Fila de Atendimento Humano</h2>
+            <span x-show="humanWaiting.length>0" x-cloak
+              class="nav-badge static" x-text="humanWaiting.length"></span>
           </div>
           <button @click="loadHumanWaiting()" class="btn-ghost px-3 py-1.5 text-xs">🔄 Atualizar</button>
         </div>
         <table class="w-full">
           <thead><tr class="tbl-head">
-            <th>WhatsApp</th><th>Nome</th><th>Fluxo</th><th>Desde</th><th>Espera</th><th>Ação</th>
+            <th>WhatsApp</th><th>Nome</th><th>Fluxo</th><th>Desde</th><th>Espera</th><th>Ações</th>
           </tr></thead>
           <tbody>
             <template x-if="humanWaiting.length===0">
-              <tr><td colspan="6" class="text-center py-10 text-gray-300 text-sm">
-                Nenhum paciente aguardando. ✅</td></tr>
+              <tr><td colspan="6">
+                <div class="empty-state">
+                  <div class="empty-state-icon">✅</div>
+                  <p class="empty-state-title">Nenhum paciente aguardando</p>
+                </div>
+              </td></tr>
             </template>
             <template x-for="row in humanWaiting" :key="row.phone">
               <tr class="tbl-row"
-                :class="row.human_transfer_at && (new Date()-new Date(row.human_transfer_at))>600000?'bg-red-50':''">
-                <td class="font-mono text-xs text-gray-500" x-text="row.phone"></td>
-                <td class="font-medium" x-text="row.nome||'—'"></td>
+                :class="row.human_transfer_at && (new Date()-new Date(row.human_transfer_at))>600000?'!bg-red-50':''">
+                <td class="font-mono text-xs" style="color:var(--text-3)" x-text="row.phone"></td>
+                <td class="font-semibold" x-text="row.nome||'—'"></td>
                 <td><span class="badge bg-purple-100 text-purple-700" x-text="row.flow||'—'"></span></td>
-                <td x-text="row.human_transfer_at ? formatDate(row.human_transfer_at) : '—'"></td>
-                <td class="font-semibold"
-                  :class="row.human_transfer_at && (new Date()-new Date(row.human_transfer_at))>600000?'text-red-600':'text-gray-600'"
+                <td class="text-xs" x-text="row.human_transfer_at ? formatDate(row.human_transfer_at) : '—'"></td>
+                <td class="font-bold"
+                  :class="row.human_transfer_at && (new Date()-new Date(row.human_transfer_at))>600000?'text-red-600':''"
+                  style="color:var(--text-2)"
                   x-text="row.human_transfer_at ? Math.floor((new Date()-new Date(row.human_transfer_at))/60000)+'min' : '—'"></td>
                 <td class="flex gap-2">
-                  <button @click="assumirAtendimento(row.phone)" class="btn-primary px-3 py-1 text-xs">
-                    ✅ Assumir
-                  </button>
-                  <button @click="encerrarAtendimento(row.phone)" class="btn-danger px-3 py-1 text-xs">
-                    🔚 Encerrar
-                  </button>
+                  <button @click="assumirAtendimento(row.phone)" class="btn-primary px-3 py-1.5 text-xs">✅ Assumir</button>
+                  <button @click="encerrarAtendimento(row.phone)" class="btn-danger px-3 py-1.5 text-xs">🔚 Encerrar</button>
                 </td>
               </tr>
             </template>
@@ -681,7 +801,7 @@
     <div x-show="activeTab==='encaixe'" x-cloak class="pt-4">
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div class="card p-5">
-          <h2 class="font-bold text-slate-800 mb-4">➕ Adicionar à Fila</h2>
+          <h2 class="font-bold mb-4" style="color:var(--text-1)">⚡ Adicionar à Fila</h2>
           <div class="space-y-3">
             <div>
               <label class="block text-xs font-semibold text-gray-500 mb-1">WhatsApp *</label>
@@ -702,13 +822,14 @@
           </div>
         </div>
         <div class="md:col-span-2 card overflow-auto">
-          <div class="p-4 flex items-center justify-between border-b border-gray-50">
-            <h2 class="font-bold text-slate-800">🔄 Fila de Encaixe
-              <span x-show="encaixeQueue.length>0"
-                class="ml-2 text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-bold"
-                x-text="encaixeQueue.length"></span>
-            </h2>
-            <button @click="loadEncaixe()" class="btn-ghost px-3 py-1.5 text-xs">🔄</button>
+          <div class="p-4 flex items-center justify-between" style="border-bottom:1px solid var(--border)">
+            <div class="flex items-center gap-2">
+              <h2 class="font-bold" style="color:var(--text-1)">Fila de Encaixe</h2>
+              <span x-show="encaixeQueue.length>0" x-cloak
+                class="text-xs px-2 py-0.5 rounded-full font-bold bg-orange-100 text-orange-700"
+                x-text="encaixeQueue.length + ' na fila'"></span>
+            </div>
+            <button @click="loadEncaixe()" class="btn-ghost px-3 py-1.5 text-xs">🔄 Atualizar</button>
           </div>
           <table class="w-full">
             <thead><tr class="tbl-head">
@@ -726,8 +847,7 @@
                   <td x-text="row.especialidade||'—'"></td>
                   <td x-text="formatDate(row.created_at)"></td>
                   <td>
-                    <button @click="removerEncaixe(row.id)"
-                      class="text-xs text-red-500 hover:text-red-700 underline">Remover</button>
+                    <button @click="removerEncaixe(row.id)" class="btn-icon btn-icon-red" title="Remover da fila">✕</button>
                   </td>
                 </tr>
               </template>
@@ -742,8 +862,8 @@
     <div x-show="activeTab==='medicos'" x-cloak class="pt-4">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div class="card p-5">
-          <h2 class="font-bold text-slate-800 mb-1">👨‍⚕️ Cadastrar Novo Médico</h2>
-          <p class="text-xs text-gray-400 mb-4">Google Calendar criado automaticamente.</p>
+          <h2 class="font-bold mb-1" style="color:var(--text-1)">👨‍⚕️ Cadastrar Médico</h2>
+          <p class="text-xs mb-4" style="color:var(--text-3)">Google Calendar criado automaticamente.</p>
           <div class="space-y-3">
             <div class="grid grid-cols-2 gap-3">
               <div class="col-span-2">
@@ -767,8 +887,8 @@
                 <input type="text" x-model="novoMedico.whatsapp" placeholder="556199999999" class="inp">
               </div>
             </div>
-            <div class="border-t pt-3">
-              <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Grade de Horários</p>
+            <div class="border-t pt-3" style="border-color:var(--border)">
+              <p class="text-xs font-bold uppercase tracking-widest mb-2" style="color:var(--text-3)">Grade de Horários</p>
               <div class="flex flex-wrap gap-1 mb-3">
                 <template x-for="(dia,idx) in ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb']" :key="idx">
                   <button @click="toggleDia(idx)"
@@ -802,9 +922,9 @@
           </div>
         </div>
         <div class="card overflow-auto">
-          <div class="p-4 flex items-center justify-between border-b border-gray-50">
-            <h2 class="font-bold text-slate-800">📋 Médicos Cadastrados</h2>
-            <button @click="loadDoctorsAll()" class="btn-ghost px-3 py-1.5 text-xs">🔄</button>
+          <div class="p-4 flex items-center justify-between" style="border-bottom:1px solid var(--border)">
+            <h2 class="font-bold" style="color:var(--text-1)">Médicos Cadastrados</h2>
+            <button @click="loadDoctorsAll()" class="btn-ghost px-3 py-1.5 text-xs">🔄 Atualizar</button>
           </div>
           <table class="w-full">
             <thead><tr class="tbl-head">
@@ -824,9 +944,10 @@
                     x-text="doc.active?'Ativo':'Inativo'"></span></td>
                   <td>
                     <button @click="toggleMedico(doc)"
-                      :class="doc.active?'text-red-500 hover:text-red-700':'text-teal-600 hover:opacity-80'"
-                      class="text-xs underline font-medium"
-                      x-text="doc.active?'Desativar':'Ativar'"></button>
+                      :class="doc.active ? 'btn-icon btn-icon-red' : 'btn-icon btn-icon-teal'"
+                      class="btn-icon"
+                      :title="doc.active ? 'Desativar' : 'Ativar'"
+                      x-text="doc.active ? '✕' : '✓'"></button>
                   </td>
                 </tr>
               </template>
@@ -841,7 +962,7 @@
     <div x-show="activeTab==='usuarios'" x-cloak class="pt-4">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div class="card p-5">
-          <h2 class="font-bold text-slate-800 mb-4">👤 Criar Novo Usuário</h2>
+          <h2 class="font-bold mb-4" style="color:var(--text-1)">👤 Criar Usuário</h2>
           <div class="space-y-3">
             <div>
               <label class="block text-xs font-semibold text-gray-500 mb-1">Nome completo *</label>
@@ -875,9 +996,9 @@
           </div>
         </div>
         <div class="card overflow-auto">
-          <div class="p-4 flex items-center justify-between border-b border-gray-50">
-            <h2 class="font-bold text-slate-800">👥 Usuários do Sistema</h2>
-            <button @click="loadUsuarios()" class="btn-ghost px-3 py-1.5 text-xs">🔄</button>
+          <div class="p-4 flex items-center justify-between" style="border-bottom:1px solid var(--border)">
+            <h2 class="font-bold" style="color:var(--text-1)">Usuários do Sistema</h2>
+            <button @click="loadUsuarios()" class="btn-ghost px-3 py-1.5 text-xs">🔄 Atualizar</button>
           </div>
           <table class="w-full">
             <thead><tr class="tbl-head">
@@ -898,13 +1019,14 @@
                   <td><span class="badge"
                     :class="usr.active?'badge-confirmado':'bg-gray-100 text-gray-400'"
                     x-text="usr.active?'Ativo':'Inativo'"></span></td>
-                  <td class="flex gap-2">
+                  <td class="flex gap-1.5">
                     <button @click="toggleUsuario(usr)"
-                      :class="usr.active?'text-red-500':'text-teal-600'"
-                      class="text-xs underline font-medium"
-                      x-text="usr.active?'Bloquear':'Ativar'"></button>
+                      :class="usr.active ? 'btn-icon btn-icon-red' : 'btn-icon btn-icon-teal'"
+                      class="btn-icon"
+                      :title="usr.active ? 'Bloquear' : 'Ativar'"
+                      x-text="usr.active ? '✕' : '✓'"></button>
                     <button @click="resetarSenha(usr)"
-                      class="text-xs text-blue-500 hover:text-blue-700 underline">Reset senha</button>
+                      class="btn-icon btn-icon-blue" title="Redefinir senha">🔑</button>
                   </td>
                 </tr>
               </template>
@@ -916,11 +1038,11 @@
     <!-- /Tab Usuários ──────────────────────────────────────── -->
 
     <!-- Tab Exames ───────────────────────────────────────────── -->
-    <div x-show="activeTab==='exames'" x-cloak class="space-y-4">
+    <div x-show="activeTab==='exames'" x-cloak class="space-y-4 pt-4">
       <div class="card overflow-auto">
-        <div class="p-4 flex items-center justify-between border-b border-gray-50">
-          <h2 class="font-bold text-slate-800">🩺 Exames Enviados para Análise</h2>
-          <button @click="loadExames()" class="btn-ghost px-3 py-1.5 text-xs">🔄</button>
+        <div class="p-4 flex items-center justify-between" style="border-bottom:1px solid var(--border)">
+          <h2 class="font-bold" style="color:var(--text-1)">🩺 Exames Enviados para Análise</h2>
+          <button @click="loadExames()" class="btn-ghost px-3 py-1.5 text-xs">🔄 Atualizar</button>
         </div>
         <table class="w-full">
           <thead><tr class="tbl-head">
@@ -957,18 +1079,17 @@
     <!-- /Tab Exames ──────────────────────────────────────────── -->
 
     <!-- Tab WhatsApp ─────────────────────────────────────────── -->
-    <div x-show="activeTab==='whatsapp'" x-cloak class="space-y-5">
-      <div class="card p-5">
-        <h2 class="font-bold text-slate-800 mb-4">📱 Status da Conexão WhatsApp</h2>
-        <div class="flex items-center gap-4 mb-5">
-          <span class="w-3 h-3 rounded-full" role="status"
+    <div x-show="activeTab==='whatsapp'" x-cloak class="space-y-5 pt-4">
+      <div class="card p-6">
+        <h2 class="font-bold mb-5" style="color:var(--text-1)">📱 Conexão WhatsApp</h2>
+        <div class="flex items-center gap-4 mb-5 p-4 rounded-xl" style="background:var(--bg);border:1px solid var(--border)">
+          <span class="w-3 h-3 rounded-full flex-shrink-0" role="status"
             :class="{'bg-green-400':waStatus==='open','bg-yellow-400':waStatus==='connecting','bg-red-400':!waStatus||waStatus==='close'}"
-            :aria-label="{'open':'Conectado','connecting':'Conectando','close':'Desconectado'}[waStatus]||'Verificando'"
           ></span>
-          <span class="font-semibold text-sm"
-            x-text="{'open':'Conectado','connecting':'Conectando…','close':'Desconectado'}[waStatus]||'Verificando…'"
+          <span class="font-semibold text-sm flex-1" style="color:var(--text-1)"
+            x-text="{'open':'● Conectado','connecting':'Conectando…','close':'Desconectado'}[waStatus]||'Verificando…'"
           ></span>
-          <button @click="loadWAStatus()" class="btn-ghost px-3 py-1.5 text-xs ml-auto">🔄 Verificar</button>
+          <button @click="loadWAStatus()" class="btn-ghost px-3 py-1.5 text-xs">🔄 Verificar</button>
         </div>
         <!-- QR Code -->
         <div x-show="waStatus!=='open'" class="text-center">
@@ -996,11 +1117,11 @@
     <!-- /Tab WhatsApp ────────────────────────────────────────── -->
 
     <!-- Tab Medicações ───────────────────────────────────────── -->
-    <div x-show="activeTab==='medicacoes'" x-cloak class="space-y-4">
+    <div x-show="activeTab==='medicacoes'" x-cloak class="space-y-4 pt-4">
       <div class="card overflow-auto">
-        <div class="p-4 flex items-center justify-between border-b border-gray-50">
-          <h2 class="font-bold text-slate-800">💊 Solicitações de Medicação</h2>
-          <button @click="loadMedicacoes()" class="btn-ghost px-3 py-1.5 text-xs">🔄</button>
+        <div class="p-4 flex items-center justify-between" style="border-bottom:1px solid var(--border)">
+          <h2 class="font-bold" style="color:var(--text-1)">💊 Solicitações de Medicação</h2>
+          <button @click="loadMedicacoes()" class="btn-ghost px-3 py-1.5 text-xs">🔄 Atualizar</button>
         </div>
         <table class="w-full">
           <thead><tr class="tbl-head">
@@ -1028,21 +1149,21 @@
     <!-- /Tab Medicações ──────────────────────────────────────── -->
 
     <!-- Tab Conhecimento ─────────────────────────────────────── -->
-    <div x-show="activeTab==='conhecimento'" x-cloak class="space-y-4">
+    <div x-show="activeTab==='conhecimento'" x-cloak class="space-y-4 pt-4">
       <div class="grid grid-cols-2 gap-4">
-        <div class="card p-4 text-center">
-          <p class="text-2xl font-black text-teal-600" x-text="conhecimentoStats.perguntasHoje ?? 0"></p>
-          <p class="text-xs text-gray-400 mt-0.5">Perguntas hoje</p>
+        <div class="stat-card pl-6" style="--stat-color:#0D9488">
+          <p class="text-2xl font-extrabold" style="color:#0D9488" x-text="conhecimentoStats.perguntasHoje ?? 0"></p>
+          <p class="text-xs mt-1.5 font-medium" style="color:var(--text-3)">Perguntas hoje</p>
         </div>
-        <div class="card p-4 text-center">
-          <p class="text-2xl font-black"
-            :class="(conhecimentoStats.taxaResolucao||0)>=70?'text-green-600':'text-orange-500'"
+        <div class="stat-card pl-6" :style="(conhecimentoStats.taxaResolucao||0)>=70?'--stat-color:#10B981':'--stat-color:#F59E0B'">
+          <p class="text-2xl font-extrabold"
+            :style="(conhecimentoStats.taxaResolucao||0)>=70?'color:#10B981':'color:#F59E0B'"
             x-text="(conhecimentoStats.taxaResolucao??0)+'%'"></p>
-          <p class="text-xs text-gray-400 mt-0.5">Taxa de resolução IA</p>
+          <p class="text-xs mt-1.5 font-medium" style="color:var(--text-3)">Taxa de resolução IA</p>
         </div>
       </div>
       <div class="card p-5">
-        <h2 class="font-bold text-slate-800 mb-4">📚 Base de Conhecimento</h2>
+        <h2 class="font-bold mb-4" style="color:var(--text-1)">📚 Base de Conhecimento</h2>
         <div class="flex gap-2 mb-4">
           <input x-model="novoConhecimento.filename" class="inp flex-1" placeholder="Nome / título">
           <select x-model="novoConhecimento.category" class="inp w-40">
@@ -1054,9 +1175,9 @@
         <button @click="salvarConhecimento()" class="btn-primary text-sm px-5 py-2">💾 Salvar</button>
       </div>
       <div class="card overflow-auto">
-        <div class="p-4 flex items-center justify-between border-b border-gray-50">
-          <span class="font-bold text-slate-800">Documentos ativos</span>
-          <button @click="loadConhecimento()" class="btn-ghost px-3 py-1.5 text-xs">🔄</button>
+        <div class="p-4 flex items-center justify-between" style="border-bottom:1px solid var(--border)">
+          <span class="font-bold" style="color:var(--text-1)">Documentos ativos</span>
+          <button @click="loadConhecimento()" class="btn-ghost px-3 py-1.5 text-xs">🔄 Atualizar</button>
         </div>
         <table class="w-full">
           <thead><tr class="tbl-head"><th>Título</th><th>Categoria</th><th>Criado em</th><th></th></tr></thead>
@@ -1069,7 +1190,7 @@
                 <td class="font-medium text-sm" x-text="k.filename"></td>
                 <td><span class="badge bg-purple-100 text-purple-700" x-text="k.category||'geral'"></span></td>
                 <td class="text-xs text-gray-400" x-text="formatDate(k.created_at)"></td>
-                <td><button @click="removerConhecimento(k.id)" class="text-xs text-red-500 hover:text-red-700 underline">Remover</button></td>
+                <td><button @click="removerConhecimento(k.id)" class="btn-icon btn-icon-red" title="Remover">✕</button></td>
               </tr>
             </template>
           </tbody>
@@ -1082,23 +1203,23 @@
     <div x-show="activeTab==='satisfacao'" x-cloak class="space-y-4 pt-4">
       <!-- KPIs -->
       <div class="grid grid-cols-3 gap-4">
-        <div class="card p-5 text-center">
-          <p class="text-4xl font-black text-teal-600" x-text="mediaNotas||'—'"></p>
-          <p class="text-xs text-gray-400 mt-1 font-medium">Nota média</p>
+        <div class="stat-card pl-6" style="--stat-color:#0D9488">
+          <p class="text-3xl font-extrabold" style="color:#0D9488" x-text="mediaNotas||'—'"></p>
+          <p class="text-xs mt-1.5 font-medium" style="color:var(--text-3)">Nota média</p>
         </div>
-        <div class="card p-5 text-center">
-          <p class="text-4xl font-black text-slate-800" x-text="satisfacoes.length"></p>
-          <p class="text-xs text-gray-400 mt-1 font-medium">Avaliações totais</p>
+        <div class="stat-card pl-6" style="--stat-color:#3B82F6">
+          <p class="text-3xl font-extrabold" style="color:#3B82F6" x-text="satisfacoes.length"></p>
+          <p class="text-xs mt-1.5 font-medium" style="color:var(--text-3)">Avaliações totais</p>
         </div>
-        <div class="card p-5 text-center">
-          <p class="text-4xl font-black text-green-500"
+        <div class="stat-card pl-6" style="--stat-color:#10B981">
+          <p class="text-3xl font-extrabold" style="color:#10B981"
             x-text="satisfacoes.length ? Math.round(satisfacoes.filter(s=>s.nota>=4).length/satisfacoes.length*100)+'%' : '—'"></p>
-          <p class="text-xs text-gray-400 mt-1 font-medium">Satisfação (≥ 4)</p>
+          <p class="text-xs mt-1.5 font-medium" style="color:var(--text-3)">Satisfação ≥ 4</p>
         </div>
       </div>
       <!-- Distribuição visual de notas -->
       <div class="card p-5">
-        <h3 class="font-bold text-slate-800 mb-4 text-sm">📊 Distribuição de Notas</h3>
+        <h3 class="font-bold mb-4 text-sm" style="color:var(--text-1)">📊 Distribuição de Notas</h3>
         <div class="space-y-3">
           <template x-for="r in ratingDistribution" :key="r.nota">
             <div class="flex items-center gap-3">
@@ -1118,9 +1239,9 @@
         </div>
       </div>
       <div class="card overflow-auto">
-        <div class="p-4 flex items-center justify-between border-b border-gray-50">
-          <h2 class="font-bold text-slate-800">⭐ Pesquisas de Satisfação</h2>
-          <button @click="loadSatisfacao()" class="btn-ghost px-3 py-1.5 text-xs">🔄</button>
+        <div class="p-4 flex items-center justify-between" style="border-bottom:1px solid var(--border)">
+          <h2 class="font-bold" style="color:var(--text-1)">⭐ Pesquisas de Satisfação</h2>
+          <button @click="loadSatisfacao()" class="btn-ghost px-3 py-1.5 text-xs">🔄 Atualizar</button>
         </div>
         <table class="w-full">
           <thead><tr class="tbl-head"><th>Telefone</th><th>Médico</th><th>Especialidade</th><th>Nota</th><th>Comentário</th><th>Data</th></tr></thead>
@@ -1153,11 +1274,11 @@
     <!-- /Tab Satisfação ──────────────────────────────────────── -->
 
     <!-- Tab Conversas ────────────────────────────────────────── -->
-    <div x-show="activeTab==='conversas'" x-cloak class="space-y-4">
+    <div x-show="activeTab==='conversas'" x-cloak class="space-y-4 pt-4">
       <div x-show="!conversaAberta" class="card overflow-auto">
-        <div class="p-4 flex items-center justify-between border-b border-gray-50">
-          <h2 class="font-bold text-slate-800">💬 Monitor de Conversas</h2>
-          <button @click="loadConversas()" class="btn-ghost px-3 py-1.5 text-xs">🔄</button>
+        <div class="p-4 flex items-center justify-between" style="border-bottom:1px solid var(--border)">
+          <h2 class="font-bold" style="color:var(--text-1)">💬 Monitor de Conversas</h2>
+          <button @click="loadConversas()" class="btn-ghost px-3 py-1.5 text-xs">🔄 Atualizar</button>
         </div>
         <table class="w-full">
           <thead><tr class="tbl-head"><th>Telefone</th><th>Nome</th><th>Última mensagem</th><th>Fluxo</th><th>Msgs</th><th>Quando</th><th></th></tr></thead>
@@ -1176,15 +1297,15 @@
                 <td><span class="badge bg-purple-100 text-purple-700 text-xs" x-text="c.current_flow||c.last_flow||'—'"></span></td>
                 <td class="text-center text-xs font-bold text-slate-800" x-text="c.message_count"></td>
                 <td class="text-xs text-gray-400" x-text="formatDate(c.last_timestamp)"></td>
-                <td><button class="text-xs text-teal-600 underline">Ver →</button></td>
+                <td><button class="btn-icon btn-icon-teal" title="Ver conversa">→</button></td>
               </tr>
             </template>
           </tbody>
         </table>
       </div>
       <!-- Chat detail view -->
-      <div x-show="conversaAberta" class="card flex flex-col" style="height:70vh">
-        <div class="p-4 flex items-center gap-3 border-b border-gray-100">
+      <div x-show="conversaAberta" class="card flex flex-col" style="height:72vh">
+        <div class="p-4 flex items-center gap-3" style="border-bottom:1px solid var(--border)">
           <button @click="conversaAberta=null" class="btn-ghost px-3 py-1.5 text-xs">← Voltar</button>
           <div>
             <p class="font-bold text-slate-800" x-text="conversaAberta?.nome||conversaAberta?.phone"></p>
@@ -1195,8 +1316,8 @@
         <div class="flex-1 overflow-y-auto p-4 space-y-2" id="chatScroll">
           <template x-for="m in mensagensAbertas" :key="m.id">
             <div class="flex" :class="m.direction==='OUT'?'justify-end':'justify-start'">
-              <div class="max-w-xs px-3 py-2 rounded-2xl text-sm shadow-sm"
-                :class="m.direction==='OUT'?'bg-[#2D8C8C] text-white rounded-br-none':'bg-white border border-gray-100 text-gray-700 rounded-bl-none'">
+              <div class="max-w-xs px-3 py-2 text-sm shadow-sm"
+                :class="m.direction==='OUT' ? 'bubble-out' : 'bubble-in'">
                 <p x-text="m.text"></p>
                 <p class="text-xs mt-1 opacity-60" x-text="new Date(m.timestamp).toLocaleTimeString('pt-BR')"></p>
               </div>
@@ -1231,10 +1352,9 @@
 
   <!-- ══ Modal: Novo Texto ══════════════════════════════════ -->
   <div x-show="novoTextoModal" x-cloak
-    class="fixed inset-0 z-50 flex items-center justify-center"
-    style="background:rgba(34,23,72,.55)">
-    <div class="card p-6 w-full max-w-lg mx-4" @click.stop>
-      <h3 class="font-bold text-slate-800 mb-4">➕ Novo Texto</h3>
+    class="fixed inset-0 z-50 flex items-center justify-center modal-bg">
+    <div class="card p-6 w-full max-w-lg mx-4" @click.stop style="box-shadow:0 24px 60px rgba(0,0,0,.2)">
+      <h3 class="font-bold mb-4" style="color:var(--text-1)">➕ Novo Texto</h3>
       <div class="space-y-3">
         <div>
           <label class="text-xs font-medium text-gray-600 mb-1 block">Chave (ex: boas_vindas)</label>
@@ -1257,11 +1377,10 @@
 
   <!-- ══ Modal: Reset de Senha ══════════════════════════════ -->
   <div x-show="resetSenhaModal" x-cloak
-    class="fixed inset-0 z-50 flex items-center justify-center"
-    style="background:rgba(34,23,72,.55)">
-    <div class="card p-6 w-full max-w-sm mx-4" @click.stop>
-      <h3 class="font-bold text-slate-800 mb-1">🔑 Redefinir Senha</h3>
-      <p class="text-xs text-gray-400 mb-4"
+    class="fixed inset-0 z-50 flex items-center justify-center modal-bg">
+    <div class="card p-6 w-full max-w-sm mx-4" @click.stop style="box-shadow:0 24px 60px rgba(0,0,0,.2)">
+      <h3 class="font-bold mb-1" style="color:var(--text-1)">🔑 Redefinir Senha</h3>
+      <p class="text-xs mb-4" style="color:var(--text-3)"
         x-text="resetSenhaTarget ? 'Usuário: '+resetSenhaTarget.name : ''"></p>
       <div>
         <label class="text-xs font-medium text-gray-600 mb-1 block">Nova senha (mín. 6 caracteres)</label>
