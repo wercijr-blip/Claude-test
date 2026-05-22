@@ -68,7 +68,7 @@ export function trackBeginCheckout(type: 'particular' | 'plano', origin: string)
   }
 }
 
-/** Stripe purchase confirmed — fires from /pagamento/sucesso. */
+/** Purchase confirmed via Asaas — fires from /pagamento/sucesso. */
 export function trackPurchase(sessionId: string, value = 150): void {
   pushDataLayer('purchase', { transaction_id: sessionId, value, currency: 'BRL', item_name: 'Consulta PrEP' })
   if (typeof window !== 'undefined' && typeof window.fbq === 'function') {
