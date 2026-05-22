@@ -1,0 +1,56 @@
+{
+  "name": "meeting-recorder",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"tsx watch --env-file=.env server.ts\" \"vite\"",
+    "build": "vite build",
+    "start": "tsx --env-file=.env server.ts",
+    "check": "tsc --noEmit",
+    "electron:compile": "tsc --project electron/tsconfig.json",
+    "electron:dev": "pnpm electron:compile && VITE_API_URL=http://localhost:3333 electron dist/electron/main.js",
+    "electron:build": "pnpm build && pnpm electron:compile && electron-builder",
+    "electron:pack": "pnpm build && pnpm electron:compile && electron-builder --dir"
+  },
+  "main": "dist/electron/main.js",
+  "dependencies": {
+    "compression": "^1.8.1",
+    "express": "^4.19.2",
+    "multer": "^1.4.5-lts.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/compression": "^1.8.1",
+    "@types/express": "^4.17.21",
+    "@types/multer": "^1.4.11",
+    "@types/node": "^20.12.5",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "concurrently": "^9.2.1",
+    "electron": "^42.2.0",
+    "electron-builder": "^26.8.1",
+    "lucide-react": "^0.368.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwindcss": "^4.0.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.4.4",
+    "vite": "^6.0.0"
+  },
+  "build": {
+    "appId": "com.meetingrecorder.app",
+    "productName": "Gravador de Reunião",
+    "directories": { "output": "dist/app" },
+    "files": ["dist/electron/**/*", "dist/client/**/*", "node_modules/**/*", "package.json"],
+    "mac": {
+      "category": "public.app-category.business",
+      "entitlements": "electron/entitlements.mac.plist",
+      "entitlementsInherit": "electron/entitlements.mac.plist",
+      "hardenedRuntime": true
+    },
+    "win": { "target": "nsis" },
+    "linux": { "target": "AppImage" }
+  }
+}
