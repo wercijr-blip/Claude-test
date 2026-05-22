@@ -193,22 +193,22 @@ REDIS_URL
 
 ## 🧪 Suíte de Testes (256+ testes)
 
-| Arquivo                                    | O que testa                                         |
-| ------------------------------------------ | --------------------------------------------------- |
-| `server/clinicalIntelligence.test.ts`      | 11 prompts, orçamento Opus, downgrade, JSON parsing |
-| `server/cisRest.test.ts`                   | Endpoints REST, auth, paginação, PII isolation      |
-| `server/pubmed.test.ts`                    | CircuitBreaker, cache Redis, E-utilities            |
-| `server/roles.test.ts`                     | Sistema de permissões por role                      |
-| `server/security.test.ts`                  | Payload bomb, CORS, CPF injection                   |
-| `server/token.test.ts`                     | Ciclo de vida de tokens                             |
-| `server/pubmedQueue.test.ts`               | Worker queue BullMQ                                 |
-| `server/_core/circuitBreaker.test.ts`      | Half-open timing, estados, trial falhado            |
-| `server/scriba.test.ts`                    | Sessões, SOAP, alertas, transcrição                 |
-| `server/audit.test.ts`                     | Audit trail, erros de DB insert                     |
-| `server/caseSeriesQueue.test.ts`           | Worker série de casos automática                    |
-| `server/digestQueue.test.ts`               | Worker digest diário/semanal/mensal                 |
-| `server/_core/dlq.test.ts`                 | Dead letter queue, Sentry capture                   |
-| `server/totp.test.ts`                      | TOTP enrollment, verificação, rotação               |
+| Arquivo                               | O que testa                                         |
+| ------------------------------------- | --------------------------------------------------- |
+| `server/clinicalIntelligence.test.ts` | 11 prompts, orçamento Opus, downgrade, JSON parsing |
+| `server/cisRest.test.ts`              | Endpoints REST, auth, paginação, PII isolation      |
+| `server/pubmed.test.ts`               | CircuitBreaker, cache Redis, E-utilities            |
+| `server/roles.test.ts`                | Sistema de permissões por role                      |
+| `server/security.test.ts`             | Payload bomb, CORS, CPF injection                   |
+| `server/token.test.ts`                | Ciclo de vida de tokens                             |
+| `server/pubmedQueue.test.ts`          | Worker queue BullMQ                                 |
+| `server/_core/circuitBreaker.test.ts` | Half-open timing, estados, trial falhado            |
+| `server/scriba.test.ts`               | Sessões, SOAP, alertas, transcrição                 |
+| `server/audit.test.ts`                | Audit trail, erros de DB insert                     |
+| `server/caseSeriesQueue.test.ts`      | Worker série de casos automática                    |
+| `server/digestQueue.test.ts`          | Worker digest diário/semanal/mensal                 |
+| `server/_core/dlq.test.ts`            | Dead letter queue, Sentry capture                   |
+| `server/totp.test.ts`                 | TOTP enrollment, verificação, rotação               |
 
 ---
 
@@ -238,21 +238,26 @@ REDIS_URL
 ## 🔧 Troubleshooting
 
 ### Banco de dados
+
 - **`ensureSchema` falha no boot em produção:** verificar `DATABASE_URL` e conectividade TiDB Cloud. O erro é fatal — servidor não sobe com schema incompleto.
 - **Coluna já existe (1060):** benign race condition entre dois boots simultâneos — `ensureSchema` ignora silenciosamente.
 
 ### Redis
+
 - **Redis indisponível:** PubMed cache miss → busca prossegue normalmente. Opus budget → fail-open (não bloqueia chamada). Rate limiting → pode ficar sem limites temporariamente.
 
 ### Filas BullMQ
+
 - **Worker travado / stalled:** `lockDuration` de 180s para pubmedQueue (síntese lenta). Verificar `maxStalledCount: 1`.
 - **DLQ acumulando:** monitorado em `/api/health/metrics` → alerta se `dlqCount ≥ 20`.
 
 ### Autenticação
+
 - **`devLogin` retorna 404 em produção:** intencional — indistinguível de rota inexistente por segurança.
 - **TOTP: código recusado:** verificar sincronização de horário do dispositivo (RFC 6238 ± 30s).
 
 ### Limites conhecidos
+
 - **Transcrição Whisper:** limite de 25MB por arquivo de áudio.
 - **Síntese PubMed:** máximo 10 artigos por consulta (5 free + 5 MeSH, deduplicados).
 - **Opus downgrade:** automático quando `OPUS_DAILY_TOKEN_BUDGET` atingido — verificar Redis key `cis:opus:tokens:{YYYY-MM-DD}` (BRT).

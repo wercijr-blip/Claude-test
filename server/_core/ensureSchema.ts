@@ -239,8 +239,14 @@ async function patchTableColumns(
     } catch (err) {
       const errMsg = String(err);
       // MySQL 1060: Duplicate column — benign TOCTOU race between concurrent boots
-      if (errMsg.includes("1060") || errMsg.toLowerCase().includes("duplicate column")) {
-        logger.debug("[ensureSchema] Coluna já existe (race benigno)", { table, column: col.name });
+      if (
+        errMsg.includes("1060") ||
+        errMsg.toLowerCase().includes("duplicate column")
+      ) {
+        logger.debug("[ensureSchema] Coluna já existe (race benigno)", {
+          table,
+          column: col.name,
+        });
         continue;
       }
       logger.error("[ensureSchema] Falha ao adicionar coluna", {

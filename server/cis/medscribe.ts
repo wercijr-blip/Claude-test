@@ -36,22 +36,11 @@ export const KnowledgeMetadataSchema = z
       .passthrough(),
     perfil_paciente: z
       .object({
-        faixa_etaria: z.enum([
-          "pediatrico",
-          "adulto_jovem",
-          "adulto",
-          "idoso",
-        ]),
+        faixa_etaria: z.enum(["pediatrico", "adulto_jovem", "adulto", "idoso"]),
         sexo: z.enum(["M", "F", "nao_informado"]),
         imunocomprometido: z.boolean(),
         tipo_imunocomprometimento: z
-          .enum([
-            "transplante",
-            "hiv",
-            "quimioterapia",
-            "corticoide",
-            "outro",
-          ])
+          .enum(["transplante", "hiv", "quimioterapia", "corticoide", "outro"])
           .nullable(),
         comorbidades: z.array(z.string()).default([]),
       })
@@ -95,11 +84,7 @@ export const KnowledgeMetadataSchema = z
       .object({
         atipico: z.boolean(),
         criterios_objetivos: z.array(z.string()).default([]),
-        tipo_sugerido: z.enum([
-          "relato_de_caso",
-          "serie_de_casos",
-          "nenhum",
-        ]),
+        tipo_sugerido: z.enum(["relato_de_caso", "serie_de_casos", "nenhum"]),
       })
       .passthrough(),
     tags: z.array(z.string()).default([]),

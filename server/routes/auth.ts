@@ -209,7 +209,12 @@ export const authRouter = router({
             .setJti(randomUUID())
             .setExpirationTime("5m")
             .sign(secret);
-          return { token: pendingToken, role, requiresTwoFactor: true, requiresTotpEnrollment: false };
+          return {
+            token: pendingToken,
+            role,
+            requiresTwoFactor: true,
+            requiresTotpEnrollment: false,
+          };
         }
 
         const token = await new SignJWT({ type: "staff", userId, role })
@@ -233,7 +238,12 @@ export const authRouter = router({
           openId: data.openId,
           requires2fa,
         });
-        return { token, role, requiresTwoFactor: false, requiresTotpEnrollment };
+        return {
+          token,
+          role,
+          requiresTwoFactor: false,
+          requiresTotpEnrollment,
+        };
       } catch (err) {
         logger.error("[auth.callback] erro", {
           message: err instanceof Error ? err.message : String(err),

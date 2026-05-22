@@ -310,8 +310,12 @@ export const scribaRouter = router({
         });
       }
 
-      const kmParsed = KnowledgeMetadataSchema.safeParse(nota.knowledgeMetadata);
-      const km = kmParsed.success ? kmParsed.data : (nota.knowledgeMetadata as Record<string, unknown> | null);
+      const kmParsed = KnowledgeMetadataSchema.safeParse(
+        nota.knowledgeMetadata,
+      );
+      const km = kmParsed.success
+        ? kmParsed.data
+        : (nota.knowledgeMetadata as Record<string, unknown> | null);
       const perfil = (km?.perfil_paciente as Record<string, unknown>) ?? {};
       const busca = (km?.busca_pubmed as Record<string, unknown>) ?? {};
 

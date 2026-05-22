@@ -86,8 +86,16 @@ describe("buscarHistoricoFeedback", () => {
 
   it("retorna feedbacks CID-10 específicos do médico", async () => {
     const cid10Rows = [
-      { hashAlerta: "abc123", feedbackMedico: "concordo", feedbackMotivo: null },
-      { hashAlerta: "def456", feedbackMedico: "discordo", feedbackMotivo: "Conduta já ajustada" },
+      {
+        hashAlerta: "abc123",
+        feedbackMedico: "concordo",
+        feedbackMotivo: null,
+      },
+      {
+        hashAlerta: "def456",
+        feedbackMedico: "discordo",
+        feedbackMotivo: "Conduta já ajustada",
+      },
     ];
 
     let callCount = 0;
@@ -109,7 +117,11 @@ describe("buscarHistoricoFeedback", () => {
 
   it("inclui feedbacks globais quando CID-10 específico retorna vazio", async () => {
     const globalRows = [
-      { hashAlerta: "ggg111", feedbackMedico: "inaplicavel", feedbackMotivo: "Caso especial" },
+      {
+        hashAlerta: "ggg111",
+        feedbackMedico: "inaplicavel",
+        feedbackMotivo: "Caso especial",
+      },
     ];
 
     let callCount = 0;
@@ -130,10 +142,19 @@ describe("buscarHistoricoFeedback", () => {
 
   it("combina feedbacks CID-10 e globais na mesma resposta", async () => {
     const cid10Rows = [
-      { hashAlerta: "cid10_hash", feedbackMedico: "concordo", feedbackMotivo: null },
+      {
+        hashAlerta: "cid10_hash",
+        feedbackMedico: "concordo",
+        feedbackMotivo: null,
+      },
     ];
     const globalRows = [
-      { hashAlerta: "global_hash", feedbackMedico: "inaplicavel", feedbackMotivo: "motivo", cid10: "B20" },
+      {
+        hashAlerta: "global_hash",
+        feedbackMedico: "inaplicavel",
+        feedbackMotivo: "motivo",
+        cid10: "B20",
+      },
     ];
 
     let callCount = 0;
@@ -143,7 +164,9 @@ describe("buscarHistoricoFeedback", () => {
         from: vi.fn().mockReturnThis(),
         where: vi.fn().mockReturnThis(),
         orderBy: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockResolvedValue(callCount === 1 ? cid10Rows : globalRows),
+        limit: vi
+          .fn()
+          .mockResolvedValue(callCount === 1 ? cid10Rows : globalRows),
       };
     });
 
@@ -156,7 +179,12 @@ describe("buscarHistoricoFeedback", () => {
 
   it("preserva motivo e cid10Origem nos feedbacks globais", async () => {
     const globalRows = [
-      { hashAlerta: "h1", feedbackMedico: "discordo", feedbackMotivo: "Resistência documentada", cid10: "B20" },
+      {
+        hashAlerta: "h1",
+        feedbackMedico: "discordo",
+        feedbackMotivo: "Resistência documentada",
+        cid10: "B20",
+      },
     ];
 
     let callCount = 0;

@@ -54,7 +54,9 @@ vi.mock("./clinicalIntelligence.ts", () => ({
   gerarDigestMensal: vi.fn(),
   gerarDigestSemanalLote: vi.fn(),
   gerarDigestMensalLote: vi.fn(),
-  getOpusBudgetStatus: vi.fn().mockResolvedValue({ usado: 0, limite: 100000, percentual: 0 }),
+  getOpusBudgetStatus: vi
+    .fn()
+    .mockResolvedValue({ usado: 0, limite: 100000, percentual: 0 }),
 }));
 
 vi.mock("./obsidian.ts", () => ({ publicarDigest: vi.fn() }));
@@ -76,7 +78,11 @@ vi.mock("./db.ts", () => ({
   },
 }));
 
-import { digestQueue, enqueueDigestDiario, DIGEST_QUEUE_NAME } from "./digestQueue.ts";
+import {
+  digestQueue,
+  enqueueDigestDiario,
+  DIGEST_QUEUE_NAME,
+} from "./digestQueue.ts";
 
 describe("digestQueue configuração", () => {
   it("exporta o nome correto da fila", () => {
@@ -115,9 +121,15 @@ describe("enqueueDigestDiario", () => {
   });
 
   it("jobId inclui medicoId e periodoRef para evitar duplicatas", async () => {
-    await enqueueDigestDiario({ medicoId: 42, sessionId: 5, periodoRef: "2026-01-01" });
+    await enqueueDigestDiario({
+      medicoId: 42,
+      sessionId: 5,
+      periodoRef: "2026-01-01",
+    });
 
-    const call = (digestQueue.add as ReturnType<typeof vi.fn>).mock.calls.at(-1)!;
+    const call = (digestQueue.add as ReturnType<typeof vi.fn>).mock.calls.at(
+      -1,
+    )!;
     const opts = call[2] as { jobId: string };
     expect(opts.jobId).toBe("digest-diario-42-2026-01-01");
   });
@@ -130,7 +142,9 @@ describe("enqueueDigestDiario", () => {
       requestId: "req-abc",
     });
 
-    const call = (digestQueue.add as ReturnType<typeof vi.fn>).mock.calls.at(-1)!;
+    const call = (digestQueue.add as ReturnType<typeof vi.fn>).mock.calls.at(
+      -1,
+    )!;
     expect(call[1]).toMatchObject({ requestId: "req-abc" });
   });
 });

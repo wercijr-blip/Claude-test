@@ -30,12 +30,12 @@
 
 **Causas comuns e correção:**
 
-| Causa                        | Sintoma no log                                                            | Correção                                                                            |
-| ---------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Variável de ambiente ausente | `Variáveis de ambiente inválidas:` seguido de JSON com campos faltando    | Adicionar variável faltante em Railway → Variables → redeploy                       |
-| Bundle Vite ausente          | `Cannot find module` ou `dist/client/index.html não existe`               | Verificar se `pnpm build` rodou no nixpacks                                         |
-| DATABASE_URL inválida        | `Error: connect ECONNREFUSED` ou `TiKV server timeout`                    | Verificar `DATABASE_URL` no Railway Variables                                       |
-| Porta errada                 | Container sobe mas healthcheck não alcança                                | Confirmar que `PORT` está definida ou que Railway injeta a variável automaticamente |
+| Causa                        | Sintoma no log                                                         | Correção                                                                            |
+| ---------------------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Variável de ambiente ausente | `Variáveis de ambiente inválidas:` seguido de JSON com campos faltando | Adicionar variável faltante em Railway → Variables → redeploy                       |
+| Bundle Vite ausente          | `Cannot find module` ou `dist/client/index.html não existe`            | Verificar se `pnpm build` rodou no nixpacks                                         |
+| DATABASE_URL inválida        | `Error: connect ECONNREFUSED` ou `TiKV server timeout`                 | Verificar `DATABASE_URL` no Railway Variables                                       |
+| Porta errada                 | Container sobe mas healthcheck não alcança                             | Confirmar que `PORT` está definida ou que Railway injeta a variável automaticamente |
 
 **Fix geral:** Corrigir a variável/configuração → Railway dashboard → **Deploy** (botão de redeploy manual).
 
@@ -191,10 +191,10 @@ mysqldump \
 
 ## Seção 5 — Contatos de Emergência
 
-| Papel               | Contato                               |
-| ------------------- | ------------------------------------- |
+| Papel               | Contato                                                   |
+| ------------------- | --------------------------------------------------------- |
 | Responsável técnico | Dr. Werciley Saraiva Vieira Junior — werciley@atos.med.br |
-| Suporte Railway     | https://railway.app/help              |
-| Suporte TiDB Cloud  | https://tidbcloud.com/support         |
-| Suporte AWS         | https://aws.amazon.com/support        |
-| Suporte Anthropic   | https://support.anthropic.com         |
+| Suporte Railway     | https://railway.app/help                                  |
+| Suporte TiDB Cloud  | https://tidbcloud.com/support                             |
+| Suporte AWS         | https://aws.amazon.com/support                            |
+| Suporte Anthropic   | https://support.anthropic.com                             |

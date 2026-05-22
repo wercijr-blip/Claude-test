@@ -4,7 +4,7 @@
 **Duração:** HH:MM – HH:MM BRT (N horas)  
 **Severidade:** P1 / P2 / P3  
 **Status:** Resolvido / Em acompanhamento  
-**Autores:** @nome  
+**Autores:** @nome
 
 ---
 
@@ -16,13 +16,13 @@
 
 ## Linha do Tempo
 
-| Hora (BRT) | Evento |
-|------------|--------|
-| HH:MM | Alerta disparado / primeiro sintoma detectado |
-| HH:MM | Investigação iniciada |
-| HH:MM | Causa raiz identificada |
-| HH:MM | Mitigação aplicada |
-| HH:MM | Serviço restaurado |
+| Hora (BRT) | Evento                                        |
+| ---------- | --------------------------------------------- |
+| HH:MM      | Alerta disparado / primeiro sintoma detectado |
+| HH:MM      | Investigação iniciada                         |
+| HH:MM      | Causa raiz identificada                       |
+| HH:MM      | Mitigação aplicada                            |
+| HH:MM      | Serviço restaurado                            |
 
 ---
 
@@ -34,10 +34,10 @@ Descreva a causa técnica do incidente. Seja específico: arquivo, linha de cód
 
 ## Impacto
 
-- **Usuários afetados:** N usuários / todos os usuários  
-- **Funcionalidades afetadas:** lista de endpoints/features  
-- **Dados perdidos ou corrompidos:** Sim / Não (se sim, detalhe)  
-- **LGPD:** Houve exposição de dados pessoais? Sim / Não  
+- **Usuários afetados:** N usuários / todos os usuários
+- **Funcionalidades afetadas:** lista de endpoints/features
+- **Dados perdidos ou corrompidos:** Sim / Não (se sim, detalhe)
+- **LGPD:** Houve exposição de dados pessoais? Sim / Não
 
 ---
 
@@ -67,9 +67,9 @@ Descreva o fix aplicado, com links para PRs/commits.
 
 ## Ações corretivas
 
-| Ação | Responsável | Prazo | Status |
-|------|-------------|-------|--------|
-| Descrição da ação | @nome | YYYY-MM-DD | Aberto |
+| Ação              | Responsável | Prazo      | Status |
+| ----------------- | ----------- | ---------- | ------ |
+| Descrição da ação | @nome       | YYYY-MM-DD | Aberto |
 
 ---
 

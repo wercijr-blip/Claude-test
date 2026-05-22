@@ -94,9 +94,10 @@ function SetupGuide({ onClose }: { onClose: () => void }) {
           </div>
 
           <p className="text-sm text-slate-500 mb-4">
-            Apps como WhatsApp Desktop, Zoom e Teams usam áudio nativo do sistema.
-            Um <strong>cabo de áudio virtual</strong> (gratuito) cria um dispositivo
-            que o CIS consegue capturar como se fosse um microfone.
+            Apps como WhatsApp Desktop, Zoom e Teams usam áudio nativo do
+            sistema. Um <strong>cabo de áudio virtual</strong> (gratuito) cria
+            um dispositivo que o CIS consegue capturar como se fosse um
+            microfone.
           </p>
 
           {/* OS selector */}
@@ -117,17 +118,13 @@ function SetupGuide({ onClose }: { onClose: () => void }) {
             ))}
           </div>
 
-          {os === "mac" ? (
-            <MacGuide />
-          ) : (
-            <WindowsGuide />
-          )}
+          {os === "mac" ? <MacGuide /> : <WindowsGuide />}
 
           <div className="mt-5 p-3 bg-amber-50 border border-amber-200 rounded-xl">
             <p className="text-xs text-amber-700">
-              <strong>Após configurar:</strong> recarregue o CIS, clique em
-              "App Desktop" e selecione o cabo virtual na lista de dispositivos.
-              Ele aparecerá destacado automaticamente.
+              <strong>Após configurar:</strong> recarregue o CIS, clique em "App
+              Desktop" e selecione o cabo virtual na lista de dispositivos. Ele
+              aparecerá destacado automaticamente.
             </p>
           </div>
 
@@ -143,13 +140,7 @@ function SetupGuide({ onClose }: { onClose: () => void }) {
   );
 }
 
-function Step({
-  n,
-  children,
-}: {
-  n: number;
-  children: React.ReactNode;
-}) {
+function Step({ n, children }: { n: number; children: React.ReactNode }) {
   return (
     <div className="flex gap-3 text-sm text-slate-700">
       <span className="shrink-0 w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold">
@@ -185,14 +176,14 @@ function MacGuide() {
       </Step>
       <Step n={3}>
         Para continuar ouvindo a chamada enquanto grava, abra o{" "}
-        <strong>Configuração de MIDI de Áudio</strong> (pasta Utilitários) → crie
-        um <strong>Dispositivo de Múltiplas Saídas</strong> marcando seus
+        <strong>Configuração de MIDI de Áudio</strong> (pasta Utilitários) →
+        crie um <strong>Dispositivo de Múltiplas Saídas</strong> marcando seus
         fones/alto-falantes + BlackHole 2ch. Use esse dispositivo como saída.
       </Step>
       <Step n={4}>
         No WhatsApp / Zoom / Teams Desktop: vá em Configurações de Áudio e
-        defina a <strong>saída</strong> para <strong>BlackHole 2ch</strong>{" "}
-        (ou para o dispositivo múltiplas saídas criado).
+        defina a <strong>saída</strong> para <strong>BlackHole 2ch</strong> (ou
+        para o dispositivo múltiplas saídas criado).
       </Step>
       <Step n={5}>
         No CIS, clique em <strong>App Desktop</strong> → o BlackHole 2ch
@@ -227,13 +218,14 @@ function WindowsGuide() {
         <strong>CABLE Input</strong> como dispositivo padrão.
       </Step>
       <Step n={3}>
-        Para continuar ouvindo: aba <strong>Gravação</strong> → clique duas vezes
-        em <strong>CABLE Output</strong> → aba <strong>Ouvir</strong> → marque
-        "Ouvir este dispositivo" e selecione seus fones/caixas.
+        Para continuar ouvindo: aba <strong>Gravação</strong> → clique duas
+        vezes em <strong>CABLE Output</strong> → aba <strong>Ouvir</strong> →
+        marque "Ouvir este dispositivo" e selecione seus fones/caixas.
       </Step>
       <Step n={4}>
         No WhatsApp / Zoom / Teams Desktop: Configurações de Áudio → defina{" "}
-        <strong>Alto-Falante</strong> para <strong>CABLE Input (VB-Audio)</strong>.
+        <strong>Alto-Falante</strong> para{" "}
+        <strong>CABLE Input (VB-Audio)</strong>.
       </Step>
       <Step n={5}>
         No CIS, clique em <strong>App Desktop</strong> → o VB-Cable aparecerá
@@ -664,7 +656,8 @@ export default function AudioRecorder({
           />
         </div>
         <p className="text-[11px] text-stone-400 leading-relaxed">
-          <strong className="text-stone-500">App Desktop</strong> requer BlackHole (Mac) ou VB-Cable (Windows) — instruções no próximo passo.
+          <strong className="text-stone-500">App Desktop</strong> requer
+          BlackHole (Mac) ou VB-Cable (Windows) — instruções no próximo passo.
         </p>
       </div>
     );
@@ -720,10 +713,14 @@ export default function AudioRecorder({
         <div className="w-4 h-4 border-2 border-stone-300 border-t-blue-600 rounded-full animate-spin shrink-0" />
         <div>
           <p className="text-sm text-stone-700 font-medium">
-            {state === "uploading" ? "Enviando áudio…" : "Transcrevendo com Whisper…"}
+            {state === "uploading"
+              ? "Enviando áudio…"
+              : "Transcrevendo com Whisper…"}
           </p>
           <p className="text-[11px] text-stone-400">
-            {state === "uploading" ? "Fazendo upload para processamento" : "Reconhecimento de fala em pt-BR médico"}
+            {state === "uploading"
+              ? "Fazendo upload para processamento"
+              : "Reconhecimento de fala em pt-BR médico"}
           </p>
         </div>
       </div>
@@ -741,7 +738,9 @@ export default function AudioRecorder({
               </p>
               <button
                 onClick={() => {
-                  navigator.clipboard.writeText(transcricao).catch(() => undefined);
+                  navigator.clipboard
+                    .writeText(transcricao)
+                    .catch(() => undefined);
                   toast("Copiado", "success");
                 }}
                 className="text-xs text-blue-600 hover:underline"
@@ -759,8 +758,12 @@ export default function AudioRecorder({
         )}
         {state === "error" && (
           <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
-            <p className="text-sm text-red-600 font-medium">Falha na transcrição.</p>
-            <p className="text-xs text-red-400 mt-0.5">Verifique sua conexão e tente novamente.</p>
+            <p className="text-sm text-red-600 font-medium">
+              Falha na transcrição.
+            </p>
+            <p className="text-xs text-red-400 mt-0.5">
+              Verifique sua conexão e tente novamente.
+            </p>
           </div>
         )}
         <button

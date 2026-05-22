@@ -47,7 +47,9 @@ class ErrorBoundary extends Component<
         <div className="min-h-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950">
           <div className="text-center px-6">
             <div className="w-14 h-14 bg-red-50 dark:bg-red-950 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl" role="img" aria-label="Erro">⚠️</span>
+              <span className="text-2xl" role="img" aria-label="Erro">
+                ⚠️
+              </span>
             </div>
             <h1 className="text-lg font-semibold text-stone-800 dark:text-stone-100 mb-1">
               Algo deu errado
@@ -104,7 +106,9 @@ function CISDashboard() {
   const [transcricao, setTranscricao] = useState<string | null>(null);
   const [sessaoId, setSessaoId] = useState<number | null>(null);
   const [refreshingId, setRefreshingId] = useState<number | null>(null);
-  const [pendingSynthesisNoteId, setPendingSynthesisNoteIdState] = useState<number | null>(() => {
+  const [pendingSynthesisNoteId, setPendingSynthesisNoteIdState] = useState<
+    number | null
+  >(() => {
     const v = sessionStorage.getItem("cis:pendingSynthesis");
     return v ? parseInt(v, 10) : null;
   });
@@ -207,8 +211,13 @@ function CISDashboard() {
       <header className="sticky top-0 z-40 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm border-b border-stone-200 dark:border-stone-800">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-blue-600 rounded-xl flex items-center justify-center shrink-0" aria-hidden="true">
-              <span className="text-white text-[11px] font-bold tracking-tight">CIS</span>
+            <div
+              className="w-8 h-8 bg-blue-600 rounded-xl flex items-center justify-center shrink-0"
+              aria-hidden="true"
+            >
+              <span className="text-white text-[11px] font-bold tracking-tight">
+                CIS
+              </span>
             </div>
             <span className="text-sm font-semibold text-stone-800 dark:text-stone-100 hidden sm:block">
               Inteligência Clínica
@@ -216,16 +225,28 @@ function CISDashboard() {
           </div>
           <div className="flex items-center gap-4">
             {sessaoId && (
-              <div className="flex items-center gap-1.5" aria-label={`Sessão ativa #${sessaoId}`}>
-                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" aria-hidden="true" />
+              <div
+                className="flex items-center gap-1.5"
+                aria-label={`Sessão ativa #${sessaoId}`}
+              >
+                <span
+                  className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"
+                  aria-hidden="true"
+                />
                 <span className="text-xs text-stone-500 dark:text-stone-400 hidden sm:block">
                   Sessão #{sessaoId}
                 </span>
               </div>
             )}
             {alertaItems.length > 0 && (
-              <div className="flex items-center gap-1" aria-label={`${alertaItems.length} alertas pendentes`}>
-                <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" aria-hidden="true" />
+              <div
+                className="flex items-center gap-1"
+                aria-label={`${alertaItems.length} alertas pendentes`}
+              >
+                <span
+                  className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"
+                  aria-hidden="true"
+                />
                 <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
                   {alertaItems.length}
                 </span>
@@ -243,11 +264,12 @@ function CISDashboard() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-4">
-
         {/* ── Alertas ─────────────────────────────────────────────────────── */}
         {!alertasLoading && alertasError && (
           <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl shadow-sm p-4 flex items-center justify-between">
-            <p className="text-sm text-stone-500 dark:text-stone-400">Não foi possível carregar alertas.</p>
+            <p className="text-sm text-stone-500 dark:text-stone-400">
+              Não foi possível carregar alertas.
+            </p>
             <button
               onClick={() => utils.scriba.listarAlertas.invalidate()}
               className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
@@ -260,7 +282,8 @@ function CISDashboard() {
         {!alertasLoading && !alertasError && alertaItems.length > 0 && (
           <section aria-label="Alertas de conduta pendentes">
             <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-stone-400 dark:text-stone-500 mb-2 px-1">
-              {alertaItems.length} alerta{alertaItems.length > 1 ? "s" : ""} pendente{alertaItems.length > 1 ? "s" : ""}
+              {alertaItems.length} alerta{alertaItems.length > 1 ? "s" : ""}{" "}
+              pendente{alertaItems.length > 1 ? "s" : ""}
             </p>
             <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl shadow-sm overflow-hidden">
               <ul className="divide-y divide-stone-100 px-4 py-1">
@@ -284,17 +307,33 @@ function CISDashboard() {
             Sessão clínica
           </p>
           <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl shadow-sm p-5">
-
             {!sessaoId ? (
               <div className="flex flex-col items-center py-6 gap-4">
-                <div className="w-12 h-12 bg-blue-50 dark:bg-blue-950 rounded-2xl flex items-center justify-center" aria-hidden="true">
-                  <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
+                <div
+                  className="w-12 h-12 bg-blue-50 dark:bg-blue-950 rounded-2xl flex items-center justify-center"
+                  aria-hidden="true"
+                >
+                  <svg
+                    className="w-6 h-6 text-blue-600 dark:text-blue-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M12 4v16m8-8H4"
+                    />
                   </svg>
                 </div>
                 <div className="text-center">
-                  <p className="text-sm font-medium text-stone-700 dark:text-stone-200">Pronto para atender?</p>
-                  <p className="text-xs text-stone-400 dark:text-stone-500 mt-0.5">Abra uma sessão para iniciar as consultas do dia.</p>
+                  <p className="text-sm font-medium text-stone-700 dark:text-stone-200">
+                    Pronto para atender?
+                  </p>
+                  <p className="text-xs text-stone-400 dark:text-stone-500 mt-0.5">
+                    Abra uma sessão para iniciar as consultas do dia.
+                  </p>
                 </div>
                 <button
                   onClick={() => abrirSessao.mutate(void 0)}
@@ -309,19 +348,30 @@ function CISDashboard() {
               <div className="space-y-5">
                 {/* Status da sessão */}
                 <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-emerald-500 rounded-full" aria-hidden="true" />
+                  <span
+                    className="w-2 h-2 bg-emerald-500 rounded-full"
+                    aria-hidden="true"
+                  />
                   <span className="text-xs text-stone-500 dark:text-stone-400">
-                    Sessão {abrirSessao.data?.nova ? "iniciada" : "retomada"} — ID {sessaoId}
+                    Sessão {abrirSessao.data?.nova ? "iniciada" : "retomada"} —
+                    ID {sessaoId}
                   </span>
                 </div>
 
                 <div className="border-t border-stone-100 dark:border-stone-800 pt-4 space-y-4">
                   {/* Tipo de consulta */}
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-stone-400 dark:text-stone-500 mb-2" id="tipo-consulta-label">
+                    <p
+                      className="text-[11px] font-semibold uppercase tracking-[0.08em] text-stone-400 dark:text-stone-500 mb-2"
+                      id="tipo-consulta-label"
+                    >
                       Tipo de consulta
                     </p>
-                    <div className="flex gap-2" role="group" aria-labelledby="tipo-consulta-label">
+                    <div
+                      className="flex gap-2"
+                      role="group"
+                      aria-labelledby="tipo-consulta-label"
+                    >
                       {TIPO_LABELS.map(({ val, label }) => (
                         <button
                           key={val}
@@ -373,8 +423,16 @@ function CISDashboard() {
                 {/* Processar */}
                 {transcricao && (
                   <div className="border-t border-stone-100 dark:border-stone-800 pt-4">
-                    <div className="bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-800 rounded-xl px-4 py-2.5 mb-3 flex items-center gap-2" role="status">
-                      <span className="text-emerald-600 dark:text-emerald-400 text-sm" aria-hidden="true">✓</span>
+                    <div
+                      className="bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-800 rounded-xl px-4 py-2.5 mb-3 flex items-center gap-2"
+                      role="status"
+                    >
+                      <span
+                        className="text-emerald-600 dark:text-emerald-400 text-sm"
+                        aria-hidden="true"
+                      >
+                        ✓
+                      </span>
                       <p className="text-xs text-emerald-700 dark:text-emerald-300 font-medium">
                         Transcrição concluída — pronto para processar
                       </p>
@@ -414,7 +472,9 @@ function CISDashboard() {
               Notas recentes
             </p>
             {notas?.items && notas.items.length > 0 && (
-              <span className="text-[11px] text-stone-300 dark:text-stone-600">{notas.items.length} nota{notas.items.length !== 1 ? "s" : ""}</span>
+              <span className="text-[11px] text-stone-300 dark:text-stone-600">
+                {notas.items.length} nota{notas.items.length !== 1 ? "s" : ""}
+              </span>
             )}
           </div>
           <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl shadow-sm overflow-hidden">
@@ -424,7 +484,9 @@ function CISDashboard() {
               </div>
             ) : notasError ? (
               <div className="px-4 py-5 flex items-center gap-3">
-                <p className="text-sm text-stone-400 dark:text-stone-500 flex-1">Erro ao carregar notas.</p>
+                <p className="text-sm text-stone-400 dark:text-stone-500 flex-1">
+                  Erro ao carregar notas.
+                </p>
                 <button
                   onClick={() => utils.scriba.listarSoapNotes.invalidate()}
                   className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
@@ -434,8 +496,12 @@ function CISDashboard() {
               </div>
             ) : !notas?.items || notas.items.length === 0 ? (
               <div className="px-4 py-8 text-center">
-                <p className="text-sm text-stone-400 dark:text-stone-500">Nenhuma nota registrada ainda.</p>
-                <p className="text-xs text-stone-300 dark:text-stone-600 mt-1">As notas aparecem aqui após processar uma consulta.</p>
+                <p className="text-sm text-stone-400 dark:text-stone-500">
+                  Nenhuma nota registrada ainda.
+                </p>
+                <p className="text-xs text-stone-300 dark:text-stone-600 mt-1">
+                  As notas aparecem aqui após processar uma consulta.
+                </p>
               </div>
             ) : (
               <ul className="divide-y divide-stone-100 dark:divide-stone-800">
@@ -444,26 +510,35 @@ function CISDashboard() {
                     (Date.now() - new Date(n.createdAt).getTime()) / 86_400_000,
                   );
                   const sinteseVelha = n.temSintese && diasDesde > 365;
-                  const dataStr = diasDesde === 0
-                    ? "hoje"
-                    : diasDesde === 1
-                      ? "ontem"
-                      : `há ${diasDesde}d`;
+                  const dataStr =
+                    diasDesde === 0
+                      ? "hoje"
+                      : diasDesde === 1
+                        ? "ontem"
+                        : `há ${diasDesde}d`;
 
                   return (
-                    <li key={n.id} className="px-4 py-3.5 flex items-start gap-3 hover:bg-stone-50 dark:hover:bg-stone-800/50 transition-colors">
+                    <li
+                      key={n.id}
+                      className="px-4 py-3.5 flex items-start gap-3 hover:bg-stone-50 dark:hover:bg-stone-800/50 transition-colors"
+                    >
                       <span className="mt-0.5 text-[11px] font-mono bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 px-2 py-0.5 rounded shrink-0">
                         {n.cid10 ?? "—"}
                       </span>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-baseline justify-between gap-2">
                           <p className="text-sm font-medium text-stone-800 dark:text-stone-100 truncate">
-                            {n.diagnosticoPrincipal ?? "Diagnóstico não definido"}
+                            {n.diagnosticoPrincipal ??
+                              "Diagnóstico não definido"}
                           </p>
-                          <span className="text-[11px] text-stone-300 dark:text-stone-600 shrink-0">{dataStr}</span>
+                          <span className="text-[11px] text-stone-300 dark:text-stone-600 shrink-0">
+                            {dataStr}
+                          </span>
                         </div>
                         <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                          <span className="text-[11px] text-stone-400 dark:text-stone-500">{n.template}</span>
+                          <span className="text-[11px] text-stone-400 dark:text-stone-500">
+                            {n.template}
+                          </span>
                           {n.tipoConsulta && (
                             <span
                               className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
@@ -482,13 +557,24 @@ function CISDashboard() {
                             </span>
                           )}
                           {n.temSintese ? (
-                            <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">· síntese ✓</span>
+                            <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                              · síntese ✓
+                            </span>
                           ) : pendingSynthesisNoteId === n.id ? (
                             <span className="text-[11px] text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                              · <span className="animate-pulse" aria-label="Buscando no PubMed">●</span> PubMed
+                              ·{" "}
+                              <span
+                                className="animate-pulse"
+                                aria-label="Buscando no PubMed"
+                              >
+                                ●
+                              </span>{" "}
+                              PubMed
                             </span>
                           ) : (
-                            <span className="text-[11px] text-stone-300 dark:text-stone-600">· sem síntese</span>
+                            <span className="text-[11px] text-stone-300 dark:text-stone-600">
+                              · sem síntese
+                            </span>
                           )}
                         </div>
                         {sinteseVelha && (
@@ -497,12 +583,16 @@ function CISDashboard() {
                               Evidências &gt;1 ano
                             </span>
                             <button
-                              onClick={() => refreshEvidencia.mutate({ soapNoteId: n.id })}
+                              onClick={() =>
+                                refreshEvidencia.mutate({ soapNoteId: n.id })
+                              }
                               disabled={refreshingId === n.id}
                               aria-label={`Atualizar síntese de evidências da nota #${n.id}`}
                               className="text-[11px] text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline disabled:opacity-50"
                             >
-                              {refreshingId === n.id ? "Reagendando…" : "Atualizar"}
+                              {refreshingId === n.id
+                                ? "Reagendando…"
+                                : "Atualizar"}
                             </button>
                           </div>
                         )}
@@ -517,7 +607,6 @@ function CISDashboard() {
 
         {/* ── Produções científicas ────────────────────────────────────────── */}
         <PublicacoesPanel />
-
       </main>
     </div>
   );
@@ -565,7 +654,10 @@ function AuthCallback() {
   const [pendingToken, setPendingToken] = useState<string | null>(null);
   const [totpCode, setTotpCode] = useState("");
   const [totpError, setTotpError] = useState<string | null>(null);
-  const [enrollData, setEnrollData] = useState<{ secret: string; uri: string } | null>(null);
+  const [enrollData, setEnrollData] = useState<{
+    secret: string;
+    uri: string;
+  } | null>(null);
   const [enrollCode, setEnrollCode] = useState("");
   const [enrollError, setEnrollError] = useState<string | null>(null);
 
@@ -649,21 +741,37 @@ function AuthCallback() {
       <div className="min-h-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950 p-4">
         <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl shadow-sm p-8 w-full max-w-sm">
           <div className="text-center mb-6">
-            <div className="w-12 h-12 bg-blue-50 dark:bg-blue-950 rounded-2xl flex items-center justify-center mx-auto mb-3" aria-hidden="true">
-              <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            <div
+              className="w-12 h-12 bg-blue-50 dark:bg-blue-950 rounded-2xl flex items-center justify-center mx-auto mb-3"
+              aria-hidden="true"
+            >
+              <svg
+                className="w-6 h-6 text-blue-600 dark:text-blue-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                />
               </svg>
             </div>
             <h1 className="text-base font-semibold text-stone-800 dark:text-stone-100">
               Configure autenticação em 2 etapas
             </h1>
             <p className="text-sm text-stone-500 dark:text-stone-400 mt-1">
-              Obrigatório para acesso admin. Adicione o código abaixo ao seu aplicativo autenticador.
+              Obrigatório para acesso admin. Adicione o código abaixo ao seu
+              aplicativo autenticador.
             </p>
           </div>
 
           <div className="bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-2xl p-4 mb-4 text-center space-y-3">
-            <p className="text-[11px] text-stone-400 dark:text-stone-500 uppercase tracking-wider">Chave secreta</p>
+            <p className="text-[11px] text-stone-400 dark:text-stone-500 uppercase tracking-wider">
+              Chave secreta
+            </p>
             <code className="text-sm font-mono text-stone-700 dark:text-stone-200 break-all select-all">
               {enrollData.secret}
             </code>
@@ -684,7 +792,10 @@ function AuthCallback() {
               }
             }}
           >
-            <label htmlFor="enroll-code" className="block text-xs text-stone-500 dark:text-stone-400 mb-1.5">
+            <label
+              htmlFor="enroll-code"
+              className="block text-xs text-stone-500 dark:text-stone-400 mb-1.5"
+            >
               Código do autenticador
             </label>
             <input
@@ -699,11 +810,19 @@ function AuthCallback() {
               className="w-full text-center text-2xl tracking-widest border border-stone-200 dark:border-stone-700 rounded-2xl px-4 py-3 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-stone-50 dark:bg-stone-800 text-stone-800 dark:text-stone-100"
             />
             {enrollError && (
-              <p className="text-sm text-red-600 dark:text-red-400 text-center mb-3" role="alert">{enrollError}</p>
+              <p
+                className="text-sm text-red-600 dark:text-red-400 text-center mb-3"
+                role="alert"
+              >
+                {enrollError}
+              </p>
             )}
             <button
               type="submit"
-              disabled={ativarTotp.isPending || enrollCode.replace(/\s/g, "").length !== 6}
+              disabled={
+                ativarTotp.isPending ||
+                enrollCode.replace(/\s/g, "").length !== 6
+              }
               className="w-full bg-blue-600 text-white py-2.5 rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
             >
               {ativarTotp.isPending ? "Ativando…" : "Ativar 2FA e entrar"}
@@ -719,9 +838,22 @@ function AuthCallback() {
       <div className="min-h-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950 p-4">
         <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl shadow-sm p-8 w-full max-w-sm">
           <div className="text-center mb-6">
-            <div className="w-12 h-12 bg-blue-50 dark:bg-blue-950 rounded-2xl flex items-center justify-center mx-auto mb-3" aria-hidden="true">
-              <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            <div
+              className="w-12 h-12 bg-blue-50 dark:bg-blue-950 rounded-2xl flex items-center justify-center mx-auto mb-3"
+              aria-hidden="true"
+            >
+              <svg
+                className="w-6 h-6 text-blue-600 dark:text-blue-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                />
               </svg>
             </div>
             <h1 className="text-base font-semibold text-stone-800 dark:text-stone-100">
@@ -740,7 +872,9 @@ function AuthCallback() {
               }
             }}
           >
-            <label htmlFor="totp-code" className="sr-only">Código do autenticador</label>
+            <label htmlFor="totp-code" className="sr-only">
+              Código do autenticador
+            </label>
             <input
               id="totp-code"
               autoFocus
@@ -753,11 +887,18 @@ function AuthCallback() {
               className="w-full text-center text-2xl tracking-widest border border-stone-200 dark:border-stone-700 rounded-2xl px-4 py-3 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-stone-50 dark:bg-stone-800 text-stone-800 dark:text-stone-100"
             />
             {totpError && (
-              <p className="text-sm text-red-600 dark:text-red-400 text-center mb-3" role="alert">{totpError}</p>
+              <p
+                className="text-sm text-red-600 dark:text-red-400 text-center mb-3"
+                role="alert"
+              >
+                {totpError}
+              </p>
             )}
             <button
               type="submit"
-              disabled={verifyTotp.isPending || totpCode.replace(/\s/g, "").length !== 6}
+              disabled={
+                verifyTotp.isPending || totpCode.replace(/\s/g, "").length !== 6
+              }
               className="w-full bg-blue-600 text-white py-2.5 rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
             >
               {verifyTotp.isPending ? "Verificando…" : "Confirmar"}
@@ -772,9 +913,22 @@ function AuthCallback() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950 p-4">
         <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl shadow-sm p-8 w-full max-w-sm text-center">
-          <div className="w-12 h-12 bg-red-50 dark:bg-red-950 rounded-2xl flex items-center justify-center mx-auto mb-4" aria-hidden="true">
-            <svg className="w-6 h-6 text-red-500 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          <div
+            className="w-12 h-12 bg-red-50 dark:bg-red-950 rounded-2xl flex items-center justify-center mx-auto mb-4"
+            aria-hidden="true"
+          >
+            <svg
+              className="w-6 h-6 text-red-500 dark:text-red-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </div>
           <h1 className="text-base font-semibold text-stone-800 dark:text-stone-100 mb-2">
@@ -805,7 +959,9 @@ function AuthCallback() {
           aria-label="Autenticando"
           className="w-6 h-6 border-2 border-stone-200 dark:border-stone-700 border-t-blue-600 rounded-full animate-spin"
         />
-        <p className="text-sm text-stone-400 dark:text-stone-500">Autenticando…</p>
+        <p className="text-sm text-stone-400 dark:text-stone-500">
+          Autenticando…
+        </p>
       </div>
     </div>
   );
@@ -817,8 +973,15 @@ function NotFound() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950">
       <div className="text-center">
-        <p className="text-6xl font-bold text-stone-200 dark:text-stone-800" aria-hidden="true">404</p>
-        <p className="text-stone-500 dark:text-stone-400 mt-3 mb-6">Página não encontrada</p>
+        <p
+          className="text-6xl font-bold text-stone-200 dark:text-stone-800"
+          aria-hidden="true"
+        >
+          404
+        </p>
+        <p className="text-stone-500 dark:text-stone-400 mt-3 mb-6">
+          Página não encontrada
+        </p>
         <a
           href="/"
           className="text-sm text-blue-600 dark:text-blue-400 hover:underline"

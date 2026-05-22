@@ -43,11 +43,15 @@ vi.mock("./_core/dlq.ts", () => ({
 
 vi.mock("./clinicalIntelligence.ts", () => ({
   gerarSerieCasos: vi.fn(),
-  getOpusBudgetStatus: vi.fn().mockResolvedValue({ usado: 0, limite: 100000, percentual: 0 }),
+  getOpusBudgetStatus: vi
+    .fn()
+    .mockResolvedValue({ usado: 0, limite: 100000, percentual: 0 }),
 }));
 
 vi.mock("./obsidian.ts", () => ({ publicarSerieCasos: vi.fn() }));
-vi.mock("./pubmed.ts", () => ({ buscarArtigosDual: vi.fn().mockResolvedValue([]) }));
+vi.mock("./pubmed.ts", () => ({
+  buscarArtigosDual: vi.fn().mockResolvedValue([]),
+}));
 vi.mock("./zotero.ts", () => ({
   buscarReferenciasPorQuery: vi.fn().mockResolvedValue([]),
   formatarZoteroParaPrompt: vi.fn().mockReturnValue(""),
@@ -68,7 +72,11 @@ vi.mock("./db.ts", () => ({
   },
 }));
 
-import { enqueueCaseSeries, CASE_SERIES_QUEUE_NAME, caseSeriesQueue } from "./caseSeriesQueue.ts";
+import {
+  enqueueCaseSeries,
+  CASE_SERIES_QUEUE_NAME,
+  caseSeriesQueue,
+} from "./caseSeriesQueue.ts";
 import { db } from "./db.ts";
 
 function setSelectResult(rows: unknown[]) {
@@ -158,7 +166,8 @@ describe("enqueueCaseSeries", () => {
       disparadoPor: "automatico",
     });
 
-    const call = (caseSeriesQueue.add as ReturnType<typeof vi.fn>).mock.calls[0]!;
+    const call = (caseSeriesQueue.add as ReturnType<typeof vi.fn>).mock
+      .calls[0]!;
     expect((call[2] as { jobId: string }).jobId).toBe("case-series-7-J18");
   });
 });

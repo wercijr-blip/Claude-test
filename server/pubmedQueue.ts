@@ -246,11 +246,14 @@ export function startPubmedWorker() {
             }),
           )
           .catch((e) =>
-            logger.warn("[pubmedQueue] falha ao verificar acumulação de casos", {
-              soapNoteId,
-              cid10,
-              error: String(e),
-            }),
+            logger.warn(
+              "[pubmedQueue] falha ao verificar acumulação de casos",
+              {
+                soapNoteId,
+                cid10,
+                error: String(e),
+              },
+            ),
           );
       }
 
@@ -293,7 +296,10 @@ export function startPubmedWorker() {
           return { soapNoteId, artigosEncontrados: artigos.length };
         }
 
-        const historicoFeedback = await buscarHistoricoFeedback(medicoId, cid10);
+        const historicoFeedback = await buscarHistoricoFeedback(
+          medicoId,
+          cid10,
+        );
 
         const alerta = await detectarDivergenciaConducta({
           diagnostico: diagnosticoPrincipal,

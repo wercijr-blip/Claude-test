@@ -52,7 +52,9 @@ export const logger = {
 };
 
 export function requestLogger(req: { requestId?: string }) {
-  const child: pino.Logger = _p.child({ requestId: req.requestId ?? "unknown" });
+  const child: pino.Logger = _p.child({
+    requestId: req.requestId ?? "unknown",
+  });
   return {
     debug: (msg: string, ctx?: unknown) =>
       ctx !== undefined ? child.debug(ctx, msg) : child.debug(msg),

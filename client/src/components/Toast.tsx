@@ -27,8 +27,8 @@ const ICONS: Record<ToastVariant, string> = {
 
 const STYLES: Record<ToastVariant, string> = {
   success: "bg-emerald-600 text-white",
-  error:   "bg-red-600 text-white",
-  info:    "bg-stone-800 text-white",
+  error: "bg-red-600 text-white",
+  info: "bg-stone-800 text-white",
 };
 
 const ToastContext = createContext<ToastCtx>({ toast: () => undefined });

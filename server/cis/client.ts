@@ -107,9 +107,18 @@ export async function callClaude(
       tokensHoje = await getOpusTokensToday();
     } catch {
       // Redis indisponível — fail-safe: usa Sonnet para evitar uso não-contabilizado de Opus
-      logger.warn("[cis] Redis indisponível para verificação de budget — downgrade defensivo para Sonnet");
+      logger.warn(
+        "[cis] Redis indisponível para verificação de budget — downgrade defensivo para Sonnet",
+      );
       effectiveModel = MODEL_SONNET;
-      return callClaude(systemPrompt, userContent, maxTokens, MODEL_SONNET, temperature, fnName);
+      return callClaude(
+        systemPrompt,
+        userContent,
+        maxTokens,
+        MODEL_SONNET,
+        temperature,
+        fnName,
+      );
     }
     const limiteAlerta = Math.floor(env.OPUS_DAILY_TOKEN_BUDGET * 0.8);
     if (

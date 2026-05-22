@@ -42,11 +42,7 @@ const VALID_TEMPLATES = new Set<string>([
   "tb",
 ]);
 
-const VALID_TIPO = new Set([
-  "primeira_consulta",
-  "retorno",
-  "seguimento",
-]);
+const VALID_TIPO = new Set(["primeira_consulta", "retorno", "seguimento"]);
 
 function ar(fn: (req: Request, res: Response) => Promise<void>) {
   return (req: Request, res: Response, next: NextFunction) =>
