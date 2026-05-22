@@ -18,9 +18,11 @@ export const pool = mysql.createPool({
 
 // Cancel any query running longer than 30s — prevents slow queries from holding
 // the connection pool and cascading into a full outage under load.
+// NOTE: pool.on('connection') always receives a raw (non-promise) connection,
+// even when the pool is created via mysql2/promise. Use the callback form.
 pool.on('connection', (conn) => {
-  conn.query('SET SESSION MAX_EXECUTION_TIME = 30000').catch((err: Error) => {
-    console.warn('[db] SET MAX_EXECUTION_TIME falhou (TiDB pode ignorar):', err.message)
+  conn.query('SET SESSION MAX_EXECUTION_TIME = 30000', (err: Error | null) => {
+    if (err) console.warn('[db] SET MAX_EXECUTION_TIME falhou (TiDB pode ignorar):', err.message)
   })
 })
 
