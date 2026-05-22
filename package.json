@@ -22,6 +22,7 @@
     "lint": "eslint server/ client/src/ --max-warnings 0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "backup": "tsx server/scripts/backup.ts",
     "seed": "tsx server/seed.ts",
     "dev:services": "docker compose up -d",
     "dev:full": "pnpm dev:services && pnpm dev"
