@@ -1,5 +1,6 @@
 import { drizzle } from 'drizzle-orm/mysql2'
 import mysql from 'mysql2/promise'
+import type { Connection as RawConnection } from 'mysql2'
 import { env } from './_core/env.ts'
 import * as schema from '../drizzle/schema.ts'
 import * as relations from '../drizzle/relations.ts'
@@ -21,7 +22,7 @@ export const pool = mysql.createPool({
 // NOTE: pool.on('connection') always receives a raw (non-promise) connection,
 // even when the pool is created via mysql2/promise. Use the callback form.
 pool.on('connection', (conn) => {
-  conn.query('SET SESSION MAX_EXECUTION_TIME = 30000', (err: Error | null) => {
+  (conn as unknown as RawConnection).query('SET SESSION MAX_EXECUTION_TIME = 30000', (err) => {
     if (err) console.warn('[db] SET MAX_EXECUTION_TIME falhou (TiDB pode ignorar):', err.message)
   })
 })
