@@ -219,16 +219,18 @@ export default function MedicoDashboard() {
                         disabled={aprovar.isPending}
                         className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-medium py-2 rounded-lg transition-colors"
                       >
-                        ✓ Aprovar
+                        {aprovar.isPending ? 'Aprovando…' : '✓ Aprovar'}
                       </button>
                       <button
                         onClick={() => rejeitar.mutate({ pacienteId: paciente.id, motivo: motivoRejeicao })}
                         disabled={rejeitar.isPending || motivoRejeicao.length < 10}
                         className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-medium py-2 rounded-lg transition-colors"
                       >
-                        ✗ Rejeitar
+                        {rejeitar.isPending ? 'Rejeitando…' : '✗ Rejeitar'}
                       </button>
                     </div>
+                    {aprovar.error && <p className="text-red-600 text-sm" role="alert">{traduzirErroTrpc(aprovar.error)}</p>}
+                    {rejeitar.error && <p className="text-red-600 text-sm" role="alert">{traduzirErroTrpc(rejeitar.error)}</p>}
                   </div>
                 )}
               </div>
@@ -298,8 +300,9 @@ export default function MedicoDashboard() {
                       disabled={liberarExame.isPending}
                       className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium px-4 py-2 rounded-lg text-sm transition-colors"
                     >
-                      Liberar manualmente
+                      {liberarExame.isPending ? 'Liberando…' : 'Liberar manualmente'}
                     </button>
+                    {liberarExame.error && <p className="text-red-600 text-sm" role="alert">{traduzirErroTrpc(liberarExame.error)}</p>}
                   </div>
                 )}
 
