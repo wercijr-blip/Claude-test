@@ -32,6 +32,8 @@ export const SHARED_WORKER_SETTINGS = {
 
 // Real-time: patient waits for docs — keep drainDelay short
 export const PDF_WORKER_OPTS    = { ...SHARED_WORKER_SETTINGS, drainDelay: 15 }
+// Exam analysis: near-real-time, patient waits for result
+export const EXAM_WORKER_OPTS   = { ...SHARED_WORKER_SETTINGS, drainDelay: 30 }
 // Delayed 24h: no urgency — poll infrequently
 export const PESQUISA_WORKER_OPTS = { ...SHARED_WORKER_SETTINGS, drainDelay: 120 }
 // Daily cron at 11h: poll very infrequently

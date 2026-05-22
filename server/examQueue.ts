@@ -6,7 +6,7 @@ import { eq } from 'drizzle-orm'
 import { analisarExame } from './examAnalysis.ts'
 import { EXAM_RULES } from '../shared/security-constants.ts'
 import type { ResultadoIa } from '../shared/types.ts'
-import { connection, QUEUE_PREFIX, persistDlq } from './workers/queues.ts'
+import { connection, QUEUE_PREFIX, persistDlq, EXAM_WORKER_OPTS } from './workers/queues.ts'
 
 export const EXAM_QUEUE_NAME = 'exam-analysis'
 
@@ -77,7 +77,7 @@ export function startExamWorker() {
 
       return { exameId, resultado: resultado.resultado, status: resultado.status }
     },
-    { connection, concurrency: 5, prefix: QUEUE_PREFIX },
+    { ...EXAM_WORKER_OPTS, connection, concurrency: 5, prefix: QUEUE_PREFIX },
   )
 
   worker.on('failed', (job, err) => {
@@ -92,7 +92,13 @@ export function startExamWorker() {
 
 export async function enqueueAnalisarExame(exameId: number, requestId?: string, forceRequeue = false) {
   if (forceRequeue) {
-    await examQueue.remove(`exam-${exameId}`)
+    const existing = await examQueue.getJob(`exam-${exameId}`)
+    if (existing) {
+      const state = await existing.getState()
+      if (state !== 'active') {
+        await examQueue.remove(`exam-${exameId}`)
+      }
+    }
   }
   return examQueue.add('analisar', { exameId, requestId }, {
     jobId: `exam-${exameId}`,
