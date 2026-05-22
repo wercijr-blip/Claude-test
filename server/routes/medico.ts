@@ -60,19 +60,29 @@ export const medicoRouter = router({
         .set({ status: 'em_revisao', medicoId: ctx.session.id, updatedAt: new Date() })
         .where(and(eq(pacientes.id, input.pacienteId), inArray(pacientes.status, ['pendente'])))
 
+      // Re-fetch after lock attempt so the response always reflects current DB state
+      // (if another doctor already held the lock, status/medicoId will show that)
+      const [pAtual] = await db
+        .select()
+        .from(pacientes)
+        .where(eq(pacientes.id, input.pacienteId))
+        .limit(1)
+
+      if (!pAtual) throw new TRPCError({ code: 'NOT_FOUND' })
+
       const examesDoP = await db
         .select()
         .from(exames)
         .where(eq(exames.pacienteId, input.pacienteId))
 
       return {
-        ...p,
-        nome: decrypt(p.nomeEncrypted),
-        cpf: decrypt(p.cpfEncrypted),
-        dataNascimento: p.dataNascimentoEncrypted ? decrypt(p.dataNascimentoEncrypted) : null,
-        nomeMae: p.nomeMaeEncrypted ? decrypt(p.nomeMaeEncrypted) : null,
-        email: p.emailEncrypted ? decrypt(p.emailEncrypted) : null,
-        telefone: p.telefoneEncrypted ? decrypt(p.telefoneEncrypted) : null,
+        ...pAtual,
+        nome: decrypt(pAtual.nomeEncrypted),
+        cpf: decrypt(pAtual.cpfEncrypted),
+        dataNascimento: pAtual.dataNascimentoEncrypted ? decrypt(pAtual.dataNascimentoEncrypted) : null,
+        nomeMae: pAtual.nomeMaeEncrypted ? decrypt(pAtual.nomeMaeEncrypted) : null,
+        email: pAtual.emailEncrypted ? decrypt(pAtual.emailEncrypted) : null,
+        telefone: pAtual.telefoneEncrypted ? decrypt(pAtual.telefoneEncrypted) : null,
         cpfEncrypted: undefined,
         nomeEncrypted: undefined,
         dataNascimentoEncrypted: undefined,
@@ -163,7 +173,8 @@ export const medicoRouter = router({
       const resultadoAtual = exame.resultadoIa as ResultadoIaJson | null
       if (
         resultadoAtual?.status !== 'rejeitado_ia' &&
-        resultadoAtual?.status !== 'rejeitado'
+        resultadoAtual?.status !== 'rejeitado' &&
+        resultadoAtual?.status !== 'pendente_revisao'
       ) {
         throw new TRPCError({
           code: 'BAD_REQUEST',

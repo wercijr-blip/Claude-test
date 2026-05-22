@@ -34,7 +34,7 @@ export const dlqProcedures = {
 
       if (job.queue === 'exam-analysis') {
         const { enqueueAnalisarExame } = await import('../../examQueue.ts')
-        await enqueueAnalisarExame((job.data as { exameId: number }).exameId)
+        await enqueueAnalisarExame((job.data as { exameId: number }).exameId, undefined, true)
       } else if (job.queue === 'pdf-generation') {
         const { enqueueGerarPdf } = await import('../../pdfQueue.ts')
         await enqueueGerarPdf((job.data as { pacienteId: number }).pacienteId)

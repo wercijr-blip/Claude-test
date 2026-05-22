@@ -83,14 +83,17 @@ export function startExamWorker() {
   worker.on('failed', (job, err) => {
     logger.error(`[examQueue] Job ${job?.id} falhou (${job?.attemptsMade} tentativas)`, { error: err.message })
     if ((job?.attemptsMade ?? 0) >= (job?.opts?.attempts ?? 3)) {
-      persistDlq(EXAM_QUEUE_NAME, job, err)
+      void persistDlq(EXAM_QUEUE_NAME, job, err)
     }
   })
 
   return worker
 }
 
-export async function enqueueAnalisarExame(exameId: number, requestId?: string) {
+export async function enqueueAnalisarExame(exameId: number, requestId?: string, forceRequeue = false) {
+  if (forceRequeue) {
+    await examQueue.remove(`exam-${exameId}`)
+  }
   return examQueue.add('analisar', { exameId, requestId }, {
     jobId: `exam-${exameId}`,
     attempts: 3,
