@@ -9,6 +9,7 @@ export const PDF_QUEUE_NAME = 'pdf-generation'
 export const LEMBRETE_QUEUE_NAME = 'lembrete-exame'
 export const PESQUISA_QUEUE_NAME = 'pesquisa-satisfacao'
 export const LINK_ACESSO_QUEUE_NAME = 'link-acesso'
+export const NUTRICAO_QUEUE_NAME = 'nutricao-lead'
 
 export const QUEUE_PREFIX = env.NODE_ENV === 'production' ? '{fp-prod}' : `{fp-${env.NODE_ENV}}`
 
@@ -40,6 +41,10 @@ export const pdfQueue = new Queue(PDF_QUEUE_NAME, { connection, prefix: QUEUE_PR
 export const lembreteQueue = new Queue(LEMBRETE_QUEUE_NAME, { connection, prefix: QUEUE_PREFIX })
 export const pesquisaQueue = new Queue(PESQUISA_QUEUE_NAME, { connection, prefix: QUEUE_PREFIX })
 export const linkAcessoQueue = new Queue(LINK_ACESSO_QUEUE_NAME, { connection, prefix: QUEUE_PREFIX })
+export const nutricaoQueue = new Queue(NUTRICAO_QUEUE_NAME, { connection, prefix: QUEUE_PREFIX })
+
+// Nutrição diária às 10h — poll very infrequently (daily cron)
+export const NUTRICAO_WORKER_OPTS = { ...SHARED_WORKER_SETTINGS, drainDelay: 300 }
 
 export async function persistDlq(
   queue: string,

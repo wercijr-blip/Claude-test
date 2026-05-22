@@ -256,11 +256,17 @@ export default function SegundaParteInicio() {
               Este link tem validade de <strong>7 dias</strong> devido à validade dos exames.
             </p>
             <p className="text-slate-600 text-sm mb-6">
-              Para reiniciar seu atendimento, será necessário realizar um novo pagamento.
+              Se você ainda não enviou o exame e acabou de realizá-lo, pode solicitar um novo link abaixo.
             </p>
             <a
+              href="/reenviar-acesso"
+              className="inline-block w-full bg-brand text-white py-3 rounded-2xl font-semibold hover:bg-brand-dark transition-all text-sm mb-3"
+            >
+              Solicitar novo link de acesso
+            </a>
+            <a
               href="/cadastro"
-              className="inline-block w-full bg-brand text-white py-3 rounded-2xl font-semibold hover:bg-brand-dark transition-all text-sm"
+              className="inline-block w-full border border-slate-200 text-slate-600 py-3 rounded-2xl font-semibold hover:bg-slate-50 transition-all text-sm"
             >
               Iniciar novo atendimento
             </a>
@@ -558,9 +564,15 @@ export default function SegundaParteInicio() {
         icon={<svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
         iconBg="bg-slate-100" iconColor="text-slate-400"
         title="Seu link de acesso expirou"
-        subtitle="O prazo para envio do exame foi encerrado. Entre em contato e renovaremos seu acesso rapidamente — estamos aqui para ajudar."
+        subtitle="O prazo para envio do exame foi encerrado. Se você realizou o exame recentemente, solicite um novo link abaixo."
       >
-        <a href="tel:+556140427188" className="inline-flex items-center gap-2 text-brand text-sm font-medium hover:underline">
+        <a
+          href="/reenviar-acesso"
+          className="inline-block w-full bg-brand text-white py-3 rounded-2xl font-semibold hover:bg-brand-dark transition-all text-sm mb-3 text-center"
+        >
+          Solicitar novo link de acesso
+        </a>
+        <a href="tel:+556140427188" className="inline-flex items-center justify-center gap-2 text-slate-500 text-sm font-medium hover:underline w-full">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
           </svg>
@@ -709,13 +721,30 @@ export default function SegundaParteInicio() {
             <p className="text-slate-400 text-sm mt-1">Seus pedidos serão assinados digitalmente com certificado ICP-Brasil.</p>
           </div>
 
-          <div className="bg-honey-light border border-honey-light rounded-2xl p-4 mb-6 flex gap-3">
-            <span className="text-honey text-lg shrink-0">⏱</span>
-            <div>
-              <p className="text-honey-dark text-sm font-semibold">Prazo de 7 dias</p>
-              <p className="text-honey text-sm mt-0.5">Realize os exames e envie os resultados em até 7 dias. Você receberá lembretes por e-mail e WhatsApp.</p>
-            </div>
-          </div>
+          {(() => {
+            const expiresAt = statusQuery.data?.linkExpiresAt
+            const diasRestantes = expiresAt
+              ? Math.max(0, Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86_400_000))
+              : 7
+            const isUrgente = diasRestantes <= 2
+            return (
+              <div className={`border rounded-2xl p-4 mb-6 flex gap-3 ${isUrgente ? 'bg-red-50 border-red-200' : 'bg-honey-light border-honey-light'}`}>
+                <span className={`text-lg shrink-0 ${isUrgente ? 'text-red-500' : 'text-honey'}`}>⏱</span>
+                <div>
+                  <p className={`text-sm font-semibold ${isUrgente ? 'text-red-700' : 'text-honey-dark'}`}>
+                    {isUrgente
+                      ? diasRestantes === 0 ? 'Prazo encerrado hoje!' : `Atenção: apenas ${diasRestantes} dia${diasRestantes > 1 ? 's' : ''} restante${diasRestantes > 1 ? 's' : ''}!`
+                      : `${diasRestantes} dia${diasRestantes > 1 ? 's' : ''} para enviar o exame`}
+                  </p>
+                  <p className={`text-sm mt-0.5 ${isUrgente ? 'text-red-600' : 'text-honey'}`}>
+                    {isUrgente
+                      ? 'Realize o exame Anti-HIV e envie o resultado urgente. Você receberá lembretes por e-mail e WhatsApp.'
+                      : 'Realize os exames e envie os resultados dentro do prazo. Você receberá lembretes por e-mail e WhatsApp.'}
+                  </p>
+                </div>
+              </div>
+            )
+          })()}
 
           <BotaoBaixarPedidos tipoConsulta={tipoConsulta!} onBaixou={() => {}} />
 
@@ -746,6 +775,17 @@ export default function SegundaParteInicio() {
           <p className="text-slate-400 text-sm mt-1">
             Envie o resultado do exame <strong className="text-slate-600">Anti-HIV 1/2 (4ª geração)</strong> realizado há até 7 dias (inclusive).
           </p>
+          {(() => {
+            const dataMinima = new Date()
+            dataMinima.setDate(dataMinima.getDate() - 7)
+            const dataMinimaStr = dataMinima.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+            return (
+              <div className="mt-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-left">
+                <p className="text-amber-800 text-xs font-semibold">📅 Data mínima aceita: {dataMinimaStr}</p>
+                <p className="text-amber-700 text-xs mt-0.5">Exames anteriores a esta data serão recusados automaticamente.</p>
+              </div>
+            )
+          })()}
         </div>
 
         <label className="flex flex-col items-center justify-center w-full border-2 border-dashed border-slate-200 hover:border-sage rounded-2xl py-10 cursor-pointer bg-slate-50 hover:bg-sage-pale transition-all mb-4 group px-4">

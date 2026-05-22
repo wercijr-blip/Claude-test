@@ -12,7 +12,7 @@ const pinoOpts: pino.LoggerOptions = {
   redact: { paths: REDACT_PATHS, censor: '[redacted]' },
 }
 
-const _p: any = env.NODE_ENV !== 'production'
+const _p = env.NODE_ENV !== 'production'
   ? pino(pinoOpts, pino.transport({
       target: 'pino-pretty',
       options: { colorize: true, translateTime: 'HH:MM:ss', ignore: 'pid,hostname' },
@@ -34,7 +34,7 @@ export const logger = {
 }
 
 export function requestLogger(req: { requestId?: string }) {
-  const child: any = _p.child({ requestId: req.requestId ?? 'unknown' })
+  const child = _p.child({ requestId: req.requestId ?? 'unknown' })
   return {
     debug: (msg: string, ctx?: unknown) => ctx !== undefined ? child.debug(ctx, msg) : child.debug(msg),
     info:  (msg: string, ctx?: unknown) => ctx !== undefined ? child.info(ctx, msg) : child.info(msg),

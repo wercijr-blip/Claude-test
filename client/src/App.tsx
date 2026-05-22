@@ -1,4 +1,5 @@
 import { lazy, Suspense, Component, useEffect, useRef, useState, type ReactNode } from 'react'
+import * as Sentry from '@sentry/react'
 import { Route, Switch, useLocation } from 'wouter'
 import { useAuth, parseJwtPayload } from './_core/hooks/useAuth.ts'
 // Eager: needed immediately for the landing page and core auth flow
@@ -10,7 +11,7 @@ import CookieConsent from './components/CookieConsent.tsx'
 // IntakePage: already bundled with LandingPage (static import there), keep eager here too
 import IntakePage from './components/IntakePage.tsx'
 import { trpc } from './lib/trpc.ts'
-import { initClickListener, trackPageView, trackPurchase } from './lib/analytics.ts'
+import { initClickListener, initScrollDepth, initTimeOnPage, initWebVitals, persistUtms, trackPageView, trackPurchase } from './lib/analytics.ts'
 
 // Lazy: secondary routes not needed on initial render — each becomes its own JS chunk
 const SegundaParteInicio = lazy(() => import('./components/SegundaParteInicio.tsx'))
@@ -24,6 +25,7 @@ const VerificacaoPage = lazy(() => import('./components/VerificacaoPage.tsx'))
 const PrivacidadePage = lazy(() => import('./components/PrivacidadePage.tsx'))
 const TermosPage = lazy(() => import('./components/TermosPage.tsx'))
 const PesquisaSatisfacao = lazy(() => import('./components/PesquisaSatisfacao.tsx'))
+const ReenviarAcesso = lazy(() => import('./components/ReenviarAcesso.tsx'))
 
 function PageLoader() {
   return (
@@ -41,10 +43,14 @@ function useTrackPageView() {
   }, [location])
 }
 
-/** Attach global [data-event] click tracker once. */
+/** Persist UTMs, attach scroll/time/click trackers, and report Web Vitals — all once on mount. */
 function useAnalyticsInit() {
   useEffect(() => {
+    persistUtms()
     initClickListener()
+    initScrollDepth()
+    initTimeOnPage()
+    initWebVitals()
   }, [])
 }
 
@@ -56,6 +62,10 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
 
   static getDerivedStateFromError() {
     return { hasError: true }
+  }
+
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    Sentry.captureException(error, { extra: { componentStack: info.componentStack } })
   }
 
   render() {
@@ -101,6 +111,22 @@ function FormularioGate({ pacienteId }: { pacienteId?: number }) {
     )
   }
 
+  if (statusQuery.isError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <p className="text-slate-600">Não foi possível verificar o status do atendimento.</p>
+          <button
+            onClick={() => void statusQuery.refetch()}
+            className="text-blue-600 underline text-sm"
+          >
+            Tentar novamente
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   const aprovado = statusQuery.data?.status === 'aprovado' || statusQuery.data?.status === 'aprovado_ia'
   if (!aprovado) return null
 
@@ -142,6 +168,7 @@ export default function App() {
             <Route path="/duvidas" component={DuvidasPage} />
             <Route path="/privacidade" component={PrivacidadePage} />
             <Route path="/termos" component={TermosPage} />
+            <Route path="/reenviar-acesso" component={ReenviarAcesso} />
             <Route path="/v/:slug" component={VerificacaoPage} />
             <Route path="/pesquisa/:pacienteId/:token" component={PesquisaSatisfacao} />
             <Route path="/pagamento/sucesso" component={PagamentoSucesso} />

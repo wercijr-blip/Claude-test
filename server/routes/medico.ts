@@ -131,7 +131,7 @@ export const medicoRouter = router({
 
   // Listar exames com rejeição de IA (status rejeitado_ia no resultadoIa)
   listarExamesRejeitadosIa: medicoProcedure.query(async () => {
-    const rows = await db.select().from(exames).orderBy(exames.createdAt)
+    const rows = await db.select().from(exames).orderBy(exames.createdAt).limit(200)
     return rows.filter((e) => isExameRejeitadoIa(e.resultadoIa as ResultadoIaJson | null)).map((e) => ({
       id: e.id,
       pacienteId: e.pacienteId,

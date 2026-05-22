@@ -1,3 +1,6 @@
+// Set timezone before any date operation — Railway containers run in UTC by default
+process.env.TZ ??= 'America/Sao_Paulo'
+
 import * as Sentry from '@sentry/node'
 
 // Must be the first import in the server entry point — patches HTTP/Express before they load.

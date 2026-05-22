@@ -150,6 +150,7 @@ async function handlePaymentConfirmed(payment: AsaasWebhookPayment): Promise<voi
       value,
     }).catch(() => {})
 
+
     // NFS-e via Asaas native endpoint (fire-and-forget — non-fatal)
     if (precad.tipo === 'particular') {
       emitirNfseAsaas(paymentId).catch((err: unknown) => {

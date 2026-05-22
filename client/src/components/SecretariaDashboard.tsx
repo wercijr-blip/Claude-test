@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { trpc } from '../lib/trpc.ts'
 import { useAuth } from '../_core/hooks/useAuth.ts'
-import { Copy, Link, Trash2, ExternalLink, CheckCircle, XCircle } from 'lucide-react'
+import { Copy, Link, Trash2, ExternalLink, CheckCircle, XCircle, Send } from 'lucide-react'
 import { fmt } from '../lib/format.ts'
 import { EmptyState } from './EmptyState.tsx'
 
@@ -174,6 +174,8 @@ export default function SecretariaDashboard() {
   const [novoToken, setNovoToken] = useState<string | null>(null)
   const [statusFiltro, setStatusFiltro] = useState<StatusFiltro>('todos')
 
+  const [reenviadoId, setReenviadoId] = useState<number | null>(null)
+
   const { data: tokens, refetch } = trpc.token.listar.useQuery()
   const { data: documentos } = trpc.secretaria.listarDocumentos.useQuery({ status: statusFiltro })
   const { data: pendentesPage2 } = trpc.intake.listarPendentes.useQuery({})
@@ -181,6 +183,13 @@ export default function SecretariaDashboard() {
     onSuccess: (data) => { setNovoToken(data.token); refetch() },
   })
   const revogar = trpc.token.revogar.useMutation({ onSuccess: () => refetch() })
+  const reenviar = trpc.secretaria.reenviarLink.useMutation({
+    onSuccess: (data, vars) => {
+      setReenviadoId(vars.tokenId)
+      if (data.link) navigator.clipboard.writeText(data.link)
+      setTimeout(() => setReenviadoId(null), 3000)
+    },
+  })
 
   const linkAcesso = novoToken ? `${window.location.origin}/acesso/${novoToken}` : null
   const qtdPendentes = pendentesPage2?.data.length ?? 0
@@ -316,9 +325,21 @@ export default function SecretariaDashboard() {
                     </p>
                   </div>
                   {!t.revokedAt && (
-                    <button onClick={() => revogar.mutate({ tokenId: t.id })} className="text-red-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => reenviar.mutate({ tokenId: t.id })}
+                        disabled={reenviar.isPending}
+                        title={reenviadoId === t.id ? 'Enviado!' : 'Reenviar link'}
+                        className="text-blue-400 hover:text-blue-600 p-1.5 rounded-lg hover:bg-blue-50 disabled:opacity-40"
+                      >
+                        {reenviadoId === t.id
+                          ? <CheckCircle className="w-4 h-4 text-blue-500" />
+                          : <Send className="w-4 h-4" />}
+                      </button>
+                      <button onClick={() => revogar.mutate({ tokenId: t.id })} className="text-red-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   )}
                 </div>
               ))}

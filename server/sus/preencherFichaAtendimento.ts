@@ -68,7 +68,32 @@ export function mapPrepAdesaoLabel(
   return undefined
 }
 
-import { formatarDataBR } from './utils.ts'
+/**
+ * Aceita data em ISO (YYYY-MM-DD) ou BR (DD/MM/AAAA) e devolve DD/MM/AAAA.
+ *
+ * Histórico do bug: a IA de validação do exame extrai a data em formato
+ * brasileiro DD/MM/AAAA (server/examValidation.ts:15) e grava direto em
+ * consultas_inicio.data_exame_validado. A versão original desta função
+ * só tratava ISO — fazia split('-') no input "24/04/2026", produzia
+ * "undefined/undefined/24/04/2026", o setText do pdf-lib rejeitava e o
+ * try/catch silencioso deixava o campo 14a-dt_resultado em branco no PDF.
+ */
+function formatarDataBR(input: string): string {
+  if (!input) return ''
+  // Já está em DD/MM/AAAA? retorna apenas a primeira ocorrência válida
+  const matchBR = input.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/)
+  if (matchBR) {
+    const [, dd, mm, yyyy] = matchBR
+    return `${dd.padStart(2, '0')}/${mm.padStart(2, '0')}/${yyyy}`
+  }
+  // ISO format YYYY-MM-DD
+  const parts = input.split('-')
+  if (parts.length === 3) {
+    const [yyyy, mm, dd] = parts
+    return `${dd!.padStart(2, '0')}/${mm!.padStart(2, '0')}/${yyyy}`
+  }
+  return input
+}
 
 function dataAtualBR(): string {
   const d = new Date()

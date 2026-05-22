@@ -1,11 +1,15 @@
 import { z } from 'zod'
+import { TRPCError } from '@trpc/server'
 import { router, staffProcedure } from '../_core/trpc.ts'
 import { db } from '../db.ts'
-import { exames, pacientes } from '../../drizzle/schema.ts'
+import { exames, pacientes, precadastros, accessTokens } from '../../drizzle/schema.ts'
 import { eq } from 'drizzle-orm'
 import { decrypt } from '../_core/encryption.ts'
 import { filtrarExamePorStatus } from '../examUtils.ts'
 import { logger } from '../_core/logger.ts'
+import { gerarEEnviarLinkAcesso } from './intake.ts'
+import { generateToken, hashToken } from '../_core/tokenUtils.ts'
+import { env } from '../_core/env.ts'
 
 // Defensive wrapper — registros de teste antigos podem ter dado corrompido.
 // Não queremos derrubar a listagem inteira por causa de uma linha ruim.
@@ -50,6 +54,7 @@ export const secretariaRouter = router({
         .from(exames)
         .leftJoin(pacientes, eq(pacientes.id, exames.pacienteId))
         .orderBy(exames.createdAt)
+        .limit(500)
 
       const statusFiltro = input?.status ?? 'todos'
 
@@ -74,5 +79,37 @@ export const secretariaRouter = router({
             tipoAtendimento: r.pacienteTipoAtendimento,
           },
         }))
+    }),
+
+  reenviarLink: staffProcedure
+    .input(z.object({ tokenId: z.number().int().positive() }))
+    .mutation(async ({ input }) => {
+      const [precad] = await db
+        .select({ id: precadastros.id })
+        .from(precadastros)
+        .where(eq(precadastros.accessTokenId, input.tokenId))
+        .limit(1)
+
+      if (precad) {
+        await gerarEEnviarLinkAcesso(precad.id)
+        return { ok: true, link: null as string | null }
+      }
+
+      // Direct token (no precadastro) — rotate hash and return new link for manual sending
+      const [token] = await db
+        .select({ expiresAt: accessTokens.expiresAt })
+        .from(accessTokens)
+        .where(eq(accessTokens.id, input.tokenId))
+        .limit(1)
+
+      if (!token) throw new TRPCError({ code: 'NOT_FOUND', message: 'Token não encontrado.' })
+
+      const raw = generateToken()
+      await db.update(accessTokens)
+        .set({ tokenHash: hashToken(raw) })
+        .where(eq(accessTokens.id, input.tokenId))
+
+      const link = `${env.APP_URL}/acesso/${raw}`
+      return { ok: true, link }
     }),
 })

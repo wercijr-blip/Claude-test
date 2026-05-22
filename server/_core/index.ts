@@ -1,5 +1,5 @@
-import './instrument.ts'
 import express from 'express'
+import compression from 'compression'
 import cookieParser from 'cookie-parser'
 import { createExpressMiddleware } from '@trpc/server/adapters/express'
 import path from 'path'
@@ -12,10 +12,24 @@ import { redis } from './redis.ts'
 import { applySecurityMiddleware } from './security.ts'
 import { appRouter } from '../routers.ts'
 import { createContext } from './context.ts'
-import { authLimiter, tokenValidateLimiter, uploadLimiter, totpLimiter, dataRightsLimiter } from './rateLimiters.ts'
-import { db } from '../db.ts'
+import { authLimiter, tokenValidateLimiter, uploadLimiter, totpLimiter, dataRightsLimiter, globalLimiter } from './rateLimiters.ts'
+import { db, pool } from '../db.ts'
 import { ensureSchema } from './ensureSchema.ts'
 import { Sentry } from './instrument.ts'
+import type { Worker } from 'bullmq'
+
+// Keeps references so graceful shutdown can close BullMQ workers cleanly.
+let _activeWorkers: Worker[] = []
+
+// Protects ops-only endpoints. No-op when OPS_TOKEN is not configured (dev).
+function requireOpsToken(req: express.Request, res: express.Response, next: express.NextFunction) {
+  if (!env.OPS_TOKEN) { next(); return }
+  if (req.headers['x-ops-token'] !== env.OPS_TOKEN) {
+    res.status(401).json({ error: 'Não autorizado' })
+    return
+  }
+  next()
+}
 
 declare global {
   namespace Express {
@@ -33,7 +47,9 @@ const app = express()
 app.set('trust proxy', 1)
 
 applySecurityMiddleware(app)
+app.use(compression())
 app.use(cookieParser())
+app.use(globalLimiter)
 
 // Request ID — assigns a short UUID per request, logs method/url/status/duration
 app.use((req, res, next) => {
@@ -160,6 +176,10 @@ app.use(
   tokenValidateLimiter,
 )
 app.use(
+  '/trpc/intake.solicitarReenvioLink',
+  tokenValidateLimiter,
+)
+app.use(
   '/trpc/twoFactor.verify',
   totpLimiter,
 )
@@ -200,6 +220,26 @@ app.use(
     },
   }),
 )
+
+// Deep healthcheck — verifica DB, Redis e S3
+app.get('/api/health/deep', async (_req, res) => {
+  const { S3Client, HeadBucketCommand } = await import('@aws-sdk/client-s3')
+  const checks = await Promise.allSettled([
+    db.execute('SELECT 1').then(() => ({ name: 'db', ok: true })).catch((e: Error) => ({ name: 'db', ok: false, error: e.message })),
+    redis.ping().then((r) => ({ name: 'redis', ok: r === 'PONG' })).catch((e: Error) => ({ name: 'redis', ok: false, error: e.message })),
+    new S3Client({ region: env.AWS_REGION, credentials: { accessKeyId: env.AWS_ACCESS_KEY_ID, secretAccessKey: env.AWS_SECRET_ACCESS_KEY } })
+      .send(new HeadBucketCommand({ Bucket: env.AWS_S3_BUCKET }))
+      .then(() => ({ name: 's3', ok: true }))
+      .catch((e: Error) => ({ name: 's3', ok: false, error: e.message })),
+  ])
+  const results = checks.map((c) => c.status === 'fulfilled' ? c.value : { name: 'unknown', ok: false })
+  const allOk = results.every((r) => r.ok)
+  res.status(allOk ? 200 : 503).json({
+    status: allOk ? 'ok' : 'degraded',
+    checks: results,
+    timestamp: new Date().toISOString(),
+  })
+})
 
 // Healthcheck com verificação do banco e Redis
 app.get('/api/health', async (_req, res) => {
@@ -248,7 +288,7 @@ app.get('/api/health/version', (_req, res) => {
 
 // Protect ops endpoints — require x-ops-token header or ?ops_token query param.
 // OPS_TOKEN must be set in production; warn fires on boot if missing (env.ts).
-app.use(['/api/metrics', '/api/health/observability'], (req, res, next) => {
+app.use(['/api/metrics', '/api/health/observability', '/api/admin/usage'], (req, res, next) => {
   if (!env.OPS_TOKEN) { res.status(503).json({ error: 'OPS_TOKEN não configurado no servidor' }); return }
   const token = (req.headers['x-ops-token'] ?? req.query['ops_token']) as string | undefined
   if (token !== env.OPS_TOKEN) { res.status(401).json({ error: 'Token inválido' }); return }
@@ -260,11 +300,18 @@ app.get('/api/metrics', async (_req, res) => {
   const { getCircuitStatus } = await import('./circuitBreaker.ts')
   let pdfWaiting = -1
   let linkWaiting = -1
+  let pesquisaWaiting = -1
+  let lembreteWaiting = -1
+  let nutricaoWaiting = -1
   try {
-    const { pdfQueue, linkAcessoQueue } = await import('../pdfQueue.ts')
-    ;[pdfWaiting, linkWaiting] = await Promise.all([
+    const { pdfQueue, linkAcessoQueue, pesquisaQueue, lembreteQueue } = await import('../pdfQueue.ts')
+    const { nutricaoQueue } = await import('../workers/queues.ts')
+    ;[pdfWaiting, linkWaiting, pesquisaWaiting, lembreteWaiting, nutricaoWaiting] = await Promise.all([
       pdfQueue.getWaitingCount(),
       linkAcessoQueue.getWaitingCount(),
+      pesquisaQueue.getWaitingCount(),
+      lembreteQueue.getWaitingCount(),
+      nutricaoQueue.getWaitingCount(),
     ])
   } catch { /* workers may not be started */ }
 
@@ -277,12 +324,32 @@ app.get('/api/metrics', async (_req, res) => {
   res.json({
     uptime: Math.floor(process.uptime()),
     memory: { heapUsedMB: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) },
-    queues: { pdf: pdfWaiting, linkAcesso: linkWaiting },
+    queues: { pdf: pdfWaiting, linkAcesso: linkWaiting, pesquisa: pesquisaWaiting, lembrete: lembreteWaiting, nutricao: nutricaoWaiting },
     circuits: { asaas: getCircuitStatus('asaas') },
     staffWhatsappActiveDebounces,
     timestamp: new Date().toISOString(),
   })
 })
+
+
+// LLM usage — consumo diário vs limite
+app.get('/api/admin/usage', async (_req, res) => {
+  const today = new Date().toISOString().slice(0, 10)
+  const key = `llm:daily:${today}`
+  let llmToday = 0
+  try {
+    const val = await redis.get(key)
+    llmToday = val ? parseInt(val, 10) : 0
+  } catch { /* Redis may be unavailable */ }
+
+  const limit = env.LLM_DAILY_LIMIT ?? 200
+  const percentUsed = Math.round((llmToday / limit) * 100)
+  res.json({
+    llm: { today: llmToday, limit, percentUsed, alert: percentUsed >= 80 },
+    timestamp: new Date().toISOString(),
+  })
+})
+
 
 // Observability — confirma que Sentry está configurado no servidor
 app.get('/api/health/observability', (_req, res) => {
@@ -330,6 +397,19 @@ await ensureSchema().catch((err) => {
   logger.error('[server] ensureSchema falhou (continuando)', { error: String(err) })
 })
 
+// Cert expiry alert — warn if ICP-Brasil certificate expires in < 30 days
+if (env.NODE_ENV === 'production') {
+  const { inspecionarCertificado } = await import('../pdfSigner.ts')
+  inspecionarCertificado().then((info) => {
+    if (info.status === 'configurado' && typeof info.diasRestantes === 'number' && info.diasRestantes < 30) {
+      logger.warn('[cert] Certificado ICP-Brasil expira em breve', {
+        diasRestantes: info.diasRestantes,
+        validoAte: info.validoAte,
+      })
+    }
+  }).catch(() => { /* non-critical */ })
+}
+
 // Configura a regra de lifecycle do S3 (exames-inicio/ expira em 30 dias)
 const { ensureS3Lifecycle } = await import('../storage.ts')
 await ensureS3Lifecycle().catch((err) => {
@@ -342,14 +422,20 @@ const server = app.listen(env.PORT, async () => {
   // Workers run in-process by default (single-service deploy).
   // Set WORKERS_ENABLED=false when running a dedicated worker service via server/workers.ts.
   if (env.WORKERS_ENABLED !== false) {
-    const { startPdfWorker, startLembreteWorker, startPesquisaWorker, startLinkAcessoWorker, agendarLembreteDiario } = await import('../pdfQueue.ts')
+    const { startPdfWorker, startLembreteWorker, startPesquisaWorker, startLinkAcessoWorker, agendarLembreteDiario, agendarDrMensal } = await import('../pdfQueue.ts')
     const { startExamWorker } = await import('../examQueue.ts')
-    startPdfWorker()
-    startLembreteWorker()
-    startPesquisaWorker()
-    startLinkAcessoWorker()
-    startExamWorker()
+    const { startNutricaoWorker, agendarNutricaoDiaria } = await import('../workers/nutricaoWorker.ts')
+    _activeWorkers = [
+      startPdfWorker(),
+      startLembreteWorker(),
+      startPesquisaWorker(),
+      startLinkAcessoWorker(),
+      startExamWorker(),
+      startNutricaoWorker(),
+    ]
     await agendarLembreteDiario()
+    await agendarDrMensal()
+    await agendarNutricaoDiaria()
     logger.info('[server] Workers BullMQ iniciados em-processo.')
   } else {
     logger.info('[server] WORKERS_ENABLED=false — aguardando worker service separado.')
@@ -364,8 +450,13 @@ async function shutdown(signal: string) {
   setTimeout(() => server.closeAllConnections?.(), 10_000)
 
   server.close(async () => {
+    if (_activeWorkers.length > 0) {
+      await Promise.allSettled(_activeWorkers.map((w) => w.close()))
+      logger.info('[server] Workers BullMQ encerrados.')
+    }
     const { redis } = await import('./redis.ts')
     await redis.quit().catch(() => undefined)
+    await pool.end().catch(() => undefined)
     logger.info('[server] Conexões encerradas. Saindo.')
     process.exit(0)
   })

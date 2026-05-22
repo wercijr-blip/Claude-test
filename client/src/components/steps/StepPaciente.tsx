@@ -7,6 +7,7 @@ import { validarCpf } from '@shared/validators.ts'
 import { ERROR_MESSAGES } from '@shared/const.ts'
 import { useFormDraft } from '../../hooks/useFormDraft.ts'
 import { toast } from '../../lib/use-toast.ts'
+import { traduzirErroTrpc } from '../../lib/errorMessages.ts'
 
 const schema = z.object({
   cpf: z.string().refine(validarCpf, ERROR_MESSAGES.CPF_INVALID),
@@ -35,7 +36,7 @@ export default function StepPaciente({ pacienteId: _pacienteId, onNext, defaultV
     defaultValues: { nome: defaultValues?.nome ?? '', cpf: defaultValues?.cpf ?? '' },
   })
   const { register, handleSubmit, formState: { errors } } = form
-  const { clearDraft } = useFormDraft(form, 'step-paciente-draft')
+  const { clearDraft } = useFormDraft(form, 'step-paciente-draft', { omitFields: ['cpf', 'dataNascimento', 'nomeMae'] })
 
   const salvar = trpc.paciente.salvarStep1.useMutation({
     onSuccess: (data) => {
@@ -63,11 +64,13 @@ export default function StepPaciente({ pacienteId: _pacienteId, onNext, defaultV
             <p className="mt-1 text-xs text-slate-400">Preenchido automaticamente do cadastro · não editável</p>
           </Field>
         ) : (
-          <Field label="Nome completo" error={errors.nome?.message}>
+          <Field label="Nome completo" error={errors.nome?.message} name="nome">
             <input
+              id="nome"
               {...register('nome')}
               className={inputCls(!!errors.nome)}
               aria-invalid={errors.nome ? true : undefined}
+              aria-describedby={errors.nome ? 'nome-err' : undefined}
               placeholder="Como consta no documento"
             />
           </Field>
@@ -80,32 +83,36 @@ export default function StepPaciente({ pacienteId: _pacienteId, onNext, defaultV
             <p className="mt-1 text-xs text-slate-400">Preenchido automaticamente do cadastro · não editável</p>
           </Field>
         ) : (
-          <Field label="CPF" error={errors.cpf?.message}>
+          <Field label="CPF" error={errors.cpf?.message} name="cpf">
             <input
+              id="cpf"
               {...register('cpf')}
               className={inputCls(!!errors.cpf)}
               aria-invalid={errors.cpf ? true : undefined}
+              aria-describedby={errors.cpf ? 'cpf-err' : undefined}
               placeholder="000.000.000-00"
               maxLength={14}
             />
           </Field>
         )}
 
-        <Field label="Data de nascimento" error={errors.dataNascimento?.message}>
-          <input {...register('dataNascimento')} type="date" className={inputCls(!!errors.dataNascimento)} aria-invalid={errors.dataNascimento ? true : undefined} />
+        <Field label="Data de nascimento" error={errors.dataNascimento?.message} name="dataNascimento">
+          <input id="dataNascimento" {...register('dataNascimento')} type="date" className={inputCls(!!errors.dataNascimento)} aria-invalid={errors.dataNascimento ? true : undefined} aria-describedby={errors.dataNascimento ? 'dataNascimento-err' : undefined} />
         </Field>
 
-        <Field label="Nome completo da mãe" error={errors.nomeMae?.message}>
+        <Field label="Nome completo da mãe" error={errors.nomeMae?.message} name="nomeMae">
           <input
+            id="nomeMae"
             {...register('nomeMae')}
             className={inputCls(!!errors.nomeMae)}
             aria-invalid={errors.nomeMae ? true : undefined}
+            aria-describedby={errors.nomeMae ? 'nomeMae-err' : undefined}
             placeholder="Nome completo da mãe (obrigatório)"
           />
         </Field>
 
-        <Field label="Sexo ao nascimento" error={errors.sexo?.message}>
-          <select {...register('sexo')} className={inputCls(!!errors.sexo)}>
+        <Field label="Sexo ao nascimento" error={errors.sexo?.message} name="sexo">
+          <select id="sexo" {...register('sexo')} className={inputCls(!!errors.sexo)} aria-describedby={errors.sexo ? 'sexo-err' : undefined}>
             <option value="">Selecione</option>
             <option value="masculino">Masculino</option>
             <option value="feminino">Feminino</option>
@@ -113,7 +120,7 @@ export default function StepPaciente({ pacienteId: _pacienteId, onNext, defaultV
           </select>
         </Field>
 
-        {salvar.error && <p className="text-red-500 text-sm">{salvar.error.message}</p>}
+        {salvar.error && <p className="text-red-500 text-sm">{traduzirErroTrpc(salvar.error)}</p>}
 
         <div className="flex justify-end pt-2">
           <button type="submit" disabled={salvar.isPending} className={btnPrimary}>
@@ -125,12 +132,13 @@ export default function StepPaciente({ pacienteId: _pacienteId, onNext, defaultV
   )
 }
 
-function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
+function Field({ label, error, children, name }: { label: string; error?: string; children: React.ReactNode; name?: string }) {
+  const errorId = name && error ? `${name}-err` : undefined
   return (
     <div>
-      <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
+      <label htmlFor={name} className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
       {children}
-      {error && <p role="alert" className="mt-1 text-xs text-red-500">{error}</p>}
+      {error && <p id={errorId} role="alert" className="mt-1 text-xs text-red-500">{error}</p>}
     </div>
   )
 }
