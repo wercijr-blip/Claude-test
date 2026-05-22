@@ -56,20 +56,14 @@ export const medicoRouter = router({
         .set({ status: 'em_revisao', medicoId: ctx.session.id, updatedAt: new Date() })
         .where(and(eq(pacientes.id, input.pacienteId), inArray(pacientes.status, ['pendente'])))
 
-      // Re-fetch after lock attempt so the response always reflects current DB state
-      // (if another doctor already held the lock, status/medicoId will show that)
-      const [pAtual] = await db
-        .select()
-        .from(pacientes)
-        .where(eq(pacientes.id, input.pacienteId))
-        .limit(1)
+      // Re-fetch paciente + exames in parallel after lock attempt
+      // (re-fetch so response reflects current DB state if another doctor held the lock)
+      const [[pAtual], examesDoP] = await Promise.all([
+        db.select().from(pacientes).where(eq(pacientes.id, input.pacienteId)).limit(1),
+        db.select().from(exames).where(eq(exames.pacienteId, input.pacienteId)),
+      ])
 
       if (!pAtual) throw new TRPCError({ code: 'NOT_FOUND' })
-
-      const examesDoP = await db
-        .select()
-        .from(exames)
-        .where(eq(exames.pacienteId, input.pacienteId))
 
       return {
         ...pAtual,

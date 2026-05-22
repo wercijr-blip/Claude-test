@@ -123,12 +123,14 @@ const DDL_STATEMENTS = [
     mime_type VARCHAR(100),
     tamanho_bytes INT,
     resultado_ia JSON,
+    resultado_ia_status VARCHAR(30) GENERATED ALWAYS AS (JSON_UNQUOTE(JSON_EXTRACT(resultado_ia, '$.status'))) VIRTUAL,
     revisado_por_id INT,
     revisado_em DATETIME,
     liberado_por_medico_id INT,
     liberado_em DATETIME,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_exames_paciente (paciente_id)
+    INDEX idx_exames_paciente (paciente_id),
+    INDEX idx_exames_resultado_ia_status (resultado_ia_status)
   )`,
 
   `CREATE TABLE IF NOT EXISTS tcle_assinaturas (
