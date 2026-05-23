@@ -24,7 +24,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "backup": "tsx server/scripts/backup.ts",
-    "seed": "tsx server/seed.ts",
+    "seed": "tsx --env-file=.env server/seed.ts",
+    "db:seed": "tsx --env-file=.env server/seed.ts",
     "dev:services": "docker compose up -d",
     "dev:full": "pnpm dev:services && pnpm dev"
   },

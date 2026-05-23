@@ -6,6 +6,7 @@ import { PACIENTE_STATUS } from '@shared/const.ts'
 import { fmt } from '../lib/format.ts'
 import { EmptyState } from './EmptyState.tsx'
 import { traduzirErroTrpc } from '../lib/errorMessages.ts'
+import { toast } from '../lib/use-toast.ts'
 
 type Tab = 'pacientes' | 'exames_inicio' | 'exames_rejeitados'
 type Acao = 'aprovar' | 'recusar' | 'solicitar_reenvio' | 'recomendar_consulta' | 'encaminhar_especialista' | 'solicitar_confirmacao'
@@ -47,18 +48,43 @@ export default function MedicoDashboard() {
   }
 
   const aprovar = trpc.medico.aprovar.useMutation({
-    onSuccess: () => { setSelectedId(null); verPacienteMutation.reset(); invalidarListas() },
+    onSuccess: () => {
+      setSelectedId(null)
+      verPacienteMutation.reset()
+      invalidarListas()
+      toast({ variant: 'success', title: 'Paciente aprovado', description: 'Aprovação registrada com sucesso.' })
+    },
+    onError: (err) => {
+      toast({ variant: 'error', title: 'Erro ao aprovar', description: traduzirErroTrpc(err) ?? undefined })
+    },
   })
   const rejeitar = trpc.medico.rejeitar.useMutation({
-    onSuccess: () => { setSelectedId(null); verPacienteMutation.reset(); invalidarListas() },
+    onSuccess: () => {
+      setSelectedId(null)
+      verPacienteMutation.reset()
+      invalidarListas()
+      setConfirmRejeitar(false)
+      toast({ variant: 'default', title: 'Paciente rejeitado', description: 'Rejeição registrada com sucesso.' })
+    },
+    onError: (err) => {
+      setConfirmRejeitar(false)
+      toast({ variant: 'error', title: 'Erro ao rejeitar', description: traduzirErroTrpc(err) ?? undefined })
+    },
   })
   const liberarExame = trpc.medico.liberarExameSemValidacao.useMutation({
-    onSuccess: () => invalidarListas(),
+    onSuccess: () => {
+      invalidarListas()
+      toast({ variant: 'success', title: 'Exame liberado', description: 'Exame liberado manualmente com sucesso.' })
+    },
+    onError: (err) => {
+      toast({ variant: 'error', title: 'Erro ao liberar exame', description: traduzirErroTrpc(err) ?? undefined })
+    },
   })
 
   const [obs, setObs] = useState('')
   const [motivoRejeicao, setMotivoRejeicao] = useState('')
   const [obsExame, setObsExame] = useState<Record<number, string>>({})
+  const [confirmRejeitar, setConfirmRejeitar] = useState(false)
 
   const urgentesCount = revisoes?.filter(r => r.urgente).length ?? 0
   const totalRevisoesCount = revisoes?.length ?? 0
@@ -222,15 +248,41 @@ export default function MedicoDashboard() {
                         {aprovar.isPending ? 'Aprovando…' : '✓ Aprovar'}
                       </button>
                       <button
-                        onClick={() => rejeitar.mutate({ pacienteId: paciente.id, motivo: motivoRejeicao })}
+                        onClick={() => { if (motivoRejeicao.length >= 10) setConfirmRejeitar(true) }}
                         disabled={rejeitar.isPending || motivoRejeicao.length < 10}
                         className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-medium py-2 rounded-lg transition-colors"
                       >
-                        {rejeitar.isPending ? 'Rejeitando…' : '✗ Rejeitar'}
+                        ✗ Rejeitar
                       </button>
                     </div>
-                    {aprovar.error && <p className="text-red-600 text-sm" role="alert">{traduzirErroTrpc(aprovar.error)}</p>}
-                    {rejeitar.error && <p className="text-red-600 text-sm" role="alert">{traduzirErroTrpc(rejeitar.error)}</p>}
+
+                    {/* Confirmation modal for rejection */}
+                    {confirmRejeitar && (
+                      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setConfirmRejeitar(false)}>
+                        <div className="bg-white rounded-2xl p-6 shadow-xl max-w-sm w-full mx-4" onClick={(e) => e.stopPropagation()}>
+                          <h3 className="font-semibold text-slate-800 mb-2">Confirmar rejeição</h3>
+                          <p className="text-sm text-slate-600 mb-4">
+                            Tem certeza que deseja <strong>rejeitar</strong> este paciente? Esta ação será registrada no sistema.
+                          </p>
+                          <p className="text-xs text-slate-500 bg-slate-50 rounded-lg p-2 mb-4 line-clamp-3">{motivoRejeicao}</p>
+                          <div className="flex gap-3">
+                            <button
+                              onClick={() => setConfirmRejeitar(false)}
+                              className="flex-1 border border-slate-300 text-slate-700 font-medium py-2 rounded-lg hover:bg-slate-50 transition-colors"
+                            >
+                              Cancelar
+                            </button>
+                            <button
+                              onClick={() => rejeitar.mutate({ pacienteId: paciente.id, motivo: motivoRejeicao })}
+                              disabled={rejeitar.isPending}
+                              className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-medium py-2 rounded-lg transition-colors"
+                            >
+                              {rejeitar.isPending ? 'Rejeitando…' : 'Confirmar rejeição'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
