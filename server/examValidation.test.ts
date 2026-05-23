@@ -95,8 +95,12 @@ describe('isDataValida', () => {
   })
 
   it('retorna true para hoje', () => {
-    const hoje = new Date()
-    const hojeBR = new Date(Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()))
+    const hojeSP = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Sao_Paulo',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(new Date())
+    const [y, m, d] = hojeSP.split('-').map(Number)
+    const hojeBR = new Date(Date.UTC(y, m - 1, d))
     expect(isDataValida(hojeBR)).toBe(true)
   })
 
