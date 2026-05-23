@@ -76,7 +76,7 @@ export function startExamWorker() {
 
       return { exameId, requestId, resultado: resultado.resultado, status: resultado.status }
     },
-    { ...EXAM_WORKER_OPTS, connection, concurrency: 5, prefix: QUEUE_PREFIX },
+    { ...EXAM_WORKER_OPTS, connection, concurrency: 3, prefix: QUEUE_PREFIX },
   )
 
   worker.on('failed', (job, err) => {

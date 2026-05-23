@@ -54,8 +54,10 @@ describe('checkDailyLimit (via analisarExame)', () => {
   })
 
   it('allows calls under the daily limit', async () => {
-    mockIncr.mockResolvedValueOnce(1)
-    mockExpire.mockResolvedValueOnce(1)
+    mockIncr.mockResolvedValueOnce(1) // minute check
+    mockExpire.mockResolvedValueOnce(1) // minute expire
+    mockIncr.mockResolvedValueOnce(1) // daily check
+    mockExpire.mockResolvedValueOnce(1) // daily expire
 
     const { analisarExame } = await import('./examAnalysis.ts')
 
@@ -90,17 +92,23 @@ describe('checkDailyLimit (via analisarExame)', () => {
   })
 
   it('blocks calls over the daily limit and throws user-friendly error', async () => {
-    mockIncr.mockResolvedValueOnce(6)
+    // minute incr returns 1 (within limit), daily incr returns 6 (exceeds limit of 5)
+    mockIncr.mockResolvedValueOnce(1) // minute check
+    mockExpire.mockResolvedValueOnce(1) // minute expire
+    mockIncr.mockResolvedValueOnce(6) // daily check
 
     const { analisarExame } = await import('./examAnalysis.ts')
 
     await expect(analisarExame(1)).rejects.toThrow('Limite diário')
-    expect(mockIncr).toHaveBeenCalledOnce()
+    expect(mockIncr).toHaveBeenCalledTimes(2)
   })
 
   it('sets 25h TTL on first call of the day (incr returns 1)', async () => {
-    mockIncr.mockResolvedValueOnce(1)
-    mockExpire.mockResolvedValueOnce(1)
+    // minute incr returns 1 (triggers minute expire), daily incr returns 1 (triggers daily expire)
+    mockIncr.mockResolvedValueOnce(1) // minute check
+    mockExpire.mockResolvedValueOnce(1) // minute expire
+    mockIncr.mockResolvedValueOnce(1) // daily check
+    mockExpire.mockResolvedValueOnce(1) // daily expire
 
     const { analisarExame } = await import('./examAnalysis.ts')
 
@@ -134,7 +142,9 @@ describe('checkDailyLimit (via analisarExame)', () => {
   })
 
   it('does not set TTL when count > 1 (key already exists)', async () => {
-    mockIncr.mockResolvedValueOnce(3)
+    // Both minute and daily return count > 1 — neither sets TTL
+    mockIncr.mockResolvedValueOnce(2) // minute check (count > 1, no expire)
+    mockIncr.mockResolvedValueOnce(3) // daily check (count > 1, no expire)
 
     const { analisarExame } = await import('./examAnalysis.ts')
 
@@ -168,6 +178,8 @@ describe('checkDailyLimit (via analisarExame)', () => {
   })
 
   it('degrades gracefully when Redis is unavailable (non-limit error)', async () => {
+    // Both minute and daily checks fail — both degrade gracefully and continue
+    mockIncr.mockRejectedValueOnce(new Error('Connection refused'))
     mockIncr.mockRejectedValueOnce(new Error('Connection refused'))
 
     const { analisarExame } = await import('./examAnalysis.ts')

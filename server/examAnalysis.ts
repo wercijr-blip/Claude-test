@@ -19,8 +19,28 @@ import {
 } from './_core/sbis.ts'
 
 const MAX_DAILY_LLM_CALLS = env.LLM_DAILY_LIMIT ?? 200
+const MAX_MINUTE_LLM_CALLS = 20 // Stay safely below Anthropic's 100 RPM limit
 
 const LLM_ALERT_THRESHOLD = 0.8
+
+async function checkMinuteLimit(): Promise<void> {
+  const minuteKey = `llm:minute:${Math.floor(Date.now() / 60_000)}`
+  try {
+    const count = await redis.incr(minuteKey)
+    if (count === 1) await redis.expire(minuteKey, 120) // 2min TTL — covers the window
+    if (count > MAX_MINUTE_LLM_CALLS) {
+      logger.warn('[llm] limite por minuto atingido — job aguardará próximo ciclo', {
+        count,
+        limit: MAX_MINUTE_LLM_CALLS,
+        minuteKey,
+      })
+      throw new Error(`Limite por minuto de análises por IA atingido (${MAX_MINUTE_LLM_CALLS}/min). Job será reprocessado.`)
+    }
+  } catch (err) {
+    if ((err as Error).message.includes('Limite por minuto')) throw err
+    logger.warn('[llm] Redis indisponível — ignorando limite por minuto', { error: String(err) })
+  }
+}
 
 async function checkDailyLimit(): Promise<void> {
   const key = `llm:daily:${new Date().toISOString().slice(0, 10)}`
@@ -110,6 +130,7 @@ export function parseIaResponse(
 }
 
 export async function analisarExame(exameId: number): Promise<ResultadoIa> {
+  await checkMinuteLimit()
   await checkDailyLimit()
 
   const [exame] = await db.select().from(exames).where(eq(exames.id, exameId)).limit(1)

@@ -7,7 +7,7 @@ import { pacientes, precadastros, pdfs, tcleAssinaturas, accessTokens } from '..
 import { eq, and, sql, gte } from 'drizzle-orm'
 import type { ResultSetHeader } from 'mysql2'
 import { encrypt, decrypt, hashCpf } from '../_core/encryption.ts'
-import { validarCpf } from '../_core/cpfValidator.ts'
+import { validarCpf, normalizarCpf } from '../_core/cpfValidator.ts'
 import { ERROR_MESSAGES, PREP_MODALIDADE, PREP_POSOLOGIA } from '../../shared/const.ts'
 import { env } from '../_core/env.ts'
 import { JWT_EXPIRY_PATIENT } from '../../shared/security-constants.ts'
@@ -107,7 +107,8 @@ export const pacienteRouter = router({
     .mutation(async ({ input, ctx }) => {
       assertPatient(ctx.session)
       const { tokenId } = ctx.session
-      const cpfHash = hashCpf(input.cpf)
+      const cpfNorm = normalizarCpf(input.cpf)
+      const cpfHash = hashCpf(cpfNorm)
 
       const retentionUntil = new Date()
       retentionUntil.setFullYear(retentionUntil.getFullYear() + 20)
@@ -124,7 +125,7 @@ export const pacienteRouter = router({
       const tipoAtendimento = tokenInfo?.tipo === 'convenio' ? 'convenio' : 'particular'
       const convenio = tokenInfo?.convenio ?? null
 
-      const cpfEncrypted = encrypt(input.cpf)
+      const cpfEncrypted = encrypt(cpfNorm)
       const nomeEncrypted = encrypt(input.nome)
       const dataNascimentoEncrypted = encrypt(input.dataNascimento)
       const nomeMaeEncrypted = encrypt(input.nomeMae)
