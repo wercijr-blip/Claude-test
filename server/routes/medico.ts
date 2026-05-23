@@ -195,9 +195,9 @@ export const medicoRouter = router({
         })
         .where(eq(exames.id, input.exameId))
 
-      // ECF.02 — registra profissional solicitante na sessão SBIS (NGS1.07)
+      // ECF.02 / NGS1.07 — registra override médico com ação distinta de ia.analise
       await logAudit({
-        action: 'ia.analise',
+        action: 'exame.approve',
         resourceType: 'exame',
         resourceId: input.exameId,
         actorId: ctx.session.id,

@@ -56,7 +56,11 @@ export function validateExameQuality(
   if (!s3Key) {
     return { valid: false, reason: 'Arquivo de exame ausente (s3Key nulo) — BPIA.03' }
   }
-  if (tamanhoBytes !== null && tamanhoBytes !== undefined && tamanhoBytes < 1024) {
+  // tamanhoBytes null means the field was never recorded — treat as suspicious
+  if (tamanhoBytes === null || tamanhoBytes === undefined) {
+    return { valid: true, warning: 'tamanhoBytes não registrado — qualidade do arquivo não verificada' }
+  }
+  if (tamanhoBytes < 1024) {
     return {
       valid: false,
       reason: `Arquivo muito pequeno (${tamanhoBytes} bytes) — provável corrupção — BPIA.03`,
@@ -180,9 +184,10 @@ export function isResultadoAnomalos(
   confianca: number,
   tipoExame: string,
 ): boolean {
+  // Threshold em 0.60 — reagente infeccioso mesmo com confiança moderada deve acionar alerta RT
   const infecciosoReagente =
     resultado === 'reagente' &&
-    confianca >= 0.80 &&
+    confianca >= 0.60 &&
     ['hiv', 'sifilis', 'hepatite_b', 'hepatite_c'].includes(tipoExame)
   const baixaConfianca = confianca < 0.30
   const naoIdentificado = resultado === 'nao_identificado'

@@ -95,9 +95,12 @@ export async function enqueueAnalisarExame(exameId: number, requestId?: string, 
     const existing = await examQueue.getJob(`exam-${exameId}`)
     if (existing) {
       const state = await existing.getState()
-      if (state !== 'active') {
-        await examQueue.remove(`exam-${exameId}`)
+      if (state === 'active') {
+        // Job is currently processing — adding with the same jobId would throw.
+        // Return the in-flight job so callers don't crash.
+        return existing
       }
+      await examQueue.remove(`exam-${exameId}`)
     }
   }
   return examQueue.add('analisar', { exameId, requestId, actorId }, {

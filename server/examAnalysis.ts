@@ -150,8 +150,14 @@ export async function analisarExame(exameId: number): Promise<ResultadoIa> {
       status: 'pendente',
       sbis,
     }
-  } catch {
-    // Fallback result when AI returns unparseable output — BPIA.03
+  } catch (parseErr) {
+    // BPIA.03 — log the raw AI response and parse error for traceability
+    logger.warn('[examAnalysis] resposta da IA não parseável — fallback nao_identificado', {
+      exameId,
+      sessionId,
+      parseError: (parseErr as Error).message,
+      rawResponse: text.slice(0, 500), // truncated to avoid log bloat
+    })
     const sbis = buildSbisMetadata(text, exame.tipoExame ?? 'outro', 0, sessionId)
     resultado = {
       tipoExame: (exame.tipoExame as ResultadoIa['tipoExame']) ?? 'outro',

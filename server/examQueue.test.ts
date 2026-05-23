@@ -94,12 +94,14 @@ describe('enqueueAnalisarExame', () => {
     expect(mockAdd).toHaveBeenCalled()
   })
 
-  it('forceRequeue=true, job ATIVO → não remove (preserva trabalho em andamento)', async () => {
-    mockGetJob.mockResolvedValueOnce({ getState: vi.fn().mockResolvedValue('active') })
+  it('forceRequeue=true, job ATIVO → não remove nem re-adiciona (evita erro BullMQ de jobId duplicado)', async () => {
+    const fakeActiveJob = { getState: vi.fn().mockResolvedValue('active') }
+    mockGetJob.mockResolvedValueOnce(fakeActiveJob)
     const { enqueueAnalisarExame } = await import('./examQueue.ts')
-    await enqueueAnalisarExame(7, undefined, true)
+    const result = await enqueueAnalisarExame(7, undefined, true)
     expect(mockRemove).not.toHaveBeenCalled()
-    expect(mockAdd).toHaveBeenCalled()
+    expect(mockAdd).not.toHaveBeenCalled()
+    expect(result).toBe(fakeActiveJob) // retorna o job em andamento
   })
 
   it('forceRequeue=true, job em estado delayed → remove e re-adiciona', async () => {
