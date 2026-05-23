@@ -67,8 +67,10 @@ export default function MedicoDashboard() {
       verPacienteMutation.reset()
       toast({ variant: 'success', title: 'Paciente aprovado', description: 'Aprovação registrada com sucesso.' })
     },
-    onError: (err, { pacienteId }, context) => {
+    onError: (err, _vars, context) => {
       if (context?.anterior) utils.medico.listarPendentes.setData({}, context.anterior)
+      setSelectedId(null)
+      verPacienteMutation.reset()
       toast({ variant: 'error', title: 'Erro ao aprovar', description: traduzirErroTrpc(err) ?? undefined })
     },
     onSettled: () => invalidarListas(),
@@ -84,8 +86,10 @@ export default function MedicoDashboard() {
       setConfirmRejeitar(false)
       toast({ variant: 'default', title: 'Paciente rejeitado', description: 'Rejeição registrada com sucesso.' })
     },
-    onError: (err, { pacienteId }, context) => {
+    onError: (err, _vars, context) => {
       if (context?.anterior) utils.medico.listarPendentes.setData({}, context.anterior)
+      setSelectedId(null)
+      verPacienteMutation.reset()
       setConfirmRejeitar(false)
       toast({ variant: 'error', title: 'Erro ao rejeitar', description: traduzirErroTrpc(err) ?? undefined })
     },

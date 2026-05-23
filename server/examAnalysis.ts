@@ -25,29 +25,35 @@ const LLM_ALERT_THRESHOLD = 0.8
 
 async function checkMinuteLimit(): Promise<void> {
   const minuteKey = `llm:minute:${Math.floor(Date.now() / 60_000)}`
+  let limitExceeded = false
   try {
     const count = await redis.incr(minuteKey)
     if (count === 1) await redis.expire(minuteKey, 120) // 2min TTL — covers the window
     if (count > MAX_MINUTE_LLM_CALLS) {
+      // Return the slot so retries don't inflate the counter beyond the real call count
+      await redis.decr(minuteKey).catch(() => {})
+      limitExceeded = true
       logger.warn('[llm] limite por minuto atingido — job aguardará próximo ciclo', {
-        count,
+        count: count - 1,
         limit: MAX_MINUTE_LLM_CALLS,
         minuteKey,
       })
       throw new Error(`Limite por minuto de análises por IA atingido (${MAX_MINUTE_LLM_CALLS}/min). Job será reprocessado.`)
     }
   } catch (err) {
-    if ((err as Error).message.includes('Limite por minuto')) throw err
+    if (limitExceeded) throw err
     logger.warn('[llm] Redis indisponível — ignorando limite por minuto', { error: String(err) })
   }
 }
 
 async function checkDailyLimit(): Promise<void> {
   const key = `llm:daily:${new Date().toISOString().slice(0, 10)}`
+  let limitExceeded = false
   try {
     const count = await redis.incr(key)
     if (count === 1) await redis.expire(key, 90_000) // 25h TTL — survives day boundary
     if (count > MAX_DAILY_LLM_CALLS) {
+      limitExceeded = true
       logger.warn('[llm] limite diário atingido', { count, limit: MAX_DAILY_LLM_CALLS, key })
       throw new Error(`Limite diário de análises por IA atingido (${MAX_DAILY_LLM_CALLS}/dia). Tente novamente amanhã.`)
     }
@@ -58,12 +64,13 @@ async function checkDailyLimit(): Promise<void> {
       if (!alreadyAlerted) {
         await redis.set(alertKey, '1', 'EX', 90_000)
         const { enviarAlerteLimiteLLM } = await import('./email.ts')
-        void enviarAlerteLimiteLLM(80, count, MAX_DAILY_LLM_CALLS)
-        logger.warn('[llm] 80% do limite diário atingido — alerta enviado', { count, limit: MAX_DAILY_LLM_CALLS })
+        const percentual = Math.round(LLM_ALERT_THRESHOLD * 100)
+        void enviarAlerteLimiteLLM(percentual, count, MAX_DAILY_LLM_CALLS)
+        logger.warn(`[llm] ${percentual}% do limite diário atingido — alerta enviado`, { count, limit: MAX_DAILY_LLM_CALLS })
       }
     }
   } catch (err) {
-    if ((err as Error).message.includes('Limite diário')) throw err
+    if (limitExceeded) throw err
     logger.warn('[llm] Redis indisponível — ignorando limite diário', { error: String(err) })
   }
 }

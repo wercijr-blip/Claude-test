@@ -144,7 +144,7 @@ export const pacienteRouter = router({
           .update(pacientes)
           .set({
             cpfEncrypted,
-            cpfHash,
+            // cpfHash is set once at INSERT and never updated — CPF is immutable after registration
             nomeEncrypted,
             dataNascimentoEncrypted,
             nomeMaeEncrypted,
