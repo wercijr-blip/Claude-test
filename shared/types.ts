@@ -49,6 +49,40 @@ export interface Autorizado {
   telefone?: string
 }
 
+/**
+ * Metadados de conformidade SBIS anexados a toda saída gerada por IA.
+ * Cobre: BPIA.01–05, ECF.16–17, NGS1.01, NGS1.07
+ */
+export interface SbisMetadata {
+  /** ISO 8601 — ECF.17 */
+  timestamp: string
+  /** UUID da sessão de análise — ECF.17 */
+  sessionId: string
+  /** Identificador do modelo LLM utilizado — NGS1.01 / BPIA.02 */
+  modelVersion: string
+  /** Versão da plataforma — NGS1.01 */
+  systemVersion: string
+  /** SHA-256 (16 chars) do conteúdo do resultado — ECF.17 rastreabilidade */
+  hash: string
+  /** Responsável Técnico — BPIA.01 / ECF.02 */
+  responsavelTecnico: {
+    nome: string
+    crm: string
+    rqe: string
+    especialidade: string
+  }
+  /** Grau de confiança mapeado do score numérico — BPIA.02 */
+  grauConfianca: 'Alto' | 'Moderado' | 'Baixo'
+  /** Diretrizes clínicas que fundamentam a análise — BPIA.04 */
+  fundamentacao: string[]
+  /** Limitações conhecidas desta análise — BPIA.04 */
+  limitacoes: string[]
+  /** Nível SBIS de maturidade — BPIA.01 */
+  nivel: string
+  /** Aviso de conformidade obrigatório — ECF.16 */
+  aviso: string
+}
+
 export interface ResultadoIa {
   tipoExame: TipoExame
   resultado: 'reagente' | 'nao_reagente' | 'inconclusivo' | 'nao_identificado'
@@ -58,6 +92,8 @@ export interface ResultadoIa {
   status?: 'pendente' | 'aprovado_automaticamente' | 'rejeitado_ia' | 'rejeitado' | 'pendente_revisao' | 'liberado_manualmente'
   observacoesMedico?: string | null
   liberadoEm?: string
+  /** Metadados de conformidade SBIS — presente em toda saída gerada por IA após v1.0 */
+  sbis?: SbisMetadata
 }
 
 export interface AuthUser {

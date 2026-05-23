@@ -24,6 +24,11 @@ export type AuditAction =
   | 'admin.user_deactivate'
   | 'admin.user_delete'
   | 'admin.user_restore'
+  // ── IA / SBIS (BPIA.05, NGS1.07, NGS1.10) ───────────────────
+  | 'ia.analise'            // análise de exame por IA concluída
+  | 'ia.anomalia'           // resultado anômalo detectado — RT notificado
+  | 'ia.rejeicao_dados'     // dados insuficientes — IA recusou processar (BPIA.03)
+  | 'ia.consentimento_ia'   // paciente informado que IA foi utilizada (NGS1.11)
 
 interface AuditEntry {
   actorId?: number

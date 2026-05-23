@@ -7,6 +7,16 @@ import { exames } from '../drizzle/schema.ts'
 import { eq } from 'drizzle-orm'
 import { getPresignedUrl } from './storage.ts'
 import type { ResultadoIa } from '../shared/types.ts'
+import {
+  validateExameQuality,
+  detectPromptInjection,
+  buildSbisMetadata,
+  isResultadoAnomalos,
+  logIaAnalise,
+  logIaAnomalia,
+  logIaRejeicaoDados,
+  SBIS_MODEL_VERSION,
+} from './_core/sbis.ts'
 
 const MAX_DAILY_LLM_CALLS = env.LLM_DAILY_LIMIT ?? 200
 
@@ -38,9 +48,43 @@ export async function analisarExame(exameId: number): Promise<ResultadoIa> {
   const [exame] = await db.select().from(exames).where(eq(exames.id, exameId)).limit(1)
   if (!exame) throw new Error(`Exame ${exameId} não encontrado`)
 
+  // BPIA.03 — Validate data quality before calling AI
+  const qualidade = validateExameQuality(exame.s3Key, exame.tipoExame, exame.tamanhoBytes)
+  if (!qualidade.valid) {
+    logger.warn('[examAnalysis] exame rejeitado por qualidade insuficiente — BPIA.03', {
+      exameId,
+      motivo: qualidade.reason,
+    })
+    await logIaRejeicaoDados({ exameId, motivo: qualidade.reason! })
+    throw new Error(`Dados insuficientes para análise por IA: ${qualidade.reason}`)
+  }
+  if (qualidade.warning) {
+    logger.warn('[examAnalysis] aviso de qualidade de dados', { exameId, aviso: qualidade.warning })
+  }
+
+  // NGS1.12 — Adversarial check on any text fields that reach the AI prompt
+  // (observacoes field is not currently interpolated into the prompt, but validated
+  //  defensively for future-proofing and NGS1.12 compliance)
+  const textFieldsToCheck = [exame.nomeArquivo, exame.tipoExame].filter(Boolean) as string[]
+  for (const field of textFieldsToCheck) {
+    if (detectPromptInjection(field)) {
+      logger.warn('[examAnalysis] possível injeção de prompt detectada — NGS1.12', { exameId, field })
+      throw new Error('Entrada rejeitada: padrão adversarial detectado no exame (NGS1.12)')
+    }
+  }
+
+  const sessionId = crypto.randomUUID()
   const imageUrl = await getPresignedUrl(exame.s3Key, 300)
 
-  const prompt = `Você é um assistente médico especializado em análise de exames laboratoriais.\nAnalise o resultado do exame na imagem e retorne um JSON com:\n- tipoExame: tipo do exame detectado (hiv, hepatite_b, hepatite_c, sifilis, creatinina, outro)\n- resultado: \"reagente\", \"nao_reagente\", \"inconclusivo\" ou \"nao_identificado\"\n- confianca: número de 0 a 1 indicando confiança na análise\n- observacoes: string com observações relevantes (opcional)\n\nResponda APENAS com o JSON, sem texto adicional.`
+  // ECF.17 — Prompt is static; no user input is interpolated — injection surface is minimal
+  const prompt =
+    `Você é um assistente médico especializado em análise de exames laboratoriais.\n` +
+    `Analise o resultado do exame na imagem e retorne um JSON com:\n` +
+    `- tipoExame: tipo do exame detectado (hiv, hepatite_b, hepatite_c, sifilis, creatinina, outro)\n` +
+    `- resultado: "reagente", "nao_reagente", "inconclusivo" ou "nao_identificado"\n` +
+    `- confianca: número de 0 a 1 indicando confiança na análise\n` +
+    `- observacoes: string com observações relevantes (opcional)\n\n` +
+    `Responda APENAS com o JSON, sem texto adicional.`
 
   let response: Response
   try {
@@ -53,7 +97,7 @@ export async function analisarExame(exameId: number): Promise<ResultadoIa> {
       },
       signal: AbortSignal.timeout(30000),
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model: SBIS_MODEL_VERSION,
         max_tokens: 500,
         messages: [
           {
@@ -85,28 +129,73 @@ export async function analisarExame(exameId: number): Promise<ResultadoIa> {
   const estimatedCostUSD = (inputTokens / 1_000_000 * 0.80) + (outputTokens / 1_000_000 * 4.00)
   logger.info('[llm] análise de exame concluída', {
     exameId,
+    sessionId,
     inputTokens,
     outputTokens,
     estimatedCostUSD: estimatedCostUSD.toFixed(5),
   })
+
   const text = data.content[0]?.text ?? '{}'
 
   let resultado: ResultadoIa
   try {
     const parsed = iaResponseSchema.parse(JSON.parse(text))
+
+    // ECF.17 — Build SBIS metadata from the parsed result content
+    const sbis = buildSbisMetadata(text, parsed.tipoExame, parsed.confianca, sessionId)
+
     resultado = {
       ...parsed,
-      processadoEm: new Date().toISOString(),
+      processadoEm: sbis.timestamp,
       status: 'pendente',
+      sbis,
     }
   } catch {
+    // Fallback result when AI returns unparseable output — BPIA.03
+    const sbis = buildSbisMetadata(text, exame.tipoExame ?? 'outro', 0, sessionId)
     resultado = {
       tipoExame: (exame.tipoExame as ResultadoIa['tipoExame']) ?? 'outro',
       resultado: 'nao_identificado',
       confianca: 0,
-      processadoEm: new Date().toISOString(),
+      processadoEm: sbis.timestamp,
       status: 'pendente',
+      sbis,
     }
+  }
+
+  // NGS1.07 — Audit every AI analysis (append-only audit log)
+  await logIaAnalise({
+    exameId,
+    tipoExame: resultado.tipoExame,
+    resultado: resultado.resultado,
+    confianca: resultado.confianca,
+    sessionId,
+    inputTokens,
+    outputTokens,
+  })
+
+  // BPIA.05 + NGS1.10 — Detect and log anomalous results for RT notification
+  if (isResultadoAnomalos(resultado.resultado, resultado.confianca, resultado.tipoExame)) {
+    const motivo =
+      resultado.resultado === 'reagente'
+        ? `Resultado reagente com confiança ${(resultado.confianca * 100).toFixed(0)}% em ${resultado.tipoExame}`
+        : resultado.resultado === 'nao_identificado'
+          ? 'Exame não identificado pela IA'
+          : `Confiança baixa: ${(resultado.confianca * 100).toFixed(0)}%`
+
+    logger.warn('[examAnalysis] resultado anômalo — RT notificado via audit log — NGS1.10', {
+      exameId,
+      sessionId,
+      motivo,
+    })
+    await logIaAnomalia({
+      exameId,
+      resultado: resultado.resultado,
+      confianca: resultado.confianca,
+      tipoExame: resultado.tipoExame,
+      motivo,
+      sessionId,
+    })
   }
 
   await db.update(exames).set({ resultadoIa: resultado }).where(eq(exames.id, exameId))
