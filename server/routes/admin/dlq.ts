@@ -18,7 +18,7 @@ export const dlqProcedures = {
 
   reprocessarDlqJob: adminProcedure
     .input(z.object({ jobId: z.number().int().positive() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const [job] = await db
         .select()
         .from(dlqJobs)
@@ -34,7 +34,8 @@ export const dlqProcedures = {
 
       if (job.queue === 'exam-analysis') {
         const { enqueueAnalisarExame } = await import('../../examQueue.ts')
-        await enqueueAnalisarExame((job.data as { exameId: number }).exameId, undefined, true)
+        // ECF.02 — pass actorId so the SBIS session records the requesting physician
+        await enqueueAnalisarExame((job.data as { exameId: number }).exameId, undefined, true, ctx.session.id)
       } else if (job.queue === 'pdf-generation') {
         const { enqueueGerarPdf } = await import('../../pdfQueue.ts')
         await enqueueGerarPdf((job.data as { pacienteId: number }).pacienteId)

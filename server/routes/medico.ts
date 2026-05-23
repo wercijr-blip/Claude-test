@@ -7,6 +7,7 @@ import { eq, inArray, and, gt, sql } from 'drizzle-orm'
 import { decrypt } from '../_core/encryption.ts'
 import { okEmpty } from '../_core/response.ts'
 import { paginationInput, paginatedResponse } from '../_core/pagination.ts'
+import { logAudit } from '../_core/audit.ts'
 import type { ResultadoIa } from '../../shared/types.ts'
 
 export const medicoRouter = router({
@@ -193,6 +194,22 @@ export const medicoRouter = router({
           revisadoEm: new Date(),
         })
         .where(eq(exames.id, input.exameId))
+
+      // ECF.02 — registra profissional solicitante na sessão SBIS (NGS1.07)
+      await logAudit({
+        action: 'ia.analise',
+        resourceType: 'exame',
+        resourceId: input.exameId,
+        actorId: ctx.session.id,
+        actorRole: ctx.session.role,
+        detalhes: {
+          tipoValidacao: 'liberacao_manual_medico',
+          statusAnterior: resultadoAtual?.status,
+          statusNovo: 'liberado_manualmente',
+          sbisEcf02: true,
+          observacoes: input.observacoes,
+        },
+      })
 
       return okEmpty()
     }),

@@ -16,8 +16,8 @@ export function startExamWorker() {
   const worker = new Worker(
     EXAM_QUEUE_NAME,
     async (job) => {
-      const { exameId, requestId } = job.data as { exameId: number; requestId?: string }
-      const logCtx = { exameId, requestId }
+      const { exameId, requestId, actorId } = job.data as { exameId: number; requestId?: string; actorId?: number }
+      const logCtx = { exameId, requestId, actorId }
 
       // 1. Run AI analysis (updates exames.resultadoIa with status: 'pendente')
       let resultado: ResultadoIa
@@ -89,7 +89,8 @@ export function startExamWorker() {
   return worker
 }
 
-export async function enqueueAnalisarExame(exameId: number, requestId?: string, forceRequeue = false) {
+// actorId — ECF.02: profissional solicitante vinculado à sessão SBIS
+export async function enqueueAnalisarExame(exameId: number, requestId?: string, forceRequeue = false, actorId?: number) {
   if (forceRequeue) {
     const existing = await examQueue.getJob(`exam-${exameId}`)
     if (existing) {
@@ -99,7 +100,7 @@ export async function enqueueAnalisarExame(exameId: number, requestId?: string, 
       }
     }
   }
-  return examQueue.add('analisar', { exameId, requestId }, {
+  return examQueue.add('analisar', { exameId, requestId, actorId }, {
     jobId: `exam-${exameId}`,
     attempts: 3,
     backoff: { type: 'exponential', delay: 5000 },

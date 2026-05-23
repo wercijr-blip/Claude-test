@@ -1,4 +1,4 @@
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
+import { PDFDocument, PDFName, rgb, StandardFonts } from 'pdf-lib'
 import { readFile } from 'fs/promises'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -8,6 +8,7 @@ import { P12Signer } from '@signpdf/signer-p12'
 import { plainAddPlaceholder } from '@signpdf/placeholder-plain'
 import { SUBFILTER_ETSI_CADES_DETACHED } from '@signpdf/utils'
 import { env } from './_core/env.ts'
+import { RT_NOME, RT_CRM, RT_RQE, RT_ESPECIALIDADE, SBIS_MODEL_VERSION, SBIS_SYSTEM_VERSION, SBIS_NIVEL } from './_core/sbis.ts'
 import { desenharCarimboDigital, carimboFromEnv } from './sus/carimboDigital.ts'
 import {
   desenharCabecalhoInstitucional,
@@ -18,6 +19,39 @@ import {
 } from './pdfHeader.ts'
 
 const signpdf = new SignPdf()
+
+// ── NGS2.05 — XMP metadata helper ───────────────────────────
+// Builds a minimal XMP packet with SBIS custom namespace for auditability.
+// Injected into the PDF catalog before ICP-Brasil signing.
+function buildXmpSbis(titulo: string, createDate: Date): string {
+  const iso = createDate.toISOString()
+  return `<?xpacket begin="﻿" id="W5M0MpCehiHzreSzNTczkc9d"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/">
+  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+    <rdf:Description rdf:about=""
+      xmlns:dc="http://purl.org/dc/elements/1.1/"
+      xmlns:xmp="http://ns.adobe.com/xap/1.0/"
+      xmlns:pdf="http://ns.adobe.com/pdf/1.3/"
+      xmlns:sbis="http://sbis.org.br/ns/conformidade/1.0/">
+      <dc:title><rdf:Alt><rdf:li xml:lang="pt-BR">${titulo}</rdf:li></rdf:Alt></dc:title>
+      <dc:creator><rdf:Seq><rdf:li>${RT_NOME}</rdf:li></rdf:Seq></dc:creator>
+      <dc:description><rdf:Alt><rdf:li xml:lang="pt-BR">Documento médico telemedicina — Facilita PrEP — SBIS NGS2</rdf:li></rdf:Alt></dc:description>
+      <xmp:CreatorTool>Facilita PrEP v${SBIS_SYSTEM_VERSION}</xmp:CreatorTool>
+      <xmp:CreateDate>${iso}</xmp:CreateDate>
+      <xmp:ModifyDate>${iso}</xmp:ModifyDate>
+      <pdf:Producer>Facilita PrEP — ICP-Brasil</pdf:Producer>
+      <pdf:Keywords>SBIS;PrEP;ICP-Brasil;CFM 2.299/2021;LGPD;Telemedicina;${RT_CRM}</pdf:Keywords>
+      <sbis:nivel>${SBIS_NIVEL}</sbis:nivel>
+      <sbis:responsavelTecnico>${RT_NOME} — ${RT_CRM} — RQE ${RT_RQE} — ${RT_ESPECIALIDADE}</sbis:responsavelTecnico>
+      <sbis:modeloIa>${SBIS_MODEL_VERSION}</sbis:modeloIa>
+      <sbis:conformidade>BPIA+ECF+NGS1+NGS2</sbis:conformidade>
+      <sbis:assinaturaDigital>ICP-Brasil — CFM 2.299/2021 — ETSI CAdES Detached</sbis:assinaturaDigital>
+      <sbis:lgpd>Lei 13.709/2018 — art. 11 — Retenção 20 anos (CFM 2.218/2018)</sbis:lgpd>
+    </rdf:Description>
+  </rdf:RDF>
+</x:xmpmeta>
+<?xpacket end="w"?>`
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const CERTS_DIR = path.join(__dirname, 'certs')
@@ -30,6 +64,16 @@ export interface PdfSignResult {
 
 export async function gerarPrescricaoPdf(paciente: Paciente & { pacienteId?: number; cpf?: string | null }): Promise<Buffer> {
   const doc = await PDFDocument.create()
+
+  // NGS2.05 — Metadados padrão PDF (Info dictionary) para auditabilidade
+  doc.setTitle('Receita Médica — PrEP — Facilita PrEP')
+  doc.setAuthor(RT_NOME)
+  doc.setSubject(`Prescrição PrEP — Profilaxia Pré-Exposição ao HIV — ${RT_CRM}`)
+  doc.setKeywords(['PrEP', 'HIV', 'Infectologia', 'ICP-Brasil', 'CFM 2.299/2021', 'SBIS', 'LGPD', RT_CRM])
+  doc.setProducer('Facilita PrEP — ICP-Brasil')
+  doc.setCreator(`Facilita PrEP v${SBIS_SYSTEM_VERSION}`)
+  doc.setCreationDate(new Date())
+
   const PAGE_W = 595
   const PAGE_H = 842
   const page = doc.addPage([PAGE_W, PAGE_H])
@@ -253,11 +297,35 @@ export async function assinarPdf(
 
   // 1. Atualiza metadados antes da assinatura (para que sejam parte do que é assinado)
   const docComMetadados = await PDFDocument.load(pdfBuffer)
-  docComMetadados.setTitle(titulo)
-  docComMetadados.setProducer('Facilita PrEP — ICP-Brasil')
-  docComMetadados.setCreator('Facilita PrEP')
   const assinadoEm = new Date()
+  docComMetadados.setTitle(titulo)
+  docComMetadados.setAuthor(RT_NOME)
+  docComMetadados.setSubject(`Documento médico telemedicina — Facilita PrEP — ${RT_CRM} — SBIS NGS2`)
+  docComMetadados.setKeywords(['ICP-Brasil', 'SBIS', 'CFM 2.299/2021', 'PrEP', RT_CRM, SBIS_MODEL_VERSION])
+  docComMetadados.setProducer('Facilita PrEP — ICP-Brasil')
+  docComMetadados.setCreator(`Facilita PrEP v${SBIS_SYSTEM_VERSION}`)
   docComMetadados.setModificationDate(assinadoEm)
+
+  // NGS2.05 — Inject XMP metadata stream into PDF catalog for machine-readable audit
+  const xmpXml = buildXmpSbis(titulo, assinadoEm)
+  const xmpBytes = Buffer.from(xmpXml, 'utf-8')
+  const xmpStream = docComMetadados.context.stream(xmpBytes, {
+    Type: PDFName.of('Metadata'),
+    Subtype: PDFName.of('XML'),
+  })
+  docComMetadados.catalog.set(PDFName.of('Metadata'), docComMetadados.context.register(xmpStream))
+
+  // NGS2.05 — Add visible SBIS compliance footer strip to every page
+  const sbisFont = await docComMetadados.embedFont(StandardFonts.Helvetica)
+  const stripLabel =
+    `SBIS NGS2 · Auditável | RT: ${RT_NOME} · ${RT_CRM} · RQE ${RT_RQE} | ` +
+    `ICP-Brasil CFM 2.299/2021 | ${assinadoEm.toISOString().replace('T', ' ').slice(0, 19)} UTC`
+  for (const page of docComMetadados.getPages()) {
+    const { width } = page.getSize()
+    page.drawRectangle({ x: 0, y: 0, width, height: 13, color: rgb(0.18, 0.12, 0.35) })
+    page.drawText(stripLabel, { x: 8, y: 2.5, size: 5, font: sbisFont, color: rgb(0.85, 0.80, 0.95) })
+  }
+
   const pdfComMetadados = Buffer.from(await docComMetadados.save({ useObjectStreams: false }))
 
   // 2. Adiciona placeholder de assinatura no PDF (PAdES SubFilter ETSI.CAdES.detached)

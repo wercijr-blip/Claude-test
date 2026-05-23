@@ -18,6 +18,19 @@ Eu, paciente identificado neste formulário, declaro que:
 4. Entendo que devo comunicar ao médico qualquer efeito adverso ou alteração de saúde.
 5. Autorizo o armazenamento dos meus dados clínicos conforme a LGPD (Lei 13.709/2018), com retenção por 20 anos conforme resolução CFM 2.218/2018.
 6. Consinto com o tratamento proposto e me comprometo a seguir as orientações médicas.
+7. CONSENTIMENTO PARA USO DE INTELIGÊNCIA ARTIFICIAL (SBIS NGS1.11 / LGPD art. 11):
+   Estou ciente e AUTORIZO a utilização de sistemas de Inteligência Artificial (IA) para
+   análise automatizada dos meus exames laboratoriais enviados a esta plataforma. Fui
+   informado(a) de que:
+   a) Os resultados gerados pela IA são SEMPRE revisados por médico habilitado antes de
+      qualquer decisão clínica;
+   b) O Responsável Técnico é Dr. Werciley Saraiva Vieira Júnior — CRM/DF 16381,
+      RQE 14486, especialidade Infectologia;
+   c) A IA não substitui o julgamento clínico do profissional de saúde;
+   d) Posso revogar este consentimento a qualquer momento pelo e-mail
+      dpo@facilitaprep.com.br, sem prejuízo ao atendimento já realizado;
+   e) A plataforma é certificada conforme Manual SBIS (BPIA + ECF + NGS1 + NGS2)
+      e opera em conformidade com a LGPD — Lei 13.709/2018, art. 11.
 
 Este documento tem validade legal conforme CFM 2.299/2021 e possui assinatura digital ICP-Brasil.
 `.trim()
