@@ -1,5 +1,5 @@
 import { Queue, Worker } from 'bullmq'
-import { lt, isNotNull } from 'drizzle-orm'
+import { lt, eq } from 'drizzle-orm'
 import { db } from '../db.ts'
 import { pacientes } from '../../drizzle/schema.ts'
 import { logger } from '../_core/logger.ts'
@@ -48,7 +48,7 @@ async function executarPurgaLgpd(): Promise<{ purged: number; errors: number }> 
           retentionUntil: null,
           updatedAt: new Date(),
         })
-        .where(lt(pacientes.id, row.id + 1))
+        .where(eq(pacientes.id, row.id))
       purged++
     } catch (err) {
       errors++

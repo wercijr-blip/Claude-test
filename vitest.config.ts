@@ -23,15 +23,16 @@ export default defineConfig({
         'server/**/*.test.ts',
         'server/_core/instrument.ts',
         'server/_core/index.ts',
+        'server/_core/openapi.ts', // static data object — no executable logic
         'server/workers.ts',
         'server/seed.ts',
         'server/scripts/**',
       ],
       thresholds: {
         // Raise incrementally — do not lower below these values.
-        // Lines ceiling ~15%: routes/email/PDF/S3 modules require DB+infra integration tests.
+        // Lines ceiling ~16%: routes/email/PDF/S3 modules require DB+infra integration tests.
         lines: 15,
-        functions: 50,
+        functions: 51,
         branches: 76,
       },
     },
