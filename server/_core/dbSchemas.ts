@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { IA_RESULTADO_STATUS } from '../../shared/types.ts'
 
 export const condutaDbSchema = z.object({
   temSintomasDst: z.boolean(),
@@ -40,16 +41,7 @@ export const resultadoIaDbSchema = z.object({
   confianca: z.number().min(0).max(1),
   observacoes: z.string().optional(),
   processadoEm: z.string(),
-  status: z.enum([
-    'pendente',
-    'aprovado_automaticamente',
-    'rejeitado_ia',
-    'pendente_revisao',
-    'rejeitado',
-    'liberado_manualmente',
-    'aprovado_medico',
-    'rejeitado_medico',
-  ]),
+  status: z.enum(IA_RESULTADO_STATUS),
   sbis: sbisMetadataDbSchema,
 }).nullable().catch(null)
 

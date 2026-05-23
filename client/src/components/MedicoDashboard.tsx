@@ -47,29 +47,49 @@ export default function MedicoDashboard() {
     void utils.consulta.medico.invalidate()
   }
 
+  const removerPacienteDaLista = async (pacienteId: number) => {
+    await utils.medico.listarPendentes.cancel({})
+    const anterior = utils.medico.listarPendentes.getData({})
+    utils.medico.listarPendentes.setData({}, (old) => {
+      if (!old) return old
+      return { ...old, data: old.data.filter((p) => p.id !== pacienteId) }
+    })
+    return anterior
+  }
+
   const aprovar = trpc.medico.aprovar.useMutation({
+    onMutate: async ({ pacienteId }) => {
+      const anterior = await removerPacienteDaLista(pacienteId)
+      return { anterior }
+    },
     onSuccess: () => {
       setSelectedId(null)
       verPacienteMutation.reset()
-      invalidarListas()
       toast({ variant: 'success', title: 'Paciente aprovado', description: 'Aprovação registrada com sucesso.' })
     },
-    onError: (err) => {
+    onError: (err, { pacienteId }, context) => {
+      if (context?.anterior) utils.medico.listarPendentes.setData({}, context.anterior)
       toast({ variant: 'error', title: 'Erro ao aprovar', description: traduzirErroTrpc(err) ?? undefined })
     },
+    onSettled: () => invalidarListas(),
   })
   const rejeitar = trpc.medico.rejeitar.useMutation({
+    onMutate: async ({ pacienteId }) => {
+      const anterior = await removerPacienteDaLista(pacienteId)
+      return { anterior }
+    },
     onSuccess: () => {
       setSelectedId(null)
       verPacienteMutation.reset()
-      invalidarListas()
       setConfirmRejeitar(false)
       toast({ variant: 'default', title: 'Paciente rejeitado', description: 'Rejeição registrada com sucesso.' })
     },
-    onError: (err) => {
+    onError: (err, { pacienteId }, context) => {
+      if (context?.anterior) utils.medico.listarPendentes.setData({}, context.anterior)
       setConfirmRejeitar(false)
       toast({ variant: 'error', title: 'Erro ao rejeitar', description: traduzirErroTrpc(err) ?? undefined })
     },
+    onSettled: () => invalidarListas(),
   })
   const liberarExame = trpc.medico.liberarExameSemValidacao.useMutation({
     onSuccess: () => {

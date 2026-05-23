@@ -55,6 +55,60 @@ const iaResponseSchema = z.object({
   observacoes: z.string().optional(),
 })
 
+export function buildLlmRequest(imageUrl: string) {
+  const prompt =
+    `Você é um assistente médico especializado em análise de exames laboratoriais.\n` +
+    `Analise o resultado do exame na imagem e retorne um JSON com:\n` +
+    `- tipoExame: tipo do exame detectado (hiv, hepatite_b, hepatite_c, sifilis, creatinina, outro)\n` +
+    `- resultado: "reagente", "nao_reagente", "inconclusivo" ou "nao_identificado"\n` +
+    `- confianca: número de 0 a 1 indicando confiança na análise\n` +
+    `- observacoes: string com observações relevantes (opcional)\n\n` +
+    `Responda APENAS com o JSON, sem texto adicional.`
+
+  return {
+    model: SBIS_MODEL_VERSION,
+    max_tokens: 500,
+    messages: [
+      {
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'url', url: imageUrl } },
+          { type: 'text', text: prompt },
+        ],
+      },
+    ],
+  }
+}
+
+export function parseIaResponse(
+  text: string,
+  sessionId: string,
+  fallbackTipoExame: string,
+  exameId: number,
+): ResultadoIa {
+  try {
+    const parsed = iaResponseSchema.parse(JSON.parse(text))
+    const sbis = buildSbisMetadata(text, parsed.tipoExame, parsed.confianca, sessionId)
+    return { ...parsed, processadoEm: sbis.timestamp, status: 'pendente', sbis }
+  } catch (parseErr) {
+    logger.warn('[examAnalysis] resposta da IA não parseável — fallback nao_identificado', {
+      exameId,
+      sessionId,
+      parseError: (parseErr as Error).message,
+      rawResponse: text.slice(0, 500),
+    })
+    const sbis = buildSbisMetadata(text, fallbackTipoExame ?? 'outro', 0, sessionId)
+    return {
+      tipoExame: (fallbackTipoExame as ResultadoIa['tipoExame']) ?? 'outro',
+      resultado: 'nao_identificado',
+      confianca: 0,
+      processadoEm: sbis.timestamp,
+      status: 'pendente',
+      sbis,
+    }
+  }
+}
+
 export async function analisarExame(exameId: number): Promise<ResultadoIa> {
   await checkDailyLimit()
 
@@ -89,16 +143,6 @@ export async function analisarExame(exameId: number): Promise<ResultadoIa> {
   const sessionId = crypto.randomUUID()
   const imageUrl = await getPresignedUrl(exame.s3Key, 300)
 
-  // ECF.17 — Prompt is static; no user input is interpolated — injection surface is minimal
-  const prompt =
-    `Você é um assistente médico especializado em análise de exames laboratoriais.\n` +
-    `Analise o resultado do exame na imagem e retorne um JSON com:\n` +
-    `- tipoExame: tipo do exame detectado (hiv, hepatite_b, hepatite_c, sifilis, creatinina, outro)\n` +
-    `- resultado: "reagente", "nao_reagente", "inconclusivo" ou "nao_identificado"\n` +
-    `- confianca: número de 0 a 1 indicando confiança na análise\n` +
-    `- observacoes: string com observações relevantes (opcional)\n\n` +
-    `Responda APENAS com o JSON, sem texto adicional.`
-
   let response: Response
   try {
     response = await fetch(`${env.BUILT_IN_FORGE_API_URL}/v1/messages`, {
@@ -109,19 +153,7 @@ export async function analisarExame(exameId: number): Promise<ResultadoIa> {
         'anthropic-version': '2023-06-01',
       },
       signal: AbortSignal.timeout(30000),
-      body: JSON.stringify({
-        model: SBIS_MODEL_VERSION,
-        max_tokens: 500,
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'image', source: { type: 'url', url: imageUrl } },
-              { type: 'text', text: prompt },
-            ],
-          },
-        ],
-      }),
+      body: JSON.stringify(buildLlmRequest(imageUrl)),
     })
   } catch (fetchErr) {
     throw new Error(`Falha na requisição à API de IA: ${(fetchErr as Error).message}`)
@@ -149,38 +181,7 @@ export async function analisarExame(exameId: number): Promise<ResultadoIa> {
   })
 
   const text = data.content[0]?.text ?? '{}'
-
-  let resultado: ResultadoIa
-  try {
-    const parsed = iaResponseSchema.parse(JSON.parse(text))
-
-    // ECF.17 — Build SBIS metadata from the parsed result content
-    const sbis = buildSbisMetadata(text, parsed.tipoExame, parsed.confianca, sessionId)
-
-    resultado = {
-      ...parsed,
-      processadoEm: sbis.timestamp,
-      status: 'pendente',
-      sbis,
-    }
-  } catch (parseErr) {
-    // BPIA.03 — log the raw AI response and parse error for traceability
-    logger.warn('[examAnalysis] resposta da IA não parseável — fallback nao_identificado', {
-      exameId,
-      sessionId,
-      parseError: (parseErr as Error).message,
-      rawResponse: text.slice(0, 500), // truncated to avoid log bloat
-    })
-    const sbis = buildSbisMetadata(text, exame.tipoExame ?? 'outro', 0, sessionId)
-    resultado = {
-      tipoExame: (exame.tipoExame as ResultadoIa['tipoExame']) ?? 'outro',
-      resultado: 'nao_identificado',
-      confianca: 0,
-      processadoEm: sbis.timestamp,
-      status: 'pendente',
-      sbis,
-    }
-  }
+  const resultado = parseIaResponse(text, sessionId, exame.tipoExame ?? 'outro', exameId)
 
   // NGS1.07 — Audit every AI analysis (append-only audit log)
   await logIaAnalise({

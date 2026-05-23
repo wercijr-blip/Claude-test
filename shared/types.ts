@@ -83,13 +83,28 @@ export interface SbisMetadata {
   aviso: string
 }
 
+// Single source of truth for resultadoIa.status values.
+// Imported by dbSchemas.ts (Zod enum) and used here for the TypeScript union.
+export const IA_RESULTADO_STATUS = [
+  'pendente',
+  'aprovado_automaticamente',
+  'rejeitado_ia',
+  'pendente_revisao',
+  'rejeitado',
+  'liberado_manualmente',
+  'aprovado_medico',
+  'rejeitado_medico',
+] as const
+
+export type IaResultadoStatus = (typeof IA_RESULTADO_STATUS)[number]
+
 export interface ResultadoIa {
   tipoExame: TipoExame
   resultado: 'reagente' | 'nao_reagente' | 'inconclusivo' | 'nao_identificado'
   confianca: number
   observacoes?: string
   processadoEm: string
-  status?: 'pendente' | 'aprovado_automaticamente' | 'rejeitado_ia' | 'rejeitado' | 'pendente_revisao' | 'liberado_manualmente'
+  status?: IaResultadoStatus
   observacoesMedico?: string | null
   liberadoEm?: string
   /** Metadados de conformidade SBIS — presente em toda saída gerada por IA após v1.0 */
