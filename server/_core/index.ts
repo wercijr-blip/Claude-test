@@ -1,6 +1,7 @@
 import express from 'express'
 import compression from 'compression'
 import cookieParser from 'cookie-parser'
+import swaggerUi from 'swagger-ui-express'
 import { createExpressMiddleware } from '@trpc/server/adapters/express'
 import path from 'path'
 import fs from 'fs'
@@ -16,6 +17,7 @@ import { authLimiter, tokenValidateLimiter, uploadLimiter, totpLimiter, dataRigh
 import { db, pool } from '../db.ts'
 import { ensureSchema } from './ensureSchema.ts'
 import { Sentry } from './instrument.ts'
+import { openApiSpec } from './openapi.ts'
 import type { Worker } from 'bullmq'
 
 // Keeps references so graceful shutdown can close BullMQ workers cleanly.
@@ -410,6 +412,28 @@ app.get('/api/health/observability', (_req, res) => {
     timestamp: new Date().toISOString(),
   })
 })
+
+// API Docs — Swagger UI (serves openapi.json + interactive explorer)
+// Uses a relaxed CSP for this route only (swagger-ui needs unsafe-inline for its UI).
+app.get('/api/docs/openapi.json', (_req, res) => {
+  res.setHeader('Content-Type', 'application/json')
+  res.json(openApiSpec)
+})
+app.use(
+  '/api/docs',
+  (_req: express.Request, res: express.Response, next: express.NextFunction) => {
+    res.setHeader(
+      'Content-Security-Policy',
+      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:",
+    )
+    next()
+  },
+  swaggerUi.serve,
+  swaggerUi.setup(openApiSpec, {
+    customSiteTitle: 'Facilita PrEP API Docs',
+    swaggerOptions: { persistAuthorization: true, tryItOutEnabled: true },
+  }),
+)
 
 // Upload de exames (lazy import para evitar carregar S3 client no boot)
 app.post('/api/upload', uploadLimiter, async (req, res) => {
