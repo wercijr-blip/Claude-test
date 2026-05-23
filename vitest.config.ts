@@ -29,9 +29,10 @@ export default defineConfig({
       ],
       thresholds: {
         // Raise incrementally — do not lower below these values.
-        lines: 10,
-        functions: 40,
-        branches: 70,
+        // Lines ceiling ~15%: routes/email/PDF/S3 modules require DB+infra integration tests.
+        lines: 15,
+        functions: 50,
+        branches: 76,
       },
     },
   },

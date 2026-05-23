@@ -20,6 +20,8 @@ import {
 
 const MAX_DAILY_LLM_CALLS = env.LLM_DAILY_LIMIT ?? 200
 
+const LLM_ALERT_THRESHOLD = 0.8
+
 async function checkDailyLimit(): Promise<void> {
   const key = `llm:daily:${new Date().toISOString().slice(0, 10)}`
   try {
@@ -28,6 +30,17 @@ async function checkDailyLimit(): Promise<void> {
     if (count > MAX_DAILY_LLM_CALLS) {
       logger.warn('[llm] limite diário atingido', { count, limit: MAX_DAILY_LLM_CALLS, key })
       throw new Error(`Limite diário de análises por IA atingido (${MAX_DAILY_LLM_CALLS}/dia). Tente novamente amanhã.`)
+    }
+    const alertThreshold = Math.floor(MAX_DAILY_LLM_CALLS * LLM_ALERT_THRESHOLD)
+    if (count === alertThreshold) {
+      const alertKey = `llm:alert:${new Date().toISOString().slice(0, 10)}`
+      const alreadyAlerted = await redis.get(alertKey)
+      if (!alreadyAlerted) {
+        await redis.set(alertKey, '1', 'EX', 90_000)
+        const { enviarAlerteLimiteLLM } = await import('./email.ts')
+        void enviarAlerteLimiteLLM(80, count, MAX_DAILY_LLM_CALLS)
+        logger.warn('[llm] 80% do limite diário atingido — alerta enviado', { count, limit: MAX_DAILY_LLM_CALLS })
+      }
     }
   } catch (err) {
     if ((err as Error).message.includes('Limite diário')) throw err

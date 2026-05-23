@@ -288,7 +288,7 @@ app.get('/api/health/version', (_req, res) => {
 
 // Protect ops endpoints — require x-ops-token header or ?ops_token query param.
 // OPS_TOKEN must be set in production; warn fires on boot if missing (env.ts).
-app.use(['/api/metrics', '/api/health/observability', '/api/admin/usage'], (req, res, next) => {
+app.use(['/api/metrics', '/api/health/observability', '/api/admin/usage', '/api/health/queues'], (req, res, next) => {
   if (!env.OPS_TOKEN) { res.status(503).json({ error: 'OPS_TOKEN não configurado no servidor' }); return }
   const token = (req.headers['x-ops-token'] ?? req.query['ops_token']) as string | undefined
   if (token !== env.OPS_TOKEN) { res.status(401).json({ error: 'Token inválido' }); return }
@@ -303,15 +303,18 @@ app.get('/api/metrics', async (_req, res) => {
   let pesquisaWaiting = -1
   let lembreteWaiting = -1
   let nutricaoWaiting = -1
+  let examWaiting = -1
   try {
     const { pdfQueue, linkAcessoQueue, pesquisaQueue, lembreteQueue } = await import('../pdfQueue.ts')
     const { nutricaoQueue } = await import('../workers/queues.ts')
-    ;[pdfWaiting, linkWaiting, pesquisaWaiting, lembreteWaiting, nutricaoWaiting] = await Promise.all([
+    const { examQueue } = await import('../examQueue.ts')
+    ;[pdfWaiting, linkWaiting, pesquisaWaiting, lembreteWaiting, nutricaoWaiting, examWaiting] = await Promise.all([
       pdfQueue.getWaitingCount(),
       linkAcessoQueue.getWaitingCount(),
       pesquisaQueue.getWaitingCount(),
       lembreteQueue.getWaitingCount(),
       nutricaoQueue.getWaitingCount(),
+      examQueue.getWaitingCount(),
     ])
   } catch { /* workers may not be started */ }
 
@@ -324,9 +327,55 @@ app.get('/api/metrics', async (_req, res) => {
   res.json({
     uptime: Math.floor(process.uptime()),
     memory: { heapUsedMB: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) },
-    queues: { pdf: pdfWaiting, linkAcesso: linkWaiting, pesquisa: pesquisaWaiting, lembrete: lembreteWaiting, nutricao: nutricaoWaiting },
+    queues: { pdf: pdfWaiting, linkAcesso: linkWaiting, pesquisa: pesquisaWaiting, lembrete: lembreteWaiting, nutricao: nutricaoWaiting, exam: examWaiting },
     circuits: { asaas: getCircuitStatus('asaas') },
     staffWhatsappActiveDebounces,
+    timestamp: new Date().toISOString(),
+  })
+})
+
+// Queue health — full state breakdown per queue (waiting/active/delayed/failed/completed)
+app.get('/api/health/queues', async (_req, res) => {
+  type QueueStats = { waiting: number; active: number; delayed: number; failed: number; completed: number }
+  async function queueStats(q: { getWaitingCount(): Promise<number>; getActiveCount(): Promise<number>; getDelayedCount(): Promise<number>; getFailedCount(): Promise<number>; getCompletedCount(): Promise<number> }): Promise<QueueStats> {
+    const [waiting, active, delayed, failed, completed] = await Promise.all([
+      q.getWaitingCount(),
+      q.getActiveCount(),
+      q.getDelayedCount(),
+      q.getFailedCount(),
+      q.getCompletedCount(),
+    ])
+    return { waiting, active, delayed, failed, completed }
+  }
+
+  const queues: Record<string, QueueStats | { error: string }> = {}
+  try {
+    const { pdfQueue, linkAcessoQueue, pesquisaQueue, lembreteQueue } = await import('../pdfQueue.ts')
+    const { nutricaoQueue } = await import('../workers/queues.ts')
+    const { examQueue } = await import('../examQueue.ts')
+    const [pdf, linkAcesso, pesquisa, lembrete, nutricao, exam] = await Promise.allSettled([
+      queueStats(pdfQueue),
+      queueStats(linkAcessoQueue),
+      queueStats(pesquisaQueue),
+      queueStats(lembreteQueue),
+      queueStats(nutricaoQueue),
+      queueStats(examQueue),
+    ])
+    queues.pdf = pdf.status === 'fulfilled' ? pdf.value : { error: String((pdf as PromiseRejectedResult).reason) }
+    queues.linkAcesso = linkAcesso.status === 'fulfilled' ? linkAcesso.value : { error: String((linkAcesso as PromiseRejectedResult).reason) }
+    queues.pesquisa = pesquisa.status === 'fulfilled' ? pesquisa.value : { error: String((pesquisa as PromiseRejectedResult).reason) }
+    queues.lembrete = lembrete.status === 'fulfilled' ? lembrete.value : { error: String((lembrete as PromiseRejectedResult).reason) }
+    queues.nutricao = nutricao.status === 'fulfilled' ? nutricao.value : { error: String((nutricao as PromiseRejectedResult).reason) }
+    queues.exam = exam.status === 'fulfilled' ? exam.value : { error: String((exam as PromiseRejectedResult).reason) }
+  } catch (err) {
+    res.status(503).json({ error: 'Falha ao consultar filas BullMQ', detail: String(err), timestamp: new Date().toISOString() })
+    return
+  }
+
+  const hasFailures = Object.values(queues).some((q) => 'failed' in q && q.failed > 0)
+  res.status(200).json({
+    status: hasFailures ? 'degraded' : 'ok',
+    queues,
     timestamp: new Date().toISOString(),
   })
 })
@@ -425,6 +474,7 @@ const server = app.listen(env.PORT, async () => {
     const { startPdfWorker, startLembreteWorker, startPesquisaWorker, startLinkAcessoWorker, agendarLembreteDiario, agendarDrMensal } = await import('../pdfQueue.ts')
     const { startExamWorker } = await import('../examQueue.ts')
     const { startNutricaoWorker, agendarNutricaoDiaria } = await import('../workers/nutricaoWorker.ts')
+    const { startRetentionWorker, agendarRetencaoDiaria } = await import('../workers/retentionWorker.ts')
     _activeWorkers = [
       startPdfWorker(),
       startLembreteWorker(),
@@ -432,10 +482,12 @@ const server = app.listen(env.PORT, async () => {
       startLinkAcessoWorker(),
       startExamWorker(),
       startNutricaoWorker(),
+      startRetentionWorker(),
     ]
     await agendarLembreteDiario()
     await agendarDrMensal()
     await agendarNutricaoDiaria()
+    await agendarRetencaoDiaria()
     logger.info('[server] Workers BullMQ iniciados em-processo.')
   } else {
     logger.info('[server] WORKERS_ENABLED=false — aguardando worker service separado.')

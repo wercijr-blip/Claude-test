@@ -8,7 +8,7 @@ vi.mock('./env.ts', () => ({
   },
 }))
 
-import { encrypt, decrypt, hashCpf } from './encryption.ts'
+import { encrypt, decrypt, hashCpf, safeDecrypt } from './encryption.ts'
 
 describe('encrypt / decrypt', () => {
   it('roundtrip preserva o plaintext original', () => {
@@ -32,6 +32,33 @@ describe('encrypt / decrypt', () => {
   it('preserva caracteres especiais e unicode', () => {
     const original = 'Ângela — 123 @ #'
     expect(decrypt(encrypt(original))).toBe(original)
+  })
+})
+
+describe('safeDecrypt', () => {
+  it('descriptografa valor válido', () => {
+    const encrypted = encrypt('João da Silva')
+    expect(safeDecrypt(encrypted)).toBe('João da Silva')
+  })
+
+  it('retorna fallback padrão para string nula', () => {
+    expect(safeDecrypt(null)).toBe('—')
+  })
+
+  it('retorna fallback padrão para undefined', () => {
+    expect(safeDecrypt(undefined)).toBe('—')
+  })
+
+  it('retorna fallback padrão para string vazia', () => {
+    expect(safeDecrypt('')).toBe('—')
+  })
+
+  it('retorna fallback customizado ao falhar', () => {
+    expect(safeDecrypt('dado-invalido', 'N/A')).toBe('N/A')
+  })
+
+  it('retorna fallback ao tentar descriptografar dado corrompido', () => {
+    expect(safeDecrypt('corrompido-base64==')).toBe('—')
   })
 })
 

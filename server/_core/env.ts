@@ -82,6 +82,10 @@ const envSchema = z.object({
   // META_CAPI_TOKEN: System User Access Token com permissão ads_management
   META_PIXEL_ID: z.string().min(1).optional(),
   META_CAPI_TOKEN: z.string().min(1).optional(),
+
+  // Admin alert email — receives LLM quota warnings and retention purge reports.
+  // Falls back to silence if unset.
+  ADMIN_EMAIL: z.string().email().optional(),
 })
 
 const parsed = envSchema.safeParse(process.env)

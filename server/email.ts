@@ -557,3 +557,45 @@ export async function enviarNotificacaoMedicoPendente(
     ),
   })
 }
+
+export async function enviarAlerteLimiteLLM(percentual: number, usado: number, limite: number): Promise<void> {
+  if (!env.ADMIN_EMAIL) return
+  await send({
+    to: env.ADMIN_EMAIL,
+    subject: `[FacilitaPrEP] Alerta: ${percentual}% do limite diário de análises IA consumido`,
+    html: baseTemplate(
+      'Alerta de cota LLM',
+      `<p style="color:#334155;font-size:15px;">O sistema atingiu <strong>${percentual}%</strong> do limite diário de análises por IA.</p>
+      <table style="border-collapse:collapse;width:100%;margin:16px 0;">
+        <tr><td style="padding:8px 0;color:#64748b;font-size:13px;width:140px;">Análises realizadas:</td><td style="padding:8px 0;color:#1e293b;font-size:13px;font-weight:600;">${usado} / ${limite}</td></tr>
+        <tr><td style="padding:8px 0;color:#64748b;font-size:13px;">Limite diário:</td><td style="padding:8px 0;color:#1e293b;font-size:13px;">${limite} análises/dia</td></tr>
+      </table>
+      <div style="background:#fef9c3;border-left:4px solid #ca8a04;padding:12px 16px;border-radius:4px;margin:16px 0;">
+        <p style="color:#713f12;margin:0;font-size:13px;">Verifique o volume de uploads e ajuste o limite via variável <code>LLM_DAILY_LIMIT</code> se necessário.</p>
+      </div>`,
+    ),
+  }).catch((err) => {
+    // Non-critical — log and continue
+    void err
+  })
+}
+
+export async function enviarRelatorioRetencao(purgedCount: number, errors: number): Promise<void> {
+  if (!env.ADMIN_EMAIL) return
+  if (purgedCount === 0 && errors === 0) return
+  await send({
+    to: env.ADMIN_EMAIL,
+    subject: `[FacilitaPrEP] Relatório de retenção LGPD — ${purgedCount} registros anonimizados`,
+    html: baseTemplate(
+      'Relatório de Retenção LGPD',
+      `<p style="color:#334155;font-size:15px;">Purga automática de dados concluída conforme prazo de retenção LGPD / CFM.</p>
+      <table style="border-collapse:collapse;width:100%;margin:16px 0;">
+        <tr><td style="padding:8px 0;color:#64748b;font-size:13px;width:180px;">Registros anonimizados:</td><td style="padding:8px 0;color:#1e293b;font-size:13px;font-weight:600;">${purgedCount}</td></tr>
+        <tr><td style="padding:8px 0;color:#64748b;font-size:13px;">Erros:</td><td style="padding:8px 0;color:${errors > 0 ? '#dc2626' : '#16a34a'};font-size:13px;font-weight:600;">${errors}</td></tr>
+        <tr><td style="padding:8px 0;color:#64748b;font-size:13px;">Data:</td><td style="padding:8px 0;color:#1e293b;font-size:13px;">${new Date().toLocaleDateString('pt-BR')}</td></tr>
+      </table>`,
+    ),
+  }).catch((err) => {
+    void err
+  })
+}
