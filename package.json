@@ -62,7 +62,7 @@
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "drizzle-orm": "0.45.2",
-    "express": "^4.19.2",
+    "express": "^4.22.2",
     "express-rate-limit": "^8.5.2",
     "file-type": "^22.0.1",
     "framer-motion": "^11.1.1",
@@ -121,7 +121,11 @@
   "pnpm": {
     "overrides": {
       "crypto-js": "^4.2.0",
-      "brace-expansion": "^2.0.1"
+      "brace-expansion": "^2.0.1",
+      "qs": "^6.15.2",
+      "esbuild": "^0.25.0",
+      "postcss": "^8.5.10",
+      "uuid": "^11.1.1"
     }
   }
 }
