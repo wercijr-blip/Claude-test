@@ -57,3 +57,4 @@ pdf-preview/
 marketing-agents/
 web/out/
 !.vscode/extensions.json
+.claude/

@@ -1,71 +1,49 @@
 # Changelog
 
+Todas as mudanças notáveis do Facilita PrEP são documentadas aqui.
+Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
+
 ## [Unreleased]
 
-### Segurança / Conformidade
-- **LGPD D04:** pixels GTM, Meta e GA4 agora só carregam após consentimento (`cookies_accepted=all`); `gtm-loader.js` tem guard no início
-- Removida tag `<noscript>` do GTM que carregava unconditionally via iframe
-- Removido `CookieBanner.tsx` legado (usava chave `cookie_consent` diferente da canônica `cookies_accepted`)
-
 ### Adicionado
-- `server/capi.ts`: infraestrutura Meta Conversions API server-side (SHA-256 de PII, dedup por `event_id`, AbortController 5s, no-op silencioso sem env vars)
-- `server/workers/nutricaoWorker.ts`: drip de 5 e-mails (dias 1/2/3/7/14) para leads não convertidos com dedup Redis TTL 25h
-- `client/src/lib/analytics.ts`: persistência de UTMs em sessionStorage, `generateEventId()`, scroll depth 25/50/75/90%, time-on-page 30/60/120s, Enhanced Conversions dataLayer
-- `MARKETING.md`: scorecard completo (45 dimensões), budget scaling, calendário sazonal, brief criativo
-- `EXPERIMENTOS.md`: framework A/B com 7 regras e 10 testes priorizados
-- `RUNBOOK.md`: procedimentos de DR para TiDB, Redis, Railway, certificado ICP-Brasil, variáveis de ambiente
-- `server/capi.test.ts`: testes de no-op, hash SHA-256, tolerância a falhas de rede e timeout
-- `client/src/lib/analytics.test.ts`: testes de UTM persistence, `generateEventId`, eventos dataLayer
-- Fontes auto-hospedadas via `@fontsource/dm-sans` e `@fontsource/cormorant-garamond` (elimina dependência do Google Fonts CDN)
 
-### Melhorado
-- `server/capi.ts`: warn em produção quando CAPI não está configurado (era debug silencioso)
-- `server/capi.ts`: `AbortController` com timeout de 5s na chamada ao Graph API
-- `server/workers/nutricaoWorker.ts`: `import { Resend }` movido para top-level (era dynamic import dentro do loop)
-- `server/workers/nutricaoWorker.ts`: removida coluna `sql\`NULL\`` fictícia do SELECT (dedup já é feito via Redis)
-- `/api/metrics`: fila `nutricao-lead` incluída no relatório de queue depth
-- `client/index.html`: removidos preconnects do Google Fonts (desnecessários após auto-hospedagem)
-
-### ⚠️ Breaking Changes
-- **Telefone:** campo `telefone` agora exige formato E.164 (`+5561999998888`). Números legados (10-11 dígitos sem `+55`) são normalizados automaticamente na leitura; o script `server/scripts/backfillTelefoneE164.ts` migra os registros no banco. Execute-o uma vez após o deploy.
-
-### Segurança
-- Remover `paymentId` da resposta pública de `consultarStatusPorPrecadastro` (fecha cadeia de enumeração JWT)
-- Substituir comparação de string por `timingSafeEqual` na validação do webhook Asaas (timing oracle)
-- Adicionar circuit breaker para chamadas à API Asaas (Redis-backed + fallback local)
-- LLM daily throttle via Redis counter (variável `LLM_DAILY_LIMIT`, padrão 200/dia)
-
-### Adicionado
-- Alertas WhatsApp para equipe médica e secretaria (`notificarStaff`) com debounce Redis de 5 min e máscara de número (LGPD)
-- Input de telefone internacional (`react-international-phone`) com validação E.164; script de backfill para registros legados
-- Integração Z-API WhatsApp com 4 triggers (cadastro, link de acesso, lembrete, pesquisa)
-- Endpoint admin `regenerarFichaAtendimento` para reprocessar PDFs corrompidos
-- Tabela `dlq_jobs` para persistência de jobs que esgotam retries + campo `reprocessingAt` para idempotência
-- Endpoint `/api/metrics` com queue depth e uso de memória
-- CI/CD via GitHub Actions (TypeScript check, testes, build, audit)
-- Dependabot para atualizações automáticas de segurança (npm + GitHub Actions)
-- Sistema de toast para notificações de UX
-- Utilitário `fmt` para formatação BRL e datas
-- Hook `useFormDraft` aplicado a todos os steps do formulário paciente (rascunho persiste entre recarregamentos)
-- Componente `SubmitButton` unificado com estado loading/disabled
-- Banner de consentimento de cookies (LGPD)
-- Runbook de incidentes e template de notificação ANPD
-- Logging de custo estimado por análise de exame (LLM)
-- Cron job `healthcheck.ts` (Railway 03:00 UTC) verificando DB, Redis, S3, DLQ size e TTL cleanup
-- Paginação cursor-based (`paginationInput`/`paginatedResponse`) para listagens admin
-
-### Melhorado
-- Steps 2–5 do formulário paciente: validação + UPDATE em query única (elimina SELECT redundante por etapa)
-- `formatarCpf` consolidado em `shared/validators.ts` (sem duplicação entre client e server)
-- `admin.ts` dividido em sub-módulos `admin/users.ts` e `admin/dlq.ts` (sem mudança de API)
-- Cobertura de testes: thresholds elevados para 75%/75%/60% (lines/functions/branches)
-- Testes `pdfQueue.test.ts` com mock BullMQ para validar enqueue e nomes de fila
+- Endpoint Prometheus `/api/metrics/prometheus` para integração com Grafana/Alertmanager
+- Alerta por email quando DLQ acumula ≥ 10 jobs com falha
+- Alerta por email quando certificado ICP-Brasil vence em < 60 dias (era < 30 dias, apenas log)
+- `examApprovalService.ts` — lógica de aprovação automática extraída de `examQueue.ts`
+- `OfflineIndicator` — banner de sem conexão para UX offline-aware
+- Revogação de JWT por blocklist Redis no logout
+- Testes unitários para `retentionWorker` (0% → cobertura básica)
+- Proteção de boot: `TOTP_ENC_KEY` obrigatória em produção
+- Workflow GitHub Actions para DR drill mensal automatizado
+- Smoke test pós-deploy de staging no CI
 
 ### Corrigido
-- Header `asaas-access-token` no webhook (era `access_token`)
-- Substituição de referências a Stripe por Asaas nas páginas legais
 
-### Infraestrutura
-- `.dockerignore` para excluir arquivos desnecessários da imagem Docker
-- `.nvmrc` para pinar versão Node.js 22
-- README.md com quick-start e documentação centralizada
+- `admin.ts`: delete sequencial de PDFs S3 substituído por `Promise.all` + `inArray` (batch)
+- `examQueue.ts`: race condition em `forceRequeue` — `remove()` agora tem `.catch()` guard
+- `checkDailyLimit`: `decr()` recupera slot no Redis ao rejeitar por limite
+- `examQueue.ts`: backoff de 5s → 65s (garante cruzamento da janela de 60s do rate limit)
+- `MedicoDashboard`: `onError` não limpa painel do médico (UX regressão revertida)
+- `retentionWorker`: WHERE clause corrigida de `lt(id+1)` para `eq(id)`
+- `paciente.ts`: `cpfHash` imutável após INSERT (removido de UPDATE e `onDuplicateKeyUpdate`)
+
+### Segurança
+
+- Detecção de injeção de prompt nos campos de exame (NGS1.12)
+- Rate limiting de dados LGPD Art. 18 (3 req/hora por IP)
+- CSP estrita com exceções documentadas para GTM e Sentry
+
+## [1.0.0] — 2026-01-01
+
+### Lançamento inicial
+
+- Formulário multi-etapas PrEP (StepPaciente → StepTcle)
+- Upload e análise de exames por IA (Claude API)
+- Assinatura digital ICP-Brasil (PAdES/ETSI-CAdES)
+- TCLE digital com assinatura do paciente
+- Dashboard médico com aprovação/rejeição de exames
+- Dashboard secretaria com gestão de tokens de acesso
+- Painel de auditoria SBIS (BPIA + ECF + NGS1 + NGS2)
+- Integração Asaas (pagamentos) e Meta CAPI (analytics)
+- Retenção LGPD com anonimização automática (20 anos — CFM 2.218/2018)

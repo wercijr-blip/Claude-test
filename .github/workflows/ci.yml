@@ -75,7 +75,7 @@ jobs:
           OWNER_OPEN_ID: test
 
       - name: Dependency audit
-        run: pnpm audit --audit-level=high
+        run: pnpm audit --audit-level=moderate
 
       - name: License check
         run: |
@@ -120,3 +120,36 @@ jobs:
             | grep -q "200\|201\|204" && echo "Deploy triggered" || echo "Deploy hook not configured"
         env:
           RAILWAY_DEPLOY_HOOK_STAGING: ${{ secrets.RAILWAY_DEPLOY_HOOK_STAGING }}
+
+  smoke-test:
+    name: Smoke test staging
+    needs: [deploy-staging]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Wait for Railway deploy
+        run: sleep 45
+
+      - name: Smoke test — health
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            --max-time 15 \
+            "$STAGING_URL/api/health")
+          [ "$STATUS" = "200" ] || { echo "Health check failed: $STATUS"; exit 1; }
+        env:
+          STAGING_URL: ${{ secrets.STAGING_URL }}
+
+      - name: Smoke test — OpenAPI spec
+        run: |
+          curl -sf --max-time 10 "$STAGING_URL/api/docs/openapi.json" | \
+            grep -q '"version"' || { echo "OpenAPI spec check failed"; exit 1; }
+        env:
+          STAGING_URL: ${{ secrets.STAGING_URL }}
+
+      - name: Smoke test — upload auth guard
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            --max-time 10 -X POST "$STAGING_URL/api/upload")
+          [ "$STATUS" = "401" ] || { echo "Upload auth guard failed: $STATUS"; exit 1; }
+        env:
+          STAGING_URL: ${{ secrets.STAGING_URL }}
