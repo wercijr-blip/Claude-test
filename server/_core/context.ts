@@ -1,7 +1,9 @@
+import { createHash } from 'node:crypto'
 import type { Request } from 'express'
 import { jwtVerify } from 'jose'
 import { env } from './env.ts'
 import { logger } from './logger.ts'
+import { redis } from './redis.ts'
 import { db } from '../db.ts'
 import { users } from '../../drizzle/schema.ts'
 import { eq, isNull, and } from 'drizzle-orm'
@@ -21,6 +23,17 @@ export async function createContext({ req }: { req: Request }): Promise<Context>
   try {
     const secret = new TextEncoder().encode(env.JWT_SECRET)
     const { payload } = await jwtVerify(token, secret)
+
+    // Check JWT blocklist (populated on logout)
+    const tokenHash = createHash('sha256').update(token).digest('hex')
+    let revoked: string | null
+    try {
+      revoked = await redis.get(`jwt:revoked:${tokenHash}`)
+    } catch {
+      logger.warn('[auth] Redis unavailable — rejecting request', { path: req.path })
+      return { req, session: null }
+    }
+    if (revoked) return { req, session: null }
 
     if (payload['type'] === 'patient') {
       return {

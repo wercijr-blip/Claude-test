@@ -332,6 +332,90 @@ app.get('/api/metrics', async (_req, res) => {
 })
 
 
+// Queue health — full state breakdown per queue (waiting/active/delayed/failed/completed)
+app.get("/api/health/queues", async (_req, res) => {
+  type QueueStats = {
+    waiting: number;
+    active: number;
+    delayed: number;
+    failed: number;
+    completed: number;
+  };
+  async function queueStats(q: {
+    getWaitingCount(): Promise<number>;
+    getActiveCount(): Promise<number>;
+    getDelayedCount(): Promise<number>;
+    getFailedCount(): Promise<number>;
+    getCompletedCount(): Promise<number>;
+  }): Promise<QueueStats> {
+    const [waiting, active, delayed, failed, completed] = await Promise.all([
+      q.getWaitingCount(),
+      q.getActiveCount(),
+      q.getDelayedCount(),
+      q.getFailedCount(),
+      q.getCompletedCount(),
+    ]);
+    return { waiting, active, delayed, failed, completed };
+  }
+
+  const queues: Record<string, QueueStats | { error: string }> = {};
+  try {
+    const { pdfQueue, linkAcessoQueue, pesquisaQueue, lembreteQueue } =
+      await import("../pdfQueue.ts");
+    const { nutricaoQueue } = await import("../workers/queues.ts");
+    const { examQueue } = await import("../examQueue.ts");
+    const [pdf, linkAcesso, pesquisa, lembrete, nutricao, exam] =
+      await Promise.allSettled([
+        queueStats(pdfQueue),
+        queueStats(linkAcessoQueue),
+        queueStats(pesquisaQueue),
+        queueStats(lembreteQueue),
+        queueStats(nutricaoQueue),
+        queueStats(examQueue),
+      ]);
+    queues.pdf =
+      pdf.status === "fulfilled"
+        ? pdf.value
+        : { error: String((pdf as PromiseRejectedResult).reason) };
+    queues.linkAcesso =
+      linkAcesso.status === "fulfilled"
+        ? linkAcesso.value
+        : { error: String((linkAcesso as PromiseRejectedResult).reason) };
+    queues.pesquisa =
+      pesquisa.status === "fulfilled"
+        ? pesquisa.value
+        : { error: String((pesquisa as PromiseRejectedResult).reason) };
+    queues.lembrete =
+      lembrete.status === "fulfilled"
+        ? lembrete.value
+        : { error: String((lembrete as PromiseRejectedResult).reason) };
+    queues.nutricao =
+      nutricao.status === "fulfilled"
+        ? nutricao.value
+        : { error: String((nutricao as PromiseRejectedResult).reason) };
+    queues.exam =
+      exam.status === "fulfilled"
+        ? exam.value
+        : { error: String((exam as PromiseRejectedResult).reason) };
+  } catch (err) {
+    res.status(503).json({
+      error: "Falha ao consultar filas BullMQ",
+      detail: String(err),
+      timestamp: new Date().toISOString(),
+    });
+    return;
+  }
+
+  const hasFailures = Object.values(queues).some(
+    (q) => "failed" in q && q.failed > 0,
+  );
+  res.status(200).json({
+    status: hasFailures ? "degraded" : "ok",
+    queues,
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // LLM usage — consumo diário vs limite
 app.get('/api/admin/usage', async (_req, res) => {
   const today = new Date().toISOString().slice(0, 10)

@@ -239,7 +239,7 @@ export default function MedicoDashboard() {
       )}
 
       {/* Exames início */}
-      {tab === 'exames_inicio' && <ExamesInicioTab revisoes={revisoes} />}
+      {tab === 'exames_inicio' && <ExamesInicioTab revisoes={revisoes} isLoading={revisoesLoading} />}
 
       {/* Exames rejeitados pela IA */}
       {tab === 'exames_rejeitados' && (
@@ -318,7 +318,7 @@ export default function MedicoDashboard() {
   )
 }
 
-function ExamesInicioTab({ revisoes }: { revisoes: Array<any> | undefined }) {
+function ExamesInicioTab({ revisoes, isLoading }: { revisoes: Array<any> | undefined; isLoading: boolean }) {
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [acao, setAcao] = useState<Acao | null>(null)
   const [comentario, setComentario] = useState('')
@@ -372,7 +372,7 @@ function ExamesInicioTab({ revisoes }: { revisoes: Array<any> | undefined }) {
           <p className="text-sm font-medium text-slate-700">{ordenadas.length} exame(s) aguardando revisão</p>
           {urgentes.length > 0 && <p className="text-xs text-red-600 font-semibold mt-1">{urgentes.length} urgente(s) — HIV reagente</p>}
         </div>
-        {ordenadas.length === 0 && <EmptyState message="Nenhum exame pendente." />}
+        {!isLoading && ordenadas.length === 0 && <EmptyState message="Nenhum exame pendente." />}
         {ordenadas.map((r) => (
           <button
             key={r.id}
