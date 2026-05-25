@@ -1,11 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const mockIncr = vi.fn()
+const mockDecr = vi.fn().mockResolvedValue(1)
 const mockExpire = vi.fn()
 
 vi.mock('./_core/redis.ts', () => ({
   redis: {
     incr: mockIncr,
+    decr: mockDecr,
     expire: mockExpire,
     ping: vi.fn().mockResolvedValue('PONG'),
     quit: vi.fn().mockResolvedValue(undefined),

@@ -53,8 +53,10 @@ async function checkDailyLimit(): Promise<void> {
     const count = await redis.incr(key)
     if (count === 1) await redis.expire(key, 90_000) // 25h TTL — survives day boundary
     if (count > MAX_DAILY_LLM_CALLS) {
+      // Return the slot so retries don't inflate the counter beyond the real call count
+      await redis.decr(key).catch(() => {})
       limitExceeded = true
-      logger.warn('[llm] limite diário atingido', { count, limit: MAX_DAILY_LLM_CALLS, key })
+      logger.warn('[llm] limite diário atingido', { count: count - 1, limit: MAX_DAILY_LLM_CALLS, key })
       throw new Error(`Limite diário de análises por IA atingido (${MAX_DAILY_LLM_CALLS}/dia). Tente novamente amanhã.`)
     }
     const alertThreshold = Math.floor(MAX_DAILY_LLM_CALLS * LLM_ALERT_THRESHOLD)

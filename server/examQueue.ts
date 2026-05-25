@@ -106,6 +106,7 @@ export async function enqueueAnalisarExame(exameId: number, requestId?: string, 
   return examQueue.add('analisar', { exameId, requestId, actorId }, {
     jobId: `exam-${exameId}`,
     attempts: 3,
-    backoff: { type: 'exponential', delay: 5000 },
+    // 65s initial delay ensures retries cross the 60s per-minute rate-limit window
+    backoff: { type: 'exponential', delay: 65_000 },
   })
 }

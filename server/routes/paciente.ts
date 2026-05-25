@@ -184,7 +184,7 @@ export const pacienteRouter = router({
       }).onDuplicateKeyUpdate({
         set: {
           cpfEncrypted,
-          cpfHash,
+          // cpfHash omitted: CPF is immutable after registration (mirrors the UPDATE path above)
           nomeEncrypted,
           dataNascimentoEncrypted,
           nomeMaeEncrypted,

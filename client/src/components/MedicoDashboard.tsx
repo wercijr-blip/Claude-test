@@ -69,8 +69,6 @@ export default function MedicoDashboard() {
     },
     onError: (err, _vars, context) => {
       if (context?.anterior) utils.medico.listarPendentes.setData({}, context.anterior)
-      setSelectedId(null)
-      verPacienteMutation.reset()
       toast({ variant: 'error', title: 'Erro ao aprovar', description: traduzirErroTrpc(err) ?? undefined })
     },
     onSettled: () => invalidarListas(),
@@ -88,8 +86,6 @@ export default function MedicoDashboard() {
     },
     onError: (err, _vars, context) => {
       if (context?.anterior) utils.medico.listarPendentes.setData({}, context.anterior)
-      setSelectedId(null)
-      verPacienteMutation.reset()
       setConfirmRejeitar(false)
       toast({ variant: 'error', title: 'Erro ao rejeitar', description: traduzirErroTrpc(err) ?? undefined })
     },
