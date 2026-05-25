@@ -456,13 +456,13 @@ app.get("/api/metrics/prometheus", requireOpsToken, async (_req, res) => {
       ]);
 
     if (examWaiting.status === "fulfilled")
-      queueWaiting.set({ queue: "exam" }, examWaiting.value);
+      queueWaiting.set({ queue: "exam-analysis" }, examWaiting.value);
     if (examFailed.status === "fulfilled")
-      queueFailed.set({ queue: "exam" }, examFailed.value);
+      queueFailed.set({ queue: "exam-analysis" }, examFailed.value);
     if (pdfWaiting.status === "fulfilled")
-      queueWaiting.set({ queue: "pdf" }, pdfWaiting.value);
+      queueWaiting.set({ queue: "pdf-generation" }, pdfWaiting.value);
     if (pdfFailed.status === "fulfilled")
-      queueFailed.set({ queue: "pdf" }, pdfFailed.value);
+      queueFailed.set({ queue: "pdf-generation" }, pdfFailed.value);
 
     const [dlqCount] = await dbInst
       .select({ total: count(dlqJobs.id) })

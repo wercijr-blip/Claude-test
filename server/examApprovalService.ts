@@ -42,10 +42,16 @@ export async function processarResultadoIa(
     resultado.confianca < EXAM_RULES.LOW_CONFIDENCE_THRESHOLD
   ) {
     const novoResultado: ResultadoIa = { ...resultado, status: "rejeitado_ia" };
-    await db
-      .update(exames)
-      .set({ resultadoIa: novoResultado })
-      .where(eq(exames.id, exameId));
+    await db.transaction(async (tx) => {
+      await tx
+        .update(exames)
+        .set({ resultadoIa: novoResultado })
+        .where(eq(exames.id, exameId));
+      await tx
+        .update(pacientes)
+        .set({ status: "pendente" })
+        .where(eq(pacientes.id, pacienteId));
+    });
     logger.warn(`[examApproval] Exame ${exameId} rejeitado pela IA`, {
       ...logCtx,
       resultado: resultado.resultado,

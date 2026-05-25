@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { Request } from "express";
 import { jwtVerify } from "jose";
 import { env } from "./env.ts";
@@ -28,14 +29,16 @@ export async function createContext({
     const { payload } = await jwtVerify(token, secret);
 
     // Check JWT blocklist (populated on logout)
-    const { createHash } = await import("crypto");
-    const tokenHash = createHash("sha256")
-      .update(token)
-      .digest("hex")
-      .slice(0, 16);
-    const revoked = await redis
-      .get(`jwt:revoked:${tokenHash}`)
-      .catch(() => null);
+    const tokenHash = createHash("sha256").update(token).digest("hex");
+    let revoked: string | null;
+    try {
+      revoked = await redis.get(`jwt:revoked:${tokenHash}`);
+    } catch {
+      logger.warn("[auth] Redis unavailable — rejecting request", {
+        path: req.path,
+      });
+      return { req, session: null };
+    }
     if (revoked) return { req, session: null };
 
     if (payload["type"] === "patient") {

@@ -48,13 +48,11 @@ export default function MedicoDashboard() {
       refetchInterval: 30_000,
       refetchIntervalInBackground: false,
     });
-  const { data: revisoes } = trpc.consulta.medico.listarRevisoes.useQuery(
-    undefined,
-    {
+  const { data: revisoes, isLoading: revisoesLoading } =
+    trpc.consulta.medico.listarRevisoes.useQuery(undefined, {
       refetchInterval: 30_000,
       refetchIntervalInBackground: false,
-    },
-  );
+    });
 
   const invalidarListas = () => {
     void utils.medico.invalidate();
@@ -456,7 +454,9 @@ export default function MedicoDashboard() {
       )}
 
       {/* Exames início */}
-      {tab === "exames_inicio" && <ExamesInicioTab revisoes={revisoes} />}
+      {tab === "exames_inicio" && (
+        <ExamesInicioTab revisoes={revisoes} isLoading={revisoesLoading} />
+      )}
 
       {/* Exames rejeitados pela IA */}
       {tab === "exames_rejeitados" && (
@@ -579,7 +579,13 @@ export default function MedicoDashboard() {
   );
 }
 
-function ExamesInicioTab({ revisoes }: { revisoes: Array<any> | undefined }) {
+function ExamesInicioTab({
+  revisoes,
+  isLoading,
+}: {
+  revisoes: Array<any> | undefined;
+  isLoading: boolean;
+}) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [acao, setAcao] = useState<Acao | null>(null);
   const [comentario, setComentario] = useState("");
@@ -645,7 +651,7 @@ function ExamesInicioTab({ revisoes }: { revisoes: Array<any> | undefined }) {
             </p>
           )}
         </div>
-        {ordenadas.length === 0 && (
+        {!isLoading && ordenadas.length === 0 && (
           <EmptyState message="Nenhum exame pendente." />
         )}
         {ordenadas.map((r) => (

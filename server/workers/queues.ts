@@ -96,14 +96,19 @@ export async function persistDlq(
       logger.error("[dlq] falha ao persistir job", { error: String(e) }),
     );
 
-  // Alert ops when DLQ accumulates >= 10 jobs — silent failures need attention
+  // Alert ops when DLQ accumulates >= 10 jobs — rate-limited to 1 alert/hour per queue
   try {
     const [{ total }] = await db
       .select({ total: count(dlqJobs.id) })
       .from(dlqJobs);
     if (total >= 10) {
-      const { enviarAlertaDlq } = await import("../email.ts");
-      void enviarAlertaDlq(queue, total);
+      const dedupKey = `dlq:alert:sent:${queue}`;
+      const alreadySent = await redis.get(dedupKey).catch(() => "1");
+      if (!alreadySent) {
+        await redis.set(dedupKey, "1", "EX", 3600).catch(() => null);
+        const { enviarAlertaDlq } = await import("../email.ts");
+        void enviarAlertaDlq(queue, total);
+      }
     }
   } catch {
     // Non-critical — DLQ alert failure must not crash job persistence

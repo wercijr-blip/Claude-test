@@ -82,7 +82,7 @@ describe("processarResultadoIa", () => {
     const final = await processarResultadoIa(1, 10, resultado, logCtx);
 
     expect(final.status).toBe("rejeitado_ia");
-    expect(mockTransaction).not.toHaveBeenCalled();
+    expect(mockTransaction).toHaveBeenCalledOnce();
   });
 
   it("rejeita quando confiança abaixo do threshold", async () => {
@@ -131,6 +131,6 @@ describe("processarResultadoIa", () => {
     const final = await processarResultadoIa(1, 10, resultado, logCtx);
 
     expect(final.status).toBe("rejeitado_ia");
-    expect(mockTransaction).not.toHaveBeenCalled();
+    expect(mockTransaction).toHaveBeenCalledOnce();
   });
 });

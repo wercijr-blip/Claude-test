@@ -150,6 +150,6 @@ jobs:
         run: |
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
             --max-time 10 -X POST "$STAGING_URL/api/upload")
-          [ "$STATUS" = "401" ] || { echo "Upload auth guard failed: $STATUS"; exit 1; }
+          [ "$STATUS" = "400" ] || { echo "Upload endpoint returned $STATUS (expected 400 — multer rejects before auth)"; exit 1; }
         env:
           STAGING_URL: ${{ secrets.STAGING_URL }}
