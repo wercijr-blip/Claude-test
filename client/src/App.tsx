@@ -377,9 +377,18 @@ function PagamentoSucesso() {
         </div>
         {erro ? (
           <>
-            <h2 className="text-xl font-bold text-slate-800 mb-2">Pagamento recebido!</h2>
-            <p className="text-slate-500 text-sm mb-2">
-              Em instantes você receberá o link de acesso ao formulário por <strong>e-mail</strong> e <strong>WhatsApp</strong>.
+            <h2 className="text-xl font-bold text-red-700 mb-2">
+              Erro ao confirmar acesso
+            </h2>
+            <p className="text-slate-500 text-sm mb-2">{erro}</p>
+            <p className="text-slate-400 text-xs mt-4">
+              Seu pagamento foi recebido. Entre em contato:{" "}
+              <a
+                href="mailto:contato@facilitaprep.com.br"
+                className="text-blue-600 hover:underline"
+              >
+                contato@facilitaprep.com.br
+              </a>
             </p>
             <p className="text-slate-400 text-xs mt-4">Verifique também sua caixa de spam.</p>
           </>

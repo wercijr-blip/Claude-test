@@ -1,4 +1,5 @@
 import { Queue } from 'bullmq'
+import { count } from 'drizzle-orm'
 import { env } from '../_core/env.ts'
 import { redis } from '../_core/redis.ts'
 import { db } from '../db.ts'
@@ -51,13 +52,35 @@ export async function persistDlq(
   job: { id?: string; name: string; data?: unknown; attemptsMade?: number } | undefined,
   err: Error,
 ) {
-  if (!job) return
-  await db.insert(dlqJobs).values({
-    queue,
-    jobId: job.id ? String(job.id) : null,
-    jobName: job.name,
-    data: (job.data as Record<string, unknown>) ?? null,
-    failReason: err.message,
-    attempts: job.attemptsMade ?? 0,
-  }).catch((e: unknown) => logger.error('[dlq] falha ao persistir job', { error: String(e) }))
+  if (!job) return;
+  await db
+    .insert(dlqJobs)
+    .values({
+      queue,
+      jobId: job.id ? String(job.id) : null,
+      jobName: job.name,
+      data: (job.data as Record<string, unknown> | null) ?? null,
+      failReason: err.message,
+      attempts: job.attemptsMade ?? 0,
+    })
+    .catch((e: unknown) =>
+      logger.error("[dlq] falha ao persistir job", { error: String(e) }),
+    );
+
+  // Alert ops when DLQ accumulates >= 10 jobs — rate-limited to 1 alert/hour per queue
+  try {
+    const [{ total }] = await db
+      .select({ total: count(dlqJobs.id) })
+      .from(dlqJobs);
+    if (total >= 10) {
+      const dedupKey = `dlq:alert:sent:${queue}`;
+      const alreadySent = await redis.get(dedupKey).catch(() => "1");
+      if (!alreadySent) {
+        await redis.set(dedupKey, "1", "EX", 3600).catch(() => null);
+        logger.error(`[dlq] ALERTA: fila ${queue} acumulou ${total} jobs falhos`, { queue, total })
+      }
+    }
+  } catch {
+    // Non-critical — DLQ alert failure must not crash job persistence
+  }
 }

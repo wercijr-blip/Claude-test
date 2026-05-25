@@ -59,9 +59,14 @@ export function startExamWorker() {
         // Reactive result or low confidence → flag for medico review
         const novoResultado: ResultadoIa = { ...resultado, status: 'rejeitado_ia' }
 
-        await db.update(exames)
-          .set({ resultadoIa: novoResultado })
-          .where(eq(exames.id, exameId))
+        await db.transaction(async (tx) => {
+          await tx.update(exames)
+            .set({ resultadoIa: novoResultado })
+            .where(eq(exames.id, exameId))
+          await tx.update(pacientes)
+            .set({ status: 'pendente' })
+            .where(eq(pacientes.id, pacienteId))
+        })
 
         logger.warn(`[examQueue] Exame ${exameId} rejeitado pela IA`, { resultado: resultado.resultado, confianca: resultado.confianca })
         // Notification: log for now, replace with enviarNotificacaoMedico when email template is ready
