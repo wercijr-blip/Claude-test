@@ -2,8 +2,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockSelect = vi.fn();
 const mockUpdate = vi.fn();
-const _mockWhere = vi.fn();
-const _mockSet = vi.fn();
+
+// Capture the Worker callback for internal testing
+let capturedWorkerCallback:
+  | (() => Promise<{ purged: number; errors: number }>)
+  | undefined;
 
 vi.mock("../db.ts", () => ({
   db: {
@@ -40,51 +43,30 @@ vi.mock("bullmq", () => ({
   Queue: vi.fn().mockImplementation(() => ({
     add: vi.fn().mockResolvedValue({}),
   })),
-  Worker: vi.fn().mockImplementation(() => ({
-    on: vi.fn(),
-    close: vi.fn().mockResolvedValue(undefined),
-  })),
+  Worker: vi
+    .fn()
+    .mockImplementation(
+      (
+        _name: string,
+        callback: () => Promise<{ purged: number; errors: number }>,
+      ) => {
+        capturedWorkerCallback = callback;
+        return { on: vi.fn(), close: vi.fn().mockResolvedValue(undefined) };
+      },
+    ),
 }));
 
-describe("retentionWorker — executarPurgaLgpd", () => {
+describe("retentionWorker — módulo e exports", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    capturedWorkerCallback = undefined;
   });
 
-  it("retorna { purged: 0, errors: 0 } quando não há registros vencidos", async () => {
-    mockSelect.mockReturnValue({
-      from: vi.fn().mockReturnValue({
-        where: vi.fn().mockResolvedValue([]),
-      }),
-    });
-
-    // Import after mocks are set up
-    const { agendarRetencaoDiaria } = await import("./retentionWorker.ts");
-    // agendarRetencaoDiaria just schedules — we test executarPurgaLgpd indirectly
-    // via the worker callback which we can't directly call, so we test the module loads
-    expect(agendarRetencaoDiaria).toBeDefined();
-  });
-
-  it("anonimiza campos PII corretamente", async () => {
-    const mockPacientes = [{ id: 1 }, { id: 2 }];
-
-    mockSelect.mockReturnValue({
-      from: vi.fn().mockReturnValue({
-        where: vi.fn().mockResolvedValue(mockPacientes),
-      }),
-    });
-
-    const mockUpdateWhere = vi.fn().mockResolvedValue([]);
-    const mockUpdateSet = vi.fn().mockReturnValue({ where: mockUpdateWhere });
-    mockUpdate.mockReturnValue({ set: mockUpdateSet });
-
-    // The retentionWorker exports agendarRetencaoDiaria and startRetentionWorker
-    // We verify the update calls happen with anonymization values
-    // by triggering the module and verifying structure
+  it("exporta agendarRetencaoDiaria e startRetentionWorker", async () => {
     vi.resetModules();
     const mod = await import("./retentionWorker.ts");
-    expect(mod.startRetentionWorker).toBeDefined();
-    expect(mod.agendarRetencaoDiaria).toBeDefined();
+    expect(mod.agendarRetencaoDiaria).toBeInstanceOf(Function);
+    expect(mod.startRetentionWorker).toBeInstanceOf(Function);
   });
 
   it("startRetentionWorker retorna um worker BullMQ", async () => {
@@ -94,9 +76,101 @@ describe("retentionWorker — executarPurgaLgpd", () => {
     expect(worker).toBeDefined();
   });
 
+  it("startRetentionWorker captura callback interno", async () => {
+    vi.resetModules();
+    const { startRetentionWorker } = await import("./retentionWorker.ts");
+    startRetentionWorker();
+    expect(capturedWorkerCallback).toBeInstanceOf(Function);
+  });
+
   it("agendarRetencaoDiaria é uma função assíncrona", async () => {
     vi.resetModules();
     const { agendarRetencaoDiaria } = await import("./retentionWorker.ts");
     expect(agendarRetencaoDiaria).toBeInstanceOf(Function);
+  });
+});
+
+describe("retentionWorker — executarPurgaLgpd via callback", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    capturedWorkerCallback = undefined;
+  });
+
+  it("anonimiza pacientes vencidos e retorna { purged: 2, errors: 0 }", async () => {
+    vi.resetModules();
+
+    mockSelect.mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue([{ id: 1 }, { id: 2 }]),
+      }),
+    });
+
+    const mockUpdateSet = vi
+      .fn()
+      .mockReturnValue({ where: vi.fn().mockResolvedValue([]) });
+    mockUpdate.mockReturnValue({ set: mockUpdateSet });
+
+    const { startRetentionWorker } = await import("./retentionWorker.ts");
+    startRetentionWorker();
+
+    expect(capturedWorkerCallback).toBeDefined();
+    const result = await capturedWorkerCallback!();
+
+    expect(result.purged).toBe(2);
+    expect(result.errors).toBe(0);
+    expect(mockUpdateSet).toHaveBeenCalledTimes(2);
+    expect(mockUpdateSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        nomeEncrypted: "[anonimizado]",
+        cpfHash: "[anonimizado]",
+      }),
+    );
+  });
+
+  it("conta erros quando update falha para um paciente", async () => {
+    vi.resetModules();
+
+    mockSelect.mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue([{ id: 1 }, { id: 2 }]),
+      }),
+    });
+
+    mockUpdate
+      .mockReturnValueOnce({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockRejectedValue(new Error("DB error")),
+        }),
+      })
+      .mockReturnValue({
+        set: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue([]) }),
+      });
+
+    const { startRetentionWorker } = await import("./retentionWorker.ts");
+    startRetentionWorker();
+
+    const result = await capturedWorkerCallback!();
+
+    expect(result.purged).toBe(1);
+    expect(result.errors).toBe(1);
+  });
+
+  it("retorna { purged: 0, errors: 0 } sem chamar update quando lista vazia", async () => {
+    vi.resetModules();
+
+    mockSelect.mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue([]),
+      }),
+    });
+
+    const { startRetentionWorker } = await import("./retentionWorker.ts");
+    startRetentionWorker();
+
+    const result = await capturedWorkerCallback!();
+
+    expect(result.purged).toBe(0);
+    expect(result.errors).toBe(0);
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 });

@@ -12,21 +12,31 @@
  *   Dia 14 → Última tentativa + link direto
  */
 
-import { Worker } from 'bullmq'
-import { Resend } from 'resend'
-import { db } from '../db.ts'
-import { precadastros } from '../../drizzle/schema.ts'
-import { and, eq, gt, lt, isNull, or } from 'drizzle-orm'
-import { decrypt } from '../_core/encryption.ts'
-import { env } from '../_core/env.ts'
-import { logger } from '../_core/logger.ts'
-import { redis } from '../_core/redis.ts'
-import { NUTRICAO_QUEUE_NAME, QUEUE_PREFIX, connection, NUTRICAO_WORKER_OPTS, nutricaoQueue, persistDlq } from './queues.ts'
-import * as Sentry from '@sentry/node'
+import { Worker } from "bullmq";
+import { Resend } from "resend";
+import { db } from "../db.ts";
+import { precadastros } from "../../drizzle/schema.ts";
+import { and, eq, gt, lt } from "drizzle-orm";
+import { decrypt } from "../_core/encryption.ts";
+import { env } from "../_core/env.ts";
+import { logger } from "../_core/logger.ts";
+import { redis } from "../_core/redis.ts";
+import {
+  NUTRICAO_QUEUE_NAME,
+  QUEUE_PREFIX,
+  connection,
+  NUTRICAO_WORKER_OPTS,
+  nutricaoQueue,
+  persistDlq,
+} from "./queues.ts";
+import * as Sentry from "@sentry/node";
 
 // ─── Email templates ──────────────────────────────────────────────────────────
 
-function templateDia1(nome: string, appUrl: string): { subject: string; html: string } {
+function templateDia1(
+  nome: string,
+  appUrl: string,
+): { subject: string; html: string } {
   return {
     subject: `${nome}, tire suas dúvidas sobre PrEP`,
     html: `
@@ -40,10 +50,13 @@ function templateDia1(nome: string, appUrl: string): { subject: string; html: st
       <p><a href="${appUrl}">Clique aqui para continuar seu cadastro</a></p>
       <p>Qualquer dúvida, responda este e-mail.<br><em>Equipe Facilita PrEP</em></p>
     `,
-  }
+  };
 }
 
-function templateDia2(nome: string, appUrl: string): { subject: string; html: string } {
+function templateDia2(
+  nome: string,
+  appUrl: string,
+): { subject: string; html: string } {
   return {
     subject: `${nome}, por que escolher o Facilita PrEP`,
     html: `
@@ -58,10 +71,13 @@ function templateDia2(nome: string, appUrl: string): { subject: string; html: st
       <p><a href="${appUrl}">Continuar meu cadastro agora</a></p>
       <p><em>Equipe Facilita PrEP</em></p>
     `,
-  }
+  };
 }
 
-function templateDia3(nome: string, appUrl: string): { subject: string; html: string } {
+function templateDia3(
+  nome: string,
+  appUrl: string,
+): { subject: string; html: string } {
   return {
     subject: `O que pacientes dizem sobre o Facilita PrEP`,
     html: `
@@ -75,10 +91,13 @@ function templateDia3(nome: string, appUrl: string): { subject: string; html: st
       <p><a href="${appUrl}">Finalizar meu cadastro</a></p>
       <p><em>Equipe Facilita PrEP</em></p>
     `,
-  }
+  };
 }
 
-function templateDia7(nome: string, appUrl: string): { subject: string; html: string } {
+function templateDia7(
+  nome: string,
+  appUrl: string,
+): { subject: string; html: string } {
   return {
     subject: `${nome}, vagas limitadas esta semana`,
     html: `
@@ -89,10 +108,13 @@ function templateDia7(nome: string, appUrl: string): { subject: string; html: st
       <p style="color:#888;font-size:12px">Consulta: R$150 · Receita digital ICP-Brasil · 100% online</p>
       <p><em>Equipe Facilita PrEP</em></p>
     `,
-  }
+  };
 }
 
-function templateDia14(nome: string, appUrl: string): { subject: string; html: string } {
+function templateDia14(
+  nome: string,
+  appUrl: string,
+): { subject: string; html: string } {
   return {
     subject: `Última tentativa — seu acesso ao Facilita PrEP`,
     html: `
@@ -104,34 +126,40 @@ function templateDia14(nome: string, appUrl: string): { subject: string; html: s
       <p>Caso não queira mais receber e-mails sobre PrEP, responda com "Cancelar" e removemos você da nossa lista.</p>
       <p><em>Equipe Facilita PrEP</em></p>
     `,
-  }
+  };
 }
 
 function getTemplate(diasDesdeRegistro: number, nome: string, appUrl: string) {
-  if (diasDesdeRegistro <= 1)  return templateDia1(nome, appUrl)
-  if (diasDesdeRegistro <= 2)  return templateDia2(nome, appUrl)
-  if (diasDesdeRegistro <= 3)  return templateDia3(nome, appUrl)
-  if (diasDesdeRegistro <= 7)  return templateDia7(nome, appUrl)
-  return templateDia14(nome, appUrl)
+  if (diasDesdeRegistro <= 1) return templateDia1(nome, appUrl);
+  if (diasDesdeRegistro <= 2) return templateDia2(nome, appUrl);
+  if (diasDesdeRegistro <= 3) return templateDia3(nome, appUrl);
+  if (diasDesdeRegistro <= 7) return templateDia7(nome, appUrl);
+  return templateDia14(nome, appUrl);
 }
 
 function diasEntre(from: Date, to: Date): number {
-  return Math.floor((to.getTime() - from.getTime()) / (24 * 60 * 60 * 1000))
+  return Math.floor((to.getTime() - from.getTime()) / (24 * 60 * 60 * 1000));
 }
 
 // ─── Worker ───────────────────────────────────────────────────────────────────
 
 export async function agendarNutricaoDiaria() {
-  await nutricaoQueue.add('nutricao-diaria', {}, {
-    repeat: { pattern: '0 10 * * *' },
-    jobId: 'nutricao-diaria-fixo',
-  })
+  await nutricaoQueue.add(
+    "nutricao-diaria",
+    {},
+    {
+      repeat: { pattern: "0 10 * * *" },
+      jobId: "nutricao-diaria-fixo",
+    },
+  );
 }
 
 async function executarNutricao() {
-  const agora = new Date()
-  const umDiaAtras = new Date(agora.getTime() - 1 * 24 * 60 * 60 * 1000)
-  const quatorzeDiasAtras = new Date(agora.getTime() - 14 * 24 * 60 * 60 * 1000)
+  const agora = new Date();
+  const umDiaAtras = new Date(agora.getTime() - 1 * 24 * 60 * 60 * 1000);
+  const quatorzeDiasAtras = new Date(
+    agora.getTime() - 14 * 24 * 60 * 60 * 1000,
+  );
 
   // Leads aguardando conversão criados entre 1 e 14 dias atrás
   const leads = await db
@@ -144,68 +172,76 @@ async function executarNutricao() {
     .from(precadastros)
     .where(
       and(
-        eq(precadastros.status, 'aguardando'),
+        eq(precadastros.status, "aguardando"),
         lt(precadastros.createdAt, umDiaAtras),
         gt(precadastros.createdAt, quatorzeDiasAtras),
       ),
     )
-    .limit(200)
+    .limit(200);
 
-  let enviados = 0
+  let enviados = 0;
 
   for (const lead of leads) {
     try {
-      const email = decrypt(lead.emailEncrypted)
-      const nome = decrypt(lead.nomeEncrypted).split(' ')[0]
-      const dias = diasEntre(lead.createdAt, agora)
+      const email = decrypt(lead.emailEncrypted);
+      const nome = decrypt(lead.nomeEncrypted).split(" ")[0];
+      const dias = diasEntre(lead.createdAt, agora);
 
       // Usar Redis como dedup — evita reenvio na mesma janela de dia
-      const redisKey = `nutricao:${lead.id}:dia${dias}`
-      const jaEnviado = await redis.get(redisKey)
-      if (jaEnviado) continue
+      const redisKey = `nutricao:${lead.id}:dia${dias}`;
+      const jaEnviado = await redis.get(redisKey);
+      if (jaEnviado) continue;
 
-      if (!env.RESEND_API_KEY) continue
-      const template = getTemplate(dias, nome, env.APP_URL)
-      const resend = new Resend(env.RESEND_API_KEY)
+      if (!env.RESEND_API_KEY) continue;
+      const template = getTemplate(dias, nome, env.APP_URL);
+      const resend = new Resend(env.RESEND_API_KEY);
       const { error } = await resend.emails.send({
         from: env.EMAIL_FROM,
         to: email,
         subject: template.subject,
         html: template.html,
-      })
+      });
       if (error) {
-        logger.warn('[nutricao] Falha ao enviar e-mail', { leadId: lead.id, error: error.message })
-        continue
+        logger.warn("[nutricao] Falha ao enviar e-mail", {
+          leadId: lead.id,
+          error: error.message,
+        });
+        continue;
       }
 
       // TTL 25h — garante que o mesmo e-mail não é reenviado amanhã para o mesmo dia
-      await redis.set(redisKey, '1', 'EX', 25 * 60 * 60)
-      enviados++
+      await redis.set(redisKey, "1", "EX", 25 * 60 * 60);
+      enviados++;
     } catch (err) {
-      logger.warn('[nutricao] Erro ao processar lead', { leadId: lead.id, error: String(err) })
-      Sentry.captureException(err, { tags: { worker: 'nutricao' } })
+      logger.warn("[nutricao] Erro ao processar lead", {
+        leadId: lead.id,
+        error: String(err),
+      });
+      Sentry.captureException(err, { tags: { worker: "nutricao" } });
     }
   }
 
-  logger.info('[nutricao] Ciclo concluído', { leads: leads.length, enviados })
-  return { leads: leads.length, enviados }
+  logger.info("[nutricao] Ciclo concluído", { leads: leads.length, enviados });
+  return { leads: leads.length, enviados };
 }
 
 export function startNutricaoWorker() {
   const worker = new Worker(
     NUTRICAO_QUEUE_NAME,
     async (job) => {
-      if (job.name === 'nutricao-diaria') return executarNutricao()
+      if (job.name === "nutricao-diaria") return executarNutricao();
     },
     { connection, ...NUTRICAO_WORKER_OPTS, prefix: QUEUE_PREFIX },
-  )
+  );
 
-  worker.on('failed', (job, err) => {
-    logger.error(`[nutricaoQueue] Job ${job?.id} falhou`, { message: err.message })
+  worker.on("failed", (job, err) => {
+    logger.error(`[nutricaoQueue] Job ${job?.id} falhou`, {
+      message: err.message,
+    });
     if ((job?.attemptsMade ?? 0) >= (job?.opts?.attempts ?? 3)) {
-      void persistDlq(NUTRICAO_QUEUE_NAME, job, err)
+      void persistDlq(NUTRICAO_QUEUE_NAME, job, err);
     }
-  })
+  });
 
-  return worker
+  return worker;
 }

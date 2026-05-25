@@ -1,122 +1,167 @@
-import { useState } from 'react'
-import type { ReactNode } from 'react'
-import { trpc } from '../lib/trpc.ts'
-import { useAuth } from '../_core/hooks/useAuth.ts'
-import { PACIENTE_STATUS } from '@shared/const.ts'
-import { fmt } from '../lib/format.ts'
-import { EmptyState } from './EmptyState.tsx'
-import { traduzirErroTrpc } from '../lib/errorMessages.ts'
-import { toast } from '../lib/use-toast.ts'
+import { useState } from "react";
+import type { ReactNode } from "react";
+import { trpc } from "../lib/trpc.ts";
+import { useAuth } from "../_core/hooks/useAuth.ts";
+import { PACIENTE_STATUS } from "@shared/const.ts";
+import { fmt } from "../lib/format.ts";
+import { EmptyState } from "./EmptyState.tsx";
+import { traduzirErroTrpc } from "../lib/errorMessages.ts";
+import { toast } from "../lib/use-toast.ts";
 
-type Tab = 'pacientes' | 'exames_inicio' | 'exames_rejeitados'
-type Acao = 'aprovar' | 'recusar' | 'solicitar_reenvio' | 'recomendar_consulta' | 'encaminhar_especialista' | 'solicitar_confirmacao'
+type Tab = "pacientes" | "exames_inicio" | "exames_rejeitados";
+type Acao =
+  | "aprovar"
+  | "recusar"
+  | "solicitar_reenvio"
+  | "recomendar_consulta"
+  | "encaminhar_especialista"
+  | "solicitar_confirmacao";
 
 interface ResultadoIa {
-  nomeExame: string | null
-  resultadoHiv: string | null
-  dataExame: string | null
-  confianca: number
+  nomeExame: string | null;
+  resultadoHiv: string | null;
+  dataExame: string | null;
+  confianca: number;
 }
 
 export default function MedicoDashboard() {
-  const { logout } = useAuth()
-  const [tab, setTab] = useState<Tab>('pacientes')
-  const [selectedId, setSelectedId] = useState<number | null>(null)
+  const { logout } = useAuth();
+  const [tab, setTab] = useState<Tab>("pacientes");
+  const [selectedId, setSelectedId] = useState<number | null>(null);
 
-  const utils = trpc.useUtils()
+  const utils = trpc.useUtils();
 
-  const { data: pendentesPage, isLoading: pendentesLoading } = trpc.medico.listarPendentes.useQuery({}, {
-    refetchInterval: 30_000,
-    refetchIntervalInBackground: false,
-  })
-  const pendentes = pendentesPage?.data
-  const verPacienteMutation = trpc.medico.verPaciente.useMutation()
-  const paciente = verPacienteMutation.data
-  const pacienteLoading = verPacienteMutation.isPending
-  const { data: examesRejeitados, isLoading: examesRejeitadosLoading } = trpc.medico.listarExamesRejeitadosIa.useQuery(undefined, {
-    refetchInterval: 30_000,
-    refetchIntervalInBackground: false,
-  })
-  const { data: revisoes, isLoading: revisoesLoading } = trpc.consulta.medico.listarRevisoes.useQuery(undefined, {
-    refetchInterval: 30_000,
-    refetchIntervalInBackground: false,
-  })
+  const { data: pendentesPage, isLoading: pendentesLoading } =
+    trpc.medico.listarPendentes.useQuery(
+      {},
+      {
+        refetchInterval: 30_000,
+        refetchIntervalInBackground: false,
+      },
+    );
+  const pendentes = pendentesPage?.data;
+  const verPacienteMutation = trpc.medico.verPaciente.useMutation();
+  const paciente = verPacienteMutation.data;
+  const pacienteLoading = verPacienteMutation.isPending;
+  const { data: examesRejeitados, isLoading: examesRejeitadosLoading } =
+    trpc.medico.listarExamesRejeitadosIa.useQuery(undefined, {
+      refetchInterval: 30_000,
+      refetchIntervalInBackground: false,
+    });
+  const { data: revisoes } = trpc.consulta.medico.listarRevisoes.useQuery(
+    undefined,
+    {
+      refetchInterval: 30_000,
+      refetchIntervalInBackground: false,
+    },
+  );
 
   const invalidarListas = () => {
-    void utils.medico.invalidate()
-    void utils.consulta.medico.invalidate()
-  }
+    void utils.medico.invalidate();
+    void utils.consulta.medico.invalidate();
+  };
 
   const removerPacienteDaLista = async (pacienteId: number) => {
-    await utils.medico.listarPendentes.cancel({})
-    const anterior = utils.medico.listarPendentes.getData({})
+    await utils.medico.listarPendentes.cancel({});
+    const anterior = utils.medico.listarPendentes.getData({});
     utils.medico.listarPendentes.setData({}, (old) => {
-      if (!old) return old
-      return { ...old, data: old.data.filter((p) => p.id !== pacienteId) }
-    })
-    return anterior
-  }
+      if (!old) return old;
+      return { ...old, data: old.data.filter((p) => p.id !== pacienteId) };
+    });
+    return anterior;
+  };
 
   const aprovar = trpc.medico.aprovar.useMutation({
     onMutate: async ({ pacienteId }) => {
-      const anterior = await removerPacienteDaLista(pacienteId)
-      return { anterior }
+      const anterior = await removerPacienteDaLista(pacienteId);
+      return { anterior };
     },
     onSuccess: () => {
-      setSelectedId(null)
-      verPacienteMutation.reset()
-      toast({ variant: 'success', title: 'Paciente aprovado', description: 'Aprovação registrada com sucesso.' })
+      setSelectedId(null);
+      verPacienteMutation.reset();
+      toast({
+        variant: "success",
+        title: "Paciente aprovado",
+        description: "Aprovação registrada com sucesso.",
+      });
     },
     onError: (err, _vars, context) => {
-      if (context?.anterior) utils.medico.listarPendentes.setData({}, context.anterior)
-      toast({ variant: 'error', title: 'Erro ao aprovar', description: traduzirErroTrpc(err) ?? undefined })
+      if (context?.anterior)
+        utils.medico.listarPendentes.setData({}, context.anterior);
+      toast({
+        variant: "error",
+        title: "Erro ao aprovar",
+        description: traduzirErroTrpc(err) ?? undefined,
+      });
     },
     onSettled: () => invalidarListas(),
-  })
+  });
   const rejeitar = trpc.medico.rejeitar.useMutation({
     onMutate: async ({ pacienteId }) => {
-      const anterior = await removerPacienteDaLista(pacienteId)
-      return { anterior }
+      const anterior = await removerPacienteDaLista(pacienteId);
+      return { anterior };
     },
     onSuccess: () => {
-      setSelectedId(null)
-      verPacienteMutation.reset()
-      setConfirmRejeitar(false)
-      toast({ variant: 'default', title: 'Paciente rejeitado', description: 'Rejeição registrada com sucesso.' })
+      setSelectedId(null);
+      verPacienteMutation.reset();
+      setConfirmRejeitar(false);
+      toast({
+        variant: "default",
+        title: "Paciente rejeitado",
+        description: "Rejeição registrada com sucesso.",
+      });
     },
     onError: (err, _vars, context) => {
-      if (context?.anterior) utils.medico.listarPendentes.setData({}, context.anterior)
-      setConfirmRejeitar(false)
-      toast({ variant: 'error', title: 'Erro ao rejeitar', description: traduzirErroTrpc(err) ?? undefined })
+      if (context?.anterior)
+        utils.medico.listarPendentes.setData({}, context.anterior);
+      setConfirmRejeitar(false);
+      toast({
+        variant: "error",
+        title: "Erro ao rejeitar",
+        description: traduzirErroTrpc(err) ?? undefined,
+      });
     },
     onSettled: () => invalidarListas(),
-  })
+  });
   const liberarExame = trpc.medico.liberarExameSemValidacao.useMutation({
     onSuccess: () => {
-      invalidarListas()
-      toast({ variant: 'success', title: 'Exame liberado', description: 'Exame liberado manualmente com sucesso.' })
+      invalidarListas();
+      toast({
+        variant: "success",
+        title: "Exame liberado",
+        description: "Exame liberado manualmente com sucesso.",
+      });
     },
     onError: (err) => {
-      toast({ variant: 'error', title: 'Erro ao liberar exame', description: traduzirErroTrpc(err) ?? undefined })
+      toast({
+        variant: "error",
+        title: "Erro ao liberar exame",
+        description: traduzirErroTrpc(err) ?? undefined,
+      });
     },
-  })
+  });
 
-  const [obs, setObs] = useState('')
-  const [motivoRejeicao, setMotivoRejeicao] = useState('')
-  const [obsExame, setObsExame] = useState<Record<number, string>>({})
-  const [confirmRejeitar, setConfirmRejeitar] = useState(false)
+  const [obs, setObs] = useState("");
+  const [motivoRejeicao, setMotivoRejeicao] = useState("");
+  const [obsExame, setObsExame] = useState<Record<number, string>>({});
+  const [confirmRejeitar, setConfirmRejeitar] = useState(false);
 
-  const urgentesCount = revisoes?.filter(r => r.urgente).length ?? 0
-  const totalRevisoesCount = revisoes?.length ?? 0
+  const urgentesCount = revisoes?.filter((r) => r.urgente).length ?? 0;
+  const totalRevisoesCount = revisoes?.length ?? 0;
 
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="bg-white border-b border-slate-200 px-6 py-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-blue-700">Dashboard Médico — Facilita PrEP</h1>
+          <h1 className="text-xl font-bold text-blue-700">
+            Dashboard Médico — Facilita PrEP
+          </h1>
           <div className="flex items-center gap-3">
             <div className="flex gap-2">
-              <TabButton active={tab === 'pacientes'} onClick={() => setTab('pacientes')}>
+              <TabButton
+                active={tab === "pacientes"}
+                onClick={() => setTab("pacientes")}
+              >
                 Pacientes pendentes
                 {(pendentes?.length ?? 0) > 0 && (
                   <span className="ml-1.5 bg-yellow-100 text-yellow-700 text-xs px-1.5 py-0.5 rounded-full font-medium">
@@ -125,7 +170,10 @@ export default function MedicoDashboard() {
                 )}
               </TabButton>
 
-              <TabButton active={tab === 'exames_inicio'} onClick={() => setTab('exames_inicio')}>
+              <TabButton
+                active={tab === "exames_inicio"}
+                onClick={() => setTab("exames_inicio")}
+              >
                 Exames início (PrEP)
                 {urgentesCount > 0 && (
                   <span className="ml-1.5 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full font-medium">
@@ -139,7 +187,10 @@ export default function MedicoDashboard() {
                 )}
               </TabButton>
 
-              <TabButton active={tab === 'exames_rejeitados'} onClick={() => setTab('exames_rejeitados')}>
+              <TabButton
+                active={tab === "exames_rejeitados"}
+                onClick={() => setTab("exames_rejeitados")}
+              >
                 Exames rejeitados pela IA
                 {(examesRejeitados?.length ?? 0) > 0 && (
                   <span className="ml-1.5 bg-red-100 text-red-700 text-xs px-1.5 py-0.5 rounded-full font-medium">
@@ -151,12 +202,27 @@ export default function MedicoDashboard() {
             <div className="w-px h-6 bg-slate-200" />
             <button
               data-event="logout"
-              onClick={() => { if (confirm('Deseja realmente sair?')) { logout(); window.location.href = '/' } }}
+              onClick={() => {
+                if (confirm("Deseja realmente sair?")) {
+                  logout();
+                  window.location.href = "/";
+                }
+              }}
               className="text-sm text-slate-600 hover:text-red-600 font-medium px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-1.5"
               aria-label="Sair"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                />
               </svg>
               <span className="hidden sm:inline">Sair</span>
             </button>
@@ -165,7 +231,7 @@ export default function MedicoDashboard() {
       </header>
 
       {/* Pacientes pendentes */}
-      {tab === 'pacientes' && (
+      {tab === "pacientes" && (
         <div className="flex h-[calc(100vh-65px)]">
           <aside className="w-80 border-r border-slate-200 bg-white overflow-y-auto">
             <div className="p-4 border-b border-slate-100">
@@ -174,20 +240,27 @@ export default function MedicoDashboard() {
               </p>
             </div>
             {pendentesLoading
-              ? Array.from({ length: 4 }).map((_, i) => <SkeletonItem key={i} />)
+              ? Array.from({ length: 4 }).map((_, i) => (
+                  <SkeletonItem key={i} />
+                ))
               : pendentes?.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => { setSelectedId(p.id); verPacienteMutation.mutate({ pacienteId: p.id }) }}
-                className={`w-full text-left p-4 border-b border-slate-100 hover:bg-slate-50 transition-colors ${selectedId === p.id ? 'bg-blue-50 border-l-2 border-l-blue-500' : ''}`}
-              >
-                <p className="font-medium text-slate-800 text-sm">{p.nome}</p>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  {fmt.date(p.createdAt)} · {p.tipoAtendimento}
-                </p>
-                <StatusBadge status={p.status} />
-              </button>
-            ))}
+                  <button
+                    key={p.id}
+                    onClick={() => {
+                      setSelectedId(p.id);
+                      verPacienteMutation.mutate({ pacienteId: p.id });
+                    }}
+                    className={`w-full text-left p-4 border-b border-slate-100 hover:bg-slate-50 transition-colors ${selectedId === p.id ? "bg-blue-50 border-l-2 border-l-blue-500" : ""}`}
+                  >
+                    <p className="font-medium text-slate-800 text-sm">
+                      {p.nome}
+                    </p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {fmt.date(p.createdAt)} · {p.tipoAtendimento}
+                    </p>
+                    <StatusBadge status={p.status} />
+                  </button>
+                ))}
           </aside>
 
           <main className="flex-1 overflow-y-auto p-6">
@@ -207,22 +280,35 @@ export default function MedicoDashboard() {
             {paciente && (
               <div className="max-w-2xl space-y-6">
                 <div className="bg-white rounded-2xl border border-slate-200 p-6">
-                  <h2 className="text-lg font-semibold text-slate-800 mb-4">{paciente.nome}</h2>
+                  <h2 className="text-lg font-semibold text-slate-800 mb-4">
+                    {paciente.nome}
+                  </h2>
                   <dl className="grid grid-cols-2 gap-3 text-sm">
                     <Item label="CPF" value={paciente.cpf} />
-                    <Item label="Data de nascimento" value={paciente.dataNascimento} />
+                    <Item
+                      label="Data de nascimento"
+                      value={paciente.dataNascimento}
+                    />
                     <Item label="Sexo" value={paciente.sexo} />
                     <Item label="E-mail" value={paciente.email} />
                     <Item label="Telefone" value={paciente.telefone} />
-                    <Item label="Cidade/UF" value={`${paciente.cidade ?? ''}/${paciente.estado ?? ''}`} />
-                    <Item label="Tipo de atendimento" value={paciente.tipoAtendimento} />
+                    <Item
+                      label="Cidade/UF"
+                      value={`${paciente.cidade ?? ""}/${paciente.estado ?? ""}`}
+                    />
+                    <Item
+                      label="Tipo de atendimento"
+                      value={paciente.tipoAtendimento}
+                    />
                     <Item label="Status" value={paciente.status} />
                   </dl>
                 </div>
 
                 {Boolean(paciente.condutaJson) && (
                   <div className="bg-white rounded-2xl border border-slate-200 p-6">
-                    <h3 className="font-medium text-slate-700 mb-3">Conduta clínica</h3>
+                    <h3 className="font-medium text-slate-700 mb-3">
+                      Conduta clínica
+                    </h3>
                     <pre className="text-xs text-slate-600 whitespace-pre-wrap bg-slate-50 rounded-lg p-3">
                       {JSON.stringify(paciente.condutaJson, null, 2)}
                     </pre>
@@ -231,12 +317,22 @@ export default function MedicoDashboard() {
 
                 {(paciente.exames?.length ?? 0) > 0 && (
                   <div className="bg-white rounded-2xl border border-slate-200 p-6">
-                    <h3 className="font-medium text-slate-700 mb-3">Exames enviados</h3>
+                    <h3 className="font-medium text-slate-700 mb-3">
+                      Exames enviados
+                    </h3>
                     <div className="space-y-2">
                       {paciente.exames?.map((e) => (
-                        <div key={e.id} className="flex items-center justify-between text-sm border border-slate-100 rounded-lg p-3">
+                        <div
+                          key={e.id}
+                          className="flex items-center justify-between text-sm border border-slate-100 rounded-lg p-3"
+                        >
                           <span>{e.nomeArquivo}</span>
-                          <a href={`/api/exame/${e.id}`} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs">
+                          <a
+                            href={`/api/exame/${e.id}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-blue-600 hover:underline text-xs"
+                          >
                             Ver
                           </a>
                         </div>
@@ -245,66 +341,114 @@ export default function MedicoDashboard() {
                   </div>
                 )}
 
-                {paciente.status !== PACIENTE_STATUS.APROVADO && paciente.status !== PACIENTE_STATUS.REJEITADO && (
-                  <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
-                    <h3 className="font-medium text-slate-700">Decisão médica</h3>
+                {paciente.status !== PACIENTE_STATUS.APROVADO &&
+                  paciente.status !== PACIENTE_STATUS.REJEITADO && (
+                    <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
+                      <h3 className="font-medium text-slate-700">
+                        Decisão médica
+                      </h3>
 
-                    <div>
-                      <label className="block text-xs text-slate-600 mb-1">Observações (aprovação)</label>
-                      <textarea value={obs} onChange={(e) => setObs(e.target.value)} rows={2} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Orientações ao paciente…" />
-                    </div>
+                      <div>
+                        <label className="block text-xs text-slate-600 mb-1">
+                          Observações (aprovação)
+                        </label>
+                        <textarea
+                          value={obs}
+                          onChange={(e) => setObs(e.target.value)}
+                          rows={2}
+                          className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                          placeholder="Orientações ao paciente…"
+                        />
+                      </div>
 
-                    <div>
-                      <label className="block text-xs text-slate-600 mb-1">Motivo (rejeição)</label>
-                      <textarea value={motivoRejeicao} onChange={(e) => setMotivoRejeicao(e.target.value)} rows={2} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="Motivo detalhado da rejeição…" />
-                    </div>
+                      <div>
+                        <label className="block text-xs text-slate-600 mb-1">
+                          Motivo (rejeição)
+                        </label>
+                        <textarea
+                          value={motivoRejeicao}
+                          onChange={(e) => setMotivoRejeicao(e.target.value)}
+                          rows={2}
+                          className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                          placeholder="Motivo detalhado da rejeição…"
+                        />
+                      </div>
 
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() => aprovar.mutate({ pacienteId: paciente.id, observacoes: obs })}
-                        disabled={aprovar.isPending}
-                        className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-medium py-2 rounded-lg transition-colors"
-                      >
-                        {aprovar.isPending ? 'Aprovando…' : '✓ Aprovar'}
-                      </button>
-                      <button
-                        onClick={() => { if (motivoRejeicao.length >= 10) setConfirmRejeitar(true) }}
-                        disabled={rejeitar.isPending || motivoRejeicao.length < 10}
-                        className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-medium py-2 rounded-lg transition-colors"
-                      >
-                        ✗ Rejeitar
-                      </button>
-                    </div>
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() =>
+                            aprovar.mutate({
+                              pacienteId: paciente.id,
+                              observacoes: obs,
+                            })
+                          }
+                          disabled={aprovar.isPending}
+                          className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-medium py-2 rounded-lg transition-colors"
+                        >
+                          {aprovar.isPending ? "Aprovando…" : "✓ Aprovar"}
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (motivoRejeicao.length >= 10)
+                              setConfirmRejeitar(true);
+                          }}
+                          disabled={
+                            rejeitar.isPending || motivoRejeicao.length < 10
+                          }
+                          className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-medium py-2 rounded-lg transition-colors"
+                        >
+                          ✗ Rejeitar
+                        </button>
+                      </div>
 
-                    {/* Confirmation modal for rejection */}
-                    {confirmRejeitar && (
-                      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setConfirmRejeitar(false)}>
-                        <div className="bg-white rounded-2xl p-6 shadow-xl max-w-sm w-full mx-4" onClick={(e) => e.stopPropagation()}>
-                          <h3 className="font-semibold text-slate-800 mb-2">Confirmar rejeição</h3>
-                          <p className="text-sm text-slate-600 mb-4">
-                            Tem certeza que deseja <strong>rejeitar</strong> este paciente? Esta ação será registrada no sistema.
-                          </p>
-                          <p className="text-xs text-slate-500 bg-slate-50 rounded-lg p-2 mb-4 line-clamp-3">{motivoRejeicao}</p>
-                          <div className="flex gap-3">
-                            <button
-                              onClick={() => setConfirmRejeitar(false)}
-                              className="flex-1 border border-slate-300 text-slate-700 font-medium py-2 rounded-lg hover:bg-slate-50 transition-colors"
-                            >
-                              Cancelar
-                            </button>
-                            <button
-                              onClick={() => rejeitar.mutate({ pacienteId: paciente.id, motivo: motivoRejeicao })}
-                              disabled={rejeitar.isPending}
-                              className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-medium py-2 rounded-lg transition-colors"
-                            >
-                              {rejeitar.isPending ? 'Rejeitando…' : 'Confirmar rejeição'}
-                            </button>
+                      {/* Confirmation modal for rejection */}
+                      {confirmRejeitar && (
+                        <div
+                          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+                          onClick={() => setConfirmRejeitar(false)}
+                        >
+                          <div
+                            className="bg-white rounded-2xl p-6 shadow-xl max-w-sm w-full mx-4"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <h3 className="font-semibold text-slate-800 mb-2">
+                              Confirmar rejeição
+                            </h3>
+                            <p className="text-sm text-slate-600 mb-4">
+                              Tem certeza que deseja <strong>rejeitar</strong>{" "}
+                              este paciente? Esta ação será registrada no
+                              sistema.
+                            </p>
+                            <p className="text-xs text-slate-500 bg-slate-50 rounded-lg p-2 mb-4 line-clamp-3">
+                              {motivoRejeicao}
+                            </p>
+                            <div className="flex gap-3">
+                              <button
+                                onClick={() => setConfirmRejeitar(false)}
+                                className="flex-1 border border-slate-300 text-slate-700 font-medium py-2 rounded-lg hover:bg-slate-50 transition-colors"
+                              >
+                                Cancelar
+                              </button>
+                              <button
+                                onClick={() =>
+                                  rejeitar.mutate({
+                                    pacienteId: paciente.id,
+                                    motivo: motivoRejeicao,
+                                  })
+                                }
+                                disabled={rejeitar.isPending}
+                                className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-medium py-2 rounded-lg transition-colors"
+                              >
+                                {rejeitar.isPending
+                                  ? "Rejeitando…"
+                                  : "Confirmar rejeição"}
+                              </button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                )}
+                      )}
+                    </div>
+                  )}
               </div>
             )}
           </main>
@@ -312,69 +456,112 @@ export default function MedicoDashboard() {
       )}
 
       {/* Exames início */}
-      {tab === 'exames_inicio' && <ExamesInicioTab revisoes={revisoes} />}
+      {tab === "exames_inicio" && <ExamesInicioTab revisoes={revisoes} />}
 
       {/* Exames rejeitados pela IA */}
-      {tab === 'exames_rejeitados' && (
+      {tab === "exames_rejeitados" && (
         <div className="max-w-4xl mx-auto p-6 space-y-4">
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
-            Estes exames foram <strong>rejeitados automaticamente pela IA</strong>. Revise cada um e, se considerar adequado, libere manualmente com uma justificativa.
+            Estes exames foram{" "}
+            <strong>rejeitados automaticamente pela IA</strong>. Revise cada um
+            e, se considerar adequado, libere manualmente com uma justificativa.
           </div>
 
           {examesRejeitadosLoading && (
             <div className="space-y-4">
-              {Array.from({ length: 3 }).map((_, i) => <SkeletonBlock key={i} height="h-36" />)}
+              {Array.from({ length: 3 }).map((_, i) => (
+                <SkeletonBlock key={i} height="h-36" />
+              ))}
             </div>
           )}
           {!examesRejeitadosLoading && !examesRejeitados?.length && (
-            <EmptyState message="Nenhum exame aguardando liberação manual." className="bg-white rounded-2xl border border-slate-200" />
+            <EmptyState
+              message="Nenhum exame aguardando liberação manual."
+              className="bg-white rounded-2xl border border-slate-200"
+            />
           )}
 
           {examesRejeitados?.map((exame) => {
-            const ia = exame.resultadoIa as { status?: string; motivo?: string; observacoes?: string } | null
-            const jaLiberado = ia?.status === 'liberado_manualmente'
+            const ia = exame.resultadoIa as {
+              status?: string;
+              motivo?: string;
+              observacoes?: string;
+            } | null;
+            const jaLiberado = ia?.status === "liberado_manualmente";
             return (
-              <div key={exame.id} className={`bg-white rounded-2xl border p-6 space-y-4 ${jaLiberado ? 'border-green-200 opacity-70' : 'border-slate-200'}`}>
+              <div
+                key={exame.id}
+                className={`bg-white rounded-2xl border p-6 space-y-4 ${jaLiberado ? "border-green-200 opacity-70" : "border-slate-200"}`}
+              >
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="font-medium text-slate-800">{exame.nomeArquivo}</p>
+                    <p className="font-medium text-slate-800">
+                      {exame.nomeArquivo}
+                    </p>
                     <p className="text-xs text-slate-400 mt-0.5">
-                      Paciente #{exame.pacienteId} · {exame.tipoExame ?? 'tipo não identificado'} · {fmt.date(exame.createdAt)}
+                      Paciente #{exame.pacienteId} ·{" "}
+                      {exame.tipoExame ?? "tipo não identificado"} ·{" "}
+                      {fmt.date(exame.createdAt)}
                     </p>
                   </div>
                   {jaLiberado ? (
-                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">Liberado manualmente</span>
+                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">
+                      Liberado manualmente
+                    </span>
                   ) : (
-                    <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full font-medium">Rejeitado pela IA</span>
+                    <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full font-medium">
+                      Rejeitado pela IA
+                    </span>
                   )}
                 </div>
 
                 {ia?.motivo && (
                   <p className="text-sm text-slate-600 bg-slate-50 rounded-lg p-3">
-                    <span className="font-medium text-slate-700">Motivo da rejeição: </span>{ia.motivo}
+                    <span className="font-medium text-slate-700">
+                      Motivo da rejeição:{" "}
+                    </span>
+                    {ia.motivo}
                   </p>
                 )}
 
                 {!jaLiberado && (
                   <div className="space-y-3">
                     <div>
-                      <label className="block text-xs text-slate-600 mb-1">Justificativa para liberação (opcional)</label>
+                      <label className="block text-xs text-slate-600 mb-1">
+                        Justificativa para liberação (opcional)
+                      </label>
                       <textarea
-                        value={obsExame[exame.id] ?? ''}
-                        onChange={(e) => setObsExame((prev) => ({ ...prev, [exame.id]: e.target.value }))}
+                        value={obsExame[exame.id] ?? ""}
+                        onChange={(e) =>
+                          setObsExame((prev) => ({
+                            ...prev,
+                            [exame.id]: e.target.value,
+                          }))
+                        }
                         rows={2}
                         className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
                         placeholder="Ex: Exame legível, resultado negativo confirmado visualmente…"
                       />
                     </div>
                     <button
-                      onClick={() => liberarExame.mutate({ exameId: exame.id, observacoes: obsExame[exame.id] })}
+                      onClick={() =>
+                        liberarExame.mutate({
+                          exameId: exame.id,
+                          observacoes: obsExame[exame.id],
+                        })
+                      }
                       disabled={liberarExame.isPending}
                       className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium px-4 py-2 rounded-lg text-sm transition-colors"
                     >
-                      {liberarExame.isPending ? 'Liberando…' : 'Liberar manualmente'}
+                      {liberarExame.isPending
+                        ? "Liberando…"
+                        : "Liberar manualmente"}
                     </button>
-                    {liberarExame.error && <p className="text-red-600 text-sm" role="alert">{traduzirErroTrpc(liberarExame.error)}</p>}
+                    {liberarExame.error && (
+                      <p className="text-red-600 text-sm" role="alert">
+                        {traduzirErroTrpc(liberarExame.error)}
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -384,58 +571,64 @@ export default function MedicoDashboard() {
                   </p>
                 )}
               </div>
-            )
+            );
           })}
         </div>
       )}
     </div>
-  )
+  );
 }
 
 function ExamesInicioTab({ revisoes }: { revisoes: Array<any> | undefined }) {
-  const [selectedId, setSelectedId] = useState<number | null>(null)
-  const [acao, setAcao] = useState<Acao | null>(null)
-  const [comentario, setComentario] = useState('')
-  const [resultadoHivManual, setResultadoHivManual] = useState<'reagente' | 'nao_reagente' | ''>('')
-  const [dataExameManual, setDataExameManual] = useState('')
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [acao, setAcao] = useState<Acao | null>(null);
+  const [comentario, setComentario] = useState("");
+  const [resultadoHivManual, setResultadoHivManual] = useState<
+    "reagente" | "nao_reagente" | ""
+  >("");
+  const [dataExameManual, setDataExameManual] = useState("");
 
-  const utils = trpc.useUtils()
+  const utils = trpc.useUtils();
   const validarMut = trpc.consulta.medico.validar.useMutation({
     onSuccess: () => {
-      void utils.medico.invalidate()
-      void utils.consulta.medico.invalidate()
+      void utils.medico.invalidate();
+      void utils.consulta.medico.invalidate();
     },
-  })
+  });
 
-  const selecionada = revisoes?.find(r => r.id === selectedId)
-  const ia = selecionada?.resultadoIa as ResultadoIa | null
+  const selecionada = revisoes?.find((r) => r.id === selectedId);
+  const ia = selecionada?.resultadoIa as ResultadoIa | null;
 
-  const urgentes = revisoes?.filter(r => r.urgente) ?? []
-  const normais = revisoes?.filter(r => !r.urgente) ?? []
-  const ordenadas = [...urgentes, ...normais]
+  const urgentes = revisoes?.filter((r) => r.urgente) ?? [];
+  const normais = revisoes?.filter((r) => !r.urgente) ?? [];
+  const ordenadas = [...urgentes, ...normais];
 
-  const podeSubmeter = !!acao && comentario.trim().length >= 10
+  const podeSubmeter = !!acao && comentario.trim().length >= 10;
 
   function submeter() {
-    if (!acao || !selectedId || !podeSubmeter) return
+    if (!acao || !selectedId || !podeSubmeter) return;
     validarMut.mutate(
       {
         consultaId: selectedId,
         acao,
         observacoes: comentario.trim(),
-        ...(acao === 'aprovar' && resultadoHivManual ? { resultadoHiv: resultadoHivManual as 'reagente' | 'nao_reagente' } : {}),
-        ...(acao === 'aprovar' && dataExameManual ? { dataExame: dataExameManual } : {}),
+        ...(acao === "aprovar" && resultadoHivManual
+          ? { resultadoHiv: resultadoHivManual as "reagente" | "nao_reagente" }
+          : {}),
+        ...(acao === "aprovar" && dataExameManual
+          ? { dataExame: dataExameManual }
+          : {}),
       },
       {
         onSuccess: () => {
-          setSelectedId(null)
-          setAcao(null)
-          setComentario('')
-          setResultadoHivManual('')
-          setDataExameManual('')
+          setSelectedId(null);
+          setAcao(null);
+          setComentario("");
+          setResultadoHivManual("");
+          setDataExameManual("");
         },
       },
-    )
+    );
   }
 
   return (
@@ -443,75 +636,137 @@ function ExamesInicioTab({ revisoes }: { revisoes: Array<any> | undefined }) {
       {/* Sidebar */}
       <aside className="w-80 border-r border-slate-200 bg-white overflow-y-auto">
         <div className="p-4 border-b border-slate-100">
-          <p className="text-sm font-medium text-slate-700">{ordenadas.length} exame(s) aguardando revisão</p>
-          {urgentes.length > 0 && <p className="text-xs text-red-600 font-semibold mt-1">{urgentes.length} urgente(s) — HIV reagente</p>}
+          <p className="text-sm font-medium text-slate-700">
+            {ordenadas.length} exame(s) aguardando revisão
+          </p>
+          {urgentes.length > 0 && (
+            <p className="text-xs text-red-600 font-semibold mt-1">
+              {urgentes.length} urgente(s) — HIV reagente
+            </p>
+          )}
         </div>
-        {ordenadas.length === 0 && <EmptyState message="Nenhum exame pendente." />}
+        {ordenadas.length === 0 && (
+          <EmptyState message="Nenhum exame pendente." />
+        )}
         {ordenadas.map((r) => (
           <button
             key={r.id}
             onClick={() => {
-              setSelectedId(r.id)
-              setAcao(null)
-              setComentario('')
+              setSelectedId(r.id);
+              setAcao(null);
+              setComentario("");
             }}
-            className={`w-full text-left p-4 border-b border-slate-100 hover:bg-slate-50 transition-colors ${selectedId === r.id ? 'bg-blue-50 border-l-2 border-l-blue-500' : ''} ${r.urgente ? 'bg-red-50 hover:bg-red-100' : ''}`}
+            className={`w-full text-left p-4 border-b border-slate-100 hover:bg-slate-50 transition-colors ${selectedId === r.id ? "bg-blue-50 border-l-2 border-l-blue-500" : ""} ${r.urgente ? "bg-red-50 hover:bg-red-100" : ""}`}
           >
             <div className="flex items-center justify-between mb-1">
-              <p className="font-medium text-slate-800 text-sm">{r.nomePaciente}</p>
-              {r.urgente && <span className="text-xs bg-red-600 text-white px-1.5 py-0.5 rounded font-bold">URGENTE</span>}
+              <p className="font-medium text-slate-800 text-sm">
+                {r.nomePaciente}
+              </p>
+              {r.urgente && (
+                <span className="text-xs bg-red-600 text-white px-1.5 py-0.5 rounded font-bold">
+                  URGENTE
+                </span>
+              )}
             </div>
             <p className="text-xs text-slate-400">
-              {r.tipoConsulta === 'ja_faco_prep' ? 'Já faz PrEP' : 'Primeiro atendimento'} · {fmt.date(r.createdAt)}
+              {r.tipoConsulta === "ja_faco_prep"
+                ? "Já faz PrEP"
+                : "Primeiro atendimento"}{" "}
+              · {fmt.date(r.createdAt)}
             </p>
-            {r.motivoRejeicao && <p className="text-xs text-amber-600 mt-0.5 truncate">{r.motivoRejeicao}</p>}
+            {r.motivoRejeicao && (
+              <p className="text-xs text-amber-600 mt-0.5 truncate">
+                {r.motivoRejeicao}
+              </p>
+            )}
           </button>
         ))}
       </aside>
 
       {/* Detail */}
       <main className="flex-1 overflow-y-auto p-6">
-        {!selecionada && <div className="flex items-center justify-center h-full text-slate-400">Selecione um exame para revisar</div>}
+        {!selecionada && (
+          <div className="flex items-center justify-center h-full text-slate-400">
+            Selecione um exame para revisar
+          </div>
+        )}
 
         {selecionada && (
           <div className="max-w-2xl space-y-4">
             {selecionada.urgente && (
               <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center gap-3">
                 <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center shrink-0">
-                  <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M12 3a9 9 0 100 18A9 9 0 0012 3z" />
+                  <svg
+                    className="w-5 h-5 text-red-600"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 9v2m0 4h.01M12 3a9 9 0 100 18A9 9 0 0012 3z"
+                    />
                   </svg>
                 </div>
                 <div>
-                  <p className="font-semibold text-red-700">Atenção — Exame URGENTE</p>
-                  <p className="text-red-600 text-sm">Resultado HIV possivelmente reagente. Requer avaliação imediata.</p>
+                  <p className="font-semibold text-red-700">
+                    Atenção — Exame URGENTE
+                  </p>
+                  <p className="text-red-600 text-sm">
+                    Resultado HIV possivelmente reagente. Requer avaliação
+                    imediata.
+                  </p>
                 </div>
               </div>
             )}
 
             <div className="bg-white rounded-2xl border border-slate-200 p-5">
-              <h3 className="font-semibold text-slate-700 mb-3">Dados do paciente</h3>
+              <h3 className="font-semibold text-slate-700 mb-3">
+                Dados do paciente
+              </h3>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <Item label="Nome" value={selecionada.nomePaciente} />
                 <Item label="E-mail" value={selecionada.patientEmail} />
-                <Item label="Tipo de consulta" value={selecionada.tipoConsulta === 'ja_faco_prep' ? 'Já faz PrEP' : 'Primeiro atendimento'} />
-                <Item label="Tentativas" value={`${selecionada.tentativasReenvio ?? 0}`} />
+                <Item
+                  label="Tipo de consulta"
+                  value={
+                    selecionada.tipoConsulta === "ja_faco_prep"
+                      ? "Já faz PrEP"
+                      : "Primeiro atendimento"
+                  }
+                />
+                <Item
+                  label="Tentativas"
+                  value={`${selecionada.tentativasReenvio ?? 0}`}
+                />
               </div>
             </div>
 
             {ia && (
               <div className="bg-white rounded-2xl border border-slate-200 p-5">
-                <h3 className="font-semibold text-slate-700 mb-3">Análise automática (IA)</h3>
+                <h3 className="font-semibold text-slate-700 mb-3">
+                  Análise automática (IA)
+                </h3>
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <Item label="Nome no exame" value={ia.nomeExame} />
                   <Item label="Resultado HIV" value={ia.resultadoHiv} />
                   <Item label="Data do exame" value={ia.dataExame} />
-                  <Item label="Confiança" value={ia.confianca != null ? `${Math.round(ia.confianca * 100)}%` : null} />
+                  <Item
+                    label="Confiança"
+                    value={
+                      ia.confianca != null
+                        ? `${Math.round(ia.confianca * 100)}%`
+                        : null
+                    }
+                  />
                 </div>
                 {selecionada.motivoRejeicao && (
                   <div className="mt-3 bg-amber-50 border border-amber-200 rounded-xl p-3">
                     <p className="text-amber-800 text-sm">
-                      <strong>Motivo da revisão:</strong> {selecionada.motivoRejeicao}
+                      <strong>Motivo da revisão:</strong>{" "}
+                      {selecionada.motivoRejeicao}
                     </p>
                   </div>
                 )}
@@ -520,15 +775,27 @@ function ExamesInicioTab({ revisoes }: { revisoes: Array<any> | undefined }) {
 
             {selecionada.urlExame && (
               <div className="bg-white rounded-2xl border border-slate-200 p-5">
-                <h3 className="font-semibold text-slate-700 mb-3">Arquivo enviado</h3>
+                <h3 className="font-semibold text-slate-700 mb-3">
+                  Arquivo enviado
+                </h3>
                 <a
                   href={selecionada.urlExame}
                   target="_blank"
                   rel="noreferrer"
                   className="inline-flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium px-4 py-2.5 rounded-xl transition-colors"
                 >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                    />
                   </svg>
                   Abrir exame (expira em 10 min)
                 </a>
@@ -540,26 +807,74 @@ function ExamesInicioTab({ revisoes }: { revisoes: Array<any> | undefined }) {
 
               {!selecionada.urgente ? (
                 <div className="grid grid-cols-2 gap-2">
-                  <AcaoBtn label="Aprovar exame" acao="aprovar" selected={acao} onSelect={setAcao} color="green" />
-                  <AcaoBtn label="Recusar exame" acao="recusar" selected={acao} onSelect={setAcao} color="red" />
-                  <AcaoBtn label="Solicitar reenvio" acao="solicitar_reenvio" selected={acao} onSelect={setAcao} color="amber" />
-                  <AcaoBtn label="Recomendar consulta" acao="recomendar_consulta" selected={acao} onSelect={setAcao} color="slate" />
+                  <AcaoBtn
+                    label="Aprovar exame"
+                    acao="aprovar"
+                    selected={acao}
+                    onSelect={setAcao}
+                    color="green"
+                  />
+                  <AcaoBtn
+                    label="Recusar exame"
+                    acao="recusar"
+                    selected={acao}
+                    onSelect={setAcao}
+                    color="red"
+                  />
+                  <AcaoBtn
+                    label="Solicitar reenvio"
+                    acao="solicitar_reenvio"
+                    selected={acao}
+                    onSelect={setAcao}
+                    color="amber"
+                  />
+                  <AcaoBtn
+                    label="Recomendar consulta"
+                    acao="recomendar_consulta"
+                    selected={acao}
+                    onSelect={setAcao}
+                    color="slate"
+                  />
                 </div>
               ) : (
                 <div className="grid grid-cols-1 gap-2">
-                  <AcaoBtn label="Encaminhar para atendimento" acao="encaminhar_especialista" selected={acao} onSelect={setAcao} color="red" />
-                  <AcaoBtn label="Solicitar confirmação (possível falso +)" acao="solicitar_confirmacao" selected={acao} onSelect={setAcao} color="amber" />
-                  <AcaoBtn label="Recusar PrEP" acao="recusar" selected={acao} onSelect={setAcao} color="slate" />
+                  <AcaoBtn
+                    label="Encaminhar para atendimento"
+                    acao="encaminhar_especialista"
+                    selected={acao}
+                    onSelect={setAcao}
+                    color="red"
+                  />
+                  <AcaoBtn
+                    label="Solicitar confirmação (possível falso +)"
+                    acao="solicitar_confirmacao"
+                    selected={acao}
+                    onSelect={setAcao}
+                    color="amber"
+                  />
+                  <AcaoBtn
+                    label="Recusar PrEP"
+                    acao="recusar"
+                    selected={acao}
+                    onSelect={setAcao}
+                    color="slate"
+                  />
                 </div>
               )}
 
-              {acao === 'aprovar' && (
+              {acao === "aprovar" && (
                 <div className="grid grid-cols-2 gap-3 p-3 bg-green-50 rounded-xl border border-green-200">
                   <div>
-                    <label className="block text-xs text-green-700 font-medium mb-1">Resultado HIV (confirmar)</label>
+                    <label className="block text-xs text-green-700 font-medium mb-1">
+                      Resultado HIV (confirmar)
+                    </label>
                     <select
                       value={resultadoHivManual}
-                      onChange={(e) => setResultadoHivManual(e.target.value as 'reagente' | 'nao_reagente' | '')}
+                      onChange={(e) =>
+                        setResultadoHivManual(
+                          e.target.value as "reagente" | "nao_reagente" | "",
+                        )
+                      }
                       className="w-full border border-green-300 bg-white rounded-lg px-2 py-1.5 text-sm"
                     >
                       <option value="">Não alterar</option>
@@ -568,15 +883,26 @@ function ExamesInicioTab({ revisoes }: { revisoes: Array<any> | undefined }) {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs text-green-700 font-medium mb-1">Data do exame (DD/MM/AAAA)</label>
-                    <input type="text" value={dataExameManual} onChange={(e) => setDataExameManual(e.target.value)} placeholder="15/04/2026" className="w-full border border-green-300 rounded-lg px-2 py-1.5 text-sm" />
+                    <label className="block text-xs text-green-700 font-medium mb-1">
+                      Data do exame (DD/MM/AAAA)
+                    </label>
+                    <input
+                      type="text"
+                      value={dataExameManual}
+                      onChange={(e) => setDataExameManual(e.target.value)}
+                      placeholder="15/04/2026"
+                      className="w-full border border-green-300 rounded-lg px-2 py-1.5 text-sm"
+                    />
                   </div>
                 </div>
               )}
 
               <div>
                 <label className="block text-xs text-slate-600 font-medium mb-1">
-                  Comentário do médico <span className="text-slate-400">(mínimo 10 caracteres, obrigatório)</span>
+                  Comentário do médico{" "}
+                  <span className="text-slate-400">
+                    (mínimo 10 caracteres, obrigatório)
+                  </span>
                 </label>
                 <textarea
                   value={comentario}
@@ -585,24 +911,30 @@ function ExamesInicioTab({ revisoes }: { revisoes: Array<any> | undefined }) {
                   className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Descreva o resultado da análise, orientações…"
                 />
-                <p className="text-xs text-slate-400 mt-1">{comentario.length}/10 mínimo</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  {comentario.length}/10 mínimo
+                </p>
               </div>
 
-              {validarMut.error && <p className="text-red-600 text-sm" role="alert">{traduzirErroTrpc(validarMut.error)}</p>}
+              {validarMut.error && (
+                <p className="text-red-600 text-sm" role="alert">
+                  {traduzirErroTrpc(validarMut.error)}
+                </p>
+              )}
 
               <button
                 onClick={submeter}
                 disabled={!podeSubmeter || validarMut.isPending}
                 className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition-colors"
               >
-                {validarMut.isPending ? 'Enviando…' : 'Confirmar decisão →'}
+                {validarMut.isPending ? "Enviando…" : "Confirmar decisão →"}
               </button>
             </div>
           </div>
         )}
       </main>
     </div>
-  )
+  );
 }
 
 function AcaoBtn({
@@ -612,59 +944,86 @@ function AcaoBtn({
   onSelect,
   color,
 }: {
-  label: string
-  acao: Acao
-  selected: Acao | null
-  onSelect: (a: Acao) => void
-  color: 'green' | 'red' | 'amber' | 'slate'
+  label: string;
+  acao: Acao;
+  selected: Acao | null;
+  onSelect: (a: Acao) => void;
+  color: "green" | "red" | "amber" | "slate";
 }) {
-  const isSelected = selected === acao
+  const isSelected = selected === acao;
   const styles = {
-    green: isSelected ? 'bg-green-600 text-white border-green-600' : 'bg-white text-green-700 border-green-300 hover:bg-green-50',
-    red: isSelected ? 'bg-red-600 text-white border-red-600' : 'bg-white text-red-700 border-red-300 hover:bg-red-50',
-    amber: isSelected ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-amber-700 border-amber-300 hover:bg-amber-50',
-    slate: isSelected ? 'bg-slate-600 text-white border-slate-600' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100',
-  }
+    green: isSelected
+      ? "bg-green-600 text-white border-green-600"
+      : "bg-white text-green-700 border-green-300 hover:bg-green-50",
+    red: isSelected
+      ? "bg-red-600 text-white border-red-600"
+      : "bg-white text-red-700 border-red-300 hover:bg-red-50",
+    amber: isSelected
+      ? "bg-amber-500 text-white border-amber-500"
+      : "bg-white text-amber-700 border-amber-300 hover:bg-amber-50",
+    slate: isSelected
+      ? "bg-slate-600 text-white border-slate-600"
+      : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100",
+  };
   return (
-    <button onClick={() => onSelect(acao)} className={`border-2 rounded-xl px-3 py-2.5 text-sm font-medium transition-all text-left ${styles[color]}`}>
+    <button
+      onClick={() => onSelect(acao)}
+      className={`border-2 rounded-xl px-3 py-2.5 text-sm font-medium transition-all text-left ${styles[color]}`}
+    >
       {label}
     </button>
-  )
+  );
 }
 
-function Item({ label, value }: { label: string; value: string | null | undefined }) {
+function Item({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | null | undefined;
+}) {
   return (
     <div>
       <dt className="text-xs text-slate-400">{label}</dt>
-      <dd className="text-slate-700">{value ?? '—'}</dd>
+      <dd className="text-slate-700">{value ?? "—"}</dd>
     </div>
-  )
+  );
 }
 
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
-    rascunho: 'bg-slate-100 text-slate-500',
-    pendente: 'bg-yellow-100 text-yellow-700',
-    em_revisao: 'bg-blue-100 text-blue-700',
-    aprovado: 'bg-green-100 text-green-700',
-    rejeitado: 'bg-red-100 text-red-700',
-  }
+    rascunho: "bg-slate-100 text-slate-500",
+    pendente: "bg-yellow-100 text-yellow-700",
+    em_revisao: "bg-blue-100 text-blue-700",
+    aprovado: "bg-green-100 text-green-700",
+    rejeitado: "bg-red-100 text-red-700",
+  };
   return (
-    <span className={`inline-block mt-1.5 text-xs px-2 py-0.5 rounded-full font-medium ${colors[status] ?? 'bg-slate-100 text-slate-500'}`}>
+    <span
+      className={`inline-block mt-1.5 text-xs px-2 py-0.5 rounded-full font-medium ${colors[status] ?? "bg-slate-100 text-slate-500"}`}
+    >
       {status}
     </span>
-  )
+  );
 }
 
-function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
+function TabButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors ${active ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+      className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors ${active ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
     >
       {children}
     </button>
-  )
+  );
 }
 
 function SkeletonItem() {
@@ -673,12 +1032,14 @@ function SkeletonItem() {
       <div className="h-3.5 bg-slate-200 rounded w-3/4 mb-2" />
       <div className="h-2.5 bg-slate-100 rounded w-1/2" />
     </div>
-  )
+  );
 }
 
 function SkeletonBlock({ height }: { height: string }) {
   return (
-    <div className={`${height} bg-white rounded-2xl border border-slate-200 animate-pulse`}>
+    <div
+      className={`${height} bg-white rounded-2xl border border-slate-200 animate-pulse`}
+    >
       <div className="p-6 space-y-3">
         <div className="h-4 bg-slate-200 rounded w-1/3" />
         <div className="h-3 bg-slate-100 rounded w-full" />
@@ -686,5 +1047,5 @@ function SkeletonBlock({ height }: { height: string }) {
         <div className="h-3 bg-slate-100 rounded w-4/6" />
       </div>
     </div>
-  )
+  );
 }
