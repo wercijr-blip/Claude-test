@@ -54,18 +54,9 @@ export async function handleAsaasWebhook(
       : "NENHUM";
   log("INFO", "Webhook Asaas recebido", { headerUsado });
   if (!env.ASAAS_WEBHOOK_TOKEN) {
-    if (env.NODE_ENV === "production") {
-      log(
-        "ERROR",
-        "ASAAS_WEBHOOK_TOKEN não configurado — rejeitando webhook em produção",
-      );
-      res.status(503).json({ error: "Webhook não configurado" });
-      return;
-    }
-    log(
-      "WARN",
-      "ASAAS_WEBHOOK_TOKEN ausente — pulando verificação (não-produção)",
-    );
+    log("ERROR", "ASAAS_WEBHOOK_TOKEN não configurado — rejeitando webhook");
+    res.status(503).json({ error: "Webhook não configurado" });
+    return;
   } else {
     const expected = Buffer.from(env.ASAAS_WEBHOOK_TOKEN);
     const provided = Buffer.from(token ?? "");

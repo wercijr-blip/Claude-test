@@ -275,14 +275,16 @@ export const authRouter = router({
     const token = extractToken(ctx.req);
     if (token) {
       const { createHash } = await import("crypto");
-      const tokenHash = createHash("sha256")
-        .update(token)
-        .digest("hex")
-        .slice(0, 16);
+      // Must match the full-length hash used in context.ts — no truncation
+      const tokenHash = createHash("sha256").update(token).digest("hex");
       // Expire after 8h (max staff JWT lifetime)
       await redis
         .set(`jwt:revoked:${tokenHash}`, "1", "EX", 28_800)
-        .catch(() => {});
+        .catch((err) => {
+          logger.error("[auth] falha ao revogar token JWT no Redis", {
+            error: String(err),
+          });
+        });
     }
     return okEmpty();
   }),

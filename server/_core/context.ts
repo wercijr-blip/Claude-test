@@ -34,10 +34,12 @@ export async function createContext({
     try {
       revoked = await redis.get(`jwt:revoked:${tokenHash}`);
     } catch {
-      logger.warn("[auth] Redis unavailable — rejecting request", {
+      // Degrade gracefully — valid token allowed through when blocklist unreachable.
+      // Redis outage should not lock out all authenticated users.
+      logger.warn("[auth] Redis unavailable — skipping blocklist check", {
         path: req.path,
       });
-      return { req, session: null };
+      revoked = null;
     }
     if (revoked) return { req, session: null };
 
