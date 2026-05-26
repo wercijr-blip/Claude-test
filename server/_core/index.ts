@@ -366,9 +366,7 @@ app.use(
       res.status(503).json({ error: "OPS_TOKEN não configurado no servidor" });
       return;
     }
-    const token = (req.headers["x-ops-token"] ?? req.query["ops_token"]) as
-      | string
-      | undefined;
+    const token = req.headers["x-ops-token"] as string | undefined;
     if (token !== env.OPS_TOKEN) {
       res.status(401).json({ error: "Token inválido" });
       return;

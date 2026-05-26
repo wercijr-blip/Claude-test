@@ -53,12 +53,33 @@ export async function handleAsaasWebhook(
       ? "access_token"
       : "NENHUM";
   log("INFO", "Webhook Asaas recebido", { headerUsado });
-  if (env.ASAAS_WEBHOOK_TOKEN) {
+  if (!env.ASAAS_WEBHOOK_TOKEN) {
+    if (env.NODE_ENV === "production") {
+      log(
+        "ERROR",
+        "ASAAS_WEBHOOK_TOKEN não configurado — rejeitando webhook em produção",
+      );
+      res.status(503).json({ error: "Webhook não configurado" });
+      return;
+    }
+    log(
+      "WARN",
+      "ASAAS_WEBHOOK_TOKEN ausente — pulando verificação (não-produção)",
+    );
+  } else {
     const expected = Buffer.from(env.ASAAS_WEBHOOK_TOKEN);
     const provided = Buffer.from(token ?? "");
-    const valid =
-      expected.length === provided.length &&
-      timingSafeEqual(expected, provided);
+    // Pad to equal length before timingSafeEqual to avoid token-length oracle
+    const maxLen = Math.max(expected.length, provided.length);
+    const paddedExpected = Buffer.concat([
+      expected,
+      Buffer.alloc(maxLen - expected.length),
+    ]);
+    const paddedProvided = Buffer.concat([
+      provided,
+      Buffer.alloc(maxLen - provided.length),
+    ]);
+    const valid = timingSafeEqual(paddedExpected, paddedProvided);
     if (!valid) {
       log("ERROR", "Invalid ASAAS_WEBHOOK_TOKEN — returning 401");
       res.status(401).json({ error: "Unauthorized" });

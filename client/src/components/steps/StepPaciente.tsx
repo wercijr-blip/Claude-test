@@ -49,7 +49,7 @@ export default function StepPaciente({
     formState: { errors },
   } = form;
   const { clearDraft } = useFormDraft(form, "step-paciente-draft", {
-    omitFields: ["cpf", "dataNascimento", "nomeMae"],
+    omitFields: ["cpf", "dataNascimento", "nomeMae", "sexo"],
   });
 
   const salvar = trpc.paciente.salvarStep1.useMutation({
