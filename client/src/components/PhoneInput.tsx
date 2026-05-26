@@ -19,12 +19,12 @@ export function PhoneInput({
   return (
     <IntlPhoneInput
       defaultCountry="br"
-      hideDropdown
+      preferredCountries={["br"]}
       value={value}
       onChange={(phone) => onChange(phone)}
-      inputClassName={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${hasError ? "border-red-400 focus:ring-red-400" : "border-slate-300"} ${className ?? ""}`}
+      inputClassName={`w-full px-3 py-2 border rounded-r-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${hasError ? "border-red-400 focus:ring-red-400" : "border-slate-300"} ${className ?? ""}`}
       countrySelectorStyleProps={{
-        buttonClassName: `border border-slate-300 rounded-l-lg px-2 h-full cursor-default ${hasError ? "border-red-400" : ""}`,
+        buttonClassName: `border border-slate-300 rounded-l-lg px-2 h-full cursor-pointer hover:bg-slate-50 ${hasError ? "border-red-400" : ""}`,
       }}
       required={required}
     />
