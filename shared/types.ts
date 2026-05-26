@@ -71,8 +71,10 @@ export interface SbisMetadata {
     rqe: string;
     especialidade: string;
   };
-  /** Grau de confiança mapeado do score numérico — BPIA.02 */
-  grauConfianca: "Alto" | "Moderado" | "Baixo";
+  /** Grau de confiança mapeado do score numérico — BPIA.02 / Seção 2.4 v2.0 */
+  grauConfianca: "Alto" | "Moderado" | "Baixo" | "Insuficiente";
+  /** Versão do guideline SBIS aplicado — ECF.NOVO */
+  guidelinesVersion?: string;
   /** Diretrizes clínicas que fundamentam a análise — BPIA.04 */
   fundamentacao: string[];
   /** Limitações conhecidas desta análise — BPIA.04 */

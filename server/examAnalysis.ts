@@ -12,6 +12,7 @@ import {
   validateExameQuality,
   detectPromptInjection,
   buildSbisMetadata,
+  buildSbisSystemPrompt,
   isResultadoAnomalos,
   logIaAnalise,
   logIaAnomalia,
@@ -118,24 +119,19 @@ const iaResponseSchema = z.object({
 });
 
 export function buildLlmRequest(imageUrl: string) {
-  const prompt =
-    `Você é um assistente médico especializado em análise de exames laboratoriais.\n` +
-    `Analise o resultado do exame na imagem e retorne um JSON com:\n` +
-    `- tipoExame: tipo do exame detectado (hiv, hepatite_b, hepatite_c, sifilis, creatinina, outro)\n` +
-    `- resultado: "reagente", "nao_reagente", "inconclusivo" ou "nao_identificado"\n` +
-    `- confianca: número de 0 a 1 indicando confiança na análise\n` +
-    `- observacoes: string com observações relevantes (opcional)\n\n` +
-    `Responda APENAS com o JSON, sem texto adicional.`;
-
   return {
     model: SBIS_MODEL_VERSION,
     max_tokens: 500,
+    system: buildSbisSystemPrompt(),
     messages: [
       {
         role: "user",
         content: [
           { type: "image", source: { type: "url", url: imageUrl } },
-          { type: "text", text: prompt },
+          {
+            type: "text",
+            text: "Analise o resultado do exame nesta imagem e retorne o JSON conforme especificado. [GERADO POR IA — APOIO_CLÍNICO]",
+          },
         ],
       },
     ],
