@@ -30,8 +30,8 @@ export default defineConfig({
       thresholds: {
         // Calibrated to actual measured coverage. Raise incrementally — do not lower below these values.
         lines: 10,
-        functions: 40,
-        branches: 70,
+        functions: 41,
+        branches: 72,
       },
     },
   },

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { env } from './_core/env.ts'
+import { isEnabled } from './_core/featureFlags.ts'
 import { logger } from './_core/logger.ts'
 import { redis } from './_core/redis.ts'
 import { db } from './db.ts'
@@ -33,6 +34,9 @@ const iaResponseSchema = z.object({
 })
 
 export async function analisarExame(exameId: number): Promise<ResultadoIa> {
+  if (!isEnabled('EXAM_AI_ANALYSIS')) {
+    throw new Error('Análise por IA desativada — encaminhar para revisão manual do médico')
+  }
   await checkDailyLimit()
 
   const [exame] = await db.select().from(exames).where(eq(exames.id, exameId)).limit(1)

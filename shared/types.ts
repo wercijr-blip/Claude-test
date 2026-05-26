@@ -79,6 +79,7 @@ export interface AuthUser {
   nome: string | null
   email: string | null
   role: Role
+  totpEnabled: boolean
 }
 
 export interface PatientSession {

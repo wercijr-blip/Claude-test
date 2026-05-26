@@ -65,6 +65,7 @@ export async function createContext({ req }: { req: Request }): Promise<Context>
           nome: user.nome,
           email: user.email,
           role: user.role as AuthUser['role'],
+          totpEnabled: user.totpEnabled,
         },
       }
     }
