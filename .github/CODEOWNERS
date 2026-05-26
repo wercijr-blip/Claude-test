@@ -1,0 +1,24 @@
+# Global owner — required review on every PR
+* @wercijr-blip
+
+# ICP-Brasil digital signature — any change here requires
+# the responsible physician's explicit sign-off.
+/server/pdfSigner.ts @wercijr-blip
+/server/certs/ @wercijr-blip
+
+# Security-critical paths
+/server/_core/encryption.ts @wercijr-blip
+/server/_core/security.ts @wercijr-blip
+/server/_core/trpc.ts @wercijr-blip
+/server/_core/context.ts @wercijr-blip
+/server/_core/env.ts @wercijr-blip
+
+# Payments and webhook
+/server/asaas/ @wercijr-blip
+
+# Database schema — requires migration awareness
+/drizzle/schema.ts @wercijr-blip
+/drizzle/*.sql @wercijr-blip
+
+# CI/CD and supply chain
+/.github/ @wercijr-blip
