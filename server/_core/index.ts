@@ -22,7 +22,7 @@ import type { Worker } from 'bullmq'
 let _activeWorkers: Worker[] = []
 
 // Protects ops-only endpoints. No-op when OPS_TOKEN is not configured (dev).
-function requireOpsToken(req: express.Request, res: express.Response, next: express.NextFunction) {
+function _requireOpsToken(req: express.Request, res: express.Response, next: express.NextFunction) {
   if (!env.OPS_TOKEN) { next(); return }
   if (req.headers['x-ops-token'] !== env.OPS_TOKEN) {
     res.status(401).json({ error: 'Não autorizado' })

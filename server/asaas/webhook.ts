@@ -1,4 +1,4 @@
-import { timingSafeEqual, randomUUID } from 'crypto'
+import { timingSafeEqual } from 'crypto'
 import type { Request, Response } from 'express'
 import { env } from '../_core/env.ts'
 import { db } from '../db.ts'
