@@ -290,7 +290,7 @@ app.get('/api/health/version', (_req, res) => {
 // OPS_TOKEN must be set in production; warn fires on boot if missing (env.ts).
 app.use(['/api/metrics', '/api/health/observability', '/api/admin/usage'], (req, res, next) => {
   if (!env.OPS_TOKEN) { res.status(503).json({ error: 'OPS_TOKEN não configurado no servidor' }); return }
-  const token = (req.headers['x-ops-token'] ?? req.query['ops_token']) as string | undefined
+  const token = req.headers['x-ops-token'] as string | undefined
   if (token !== env.OPS_TOKEN) { res.status(401).json({ error: 'Token inválido' }); return }
   next()
 })

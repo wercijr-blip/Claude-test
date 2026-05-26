@@ -68,7 +68,7 @@ jobs:
           NODE_ENV: production
 
   deploy-staging:
-    needs: validate
+    needs: test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment: staging

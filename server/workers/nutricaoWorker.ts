@@ -26,6 +26,10 @@ import * as Sentry from '@sentry/node'
 
 // ─── Email templates ──────────────────────────────────────────────────────────
 
+function escHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
 function templateDia1(nome: string, appUrl: string): { subject: string; html: string } {
   return {
     subject: `${nome}, tire suas dúvidas sobre PrEP`,
@@ -108,11 +112,13 @@ function templateDia14(nome: string, appUrl: string): { subject: string; html: s
 }
 
 function getTemplate(diasDesdeRegistro: number, nome: string, appUrl: string) {
-  if (diasDesdeRegistro <= 1)  return templateDia1(nome, appUrl)
-  if (diasDesdeRegistro <= 2)  return templateDia2(nome, appUrl)
-  if (diasDesdeRegistro <= 3)  return templateDia3(nome, appUrl)
-  if (diasDesdeRegistro <= 7)  return templateDia7(nome, appUrl)
-  return templateDia14(nome, appUrl)
+  const safeName = escHtml(nome)
+  const safeUrl = appUrl.startsWith('https://') ? appUrl : 'https://facilitaprep.com.br'
+  if (diasDesdeRegistro <= 1)  return templateDia1(safeName, safeUrl)
+  if (diasDesdeRegistro <= 2)  return templateDia2(safeName, safeUrl)
+  if (diasDesdeRegistro <= 3)  return templateDia3(safeName, safeUrl)
+  if (diasDesdeRegistro <= 7)  return templateDia7(safeName, safeUrl)
+  return templateDia14(safeName, safeUrl)
 }
 
 function diasEntre(from: Date, to: Date): number {
