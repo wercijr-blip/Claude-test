@@ -22,6 +22,10 @@ vi.mock("./_core/env.ts", () => ({
     LLM_DAILY_LIMIT: 5,
     BUILT_IN_FORGE_API_URL: "https://api.anthropic.com",
     BUILT_IN_FORGE_API_KEY: "sk-ant-test",
+    FF_EXAM_AI_ANALYSIS: true,
+    FF_NUTRICAO_EMAILS: true,
+    FF_REQUIRE_MFA_PRESCRIBERS: false,
+    FF_ASAAS_NFSE: true,
   },
 }));
 

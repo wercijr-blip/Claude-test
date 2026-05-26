@@ -92,6 +92,7 @@ const medicoCtx = {
     nome: "Dr. A",
     email: null,
     role: "medico" as const,
+    totpEnabled: true,
   },
   req: {} as never,
 };
@@ -104,6 +105,7 @@ const adminCtx = {
     nome: "Admin",
     email: null,
     role: "admin" as const,
+    totpEnabled: true,
   },
   req: {} as never,
 };

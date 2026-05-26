@@ -86,6 +86,10 @@ vi.mock("../_core/env.ts", () => ({
     RESEND_API_KEY: "test-key",
     APP_URL: "https://facilitaprep.com.br",
     EMAIL_FROM: "noreply@facilitaprep.com.br",
+    FF_EXAM_AI_ANALYSIS: true,
+    FF_NUTRICAO_EMAILS: true,
+    FF_REQUIRE_MFA_PRESCRIBERS: false,
+    FF_ASAAS_NFSE: true,
   },
 }));
 vi.mock("../_core/logger.ts", () => ({

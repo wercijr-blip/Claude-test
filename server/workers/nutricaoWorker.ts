@@ -29,6 +29,7 @@ import {
   nutricaoQueue,
   persistDlq,
 } from "./queues.ts";
+import { isEnabled } from "../_core/featureFlags.ts";
 import * as Sentry from "@sentry/node";
 
 // ─── Email templates ──────────────────────────────────────────────────────────
@@ -167,6 +168,13 @@ export async function agendarNutricaoDiaria() {
 }
 
 async function executarNutricao() {
+  if (!isEnabled("NUTRICAO_EMAILS")) {
+    logger.info(
+      "[nutricao] Campanha desativada via feature flag — nenhum e-mail enviado",
+    );
+    return { leads: 0, enviados: 0 };
+  }
+
   const agora = new Date();
   const umDiaAtras = new Date(agora.getTime() - 1 * 24 * 60 * 60 * 1000);
   const quatorzeDiasAtras = new Date(

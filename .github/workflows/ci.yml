@@ -49,6 +49,10 @@ jobs:
           process.env.GOOGLE_CLIENT_ID = 'test'
           process.env.GOOGLE_CLIENT_SECRET = 'test'
           process.env.OWNER_OPEN_ID = 'test'
+          process.env.FF_EXAM_AI_ANALYSIS = 'true'
+          process.env.FF_NUTRICAO_EMAILS = 'true'
+          process.env.FF_REQUIRE_MFA_PRESCRIBERS = 'false'
+          process.env.FF_ASAAS_NFSE = 'true'
           const { env } = await import('./server/_core/env.ts')
           console.log('✅ Env schema OK — NODE_ENV:', env.NODE_ENV)
         EOF
@@ -105,6 +109,16 @@ jobs:
         env:
           VITE_APP_ID: facilita-prep
           NODE_ENV: production
+
+      - name: Generate SBOM
+        run: pnpm licenses list --prod --json > sbom.json
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: sbom-${{ github.sha }}
+          path: sbom.json
+          retention-days: 90
 
   deploy-staging:
     needs: validate

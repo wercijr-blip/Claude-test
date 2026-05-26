@@ -31,10 +31,9 @@ export default defineConfig({
         "server/scripts/**",
       ],
       thresholds: {
-        // Raised after adding worker tests (pesquisa, linkAcesso, nutricao) and a11y tests.
-        // Do not lower these values.
-        lines: 16,
-        functions: 51,
+        // Raised to track actual coverage — do not lower these values.
+        lines: 19,
+        functions: 57,
         branches: 77,
       },
     },

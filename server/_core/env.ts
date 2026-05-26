@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { z } from "zod";
 
 const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
@@ -12,24 +12,24 @@ const envSchema = z.object({
 
   AWS_ACCESS_KEY_ID: z.string().min(1),
   AWS_SECRET_ACCESS_KEY: z.string().min(1),
-  AWS_REGION: z.string().default('sa-east-1'),
+  AWS_REGION: z.string().default("sa-east-1"),
   AWS_S3_BUCKET: z.string().min(1),
 
   RESEND_API_KEY: z.string().optional(),
-  EMAIL_FROM: z.string().default('Facilita PrEP <noreply@facilitaprep.com.br>'),
+  EMAIL_FROM: z.string().default("Facilita PrEP <noreply@facilitaprep.com.br>"),
 
   ASAAS_API_KEY: z.string().optional(),
-  ASAAS_ENV: z.enum(['sandbox', 'production']).default('sandbox'),
+  ASAAS_ENV: z.enum(["sandbox", "production"]).default("sandbox"),
   ASAAS_WEBHOOK_TOKEN: z.string().optional(),
 
   // Valor da consulta em reais (ex: 150). Alterável via Railway sem deploy de código.
   CONSULTA_VALOR: z.coerce.number().positive().default(150),
 
-  BUILT_IN_FORGE_API_URL: z.string().url().default('https://api.anthropic.com'),
+  BUILT_IN_FORGE_API_URL: z.string().url().default("https://api.anthropic.com"),
   BUILT_IN_FORGE_API_KEY: z.string().optional(),
   LLM_DAILY_LIMIT: z.coerce.number().int().positive().default(200),
 
-  REDIS_URL: z.string().default('redis://localhost:6379'),
+  REDIS_URL: z.string().default("redis://localhost:6379"),
 
   // Certificado ICP-Brasil (Railway: base64 do .pfx; dev: arquivo em server/certs/)
   ICP_PFX_BASE64: z.string().optional(),
@@ -43,18 +43,20 @@ const envSchema = z.object({
   STAFF_WHATSAPP_MEDICOS: z.string().optional(),
   STAFF_WHATSAPP_SECRETARIAS: z.string().optional(),
 
-  MEDICO_NOME: z.string().default('Werciley Saraiva Vieira Junior'),
-  MEDICO_CRM: z.string().default('16381'),
-  MEDICO_CRM_UF: z.string().default('DF'),
-  MEDICO_CRM_TIPO: z.string().default('CRM'),
+  MEDICO_NOME: z.string().default("Werciley Saraiva Vieira Junior"),
+  MEDICO_CRM: z.string().default("16381"),
+  MEDICO_CRM_UF: z.string().default("DF"),
+  MEDICO_CRM_TIPO: z.string().default("CRM"),
 
-  SUS_CNES: z.string().default('9843744'),
+  SUS_CNES: z.string().default("9843744"),
 
-  APP_URL: z.string().url().default('https://www.facilitaprep.com.br'),
+  APP_URL: z.string().url().default("https://www.facilitaprep.com.br"),
   ALLOWED_ORIGINS: z.string().optional(),
 
   PORT: z.coerce.number().default(3000),
-  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  NODE_ENV: z
+    .enum(["development", "production", "test"])
+    .default("development"),
   // Set to false when running a dedicated worker service (server/workers.ts).
   // Defaults to true so single-service deploys work without extra config.
   WORKERS_ENABLED: z.coerce.boolean().default(true),
@@ -62,7 +64,7 @@ const envSchema = z.object({
   // Sentry — optional, wired up in a separate PR once DSNs are available
   SENTRY_DSN_SERVER: z.string().url().optional(),
   SENTRY_DSN_WEB: z.string().url().optional(),
-  SENTRY_ENVIRONMENT: z.string().default('production'),
+  SENTRY_ENVIRONMENT: z.string().default("production"),
 
   // TOTP 2FA — chave AES separada para encriptar segredos TOTP
   // Gerar com: openssl rand -hex 32
@@ -86,27 +88,42 @@ const envSchema = z.object({
   // Admin alert email — receives LLM quota warnings and retention purge reports.
   // Falls back to silence if unset.
   ADMIN_EMAIL: z.string().email().optional(),
-})
 
-const parsed = envSchema.safeParse(process.env)
+  // ── Feature flags — toggle via Railway without code deploy ────────────────
+  // FF_EXAM_AI_ANALYSIS: disable to fall back to manual review (default: on)
+  FF_EXAM_AI_ANALYSIS: z.coerce.boolean().default(true),
+  // FF_NUTRICAO_EMAILS: disable lead-nurturing drip to pause email campaigns
+  FF_NUTRICAO_EMAILS: z.coerce.boolean().default(true),
+  // FF_REQUIRE_MFA_PRESCRIBERS: enforce TOTP for medico/admin (default: off).
+  // Enable only after all prescribers have 2FA configured.
+  FF_REQUIRE_MFA_PRESCRIBERS: z.coerce.boolean().default(false),
+  // FF_ASAAS_NFSE: control NFS-e emission via Asaas on payment confirmed
+  FF_ASAAS_NFSE: z.coerce.boolean().default(true),
+});
+
+const parsed = envSchema.safeParse(process.env);
 
 if (!parsed.success) {
-  console.error('❌ Variáveis de ambiente inválidas:')
-  console.error(JSON.stringify(parsed.error.flatten().fieldErrors, null, 2))
-  process.exit(1)
+  console.error("❌ Variáveis de ambiente inválidas:");
+  console.error(JSON.stringify(parsed.error.flatten().fieldErrors, null, 2));
+  process.exit(1);
 }
 
-export const env = parsed.data
+export const env = parsed.data;
 
 // Fail-fast if someone accidentally runs with NODE_ENV=development in production.
 // Railway sets NODE_ENV automatically; this catches misconfigurations.
-if (env.NODE_ENV === 'development' && process.env['RAILWAY_ENVIRONMENT']) {
-  console.error('❌ NODE_ENV=development detectado em ambiente Railway. Defina NODE_ENV=production.')
-  process.exit(1)
+if (env.NODE_ENV === "development" && process.env["RAILWAY_ENVIRONMENT"]) {
+  console.error(
+    "❌ NODE_ENV=development detectado em ambiente Railway. Defina NODE_ENV=production.",
+  );
+  process.exit(1);
 }
 
 // Require OPS_TOKEN in production — metrics and usage endpoints expose internal state.
-if (env.NODE_ENV === 'production' && !env.OPS_TOKEN) {
-  console.error('❌ OPS_TOKEN não configurado em produção. Defina OPS_TOKEN (mín 32 chars) no Railway.')
-  process.exit(1)
+if (env.NODE_ENV === "production" && !env.OPS_TOKEN) {
+  console.error(
+    "❌ OPS_TOKEN não configurado em produção. Defina OPS_TOKEN (mín 32 chars) no Railway.",
+  );
+  process.exit(1);
 }

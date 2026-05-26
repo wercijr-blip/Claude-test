@@ -71,6 +71,7 @@ export async function createContext({
           nome: user.nome,
           email: user.email,
           role: user.role as AuthUser["role"],
+          totpEnabled: user.totpEnabled,
         },
       };
     }
