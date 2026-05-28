@@ -60,7 +60,7 @@ async function salvarEtapa(
 ): Promise<void> {
   const result = await db
     .update(pacientes)
-    .set({ ...fields, currentStep: sql`GREATEST(currentStep, ${nextStep})`, updatedAt: new Date() })
+    .set({ ...fields, currentStep: sql`GREATEST(\`current_step\`, ${nextStep})`, updatedAt: new Date() })
     .where(and(
       eq(pacientes.id, pacienteId),
       eq(pacientes.tokenId, tokenId),
@@ -192,7 +192,7 @@ export const pacienteRouter = router({
           nomeSocial: input.nomeSocial,
           tipoAtendimento,
           convenio,
-          currentStep: sql`GREATEST(currentStep, 2)`,
+          currentStep: sql`GREATEST(\`current_step\`, 2)`,
           updatedAt: new Date(),
         },
       })
