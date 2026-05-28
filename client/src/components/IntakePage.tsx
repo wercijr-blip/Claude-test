@@ -23,7 +23,9 @@ function isDentroHorarioAtendimento(): boolean {
 
 const schema = z.object({
   nome: z.string().min(2, 'Nome muito curto'),
-  telefone: z.string().regex(/^\+\d{8,15}$/, 'Use formato internacional: +5561999998888'),
+  // PhoneInput emits "" when only the dial code is present, or a full E.164 string.
+  // Validate presence here; format is guaranteed by the controlled PhoneInput component.
+  telefone: z.string().min(1, 'Informe o telefone celular'),
   cpf: z.string().min(11, 'CPF inválido'),
   email: z.string().email('E-mail inválido'),
   plano: z.string().optional(),

@@ -12,7 +12,9 @@ import { ESTADOS_BR } from '@shared/const.ts'
 const schema = z.object({
   pacienteId: z.number(),
   email: z.string().email('E-mail inválido'),
-  telefone: z.string().regex(/^\+\d{8,15}$/, 'Use formato internacional: +5561999998888'),
+  // PhoneInput emits "" when only the dial code is present, or a full E.164 string.
+  // Validate presence here; format is guaranteed by the controlled PhoneInput component.
+  telefone: z.string().min(1, 'Informe o telefone celular'),
   cep: z.string().regex(/^\d{8}$/, 'CEP deve ter 8 dígitos'),
   logradouro: z.string().min(2),
   numero: z.string().min(1),
