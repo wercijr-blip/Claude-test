@@ -30,7 +30,9 @@ function isDentroHorarioAtendimento(): boolean {
 
 const schema = z.object({
   nome: z.string().min(2, "Nome muito curto"),
-  telefone: z.string().min(10, "Telefone inválido"),
+  telefone: z
+    .string()
+    .refine((v) => v.replace(/\D/g, "").length >= 10, "Telefone inválido"),
   cpf: z.string().min(11, "CPF inválido"),
   email: z.string().email("E-mail inválido"),
   plano: z.string().optional(),
@@ -156,7 +158,7 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
     try {
       const result = await criar.mutateAsync({
         nome: data.nome,
-        telefone: data.telefone,
+        telefone: `+55${data.telefone.replace(/\D/g, "")}`,
         cpf: data.cpf.replace(/\D/g, ""),
         email: data.email,
         tipo,
