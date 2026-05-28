@@ -511,14 +511,19 @@ function ExamesInicioTab({ revisoes, isLoading }: { revisoes: Array<any> | undef
                   className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Descreva o resultado da análise, orientações…"
                 />
-                <p className="text-xs text-slate-400 mt-1">{comentario.length}/10 mínimo</p>
+                <p className={`text-xs mt-1 ${comentario.length < 10 ? 'text-amber-600 font-medium' : 'text-slate-400'}`}>
+                  {comentario.length}/10 mínimo{comentario.length < 10 && comentario.length > 0 ? ` — faltam ${10 - comentario.length} caracteres` : ''}
+                </p>
               </div>
 
               {validarMut.error && <p className="text-red-600 text-sm" role="alert">{traduzirErroTrpc(validarMut.error)}</p>}
 
+              {!acao && <p className="text-xs text-amber-600">Selecione uma ação acima para continuar.</p>}
+
               <button
                 onClick={submeter}
                 disabled={!podeSubmeter || validarMut.isPending}
+                title={!acao ? 'Selecione uma ação' : comentario.trim().length < 10 ? 'Preencha o comentário (mínimo 10 caracteres)' : ''}
                 className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition-colors"
               >
                 {validarMut.isPending ? 'Enviando…' : 'Confirmar decisão →'}

@@ -82,6 +82,20 @@ const envSchema = z.object({
   // META_CAPI_TOKEN: System User Access Token com permissão ads_management
   META_PIXEL_ID: z.string().min(1).optional(),
   META_CAPI_TOKEN: z.string().min(1).optional(),
+
+  // Admin alert email — receives LLM quota warnings and retention purge reports.
+  ADMIN_EMAIL: z.string().email().optional(),
+
+  // ── Feature flags — toggle via Railway without code deploy ────────────────
+  // FF_EXAM_AI_ANALYSIS: disable to fall back to manual review (default: on)
+  FF_EXAM_AI_ANALYSIS: z.coerce.boolean().default(true),
+  // FF_NUTRICAO_EMAILS: disable lead-nurturing drip to pause email campaigns
+  FF_NUTRICAO_EMAILS: z.coerce.boolean().default(true),
+  // FF_REQUIRE_MFA_PRESCRIBERS: enforce TOTP for medico/admin (default: off).
+  // Enable only after all prescribers have 2FA configured.
+  FF_REQUIRE_MFA_PRESCRIBERS: z.coerce.boolean().default(false),
+  // FF_ASAAS_NFSE: control NFS-e emission via Asaas on payment confirmed
+  FF_ASAAS_NFSE: z.coerce.boolean().default(true),
 })
 
 const parsed = envSchema.safeParse(process.env)
@@ -101,7 +115,8 @@ if (env.NODE_ENV === 'development' && process.env['RAILWAY_ENVIRONMENT']) {
   process.exit(1)
 }
 
-// Warn if ops endpoints are unprotected in production.
+// Require OPS_TOKEN in production — metrics and usage endpoints expose internal state.
 if (env.NODE_ENV === 'production' && !env.OPS_TOKEN) {
-  console.warn('⚠️  OPS_TOKEN não configurado — /api/metrics e /api/admin/usage estão sem autenticação.')
+  console.error('❌ OPS_TOKEN não configurado em produção. Defina OPS_TOKEN (mín 32 chars) no Railway.')
+  process.exit(1)
 }

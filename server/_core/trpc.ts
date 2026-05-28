@@ -1,6 +1,7 @@
 import { initTRPC, TRPCError } from '@trpc/server'
 import type { Context } from './context.ts'
 import type { AuthUser } from '../../shared/types.ts'
+import { isEnabled } from './featureFlags.ts'
 
 const t = initTRPC.context<Context>().create()
 
@@ -32,6 +33,12 @@ export const medicoProcedure = t.procedure.use(({ ctx, next }) => {
   const role = ctx.session.role
   if (!['medico', 'admin'].includes(role)) {
     throw new TRPCError({ code: 'FORBIDDEN' })
+  }
+  if (isEnabled('REQUIRE_MFA_PRESCRIBERS') && !ctx.session.totpEnabled) {
+    throw new TRPCError({
+      code: 'FORBIDDEN',
+      message: 'Autenticação de dois fatores obrigatória para prescritores. Configure o 2FA no seu perfil.',
+    })
   }
   return next({ ctx: { ...ctx, session: ctx.session as AuthUser } })
 })

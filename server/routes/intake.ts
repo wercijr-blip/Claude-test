@@ -121,22 +121,21 @@ export async function gerarLinkDeAcesso(precadastroId: number): Promise<{ raw: s
   if (!precad) throw new Error(`Pré-cadastro ${precadastroId} não encontrado`)
   if (!precad.accessTokenId) throw new Error(`Pré-cadastro ${precadastroId} sem token de acesso vinculado`)
 
-  const [token] = await db
-    .select({ expiresAt: accessTokens.expiresAt })
-    .from(accessTokens)
-    .where(eq(accessTokens.id, precad.accessTokenId))
-    .limit(1)
-
   const raw = generateToken()
   if (!raw) throw new Error(`gerarLinkDeAcesso: generateToken retornou vazio para precadastro ${precadastroId}`)
 
+  // Always extend expiry from now — original token may have already expired if patient
+  // registered >TOKEN_EXPIRY_DAYS ago (e.g. exam took >7 days to be reviewed).
+  const expiresAt = new Date()
+  expiresAt.setDate(expiresAt.getDate() + TOKEN_EXPIRY_DAYS)
+
   await db.update(accessTokens)
-    .set({ tokenHash: hashToken(raw) })
+    .set({ tokenHash: hashToken(raw), expiresAt })
     .where(eq(accessTokens.id, precad.accessTokenId))
 
   const link = `${env.APP_URL}/acesso/${raw}`
   logger.info('[intake] link de aprovação gerado', { precadastroId, linkSuffix: raw.slice(-6) })
-  return { raw, link, expiresAt: token?.expiresAt ?? new Date() }
+  return { raw, link, expiresAt }
 }
 
 export const intakeRouter = router({
