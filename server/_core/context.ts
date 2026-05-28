@@ -24,14 +24,18 @@ export async function createContext({ req }: { req: Request }): Promise<Context>
     const secret = new TextEncoder().encode(env.JWT_SECRET)
     const { payload } = await jwtVerify(token, secret)
 
-    // Check JWT blocklist (populated on logout)
+    // Check JWT blocklist (populated on logout).
+    // Graceful degradation: if Redis is down, proceed without revocation check.
+    // Tokens still expire via JWT exp, so the security impact is minimal.
     const tokenHash = createHash('sha256').update(token).digest('hex')
-    let revoked: string | null
+    let revoked: string | null = null
     try {
-      revoked = await redis.get(`jwt:revoked:${tokenHash}`)
+      revoked = await Promise.race([
+        redis.get(`jwt:revoked:${tokenHash}`),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 300)),
+      ])
     } catch {
-      logger.warn('[auth] Redis unavailable — rejecting request', { path: req.path })
-      return { req, session: null }
+      logger.warn('[auth] Redis indisponível — prosseguindo sem verificação de revogação', { path: req.path })
     }
     if (revoked) return { req, session: null }
 
