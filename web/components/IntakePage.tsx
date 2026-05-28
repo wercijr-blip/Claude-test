@@ -674,8 +674,18 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
                 CPF
               </label>
               <input
-                {...register("cpf")}
+                {...register("cpf", {
+                  onChange: (e: ChangeEvent<HTMLInputElement>) => {
+                    const d = e.target.value.replace(/\D/g, "").slice(0, 11);
+                    let v = d;
+                    if (d.length > 9) v = `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+                    else if (d.length > 6) v = `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
+                    else if (d.length > 3) v = `${d.slice(0, 3)}.${d.slice(3)}`;
+                    e.target.value = v;
+                  },
+                })}
                 id="intake-cpf"
+                inputMode="numeric"
                 className={inputCls}
                 placeholder="000.000.000-00"
               />
