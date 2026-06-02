@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    paths:
+      - 'atos-saude-bot/**'
+  pull_request:
+    paths:
+      - 'atos-saude-bot/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: atos-saude-bot
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+          cache-dependency-path: atos-saude-bot/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run tests
+        run: pnpm test
+        env:
+          DB_PATH: ':memory:'
+          JWT_SECRET: vitest-secret-minimo-32-chars-para-teste
+          NODE_ENV: test
+          EVOLUTION_URL: 'http://localhost:8080'
+          EVOLUTION_API_KEY: test-key
+          INSTANCE_NAME: test
+          ANTHROPIC_API_KEY: sk-ant-test
+
+      - name: Coverage report
+        run: pnpm exec vitest run --coverage --reporter=json --coverage.reporter=json-summary
+        env:
+          DB_PATH: ':memory:'
+          JWT_SECRET: vitest-secret-minimo-32-chars-para-teste
+          NODE_ENV: test
+          EVOLUTION_URL: 'http://localhost:8080'
+          EVOLUTION_API_KEY: test-key
+          INSTANCE_NAME: test
+          ANTHROPIC_API_KEY: sk-ant-test
+        continue-on-error: true
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: atos-saude-bot/coverage/
+          retention-days: 14
+
+      - name: Security audit
+        run: pnpm audit --audit-level=high
+        continue-on-error: true

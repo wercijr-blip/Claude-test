@@ -1,0 +1,33 @@
+services:
+  bot:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - bot-data:/data
+    env_file:
+      - .env
+    environment:
+      - DATA_DIR=/data
+      - NODE_ENV=development
+      - EVOLUTION_URL=http://evolution:8080
+    depends_on:
+      - evolution
+    restart: unless-stopped
+
+  evolution:
+    image: atendai/evolution-api:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - evolution-data:/evolution/instances
+    environment:
+      - AUTHENTICATION_TYPE=apikey
+      - AUTHENTICATION_API_KEY=dev-local-key-change-me
+      - DATABASE_ENABLED=false
+      - QRCODE_LIMIT=30
+    restart: unless-stopped
+
+volumes:
+  bot-data:
+  evolution-data:
