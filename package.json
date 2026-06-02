@@ -117,8 +117,7 @@
   },
   "pnpm": {
     "overrides": {
-      "crypto-js": "^4.2.0",
-      "brace-expansion": "^2.0.1"
+      "crypto-js": "^4.2.0"
     }
   }
 }
