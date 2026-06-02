@@ -25,5 +25,25 @@ export default defineConfig({
   build: {
     outDir: '../dist/client',
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'wouter'],
+          'query-vendor': ['@tanstack/react-query', '@trpc/client', '@trpc/react-query'],
+          'form-vendor': ['react-hook-form', '@hookform/resolvers', 'zod'],
+          'ui-vendor': [
+            'class-variance-authority', 'clsx', 'tailwind-merge', 'lucide-react',
+            '@radix-ui/react-checkbox', '@radix-ui/react-dialog',
+            '@radix-ui/react-dropdown-menu', '@radix-ui/react-label',
+            '@radix-ui/react-progress', '@radix-ui/react-select',
+            '@radix-ui/react-separator', '@radix-ui/react-slot',
+            '@radix-ui/react-tabs', '@radix-ui/react-toast',
+          ],
+          'motion-vendor': ['framer-motion'],
+          'sentry-vendor': ['@sentry/react'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 300,
   },
 })

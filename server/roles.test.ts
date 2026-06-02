@@ -15,7 +15,7 @@ vi.mock('./_core/env.ts', () => ({
     AWS_REGION: 'sa-east-1',
     AWS_S3_BUCKET: 'bucket',
     REDIS_URL: 'redis://localhost:6379',
-    FOCUSNFE_ENVIRONMENT: 'homologacao',
+    ASAAS_ENV: 'sandbox',
     BUILT_IN_FORGE_API_URL: 'https://api.anthropic.com',
     PORT: 3000,
   },

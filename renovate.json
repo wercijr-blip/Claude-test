@@ -1,0 +1,41 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "timezone": "America/Sao_Paulo",
+  "schedule": ["before 7am on Monday"],
+  "labels": ["dependencies"],
+  "prConcurrentLimit": 5,
+  "packageRules": [
+    {
+      "description": "Deps de segurança crítica — PR imediato, sem esperar schedule",
+      "matchPackageNames": ["jose", "express", "@trpc/server", "@trpc/client", "drizzle-orm"],
+      "schedule": ["at any time"],
+      "automerge": false,
+      "labels": ["dependencies", "security"]
+    },
+    {
+      "description": "Atualizações de patch — auto-merge quando CI passar",
+      "matchUpdateTypes": ["patch"],
+      "automerge": true,
+      "automergeType": "pr"
+    },
+    {
+      "description": "Major versions — nunca auto-merge, requer revisão manual",
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "labels": ["dependencies", "breaking-change"]
+    },
+    {
+      "description": "Dependências de tipos (@types/*) — auto-merge patch e minor",
+      "matchPackagePatterns": ["^@types/"],
+      "automerge": true,
+      "matchUpdateTypes": ["patch", "minor"]
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "schedule": ["at any time"],
+    "labels": ["security", "vulnerability"]
+  },
+  "osvVulnerabilityAlerts": true
+}

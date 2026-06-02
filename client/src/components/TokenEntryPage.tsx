@@ -9,22 +9,63 @@ export default function TokenEntryPage() {
 
   const [token, setToken] = useState(tokenFromUrl)
   const [error, setError] = useState('')
+  const [linkExpired, setLinkExpired] = useState(false)
   const { setToken: saveSession } = useAuth()
   const [, navigate] = useLocation()
 
-  const validar = trpc.token.validar.useMutation({
+  const validar = trpc.token.validarEDecidirFase.useMutation({
     onSuccess: (data) => {
       saveSession(data.sessionToken)
-      // Redireciona para a segunda parte (validação de exame) antes do formulário clínico
-      navigate('/inicio')
+      navigate(data.proximaFase)
     },
-    onError: (err) => setError(err.message),
+    onError: (err) => {
+      if (err.message === 'LINK_EXPIRED') {
+        setLinkExpired(true)
+      } else {
+        setError(err.message)
+      }
+    },
   })
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setLinkExpired(false)
     validar.mutate({ token: token.trim() })
+  }
+
+  if (linkExpired) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 w-full max-w-md text-center">
+          <div className="w-14 h-14 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-bold text-slate-800 mb-2">Link Expirado</h2>
+          <p className="text-slate-600 text-sm mb-2">
+            Este link tem validade de <strong>7 dias</strong> devido à validade dos exames.
+          </p>
+          <p className="text-slate-600 text-sm mb-6">
+            Para reiniciar seu atendimento, será necessário realizar um novo pagamento.
+          </p>
+          <a
+            href="/cadastro"
+            className="inline-block w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors text-center"
+          >
+            Iniciar novo atendimento
+          </a>
+          <p className="text-slate-400 text-xs mt-4">
+            Dúvidas?{' '}
+            <a href="mailto:contato@facilitaprep.com.br" className="text-blue-600 hover:underline">
+              contato@facilitaprep.com.br
+            </a>{' '}
+            ou WhatsApp (61) 99401-8161
+          </p>
+        </div>
+      </div>
+    )
   }
 
   return (

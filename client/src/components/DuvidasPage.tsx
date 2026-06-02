@@ -52,11 +52,11 @@ const FAQS = [
   },
   {
     q: 'O que levar para retirar minha PrEP na rede pública (UDM)?',
-    a: 'Se for sua primeira retirada, leve: Ficha de Cadastro, Receita Médica, Formulário PrEP e o resultado do exame Anti-HIV realizado há menos de 7 dias. Todos esses documentos são gerados pelo Facilita PrEP com assinatura digital ICP-Brasil. Se já usa PrEP regularmente, leve: Receita Médica, Formulário PrEP e o resultado do exame Anti-HIV com menos de 7 dias — também gerados pela plataforma. Localize a UDM mais próxima em azt.aids.gov.br → "Consulte uma UDM".',
+    a: 'Se for sua primeira retirada, leve: Ficha de Cadastro, Receita Médica, Ficha de Atendimento PrEP e o resultado do exame Anti-HIV realizado há até 7 dias (inclusive). Todos esses documentos são gerados pelo Facilita PrEP com assinatura digital ICP-Brasil. Se já usa PrEP regularmente, leve: Receita Médica, Ficha de Atendimento PrEP e o resultado do exame Anti-HIV com até 7 dias — também gerados pela plataforma. Localize a UDM mais próxima em azt.aids.gov.br → "Consulte uma UDM".',
   },
   {
     q: 'Por que recebo pedidos de exames de IST, HIV e densitometria óssea?',
-    a: 'Os pedidos de exame fazem parte do protocolo de acompanhamento seguro da PrEP. O exame de HIV é obrigatório antes de cada renovação (resultado com menos de 7 dias). Os exames de IST (sífilis, hepatite, gonorreia, clamídia) devem ser realizados a cada 3 meses — ou sempre que houver suspeita de infecção sexual, pois a PrEP não protege contra essas infecções. A densitometria óssea deve ser feita anualmente: o Tenofovir (TDF), componente da PrEP oral, pode reduzir a densidade mineral óssea em uso prolongado, aumentando o risco de osteoporose. O monitoramento garante que qualquer alteração seja identificada e tratada precocemente.',
+    a: 'Os pedidos de exame fazem parte do protocolo de acompanhamento seguro da PrEP. O exame de HIV é obrigatório antes de cada renovação (resultado com até 7 dias, inclusive). Os exames de IST (sífilis, hepatite, gonorreia, clamídia) devem ser realizados a cada 3 meses — ou sempre que houver suspeita de infecção sexual, pois a PrEP não protege contra essas infecções. A densitometria óssea deve ser feita anualmente: o Tenofovir (TDF), componente da PrEP oral, pode reduzir a densidade mineral óssea em uso prolongado, aumentando o risco de osteoporose. O monitoramento garante que qualquer alteração seja identificada e tratada precocemente.',
   },
 ]
 
@@ -99,9 +99,20 @@ function Accordion({ items }: { items: typeof FAQS }) {
   )
 }
 
+const FAQ_SCHEMA = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: FAQS.map(({ q, a }) => ({
+    '@type': 'Question',
+    name: q,
+    acceptedAnswer: { '@type': 'Answer', text: a },
+  })),
+}
+
 export default function DuvidasPage() {
   return (
     <div className="bg-warm-bg min-h-screen">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_SCHEMA) }} />
 
       {/* Hero */}
       <div className="bg-gradient-to-br from-fp-dark via-fp-dark-mid to-fp-dark-soft text-white px-4 py-16 text-center">
@@ -198,7 +209,7 @@ export default function DuvidasPage() {
               <li className="flex items-start gap-2">
                 <span className="text-honey font-bold mt-0.5">🏥</span>
                 <span>
-                  <strong>Pela rede pública (SUS):</strong> leve o formulário PrEP, a receita e o exame de HIV (&lt; 7 dias) à UDM mais próxima e retire o TDF/FTC.
+                  <strong>Pela rede pública (SUS):</strong> leve o formulário PrEP, a receita e o exame de HIV (até 7 dias) à UDM mais próxima e retire o TDF/FTC.
                 </span>
               </li>
               <li className="flex items-start gap-2">
@@ -386,8 +397,8 @@ export default function DuvidasPage() {
                   {[
                     'Ficha de Cadastro',
                     'Receita Médica',
-                    'Formulário PrEP',
-                    'Exame Anti-HIV (menos de 7 dias)',
+                    'Ficha de Atendimento PrEP',
+                    'Exame Anti-HIV (até 7 dias)',
                   ].map(item => (
                     <li key={item} className="flex items-start gap-1.5 text-xs text-brand-dark">
                       <svg className="w-3.5 h-3.5 text-brand shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -404,8 +415,8 @@ export default function DuvidasPage() {
                 <ul className="space-y-1.5">
                   {[
                     'Receita Médica',
-                    'Formulário PrEP',
-                    'Exame Anti-HIV (menos de 7 dias)',
+                    'Ficha de Atendimento PrEP',
+                    'Exame Anti-HIV (até 7 dias)',
                   ].map(item => (
                     <li key={item} className="flex items-start gap-1.5 text-xs text-sage-dark">
                       <svg className="w-3.5 h-3.5 text-sage shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -433,7 +444,7 @@ export default function DuvidasPage() {
                 corTitulo: 'text-terra-dark',
                 corTexto: 'text-terra',
                 titulo: 'Exame de HIV — obrigatório a cada renovação',
-                desc: 'O resultado deve ter sido realizado há menos de 7 dias. O diagnóstico prévio de HIV contraindicaria a PrEP — por isso a confirmação periódica é indispensável e protege você.',
+                desc: 'O resultado deve ter sido realizado há até 7 dias (inclusive). O diagnóstico prévio de HIV contraindicaria a PrEP — por isso a confirmação periódica é indispensável e protege você.',
               },
               {
                 icone: '🟡',

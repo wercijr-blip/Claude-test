@@ -3,32 +3,41 @@ import { router, medicoProcedure } from '../_core/trpc.ts'
 import { TRPCError } from '@trpc/server'
 import { db } from '../db.ts'
 import { pacientes, exames } from '../../drizzle/schema.ts'
-import { eq, inArray } from 'drizzle-orm'
+import { eq, inArray, and, gt } from 'drizzle-orm'
 import { decrypt } from '../_core/encryption.ts'
-
-type ResultadoIaJson = {
-  status?: string
-  [key: string]: unknown
-}
+import { isExameRejeitadoIa } from '../examUtils.ts'
+import { okEmpty } from '../_core/response.ts'
+import { paginationInput, paginatedResponse } from '../_core/pagination.ts'
+import type { ResultadoIa } from '../../shared/types.ts'
 
 export const medicoRouter = router({
   // Listar pacientes pendentes de revisão
-  listarPendentes: medicoProcedure.query(async () => {
-    const rows = await db
-      .select()
-      .from(pacientes)
-      .where(inArray(pacientes.status, ['pendente', 'em_revisao']))
-      .orderBy(pacientes.createdAt)
+  listarPendentes: medicoProcedure
+    .input(paginationInput)
+    .query(async ({ input }) => {
+      const { limit, cursor } = input
+      const rows = await db
+        .select()
+        .from(pacientes)
+        .where(
+          cursor
+            ? and(inArray(pacientes.status, ['pendente', 'em_revisao']), gt(pacientes.id, cursor))
+            : inArray(pacientes.status, ['pendente', 'em_revisao']),
+        )
+        .orderBy(pacientes.id)
+        .limit(limit + 1)
 
-    return rows.map((p) => ({
-      id: p.id,
-      nome: decrypt(p.nomeEncrypted),
-      status: p.status,
-      currentStep: p.currentStep,
-      tipoAtendimento: p.tipoAtendimento,
-      createdAt: p.createdAt,
-    }))
-  }),
+      const mapped = rows.map((p) => ({
+        id: p.id,
+        nome: decrypt(p.nomeEncrypted),
+        status: p.status,
+        currentStep: p.currentStep,
+        tipoAtendimento: p.tipoAtendimento,
+        createdAt: p.createdAt,
+      }))
+
+      return paginatedResponse(mapped, limit)
+    }),
 
   // Ver detalhe de um paciente
   verPaciente: medicoProcedure
@@ -57,11 +66,13 @@ export const medicoRouter = router({
         nome: decrypt(p.nomeEncrypted),
         cpf: decrypt(p.cpfEncrypted),
         dataNascimento: p.dataNascimentoEncrypted ? decrypt(p.dataNascimentoEncrypted) : null,
+        nomeMae: p.nomeMaeEncrypted ? decrypt(p.nomeMaeEncrypted) : null,
         email: p.emailEncrypted ? decrypt(p.emailEncrypted) : null,
         telefone: p.telefoneEncrypted ? decrypt(p.telefoneEncrypted) : null,
         cpfEncrypted: undefined,
         nomeEncrypted: undefined,
         dataNascimentoEncrypted: undefined,
+        nomeMaeEncrypted: undefined,
         emailEncrypted: undefined,
         telefoneEncrypted: undefined,
         exames: examesDoP,
@@ -74,6 +85,9 @@ export const medicoRouter = router({
     .mutation(async ({ input, ctx }) => {
       const [p] = await db.select().from(pacientes).where(eq(pacientes.id, input.pacienteId)).limit(1)
       if (!p) throw new TRPCError({ code: 'NOT_FOUND' })
+      if (p.medicoId !== null && p.medicoId !== ctx.session.id && ctx.session.role !== 'admin') {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Paciente em revisão por outro médico.' })
+      }
 
       await db
         .update(pacientes)
@@ -85,7 +99,7 @@ export const medicoRouter = router({
         })
         .where(eq(pacientes.id, input.pacienteId))
 
-      return { ok: true }
+      return okEmpty()
     }),
 
   // Rejeitar paciente
@@ -94,6 +108,9 @@ export const medicoRouter = router({
     .mutation(async ({ input, ctx }) => {
       const [p] = await db.select().from(pacientes).where(eq(pacientes.id, input.pacienteId)).limit(1)
       if (!p) throw new TRPCError({ code: 'NOT_FOUND' })
+      if (p.medicoId !== null && p.medicoId !== ctx.session.id && ctx.session.role !== 'admin') {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Paciente em revisão por outro médico.' })
+      }
 
       await db
         .update(pacientes)
@@ -105,16 +122,13 @@ export const medicoRouter = router({
         })
         .where(eq(pacientes.id, input.pacienteId))
 
-      return { ok: true }
+      return okEmpty()
     }),
 
   // Listar exames com rejeição de IA (status rejeitado_ia no resultadoIa)
   listarExamesRejeitadosIa: medicoProcedure.query(async () => {
-    const rows = await db.select().from(exames).orderBy(exames.createdAt)
-    return rows.filter((e) => {
-      const r = e.resultadoIa as ResultadoIaJson | null
-      return r?.status === 'rejeitado_ia' || r?.status === 'rejeitado'
-    }).map((e) => ({
+    const rows = await db.select().from(exames).orderBy(exames.createdAt).limit(200)
+    return rows.filter((e) => isExameRejeitadoIa(e.resultadoIa)).map((e) => ({
       id: e.id,
       pacienteId: e.pacienteId,
       nomeArquivo: e.nomeArquivo,
@@ -136,10 +150,10 @@ export const medicoRouter = router({
       const [exame] = await db.select().from(exames).where(eq(exames.id, input.exameId)).limit(1)
       if (!exame) throw new TRPCError({ code: 'NOT_FOUND', message: 'Exame não encontrado.' })
 
-      const resultadoAtual = exame.resultadoIa as ResultadoIaJson | null
+      const resultadoAtual = exame.resultadoIa
       if (
-        resultadoAtual?.status !== 'rejeitado_ia' &&
-        resultadoAtual?.status !== 'rejeitado'
+        !resultadoAtual ||
+        (resultadoAtual.status !== 'rejeitado_ia' && resultadoAtual.status !== 'rejeitado')
       ) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
@@ -147,7 +161,7 @@ export const medicoRouter = router({
         })
       }
 
-      const novoResultado: ResultadoIaJson = {
+      const novoResultado: ResultadoIa = {
         ...resultadoAtual,
         status: 'liberado_manualmente',
         observacoesMedico: input.observacoes ?? null,
@@ -165,6 +179,6 @@ export const medicoRouter = router({
         })
         .where(eq(exames.id, input.exameId))
 
-      return { ok: true }
+      return okEmpty()
     }),
 })

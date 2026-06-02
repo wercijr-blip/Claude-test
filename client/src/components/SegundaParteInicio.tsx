@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
+import * as Sentry from '@sentry/react'
 import { trpc } from '../lib/trpc.ts'
 import { useLocation } from 'wouter'
 import { LogoWordmark } from './Logo.tsx'
+import { useAuth } from '../_core/hooks/useAuth.ts'
 
-type Etapa = 'tipo_consulta' | 'tem_exame' | 'upload_exame' | 'gerar_pedido' | 'aguardando_ia' | 'em_revisao_medica' | 'aprovado' | 'rejeitado' | 'rejeitado_data_invalida' | 'expirado'
+type Etapa = 'tipo_consulta' | 'tem_exame' | 'upload_exame' | 'gerar_pedido' | 'aguardando_ia' | 'em_revisao_medica' | 'aprovado' | 'rejeitado' | 'rejeitado_data_invalida' | 'rejeitado_nome_invalido' | 'rejeitado_tipo_invalido' | 'expirado'
 type TipoConsulta = 'primeiro_atendimento' | 'ja_faco_prep'
 
 const btnPrimary = 'w-full bg-brand text-white py-3.5 rounded-2xl font-semibold hover:bg-brand-dark disabled:opacity-50 transition-all shadow-md hover:shadow-lg text-sm'
@@ -16,6 +18,52 @@ function PageShell({ children }: { children: React.ReactNode }) {
           <LogoWordmark size={40} mode="light" />
         </div>
         {children}
+      </div>
+    </div>
+  )
+}
+
+// Linha de critério validado (✓ / ✗ / ?) com título e valor lido pela IA.
+type CheckState = 'ok' | 'falhou' | 'nao_avaliado'
+function CritCheck({
+  estado, titulo, valor, sub,
+}: { estado: CheckState; titulo: string; valor: string; sub?: string }) {
+  const cls = estado === 'ok'
+    ? 'bg-sage text-white'
+    : estado === 'falhou'
+      ? 'bg-terra text-white'
+      : 'bg-slate-200 text-slate-500'
+  const tituloCls = estado === 'falhou'
+    ? 'text-terra'
+    : estado === 'nao_avaliado'
+      ? 'text-slate-400'
+      : 'text-sage-dark'
+  const valorCls = estado === 'falhou'
+    ? 'text-terra'
+    : estado === 'nao_avaliado'
+      ? 'text-slate-500'
+      : 'text-sage-dark'
+  return (
+    <div className="flex items-start gap-3">
+      <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${cls}`}>
+        {estado === 'ok' && (
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        )}
+        {estado === 'falhou' && (
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        )}
+        {estado === 'nao_avaliado' && (
+          <span className="text-xs font-bold">?</span>
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className={`text-xs font-semibold uppercase tracking-wide ${tituloCls}`}>{titulo}</p>
+        <p className={`text-sm font-medium break-words ${valorCls}`}>{valor}</p>
+        {sub && <p className="text-xs mt-0.5 break-words text-slate-500">{sub}</p>}
       </div>
     </div>
   )
@@ -45,15 +93,71 @@ function StatusCard({
   )
 }
 
+const TERMINAL_ETAPAS: Etapa[] = ['aprovado', 'rejeitado', 'expirado']
+
 export default function SegundaParteInicio() {
   const [, navigate] = useLocation()
+
+  // If ?codigo= is present, validate it immediately and overwrite any existing
+  // JWT — prevents shared-device from showing the wrong patient's data (LGPD).
+  const [codigoFromUrl] = useState(() => {
+    const p = new URLSearchParams(window.location.search)
+    const code = p.get('codigo') ?? ''
+    if (code) window.history.replaceState({}, '', '/inicio')
+    return code
+  })
+  const { setToken } = useAuth()
+  const [isValidating, setIsValidating] = useState(!!codigoFromUrl)
+  const [validationError, setValidationError] = useState<string | null>(null)
+  const validarCodigo = trpc.token.validarEDecidirFase.useMutation({
+    onSuccess: (data) => {
+      setToken(data.sessionToken)
+      setIsValidating(false)
+      if (data.proximaFase !== '/inicio') {
+        navigate(data.proximaFase)
+      }
+    },
+    onError: (err) => {
+      setToken(null)
+      if (err.message === 'LINK_EXPIRED') {
+        setValidationError('LINK_EXPIRED')
+      } else {
+        const raw = (err.message ?? '').toLowerCase()
+        const mensagem = raw.includes('not found') || raw.includes('não encontrado')
+          ? 'Não encontramos esse link. Verifique se está completo ou solicite um novo acesso.'
+          : raw.includes('already used') || raw.includes('já utilizado')
+            ? 'Este link já foi utilizado. Solicite um novo acesso.'
+            : 'O link de acesso parece inválido. Por favor, verifique o código recebido por e-mail.'
+        setValidationError(mensagem)
+        Sentry.captureException(err, {
+          tags: { route: 'inicio', stage: 'token-validar' },
+          extra: { friendlyMessage: mensagem },
+        })
+      }
+      setIsValidating(false)
+    },
+  })
+  const hasValidated = useRef(false)
+  useEffect(() => {
+    if (!codigoFromUrl || hasValidated.current) return
+    hasValidated.current = true
+    validarCodigo.mutate({ token: codigoFromUrl })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const [etapa, setEtapa] = useState<Etapa>('tipo_consulta')
   const [tipoConsulta, setTipoConsulta] = useState<TipoConsulta | null>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const [exameNome, setExameNome] = useState<string | null>(null)
+  const [iniciarError, setIniciarError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const statusQuery = trpc.consulta.status.useQuery(undefined, { refetchInterval: 5000 })
+  const isTerminal = TERMINAL_ETAPAS.includes(etapa)
+  const statusQuery = trpc.consulta.status.useQuery(undefined, {
+    enabled: !isValidating,
+    refetchInterval: isTerminal ? false : 5000,
+  })
   const iniciarMut = trpc.consulta.iniciar.useMutation()
   const uploadMut = trpc.consulta.uploadExame.useMutation()
 
@@ -63,6 +167,8 @@ export default function SegundaParteInicio() {
     if (s.status === 'aprovado' || s.status === 'aprovado_ia') { setEtapa('aprovado'); return }
     if (s.status === 'rejeitado') { setEtapa('rejeitado'); return }
     if (s.status === 'rejeitado_data_invalida') { setEtapa('rejeitado_data_invalida'); return }
+    if (s.status === 'rejeitado_nome_invalido') { setEtapa('rejeitado_nome_invalido'); return }
+    if (s.status === 'rejeitado_tipo_invalido') { setEtapa('rejeitado_tipo_invalido'); return }
     if (
       s.status === 'pendente_revisao_medica' ||
       s.status === 'pendente_revisao_medica_urgente' ||
@@ -76,23 +182,31 @@ export default function SegundaParteInicio() {
   }, [statusQuery.data])
 
   async function escolherTipoConsulta(tipo: TipoConsulta, temExame: boolean) {
+    setIniciarError(null)
     try {
       await iniciarMut.mutateAsync({ tipoConsulta: tipo, temExameRecente: temExame })
       setTipoConsulta(tipo)
       setEtapa(temExame ? 'upload_exame' : 'gerar_pedido')
     } catch (e: unknown) {
-      console.error(e)
+      const msg = e instanceof Error ? e.message : 'Erro ao iniciar atendimento. Tente novamente.'
+      setIniciarError(msg)
     }
   }
 
   async function uploadExame(file: File) {
     setUploading(true)
     setUploadError(null)
+    setExameNome(file.name)
     try {
       const fd = new FormData()
       fd.append('file', file)
       fd.append('tipo', 'exame_hiv')
-      const res = await fetch('/api/upload', { method: 'POST', body: fd })
+      const token = localStorage.getItem('fp_token')
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: fd,
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
       if (!res.ok) throw new Error('Falha no upload')
       const { s3Key } = (await res.json()) as { s3Key: string }
       setEtapa('aguardando_ia')
@@ -101,6 +215,8 @@ export default function SegundaParteInicio() {
         setEtapa('aprovado')
       } else if (result.status === 'rejeitado_data_invalida') {
         setEtapa('rejeitado_data_invalida')
+      } else if (result.status === 'rejeitado_nome_invalido') {
+        setEtapa('rejeitado_nome_invalido')
       } else {
         setEtapa('em_revisao_medica')
       }
@@ -112,6 +228,141 @@ export default function SegundaParteInicio() {
     }
   }
 
+  // ── Validando código da URL ────────────────────────────────────
+  if (isValidating) {
+    return (
+      <PageShell>
+        <div className="bg-white rounded-3xl shadow-xl border border-slate-100 p-10 text-center">
+          <div className="w-8 h-8 border-4 border-brand-light border-t-brand rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-500 text-sm">Validando seu acesso…</p>
+        </div>
+      </PageShell>
+    )
+  }
+
+  // ── Código inválido ou expirado ────────────────────────────────
+  if (validationError) {
+    if (validationError === 'LINK_EXPIRED') {
+      return (
+        <PageShell>
+          <div className="bg-white rounded-3xl shadow-xl border border-slate-100 p-10 text-center">
+            <div className="w-14 h-14 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h2 className="text-xl font-bold text-slate-800 mb-2">Link Expirado</h2>
+            <p className="text-slate-600 text-sm mb-2">
+              Este link tem validade de <strong>7 dias</strong> devido à validade dos exames.
+            </p>
+            <p className="text-slate-600 text-sm mb-6">
+              Se você ainda não enviou o exame e acabou de realizá-lo, pode solicitar um novo link abaixo.
+            </p>
+            <a
+              href="/reenviar-acesso"
+              className="inline-block w-full bg-brand text-white py-3 rounded-2xl font-semibold hover:bg-brand-dark transition-all text-sm mb-3"
+            >
+              Solicitar novo link de acesso
+            </a>
+            <a
+              href="/cadastro"
+              className="inline-block w-full border border-slate-200 text-slate-600 py-3 rounded-2xl font-semibold hover:bg-slate-50 transition-all text-sm"
+            >
+              Iniciar novo atendimento
+            </a>
+            <p className="text-slate-400 text-xs mt-4">
+              Dúvidas?{' '}
+              <a href="mailto:contato@facilitaprep.com.br" className="text-brand hover:underline">
+                contato@facilitaprep.com.br
+              </a>{' '}
+              ou WhatsApp (61) 99401-8161
+            </p>
+          </div>
+        </PageShell>
+      )
+    }
+
+    return (
+      <PageShell>
+        <div className="bg-white rounded-3xl shadow-xl border border-slate-100 p-10 text-center">
+          <div className="w-14 h-14 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-7 h-7 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M12 3a9 9 0 100 18A9 9 0 0012 3z" />
+            </svg>
+          </div>
+          <p className="text-slate-700 font-medium mb-2">Código de acesso inválido</p>
+          <p className="text-slate-500 text-sm mb-4">{validationError}</p>
+          <a href="/cadastro" className="text-brand text-sm font-medium hover:underline">
+            Solicitar novo acesso
+          </a>
+        </div>
+      </PageShell>
+    )
+  }
+
+  // ── Loading inicial ────────────────────────────────────────────
+  if (statusQuery.isLoading) {
+    return (
+      <PageShell>
+        <div className="bg-white rounded-3xl shadow-xl border border-slate-100 p-10 text-center">
+          <div className="w-8 h-8 border-4 border-brand-light border-t-brand rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-500 text-sm">Carregando…</p>
+        </div>
+      </PageShell>
+    )
+  }
+
+  // ── Erro de conexão ────────────────────────────────────────────
+  if (statusQuery.isError && !statusQuery.data) {
+    return (
+      <PageShell>
+        <div className="bg-white rounded-3xl shadow-xl border border-slate-100 p-10 text-center">
+          <p className="text-slate-700 font-medium mb-2">Não foi possível carregar seu atendimento</p>
+          <p className="text-slate-500 text-sm mb-4">Verifique sua conexão e tente novamente.</p>
+          <button
+            onClick={() => statusQuery.refetch()}
+            className="text-sm bg-brand text-white px-5 py-2 rounded-xl hover:bg-brand-dark transition-colors"
+          >
+            Tentar novamente
+          </button>
+        </div>
+      </PageShell>
+    )
+  }
+
+  // Renderiza os 3 critérios principais (Nome, Resultado, Data) com base
+  // nos checks que o servidor calculou. O check "tipo" não é mostrado aqui
+  // porque tem tela própria; aparece como "?" se a IA não conseguiu ler.
+  const renderCriterios = (bgCls: string, borderCls: string) => {
+    const checks = statusQuery.data?.checks
+    const nomeNoExame = statusQuery.data?.nomeExame
+    const nomeCadastro = statusQuery.data?.nomeCadastro
+    const dataValidada = statusQuery.data?.dataExame
+    const resultadoHiv = statusQuery.data?.resultadoHiv
+    const eNome = (checks?.nome ?? 'nao_avaliado') as CheckState
+    const eRes = (checks?.resultado ?? 'nao_avaliado') as CheckState
+    const eData = (checks?.data ?? 'nao_avaliado') as CheckState
+    const valorNome = nomeNoExame ?? (eNome === 'ok' ? 'Confere com o cadastro' : 'Não foi possível ler o nome')
+    const valorRes = resultadoHiv === 'nao_reagente'
+      ? 'Não reagente / Negativo'
+      : resultadoHiv === 'reagente'
+        ? 'Reagente / Positivo'
+        : resultadoHiv === 'inconclusivo'
+          ? 'Inconclusivo'
+          : 'Não foi possível ler'
+    const valorData = dataValidada ?? 'Não foi possível ler a data'
+    const subNome = nomeCadastro && nomeNoExame && nomeNoExame.toUpperCase() !== nomeCadastro.toUpperCase()
+      ? `Cadastro: ${nomeCadastro}`
+      : undefined
+    return (
+      <div className={`${bgCls} border ${borderCls} rounded-2xl p-4 mb-4 text-left space-y-3`}>
+        <CritCheck estado={eNome} titulo="Nome do paciente" valor={valorNome} sub={subNome} />
+        <CritCheck estado={eRes} titulo="Resultado HIV (deve ser não reagente)" valor={valorRes} />
+        <CritCheck estado={eData} titulo="Data do exame (≤ 7 dias)" valor={valorData} />
+      </div>
+    )
+  }
+
   // ── Aprovado ──────────────────────────────────────────────────
   if (etapa === 'aprovado') {
     return (
@@ -119,11 +370,12 @@ export default function SegundaParteInicio() {
         icon={<svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
         iconBg="bg-sage-light" iconColor="text-sage"
         title="Tudo certo! Você pode seguir com segurança"
-        subtitle="Seu exame não apresentou nenhuma alteração — você está no caminho certo. Estamos aqui para acompanhar cada passo do seu cuidado."
+        subtitle="Verificamos os 3 critérios do seu exame de HIV — está tudo dentro do esperado."
       >
-        <div className="bg-sage-pale border border-sage-light rounded-2xl p-4 mb-6 text-left">
-          <p className="text-sage-dark text-sm font-medium mb-1">Próximo passo:</p>
-          <p className="text-sage text-sm">Preencha o formulário clínico para que nosso médico possa emitir sua receita com total segurança.</p>
+        {renderCriterios('bg-sage-pale', 'border-sage-light')}
+        <div className="bg-brand-pale border border-brand-light rounded-2xl p-4 mb-6 text-left">
+          <p className="text-brand-dark text-sm font-medium mb-1">Próximo passo:</p>
+          <p className="text-brand text-sm">Preencha o formulário clínico para que nosso médico possa emitir sua receita com total segurança.</p>
         </div>
         <button onClick={() => navigate('/formulario')} className={btnPrimary}>
           Continuar para o formulário clínico →
@@ -186,22 +438,96 @@ export default function SegundaParteInicio() {
         }
         iconBg="bg-honey-light" iconColor="text-honey"
         title="Exame fora da validade"
-        subtitle="O exame enviado foi realizado há mais de 7 dias. Para iniciar a PrEP com segurança, precisamos de um exame recente."
+        subtitle="A data do exame está fora do período aceito. Veja abaixo o que conferimos:"
       >
+        {renderCriterios('bg-white', 'border-slate-200')}
         <div className="bg-honey-light border border-honey-light rounded-2xl p-4 mb-4 text-left">
           <p className="text-honey-dark text-sm font-medium mb-1">Tentativa {tentativas} de 2</p>
           <p className="text-honey text-sm">
             {restantes > 0
-              ? `Você ainda tem ${restantes} tentativa${restantes > 1 ? 's' : ''} disponível${restantes > 1 ? '' : ''}.`
+              ? `Realize um novo exame Anti-HIV (4ª geração) e envie o resultado — ele precisa ter sido realizado há até 7 dias (inclusive). Você tem ${restantes} tentativa${restantes > 1 ? 's' : ''}.`
               : 'Seu caso será analisado por um de nossos médicos.'}
           </p>
         </div>
-        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-4 text-left">
-          <p className="text-slate-700 text-sm font-medium mb-1">O que fazer agora:</p>
-          <p className="text-slate-500 text-sm">Realize um novo exame Anti-HIV (4ª geração) em qualquer laboratório e envie o resultado aqui assim que obtiver — ele precisa ter menos de 7 dias.</p>
+        <button onClick={() => setEtapa('upload_exame')} className={btnPrimary}>
+          Enviar novo exame →
+        </button>
+      </StatusCard>
+    )
+  }
+
+  // ── Nome divergente (pode reenviar) ───────────────────────────
+  if (etapa === 'rejeitado_nome_invalido') {
+    const tentativas = statusQuery.data?.tentativasReenvio ?? 1
+    const restantes = 2 - tentativas
+    return (
+      <StatusCard
+        icon={
+          <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+        }
+        iconBg="bg-honey-light" iconColor="text-honey"
+        title="O nome do exame não confere com o cadastro"
+        subtitle="Para garantir sua segurança, o nome no exame precisa ser o mesmo do cadastro. Veja abaixo o que conferimos:"
+      >
+        {renderCriterios('bg-white', 'border-slate-200')}
+        <div className="bg-honey-light border border-honey-light rounded-2xl p-4 mb-4 text-left">
+          <p className="text-honey-dark text-sm font-medium mb-1">Tentativa {tentativas} de 2</p>
+          <p className="text-honey text-sm">
+            {restantes > 0
+              ? `Confira se enviou o exame correto. Você ainda tem ${restantes} tentativa${restantes > 1 ? 's' : ''}.`
+              : 'Seu caso será analisado por um de nossos médicos.'}
+          </p>
         </div>
         <button onClick={() => setEtapa('upload_exame')} className={btnPrimary}>
           Enviar novo exame →
+        </button>
+      </StatusCard>
+    )
+  }
+
+  // ── Documento enviado não é exame de HIV ──────────────────────
+  if (etapa === 'rejeitado_tipo_invalido') {
+    return (
+      <StatusCard
+        icon={
+          <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+          </svg>
+        }
+        iconBg="bg-honey-light" iconColor="text-honey"
+        title="Esse documento não parece ser um exame de HIV"
+        subtitle="Confira se você anexou o resultado do exame Anti-HIV 1/2 (4ª geração). Pode ser que tenha enviado outro arquivo por engano."
+      >
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 mb-4 text-left space-y-3">
+          <CritCheck
+            estado="falhou"
+            titulo="Tipo de documento"
+            valor="Não foi reconhecido como exame de HIV"
+            sub="Esperado: laudo Anti-HIV 1/2 (4ª geração)"
+          />
+          <CritCheck estado="nao_avaliado" titulo="Nome do paciente" valor="Não avaliado — tipo de documento incorreto" />
+          <CritCheck estado="nao_avaliado" titulo="Resultado HIV" valor="Não avaliado — tipo de documento incorreto" />
+          <CritCheck estado="nao_avaliado" titulo="Data do exame" valor="Não avaliado — tipo de documento incorreto" />
+        </div>
+        <div className="bg-honey-light border border-honey-light rounded-2xl p-4 mb-4 text-left">
+          <p className="text-honey-dark text-sm font-medium mb-2">O que enviar:</p>
+          <ul className="space-y-1.5">
+            {[
+              'Laudo do exame Anti-HIV 1/2',
+              'Imagem ou PDF legível, com nome e resultado visíveis',
+              'Realizado há até 7 dias (inclusive)',
+            ].map(t => (
+              <li key={t} className="text-honey text-sm flex items-start gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0 mt-1.5" />
+                {t}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <button onClick={() => setEtapa('upload_exame')} className={btnPrimary}>
+          Enviar exame correto →
         </button>
       </StatusCard>
     )
@@ -238,9 +564,15 @@ export default function SegundaParteInicio() {
         icon={<svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
         iconBg="bg-slate-100" iconColor="text-slate-400"
         title="Seu link de acesso expirou"
-        subtitle="O prazo para envio do exame foi encerrado. Entre em contato e renovaremos seu acesso rapidamente — estamos aqui para ajudar."
+        subtitle="O prazo para envio do exame foi encerrado. Se você realizou o exame recentemente, solicite um novo link abaixo."
       >
-        <a href="tel:+556140427188" className="inline-flex items-center gap-2 text-brand text-sm font-medium hover:underline">
+        <a
+          href="/reenviar-acesso"
+          className="inline-block w-full bg-brand text-white py-3 rounded-2xl font-semibold hover:bg-brand-dark transition-all text-sm mb-3 text-center"
+        >
+          Solicitar novo link de acesso
+        </a>
+        <a href="tel:+556140427188" className="inline-flex items-center justify-center gap-2 text-slate-500 text-sm font-medium hover:underline w-full">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
           </svg>
@@ -315,7 +647,7 @@ export default function SegundaParteInicio() {
               </svg>
             </div>
             <h2 className="text-xl font-bold text-slate-800">Você tem exame de HIV recente?</h2>
-            <p className="text-slate-400 text-sm mt-1">O exame precisa ter sido realizado há <strong className="text-slate-600">menos de 7 dias</strong>.</p>
+            <p className="text-slate-400 text-sm mt-1">O exame precisa ter sido realizado há <strong className="text-slate-600">até 7 dias</strong> (inclusive).</p>
           </div>
 
           <div className="space-y-3">
@@ -364,6 +696,11 @@ export default function SegundaParteInicio() {
               Salvando…
             </p>
           )}
+          {iniciarError && (
+            <div className="mt-4 bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-600 text-center">
+              {iniciarError}
+            </div>
+          )}
         </div>
       </PageShell>
     )
@@ -384,13 +721,30 @@ export default function SegundaParteInicio() {
             <p className="text-slate-400 text-sm mt-1">Seus pedidos serão assinados digitalmente com certificado ICP-Brasil.</p>
           </div>
 
-          <div className="bg-honey-light border border-honey-light rounded-2xl p-4 mb-6 flex gap-3">
-            <span className="text-honey text-lg shrink-0">⏱</span>
-            <div>
-              <p className="text-honey-dark text-sm font-semibold">Prazo de 7 dias</p>
-              <p className="text-honey text-sm mt-0.5">Realize os exames e envie os resultados em até 7 dias. Você receberá lembretes por e-mail e WhatsApp.</p>
-            </div>
-          </div>
+          {(() => {
+            const expiresAt = statusQuery.data?.linkExpiresAt
+            const diasRestantes = expiresAt
+              ? Math.max(0, Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86_400_000))
+              : 7
+            const isUrgente = diasRestantes <= 2
+            return (
+              <div className={`border rounded-2xl p-4 mb-6 flex gap-3 ${isUrgente ? 'bg-red-50 border-red-200' : 'bg-honey-light border-honey-light'}`}>
+                <span className={`text-lg shrink-0 ${isUrgente ? 'text-red-500' : 'text-honey'}`}>⏱</span>
+                <div>
+                  <p className={`text-sm font-semibold ${isUrgente ? 'text-red-700' : 'text-honey-dark'}`}>
+                    {isUrgente
+                      ? diasRestantes === 0 ? 'Prazo encerrado hoje!' : `Atenção: apenas ${diasRestantes} dia${diasRestantes > 1 ? 's' : ''} restante${diasRestantes > 1 ? 's' : ''}!`
+                      : `${diasRestantes} dia${diasRestantes > 1 ? 's' : ''} para enviar o exame`}
+                  </p>
+                  <p className={`text-sm mt-0.5 ${isUrgente ? 'text-red-600' : 'text-honey'}`}>
+                    {isUrgente
+                      ? 'Realize o exame Anti-HIV e envie o resultado urgente. Você receberá lembretes por e-mail e WhatsApp.'
+                      : 'Realize os exames e envie os resultados dentro do prazo. Você receberá lembretes por e-mail e WhatsApp.'}
+                  </p>
+                </div>
+              </div>
+            )
+          })()}
 
           <BotaoBaixarPedidos tipoConsulta={tipoConsulta!} onBaixou={() => {}} />
 
@@ -419,17 +773,36 @@ export default function SegundaParteInicio() {
           </div>
           <h2 className="text-xl font-bold text-slate-800">Envio do exame de HIV</h2>
           <p className="text-slate-400 text-sm mt-1">
-            Envie o resultado do exame <strong className="text-slate-600">Anti-HIV 1/2 (4ª geração)</strong> realizado há menos de 7 dias.
+            Envie o resultado do exame <strong className="text-slate-600">Anti-HIV 1/2 (4ª geração)</strong> realizado há até 7 dias (inclusive).
           </p>
+          {(() => {
+            const dataMinima = new Date()
+            dataMinima.setDate(dataMinima.getDate() - 7)
+            const dataMinimaStr = dataMinima.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+            return (
+              <div className="mt-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-left">
+                <p className="text-amber-800 text-xs font-semibold">📅 Data mínima aceita: {dataMinimaStr}</p>
+                <p className="text-amber-700 text-xs mt-0.5">Exames anteriores a esta data serão recusados automaticamente.</p>
+              </div>
+            )
+          })()}
         </div>
 
-        <label className="flex flex-col items-center justify-center w-full border-2 border-dashed border-slate-200 hover:border-sage rounded-2xl py-10 cursor-pointer bg-slate-50 hover:bg-sage-pale transition-all mb-4 group">
+        <label className="flex flex-col items-center justify-center w-full border-2 border-dashed border-slate-200 hover:border-sage rounded-2xl py-10 cursor-pointer bg-slate-50 hover:bg-sage-pale transition-all mb-4 group px-4">
           {uploading ? (
             <>
-              <svg className="w-10 h-10 text-sage animate-bounce mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-              </svg>
+              <div className="w-10 h-10 border-2 border-sage-light border-t-sage rounded-full animate-spin mb-3" />
               <p className="text-sage text-sm font-medium">Enviando…</p>
+              {exameNome && <p className="text-slate-500 text-xs mt-1 max-w-full truncate">{exameNome}</p>}
+            </>
+          ) : exameNome ? (
+            <>
+              <svg className="w-10 h-10 text-sage mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-sage text-sm font-medium">Exame anexado</p>
+              <p className="text-slate-600 text-xs mt-1 max-w-full truncate font-medium">{exameNome}</p>
+              <p className="text-brand text-xs mt-2 underline">Clique para trocar</p>
             </>
           ) : (
             <>
@@ -448,6 +821,7 @@ export default function SegundaParteInicio() {
             onChange={(e) => {
               const file = e.target.files?.[0]
               if (file) uploadExame(file)
+              e.target.value = ''
             }}
           />
         </label>
@@ -459,7 +833,7 @@ export default function SegundaParteInicio() {
           <p className="text-brand-dark text-sm font-semibold mb-2">Critérios de validação automática</p>
           <div className="space-y-1.5">
             {[
-              'Exame realizado há menos de 7 dias',
+              'Exame realizado há até 7 dias (inclusive)',
               'Imagem legível, sem cortes ou desfoque',
               'Nome do paciente visível e compatível',
               'Resultado não reagente / negativo',
@@ -571,12 +945,14 @@ type PedidosData = {
   urlIst: string | null
   urlHiv: string
   urlDensitometria: string | null
+  urlOrientacao: string
 }
 
 const PEDIDOS_INFO = [
-  { key: 'urlCompleto' as const, label: 'Painel completo de exames', desc: 'Todos os exames do protocolo PrEP' },
-  { key: 'urlIst' as const, label: 'Sorológicos de IST', desc: 'HIV, Sífilis, Hepatite B/C, Gonorreia, Clamídia' },
-  { key: 'urlHiv' as const, label: 'Exame Anti-HIV isolado', desc: 'Anti-HIV 1/2 com Ag p24 (4ª geração)' },
+  { key: 'urlOrientacao' as const, label: '📘 Orientação para Início da PrEP', desc: 'Leia primeiro — explica os exames e próximos passos' },
+  { key: 'urlHiv' as const, label: 'Exame Anti-HIV (obrigatório)', desc: 'Anti-HIV 1/2 com Ag p24 (4ª geração)' },
+  { key: 'urlIst' as const, label: 'Sorológicos de IST (recomendado)', desc: 'Sífilis, Hepatites, Gonorreia, Clamídia' },
+  { key: 'urlCompleto' as const, label: 'Painel completo de exames (recomendado)', desc: 'Inclui função renal/hepática para uso seguro do TDF' },
   { key: 'urlDensitometria' as const, label: 'Densitometria óssea', desc: 'Monitoramento ósseo — uso de Tenofovir (TDF)' },
 ]
 
@@ -599,7 +975,7 @@ function BotaoBaixarPedidos({ tipoConsulta: _tipoConsulta, onBaixou }: { tipoCon
           className="w-full border-2 border-brand-light bg-brand-pale text-brand py-3.5 rounded-2xl font-medium hover:bg-brand-light disabled:opacity-50 transition-all flex items-center justify-center gap-2 text-sm"
         >
           <DownloadIcon />
-          {gerarMut.isPending ? 'Gerando PDFs assinados…' : 'Gerar pedidos de exame (4 documentos)'}
+          {gerarMut.isPending ? 'Gerando PDFs assinados…' : 'Gerar pedidos de exame + orientação'}
         </button>
         {gerarMut.error && <p className="text-terra text-sm">{gerarMut.error.message}</p>}
       </div>

@@ -1,57 +1,26 @@
-import { PDFDocument, PDFFont, PDFPage, rgb, StandardFonts } from 'pdf-lib'
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 import { readFile } from 'fs/promises'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import forge from 'node-forge'
+import { SignPdf } from '@signpdf/signpdf'
+import { P12Signer } from '@signpdf/signer-p12'
+import { plainAddPlaceholder } from '@signpdf/placeholder-plain'
+import { SUBFILTER_ETSI_CADES_DETACHED } from '@signpdf/utils'
 import { env } from './_core/env.ts'
+import { desenharCarimboDigital, carimboFromEnv } from './sus/carimboDigital.ts'
+import {
+  desenharCabecalhoInstitucional,
+  desenharBannerTitulo,
+  desenharBlocoPaciente,
+  desenharIndicacaoCID,
+  drawTextWrapped,
+} from './pdfHeader.ts'
+
+const signpdf = new SignPdf()
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const CERTS_DIR = path.join(__dirname, 'certs')
-
-export function desenharCarimboICP(
-  page: PDFPage,
-  font: PDFFont,
-  fontBold: PDFFont,
-  pageWidth: number,
-  margin: number,
-): void {
-  const bX = margin
-  const bY = 8
-  const bW = pageWidth - margin * 2
-  const bH = 46
-
-  page.drawRectangle({
-    x: bX, y: bY, width: bW, height: bH,
-    color: rgb(0.92, 0.95, 1.0),
-    borderColor: rgb(0.07, 0.27, 0.52),
-    borderWidth: 1,
-  })
-
-  const nome = env.MEDICO_NOME
-  const crm  = env.MEDICO_CRM
-  const temMedico = !!(nome || crm)
-
-  page.drawText('DOCUMENTO ASSINADO DIGITALMENTE — PADRÃO ICP-BRASIL', {
-    x: bX + 10, y: bY + (temMedico ? 31 : 24),
-    font: fontBold, size: 8.5, color: rgb(0.07, 0.27, 0.52),
-  })
-
-  if (temMedico) {
-    const linha = [nome, crm ? `CRM ${crm}` : ''].filter(Boolean).join(' · ')
-    page.drawText(linha, {
-      x: bX + 10, y: bY + 19,
-      font: fontBold, size: 8, color: rgb(0.08, 0.08, 0.28),
-    })
-  }
-
-  page.drawText(
-    `Medida Provisória 2.200-2/2001 · Resolução CFM 2.299/2021 · ${env.APP_URL}`,
-    {
-      x: bX + 10, y: bY + (temMedico ? 9 : 12),
-      font, size: 6.5, color: rgb(0.3, 0.3, 0.55),
-    },
-  )
-}
 
 export interface PdfSignResult {
   buffer: Buffer
@@ -59,225 +28,210 @@ export interface PdfSignResult {
   assinadoEm: Date
 }
 
-export async function gerarPrescricaoPdf(paciente: Paciente): Promise<Buffer> {
+export async function gerarPrescricaoPdf(paciente: Paciente & { pacienteId?: number; cpf?: string | null }): Promise<Buffer> {
   const doc = await PDFDocument.create()
-  const page = doc.addPage([595, 842]) // A4
+  const PAGE_W = 595
+  const PAGE_H = 842
+  const page = doc.addPage([PAGE_W, PAGE_H])
   const font = await doc.embedFont(StandardFonts.Helvetica)
   const fontBold = await doc.embedFont(StandardFonts.HelveticaBold)
 
-  const { width, height } = page.getSize()
   const margin = 50
 
-  // Header
-  page.drawText('FACILITA PrEP', {
-    x: margin, y: height - 60,
-    font: fontBold, size: 18, color: rgb(0.07, 0.27, 0.52),
-  })
-  page.drawText('Plataforma de Saúde Digital — Prescrição Médica', {
-    x: margin, y: height - 78,
-    font, size: 10, color: rgb(0.4, 0.4, 0.4),
+  // Cabeçalho institucional padronizado (mesmo layout dos pedidos de exame).
+  // startY = PAGE_H corresponde ao topo da página — equivalente ao padrão
+  // de pdfExameRequest/pdfOrientacao que usam (PAGE_H - 60) + 60.
+  let y = desenharCabecalhoInstitucional({
+    doc, page, font, fontBold, pageWidth: PAGE_W, margin, startY: PAGE_H,
   })
 
-  // Linha divisória
-  page.drawLine({ start: { x: margin, y: height - 90 }, end: { x: width - margin, y: height - 90 }, thickness: 1, color: rgb(0.8, 0.8, 0.8) })
-
-  let y = height - 120
-
-  const field = (label: string, value: string) => {
-    page.drawText(label + ':', { x: margin, y, font: fontBold, size: 10, color: rgb(0.3, 0.3, 0.3) })
-    page.drawText(value, { x: margin + 120, y, font, size: 10, color: rgb(0.1, 0.1, 0.1) })
-    y -= 20
-  }
-
-  page.drawText('DADOS DO PACIENTE', { x: margin, y, font: fontBold, size: 12, color: rgb(0.07, 0.27, 0.52) })
-  y -= 22
-
-  field('Nome', paciente.nome)
-  field('Data de Nascimento', paciente.dataNascimento ?? '—')
-  field('Sexo', paciente.sexo ?? '—')
-  y -= 10
-
-  page.drawText('PRESCRIÇÃO', { x: margin, y, font: fontBold, size: 12, color: rgb(0.07, 0.27, 0.52) })
-  y -= 22
-
-  const prescricao = paciente.prescricaoJson as { medicamento?: string; posologia?: string; duracao?: string; observacoes?: string } | null
-
-  field('Medicamento', prescricao?.medicamento === 'tenofovir_emtricitabina' ? 'Tenofovir/Emtricitabina' : prescricao?.medicamento ?? '—')
-  field('Posologia', prescricao?.posologia ?? '—')
-  field('Duração', prescricao?.duracao ?? '—')
-
-  if (prescricao?.observacoes) {
-    page.drawText('Observações:', { x: margin, y, font: fontBold, size: 10, color: rgb(0.3, 0.3, 0.3) })
-    y -= 16
-    page.drawText(prescricao.observacoes, { x: margin, y, font, size: 9, color: rgb(0.2, 0.2, 0.2), maxWidth: width - margin * 2 })
-    y -= 30
-  }
-
-  // Validade (4 meses)
-  y -= 20
+  // Banner roxo "RECEITA MÉDICA"
   const validadeDate = new Date()
   validadeDate.setMonth(validadeDate.getMonth() + 4)
   const dataValidade = validadeDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
-  page.drawText('Validade da Receita:', { x: margin, y, font: fontBold, size: 10, color: rgb(0.07, 0.27, 0.52) })
-  page.drawText(`Até ${dataValidade} (4 meses)`, { x: margin + 120, y, font, size: 10, color: rgb(0.1, 0.1, 0.1) })
-
-  // Data de emissão + carimbo digital
-  const dataEmissao = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-  page.drawText(`Emitido em: ${dataEmissao}`, {
-    x: margin, y: 62, font, size: 8, color: rgb(0.5, 0.5, 0.5),
+  y = desenharBannerTitulo({
+    page, font, fontBold, pageWidth: PAGE_W, margin, startY: y,
+    titulo: 'RECEITA MÉDICA',
+    subtitulo: `Profilaxia Pré-Exposição (PrEP) ao HIV · Validade até ${dataValidade}`,
   })
-  desenharCarimboICP(page, font, fontBold, width, margin)
+
+  // Bloco do paciente (nome + CPF)
+  y = desenharBlocoPaciente({
+    page, font, fontBold, pageWidth: PAGE_W, margin, startY: y,
+    paciente: { nome: paciente.nome, cpf: paciente.cpf },
+  })
+
+  // Bloco PRESCRIÇÃO
+  const prescricao = paciente.prescricaoJson as { medicamento?: string; posologia?: string; duracao?: string; observacoes?: string } | null
+  const medicamento = prescricao?.medicamento === 'tenofovir_emtricitabina'
+    ? 'Tenofovir 300 mg + Entricitabina 200 mg (TDF/FTC)'
+    : prescricao?.medicamento ?? '—'
+
+  page.drawText('PRESCRIÇÃO', { x: margin, y, font: fontBold, size: 9, color: rgb(0.4, 0.4, 0.45) })
+  y -= 16
+
+  const linhaPrescricao = (label: string, value: string) => {
+    page.drawText(`${label}:`, { x: margin, y, font: fontBold, size: 10, color: rgb(0.2, 0.2, 0.25) })
+    const valueX = margin + 110
+    const valueMaxW = PAGE_W - margin - valueX
+    const yStart = y
+    const yAfter = drawTextWrapped(page, value, {
+      x: valueX, y, font, size: 10, color: rgb(0.1, 0.1, 0.15),
+      maxWidth: valueMaxW, lineHeight: 14,
+    })
+    // garante pelo menos um avanço de 18pt mesmo se valor for vazio
+    y = Math.min(yAfter - 4, yStart - 18)
+  }
+
+  linhaPrescricao('Medicamento', medicamento)
+  linhaPrescricao('Posologia', prescricao?.posologia ?? '—')
+  linhaPrescricao('Duração', prescricao?.duracao ?? '—')
+
+  if (prescricao?.observacoes) {
+    y -= 4
+    page.drawText('Observações:', { x: margin, y, font: fontBold, size: 9, color: rgb(0.4, 0.4, 0.45) })
+    y -= 13
+    y = drawTextWrapped(page, prescricao.observacoes, {
+      x: margin, y, font, size: 9, color: rgb(0.2, 0.2, 0.25),
+      maxWidth: PAGE_W - margin * 2, lineHeight: 12,
+    })
+    y -= 4
+  }
+
+  // Indicação clínica + CID + validade (mesmo bloco dos pedidos)
+  y = Math.max(y - 8, 160)
+  desenharIndicacaoCID({
+    page, font, fontBold, margin, pageWidth: PAGE_W, startY: y,
+    indicacao: 'Profilaxia Pré-Exposição (PrEP) ao HIV — protocolo Ministério da Saúde 2024.',
+    validadeDias: 120,
+  })
+
+  // Carimbo digital com QR Code (assinatura ICP-Brasil é aplicada por assinarPdf)
+  const carimboPresc = carimboFromEnv('prescricao', paciente.pacienteId ?? 0)
+  await desenharCarimboDigital(doc, page, { x: margin, y: 8, width: PAGE_W - margin * 2, height: 60 }, carimboPresc)
 
   return Buffer.from(await doc.save())
 }
 
-export interface PacienteCompleto {
-  nome: string
-  cpf?: string
-  dataNascimento: string | null
-  sexo: string | null
-  nomeSocial?: string | null
-  corRaca?: string | null
-  escolaridade?: string | null
-  situacaoConjugal?: string | null
-  email?: string | null
-  telefone?: string | null
-  cep?: string | null
-  logradouro?: string | null
-  numero?: string | null
-  complemento?: string | null
-  bairro?: string | null
-  cidade?: string | null
-  estado?: string | null
-  tipoAtendimento?: string | null
-  convenio?: string | null
-  condutaJson: unknown
-  prescricaoJson: unknown
+// gerarFormularioPdf removido — o Formulário Clínico foi descontinuado.
+// prepararExameAnexadoComoPdf removido — o exame que o paciente subiu
+// fica em consultas_inicio.exameS3Key apenas para auditoria e revisão
+// médica; não é reentregue ao paciente no bundle final.
+
+/**
+ * Lê o certificado .pfx do ICP-Brasil — prioridade:
+ *   1. env.ICP_PFX_BASE64 (Railway/produção)
+ *   2. server/certs/werciley.pfx (desenvolvimento)
+ */
+async function lerPfx(): Promise<Buffer | null> {
+  if (env.ICP_PFX_BASE64) return Buffer.from(env.ICP_PFX_BASE64, 'base64')
+  try { return await readFile(path.join(CERTS_DIR, 'werciley.pfx')) }
+  catch { return null }
 }
 
-export async function gerarFormularioPdf(paciente: PacienteCompleto): Promise<Buffer> {
-  const doc = await PDFDocument.create()
-  const page = doc.addPage([595, 842])
-  const font = await doc.embedFont(StandardFonts.Helvetica)
-  const fontBold = await doc.embedFont(StandardFonts.HelveticaBold)
+/**
+ * Lê o serial do certificado a partir do .pfx para registro de auditoria.
+ *
+ * Cacheado por byteLength + primeiros 32 bytes do .pfx — em workload de
+ * fila (cada PDF assinado), evita re-parsear ASN.1 em todo job.
+ *
+ * Nunca lança: erro de parsing retorna 'unknown' (a assinatura PAdES já
+ * foi aplicada com sucesso pelo P12Signer; a auditoria não deve
+ * derrubar o resultado).
+ */
+let serialCache: { key: string; serial: string } | null = null
 
-  const { width, height } = page.getSize()
-  const m = 50
-  let y = height - 60
+function extrairSerial(pfxData: Buffer, password: string): string {
+  const cacheKey = `${pfxData.byteLength}:${pfxData.subarray(0, 32).toString('hex')}`
+  if (serialCache?.key === cacheKey) return serialCache.serial
 
-  const titulo = (txt: string) => {
-    page.drawText(txt, { x: m, y, font: fontBold, size: 11, color: rgb(0.07, 0.27, 0.52) })
-    y -= 6
-    page.drawLine({ start: { x: m, y }, end: { x: width - m, y }, thickness: 0.5, color: rgb(0.8, 0.8, 0.8) })
-    y -= 16
+  try {
+    const pfxDer = pfxData.toString('binary')
+    const pfxAsn1 = forge.asn1.fromDer(pfxDer)
+    const pfxObj = forge.pkcs12.pkcs12FromAsn1(pfxAsn1, password)
+    const certBag = pfxObj.getBags({ bagType: forge.pki.oids.certBag })[forge.pki.oids.certBag]?.[0]
+    const serial = certBag?.cert?.serialNumber ?? 'unknown'
+    serialCache = { key: cacheKey, serial }
+    return serial
+  } catch {
+    return 'unknown'
   }
-
-  const campo = (label: string, valor: string | null | undefined) => {
-    const v = valor ?? '—'
-    const maxW = width - m * 2 - 160
-    page.drawText(label + ':', { x: m, y, font: fontBold, size: 9, color: rgb(0.4, 0.4, 0.4) })
-    page.drawText(v.length > 55 ? v.slice(0, 55) + '…' : v, { x: m + 160, y, font, size: 9, color: rgb(0.1, 0.1, 0.1), maxWidth: maxW })
-    y -= 16
-  }
-
-  // Header
-  page.drawText('FACILITA PrEP', { x: m, y, font: fontBold, size: 18, color: rgb(0.07, 0.27, 0.52) })
-  y -= 20
-  page.drawText('Formulário Clínico PrEP', { x: m, y, font, size: 10, color: rgb(0.4, 0.4, 0.4) })
-  y -= 12
-  page.drawLine({ start: { x: m, y }, end: { x: width - m, y }, thickness: 1.5, color: rgb(0.07, 0.27, 0.52) })
-  y -= 24
-
-  titulo('1. DADOS PESSOAIS')
-  campo('Nome completo', paciente.nome)
-  if (paciente.cpf) campo('CPF', paciente.cpf)
-  campo('Data de nascimento', paciente.dataNascimento ? paciente.dataNascimento.split('-').reverse().join('/') : null)
-  campo('Sexo biológico', paciente.sexo)
-  if (paciente.nomeSocial) campo('Nome social', paciente.nomeSocial)
-  y -= 8
-
-  titulo('2. DADOS DEMOGRÁFICOS')
-  campo('Cor/Raça', paciente.corRaca)
-  campo('Escolaridade', paciente.escolaridade)
-  campo('Situação conjugal', paciente.situacaoConjugal)
-  y -= 8
-
-  titulo('3. CONTATO')
-  campo('E-mail', paciente.email)
-  campo('Telefone', paciente.telefone)
-  const end = [paciente.logradouro, paciente.numero, paciente.complemento, paciente.bairro, paciente.cidade, paciente.estado].filter(Boolean).join(', ')
-  if (end) campo('Endereço', end)
-  campo('CEP', paciente.cep)
-  y -= 8
-
-  const conduta = paciente.condutaJson as {
-    relacoesSexuais?: { tipos?: string[]; frequencia?: string; parceirosUltimos6Meses?: number; usaPreservativo?: string }
-    historicoDst?: boolean; dstDescricao?: string; prepAnterior?: boolean; prepPeriodo?: string
-    usoDrogas?: boolean; drogasDescricao?: string; outrasInformacoes?: string
-  } | null
-
-  titulo('4. CONDUTA / HISTÓRICO')
-  if (conduta) {
-    campo('Práticas sexuais', conduta.relacoesSexuais?.tipos?.join(', '))
-    campo('Frequência', conduta.relacoesSexuais?.frequencia)
-    campo('Parceiros (6 meses)', conduta.relacoesSexuais?.parceirosUltimos6Meses != null ? String(conduta.relacoesSexuais.parceirosUltimos6Meses) : null)
-    campo('Uso preservativo', conduta.relacoesSexuais?.usaPreservativo)
-    campo('Histórico DST', conduta.historicoDst != null ? (conduta.historicoDst ? 'Sim' : 'Não') : null)
-    if (conduta.dstDescricao) campo('DST — descrição', conduta.dstDescricao)
-    campo('PrEP anterior', conduta.prepAnterior != null ? (conduta.prepAnterior ? 'Sim' : 'Não') : null)
-    if (conduta.prepPeriodo) campo('Período PrEP', conduta.prepPeriodo)
-    campo('Uso de drogas', conduta.usoDrogas != null ? (conduta.usoDrogas ? 'Sim' : 'Não') : null)
-    if (conduta.drogasDescricao) campo('Drogas — descrição', conduta.drogasDescricao)
-    if (conduta.outrasInformacoes) campo('Outras informações', conduta.outrasInformacoes)
-  }
-  y -= 8
-
-  const prescricao = paciente.prescricaoJson as {
-    medicamento?: string; nomeMedicamento?: string; posologia?: string; duracao?: string; observacoes?: string
-  } | null
-
-  titulo('5. PRESCRIÇÃO')
-  if (prescricao) {
-    const med = prescricao.medicamento === 'tenofovir_emtricitabina'
-      ? 'Tenofovir/Emtricitabina (TDF+FTC)'
-      : (prescricao.nomeMedicamento ?? prescricao.medicamento)
-    campo('Medicamento', med)
-    campo('Posologia', prescricao.posologia)
-    campo('Duração', prescricao.duracao)
-    if (prescricao.observacoes) campo('Observações', prescricao.observacoes)
-  }
-  y -= 8
-
-  titulo('6. TIPO DE ATENDIMENTO')
-  campo('Modalidade', paciente.tipoAtendimento)
-  if (paciente.convenio) campo('Convênio', paciente.convenio)
-
-  const emitido = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-  page.drawText(`Emitido em: ${emitido}`, {
-    x: m, y: 62, font, size: 8, color: rgb(0.5, 0.5, 0.5),
-  })
-  desenharCarimboICP(page, font, fontBold, width, m)
-
-  return Buffer.from(await doc.save())
 }
 
-export async function assinarPdf(pdfBuffer: Buffer, titulo = 'Documento PrEP — Facilita PrEP'): Promise<PdfSignResult> {
-  const pfxPassword = env.ICP_PFX_PASSWORD ?? ''
+export interface CertificadoInfo {
+  status: 'configurado' | 'demo' | 'erro'
+  /** CN (Common Name) do titular */
+  titular?: string
+  /** CN do emissor */
+  emissor?: string
+  serial?: string
+  validoDe?: Date
+  validoAte?: Date
+  diasRestantes?: number
+  /** True se está dentro do período de validade */
+  valido?: boolean
+  /** True se vence em menos de 60 dias */
+  vencendoEm60Dias?: boolean
+  mensagem?: string
+}
 
-  // Prioridade 1: env var ICP_PFX_BASE64 (Railway/produção)
-  // Prioridade 2: arquivo local server/certs/werciley.pfx (desenvolvimento)
-  let pfxData: Buffer | null = null
-
-  if (env.ICP_PFX_BASE64) {
-    pfxData = Buffer.from(env.ICP_PFX_BASE64, 'base64')
-  } else {
-    const pfxPath = path.join(CERTS_DIR, 'werciley.pfx')
-    try {
-      pfxData = await readFile(pfxPath)
-    } catch {
-      // Certificado não encontrado
+/**
+ * Inspeciona o certificado .pfx ICP-Brasil configurado e retorna informações
+ * de validade. Útil para painel de admin acompanhar vencimento do certificado.
+ *
+ * Não lança exceção em nenhum caso — sempre retorna um status.
+ */
+export async function inspecionarCertificado(): Promise<CertificadoInfo> {
+  const pfxData = await lerPfx()
+  if (!pfxData) {
+    return {
+      status: 'demo',
+      mensagem: 'Certificado ICP-Brasil não configurado (modo DEMO em desenvolvimento)',
     }
   }
+
+  try {
+    const password = env.ICP_PFX_PASSWORD ?? ''
+    const pfxDer = pfxData.toString('binary')
+    const pfxAsn1 = forge.asn1.fromDer(pfxDer)
+    const pfxObj = forge.pkcs12.pkcs12FromAsn1(pfxAsn1, password)
+    const certBag = pfxObj.getBags({ bagType: forge.pki.oids.certBag })[forge.pki.oids.certBag]?.[0]
+    const cert = certBag?.cert
+    if (!cert) {
+      return { status: 'erro', mensagem: 'Não foi possível extrair certificado do .pfx' }
+    }
+
+    const agora = new Date()
+    const validoDe = cert.validity.notBefore
+    const validoAte = cert.validity.notAfter
+    const diasRestantes = Math.floor((validoAte.getTime() - agora.getTime()) / 86_400_000)
+    const valido = agora >= validoDe && agora <= validoAte
+
+    return {
+      status: 'configurado',
+      titular: cert.subject.getField('CN')?.value,
+      emissor: cert.issuer.getField('CN')?.value,
+      serial: cert.serialNumber,
+      validoDe,
+      validoAte,
+      diasRestantes,
+      valido,
+      vencendoEm60Dias: valido && diasRestantes <= 60,
+    }
+  } catch (err) {
+    return {
+      status: 'erro',
+      mensagem: `Erro ao ler certificado: ${(err as Error).message}`,
+    }
+  }
+}
+
+export async function assinarPdf(
+  pdfBuffer: Buffer,
+  titulo = 'Documento PrEP — Facilita PrEP',
+): Promise<PdfSignResult> {
+  const pfxPassword = env.ICP_PFX_PASSWORD ?? ''
+  const pfxData = await lerPfx()
 
   // Sem certificado: modo DEMO (apenas em desenvolvimento)
   if (!pfxData) {
@@ -297,44 +251,36 @@ export async function assinarPdf(pdfBuffer: Buffer, titulo = 'Documento PrEP —
     throw new Error('Certificado ICP-Brasil não configurado. Defina ICP_PFX_BASE64 no Railway ou coloque werciley.pfx em server/certs/')
   }
 
-  const pfxDer = pfxData.toString('binary')
-  const pfxAsn1 = forge.asn1.fromDer(pfxDer)
-  const pfxObj = forge.pkcs12.pkcs12FromAsn1(pfxAsn1, pfxPassword)
-
-  // Extrair certificado e chave privada
-  const certBags = pfxObj.getBags({ bagType: forge.pki.oids.certBag })
-  const keyBags = pfxObj.getBags({ bagType: forge.pki.oids.pkcs8ShroudedKeyBag })
-
-  const certBag = certBags[forge.pki.oids.certBag]?.[0]
-  const keyBag = keyBags[forge.pki.oids.pkcs8ShroudedKeyBag]?.[0]
-
-  if (!certBag?.cert || !keyBag?.key) {
-    throw new Error('Certificado ICP-Brasil não encontrado em server/certs/werciley.pfx')
-  }
-
-  const cert = certBag.cert
-  const privateKey = keyBag.key as forge.pki.rsa.PrivateKey
-
-  // Criar assinatura PKCS#7
-  const md = forge.md.sha256.create()
-  md.update(pdfBuffer.toString('binary'))
-  const signature = privateKey.sign(md)
-
-  const serial = cert.serialNumber
+  // 1. Atualiza metadados antes da assinatura (para que sejam parte do que é assinado)
+  const docComMetadados = await PDFDocument.load(pdfBuffer)
+  docComMetadados.setTitle(titulo)
+  docComMetadados.setProducer('Facilita PrEP — ICP-Brasil')
+  docComMetadados.setCreator('Facilita PrEP')
   const assinadoEm = new Date()
+  docComMetadados.setModificationDate(assinadoEm)
+  const pdfComMetadados = Buffer.from(await docComMetadados.save({ useObjectStreams: false }))
 
-  // Embedar metadados de assinatura no PDF
-  const doc = await PDFDocument.load(pdfBuffer)
-  doc.setTitle(titulo)
-  doc.setAuthor(cert.subject.getField('CN')?.value ?? 'Médico Responsável')
-  doc.setCreationDate(assinadoEm)
-  doc.setModificationDate(assinadoEm)
+  // 2. Adiciona placeholder de assinatura no PDF (PAdES SubFilter ETSI.CAdES.detached)
+  const pdfComPlaceholder = plainAddPlaceholder({
+    pdfBuffer: pdfComMetadados,
+    reason: 'Documento médico assinado digitalmente — Facilita PrEP',
+    contactInfo: env.MEDICO_NOME,
+    name: env.MEDICO_NOME,
+    location: `${env.MEDICO_CRM_TIPO}/${env.MEDICO_CRM_UF} ${env.MEDICO_CRM}`,
+    signingTime: assinadoEm,
+    subFilter: SUBFILTER_ETSI_CADES_DETACHED,
+    appName: 'Facilita PrEP',
+  })
 
-  const signedBuffer = Buffer.from(await doc.save())
+  // 3. Assina o placeholder com o .pfx (PKCS#7 detached SignedData)
+  const signer = new P12Signer(pfxData, { passphrase: pfxPassword })
+  const signedBuffer = await signpdf.sign(pdfComPlaceholder, signer)
+
+  const certificadoSerial = extrairSerial(pfxData, pfxPassword)
 
   return {
-    buffer: signedBuffer,
-    certificadoSerial: serial,
+    buffer: Buffer.from(signedBuffer),
+    certificadoSerial,
     assinadoEm,
   }
 }

@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { trpc } from '../lib/trpc.ts'
-import { Copy, Link, Trash2, ExternalLink, CheckCircle, XCircle } from 'lucide-react'
+import { useAuth } from '../_core/hooks/useAuth.ts'
+import { Copy, Link, Trash2, ExternalLink, CheckCircle, XCircle, Send } from 'lucide-react'
+import { fmt } from '../lib/format.ts'
+import { EmptyState } from './EmptyState.tsx'
 
 type Tab = 'links' | 'planos' | 'documentos'
 type StatusFiltro = 'todos' | 'pendente' | 'validado' | 'rejeitado' | 'liberado'
@@ -26,7 +29,8 @@ function PlanosTab() {
   const [motivoRejeicao, setMotivoRejeicao] = useState<Record<number, string>>({})
   const [expandedId, setExpandedId] = useState<number | null>(null)
 
-  const { data: pendentes, refetch } = trpc.intake.listarPendentes.useQuery()
+  const { data: pendentesPage, refetch } = trpc.intake.listarPendentes.useQuery({})
+  const pendentes = pendentesPage?.data
   const urlDocumento = trpc.intake.urlDocumento.useMutation()
   const aprovar = trpc.intake.aprovar.useMutation({ onSuccess: () => refetch() })
   const rejeitar = trpc.intake.rejeitar.useMutation({ onSuccess: () => refetch() })
@@ -79,7 +83,7 @@ function PlanosTab() {
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-xs text-slate-400">
-                  {new Date(p.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                  {fmt.datetime(p.createdAt)}
                 </span>
                 <svg
                   className={`w-5 h-5 text-slate-400 transition-transform ${expandedId === p.id ? 'rotate-180' : ''}`}
@@ -162,6 +166,7 @@ function PlanosTab() {
 }
 
 export default function SecretariaDashboard() {
+  const { logout } = useAuth()
   const [tab, setTab] = useState<Tab>('planos')
   const [email, setEmail] = useState('')
   const [tipo, setTipo] = useState<'privado' | 'convenio'>('privado')
@@ -169,45 +174,68 @@ export default function SecretariaDashboard() {
   const [novoToken, setNovoToken] = useState<string | null>(null)
   const [statusFiltro, setStatusFiltro] = useState<StatusFiltro>('todos')
 
+  const [reenviadoId, setReenviadoId] = useState<number | null>(null)
+
   const { data: tokens, refetch } = trpc.token.listar.useQuery()
   const { data: documentos } = trpc.secretaria.listarDocumentos.useQuery({ status: statusFiltro })
-  const { data: pendentes } = trpc.intake.listarPendentes.useQuery()
+  const { data: pendentesPage2 } = trpc.intake.listarPendentes.useQuery({})
   const criar = trpc.token.criar.useMutation({
     onSuccess: (data) => { setNovoToken(data.token); refetch() },
   })
   const revogar = trpc.token.revogar.useMutation({ onSuccess: () => refetch() })
+  const reenviar = trpc.secretaria.reenviarLink.useMutation({
+    onSuccess: (data, vars) => {
+      setReenviadoId(vars.tokenId)
+      if (data.link) navigator.clipboard.writeText(data.link)
+      setTimeout(() => setReenviadoId(null), 3000)
+    },
+  })
 
   const linkAcesso = novoToken ? `${window.location.origin}/acesso/${novoToken}` : null
-  const qtdPendentes = pendentes?.length ?? 0
+  const qtdPendentes = pendentesPage2?.data.length ?? 0
 
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="bg-white border-b border-slate-200 px-6 py-4">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-blue-700">Dashboard Secretaria — Facilita PrEP</h1>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-3">
+            <div className="flex gap-2">
+              <button
+                onClick={() => setTab('planos')}
+                className={`relative px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === 'planos' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+              >
+                Planos de saúde
+                {qtdPendentes > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-amber-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                    {qtdPendentes > 9 ? '9+' : qtdPendentes}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setTab('links')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === 'links' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+              >
+                Gerar links de acesso
+              </button>
+              <button
+                onClick={() => setTab('documentos')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === 'documentos' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+              >
+                Exames enviados
+              </button>
+            </div>
+            <div className="w-px h-6 bg-slate-200" />
             <button
-              onClick={() => setTab('planos')}
-              className={`relative px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === 'planos' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+              data-event="logout"
+              onClick={() => { if (confirm('Deseja realmente sair?')) { logout(); window.location.href = '/' } }}
+              className="text-sm text-slate-600 hover:text-red-600 font-medium px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-1.5"
+              aria-label="Sair"
             >
-              Planos de saúde
-              {qtdPendentes > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 bg-amber-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                  {qtdPendentes > 9 ? '9+' : qtdPendentes}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => setTab('links')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === 'links' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-            >
-              Gerar links de acesso
-            </button>
-            <button
-              onClick={() => setTab('documentos')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === 'documentos' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-            >
-              Exames enviados
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              <span className="hidden sm:inline">Sair</span>
             </button>
           </div>
         </div>
@@ -255,6 +283,13 @@ export default function SecretariaDashboard() {
               >
                 {criar.isPending ? 'Gerando…' : 'Gerar link de acesso'}
               </button>
+
+              {criar.error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <p className="text-sm font-medium text-red-700">Erro ao gerar link</p>
+                  <p className="text-xs text-red-600 mt-1 break-words">{criar.error.message}</p>
+                </div>
+              )}
             </div>
 
             {linkAcesso && (
@@ -276,7 +311,7 @@ export default function SecretariaDashboard() {
           <div className="bg-white rounded-2xl border border-slate-200 p-6">
             <h2 className="text-base font-semibold text-slate-800 mb-4">Links gerados</h2>
 
-            {!tokens?.length && <p className="text-sm text-slate-400">Nenhum link gerado ainda.</p>}
+            {!tokens?.length && <EmptyState message="Nenhum link gerado ainda." />}
 
             <div className="space-y-2">
               {tokens?.map((t) => (
@@ -284,15 +319,27 @@ export default function SecretariaDashboard() {
                   <div>
                     <p className="text-sm text-slate-700">{t.patientEmail ?? 'Sem e-mail'}</p>
                     <p className="text-xs text-slate-400">
-                      {t.tipo} · Expira {new Date(t.expiresAt).toLocaleDateString('pt-BR')}
+                      {t.tipo} · Expira {fmt.date(t.expiresAt)}
                       {t.revokedAt && ' · REVOGADO'}
                       {t.usedAt && ' · Usado'}
                     </p>
                   </div>
                   {!t.revokedAt && (
-                    <button onClick={() => revogar.mutate({ tokenId: t.id })} className="text-red-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => reenviar.mutate({ tokenId: t.id })}
+                        disabled={reenviar.isPending}
+                        title={reenviadoId === t.id ? 'Enviado!' : 'Reenviar link'}
+                        className="text-blue-400 hover:text-blue-600 p-1.5 rounded-lg hover:bg-blue-50 disabled:opacity-40"
+                      >
+                        {reenviadoId === t.id
+                          ? <CheckCircle className="w-4 h-4 text-blue-500" />
+                          : <Send className="w-4 h-4" />}
+                      </button>
+                      <button onClick={() => revogar.mutate({ tokenId: t.id })} className="text-red-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   )}
                 </div>
               ))}
@@ -348,7 +395,7 @@ export default function SecretariaDashboard() {
                         <td className="px-4 py-3 text-slate-600 max-w-[200px] truncate" title={doc.nomeArquivo}>{doc.nomeArquivo}</td>
                         <td className="px-4 py-3 text-slate-500">{doc.tipoExame ?? '—'}</td>
                         <td className="px-4 py-3 text-slate-400 whitespace-nowrap">
-                          {new Date(doc.createdAt).toLocaleDateString('pt-BR')}
+                          {fmt.date(doc.createdAt)}
                         </td>
                         <td className="px-4 py-3">
                           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[iaStatus] ?? 'bg-slate-100 text-slate-500'}`}>

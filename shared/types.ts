@@ -55,8 +55,21 @@ export interface ResultadoIa {
   confianca: number
   observacoes?: string
   processadoEm: string
-  /** Status set by the exam queue worker after auto-approval logic runs */
-  status?: 'pendente' | 'aprovado_automaticamente' | 'rejeitado_ia' | 'pendente_revisao'
+  status?: 'pendente' | 'aprovado_automaticamente' | 'rejeitado_ia' | 'rejeitado' | 'pendente_revisao' | 'liberado_manualmente'
+  observacoesMedico?: string | null
+  liberadoEm?: string
+}
+
+export interface ExtracacaoExame {
+  tipoExameDetectado: 'hiv' | 'outro' | 'nao_identificado'
+  nomeExame: string | null
+  resultadoHiv: 'reagente' | 'nao_reagente' | 'inconclusivo' | 'nao_identificado'
+  resultadoTexto: string | null
+  dataColeta: string | null
+  dataResultado: string | null
+  dataExame: string | null
+  confianca: number
+  processadoEm: string
 }
 
 export interface AuthUser {
@@ -66,6 +79,7 @@ export interface AuthUser {
   nome: string | null
   email: string | null
   role: Role
+  totpEnabled: boolean
 }
 
 export interface PatientSession {

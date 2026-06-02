@@ -1,93 +1,58 @@
+/**
+ * adminRouter — Painel administrativo
+ * Seções: equipe | pacientes | documentos | auditoria | certificado | intake | dlq
+ * Cada procedure usa adminProcedure (role: admin).
+ *
+ * Sub-modules:
+ *   admin/users.ts — gestão de equipe (listarUsuarios, cadastrarUsuario, …)
+ *   admin/dlq.ts   — dead letter queue (listarDlq, reprocessarDlqJob)
+ */
 import { z } from 'zod'
 import { router, adminProcedure } from '../_core/trpc.ts'
 import { TRPCError } from '@trpc/server'
 import { db } from '../db.ts'
-import { users, securityEvents, pacientes, exames } from '../../drizzle/schema.ts'
-import { eq, desc, inArray } from 'drizzle-orm'
-import type { Role } from '../../shared/types.ts'
-import { decrypt } from '../_core/encryption.ts'
-
-type ResultadoIaJson = {
-  status?: string
-  [key: string]: unknown
-}
+import { securityEvents, pacientes, exames, pdfs, consultasInicio } from '../../drizzle/schema.ts'
+import { eq, desc, inArray, count, and } from 'drizzle-orm'
+import { decrypt, safeDecrypt } from '../_core/encryption.ts'
+import { filtrarExamePorStatus } from '../examUtils.ts'
+import { inspecionarCertificado, assinarPdf } from '../pdfSigner.ts'
+import { gerarEEnviarLinkAcesso } from './intake.ts'
+import { env } from '../_core/env.ts'
+import { linkAcessoQueue } from '../pdfQueue.ts'
+import { logAudit } from '../_core/audit.ts'
+import { uploadBuffer, deleteObject, getPresignedUrl } from '../storage.ts'
+import { preencherFichaAtendimento, buildConfigClinica, mapPrepAdesaoLabel } from '../sus/preencherFichaAtendimento.ts'
+import { okEmpty } from '../_core/response.ts'
+import { userProcedures } from './admin/users.ts'
+import { dlqProcedures } from './admin/dlq.ts'
+import type { ResultadoIa } from '../../shared/types.ts'
 
 export const adminRouter = router({
-  // ── Gestão de equipe ──────────────────────────────────────────
-
-  // Listar equipe
-  listarUsuarios: adminProcedure.query(async () => {
-    return db.select().from(users).orderBy(users.createdAt)
-  }),
-
-  // Cadastrar novo usuário da equipe
-  cadastrarUsuario: adminProcedure
-    .input(z.object({
-      email: z.string().email(),
-      nome: z.string().min(2),
-      role: z.enum(['secretaria', 'medico', 'admin']),
-    }))
-    .mutation(async ({ input }) => {
-      // Verificar se já existe usuário com esse e-mail
-      const existing = await db
-        .select({ id: users.id })
-        .from(users)
-        .where(eq(users.email, input.email))
-        .limit(1)
-
-      if (existing.length > 0) {
-        throw new TRPCError({ code: 'CONFLICT', message: 'Já existe um usuário com esse e-mail.' })
-      }
-
-      // openId será preenchido no primeiro login via SSO; usamos e-mail como placeholder
-      await db.insert(users).values({
-        openId: `pending:${input.email}`,
-        email: input.email,
-        nome: input.nome,
-        role: input.role as Role,
-        ativo: true,
-      })
-
-      return { ok: true }
-    }),
-
-  // Alterar role de usuário
-  alterarRole: adminProcedure
-    .input(z.object({ userId: z.number(), role: z.enum(['secretaria', 'medico', 'admin']) }))
-    .mutation(async ({ input }) => {
-      const [user] = await db.select().from(users).where(eq(users.id, input.userId)).limit(1)
-      if (!user) throw new TRPCError({ code: 'NOT_FOUND' })
-
-      await db
-        .update(users)
-        .set({ role: input.role as Role, updatedAt: new Date() })
-        .where(eq(users.id, input.userId))
-
-      return { ok: true }
-    }),
-
-  // Ativar/desativar usuário
-  toggleAtivo: adminProcedure
-    .input(z.object({ userId: z.number(), ativo: z.boolean() }))
-    .mutation(async ({ input }) => {
-      await db
-        .update(users)
-        .set({ ativo: input.ativo, updatedAt: new Date() })
-        .where(eq(users.id, input.userId))
-      return { ok: true }
-    }),
+  // ── Gestão de equipe — ver admin/users.ts ─────────────────────
+  ...userProcedures,
 
   // ── Pacientes ─────────────────────────────────────────────────
 
   // Listar todos os pacientes do sistema
   listarTodosPacientes: adminProcedure
-    .input(z.object({ busca: z.string().optional() }).optional())
+    .input(z.object({
+      busca: z.string().optional(),
+      page: z.number().int().min(1).default(1),
+      limit: z.number().int().min(1).max(200).default(50),
+    }).optional())
     .query(async ({ input }) => {
-      const rows = await db.select().from(pacientes).orderBy(desc(pacientes.createdAt))
+      const page = input?.page ?? 1
+      const limit = input?.limit ?? 50
+      const offset = (page - 1) * limit
+
+      const [rows, [totalRow]] = await Promise.all([
+        db.select().from(pacientes).orderBy(desc(pacientes.createdAt)).limit(limit).offset(offset),
+        db.select({ total: count() }).from(pacientes),
+      ])
 
       const decrypted = rows.map((p) => ({
         id: p.id,
-        nome: decrypt(p.nomeEncrypted),
+        nome: safeDecrypt(p.nomeEncrypted),
         cpfHash: p.cpfHash,
         status: p.status,
         tipoAtendimento: p.tipoAtendimento,
@@ -97,14 +62,17 @@ export const adminRouter = router({
         updatedAt: p.updatedAt,
       }))
 
+      const total = totalRow?.total ?? 0
+
       if (input?.busca) {
         const termo = input.busca.toLowerCase()
-        return decrypted.filter(
+        const filtered = decrypted.filter(
           (p) => p.nome.toLowerCase().includes(termo) || p.cpfHash.includes(termo),
         )
+        return { data: filtered, total: filtered.length, page: 1, pages: 1 }
       }
 
-      return decrypted
+      return { data: decrypted, total, page, pages: Math.ceil(total / limit) }
     }),
 
   // ── Documentos / Exames ───────────────────────────────────────
@@ -136,20 +104,14 @@ export const adminRouter = router({
         .from(exames)
         .leftJoin(pacientes, eq(pacientes.id, exames.pacienteId))
         .orderBy(desc(exames.createdAt))
+        .limit(500)
 
       const statusFiltro = input?.status ?? 'todos'
 
       return rows
-        .filter((r) => {
-          if (statusFiltro === 'todos') return true
-          const ia = r.resultadoIa as { status?: string } | null
-          const iaStatus = ia?.status ?? 'pendente'
-          if (statusFiltro === 'pendente') return !ia || iaStatus === 'pendente'
-          if (statusFiltro === 'validado') return iaStatus === 'aprovado' || iaStatus === 'validado'
-          if (statusFiltro === 'rejeitado') return iaStatus === 'rejeitado' || iaStatus === 'rejeitado_ia'
-          if (statusFiltro === 'liberado') return iaStatus === 'liberado_manualmente'
-          return true
-        })
+        .filter((r) =>
+          filtrarExamePorStatus(r.resultadoIa as { status?: string } | null, statusFiltro),
+        )
         .map((r) => ({
           id: r.id,
           pacienteId: r.pacienteId,
@@ -161,8 +123,8 @@ export const adminRouter = router({
           liberadoEm: r.liberadoEm,
           createdAt: r.createdAt,
           paciente: {
-            nome: r.pacienteNomeEncrypted ? decrypt(r.pacienteNomeEncrypted) : null,
-            email: r.pacienteEmailEncrypted ? decrypt(r.pacienteEmailEncrypted) : null,
+            nome: r.pacienteNomeEncrypted ? safeDecrypt(r.pacienteNomeEncrypted) : null,
+            email: r.pacienteEmailEncrypted ? safeDecrypt(r.pacienteEmailEncrypted) : null,
             status: r.pacienteStatus,
             tipoAtendimento: r.pacienteTipoAtendimento,
           },
@@ -179,10 +141,10 @@ export const adminRouter = router({
       const [exame] = await db.select().from(exames).where(eq(exames.id, input.exameId)).limit(1)
       if (!exame) throw new TRPCError({ code: 'NOT_FOUND', message: 'Exame não encontrado.' })
 
-      const resultadoAtual = exame.resultadoIa as ResultadoIaJson | null
+      const resultadoAtual = exame.resultadoIa
       if (
-        resultadoAtual?.status !== 'rejeitado_ia' &&
-        resultadoAtual?.status !== 'rejeitado'
+        !resultadoAtual ||
+        (resultadoAtual.status !== 'rejeitado_ia' && resultadoAtual.status !== 'rejeitado')
       ) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
@@ -190,7 +152,7 @@ export const adminRouter = router({
         })
       }
 
-      const novoResultado: ResultadoIaJson = {
+      const novoResultado: ResultadoIa = {
         ...resultadoAtual,
         status: 'liberado_manualmente',
         observacoesMedico: input.observacoes ?? null,
@@ -208,7 +170,7 @@ export const adminRouter = router({
         })
         .where(eq(exames.id, input.exameId))
 
-      return { ok: true }
+      return okEmpty()
     }),
 
   // Listar pacientes pendentes de revisão médica (poder de médico)
@@ -218,10 +180,11 @@ export const adminRouter = router({
       .from(pacientes)
       .where(inArray(pacientes.status, ['pendente', 'em_revisao']))
       .orderBy(pacientes.createdAt)
+      .limit(500)
 
     return rows.map((p) => ({
       id: p.id,
-      nome: decrypt(p.nomeEncrypted),
+      nome: safeDecrypt(p.nomeEncrypted),
       status: p.status,
       currentStep: p.currentStep,
       tipoAtendimento: p.tipoAtendimento,
@@ -240,6 +203,21 @@ export const adminRouter = router({
         .from(securityEvents)
         .orderBy(desc(securityEvents.createdAt))
         .limit(input.limit)
+    }),
+
+  // ── Saúde do certificado ICP-Brasil ─────────────────────────
+  // Mostra status, titular, emissor, serial e dias até expirar do .pfx
+  // configurado (via ICP_PFX_BASE64 ou server/certs/werciley.pfx).
+  saudeCertificado: adminProcedure.query(async () => {
+    return inspecionarCertificado()
+  }),
+
+  // Reenviar link de acesso para um pré-cadastro específico (recuperação manual)
+  recuperarPagamento: adminProcedure
+    .input(z.object({ precadastroId: z.number().int().positive() }))
+    .mutation(async ({ input }) => {
+      await gerarEEnviarLinkAcesso(input.precadastroId)
+      return { ok: true, precadastroId: input.precadastroId }
     }),
 
   // Exportar auditoria como CSV (retorna string CSV)
@@ -264,5 +242,96 @@ export const adminRouter = router({
     })
 
     return { csv: [header, ...linhas].join('\n') }
+  }),
+
+  // ── Saúde do fluxo de intake ──────────────────────────────────
+  // Verifica env vars críticas e conectividade com Redis/BullMQ.
+  // Bater nesse endpoint antes de testar fluxos de pagamento confirma
+  // que todos os recursos estão disponíveis.
+  regenerarFichaAtendimento: adminProcedure
+    .input(z.object({ pacienteId: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const { pacienteId } = input
+
+      const [p] = await db.select().from(pacientes).where(eq(pacientes.id, pacienteId)).limit(1)
+      if (!p) throw new TRPCError({ code: 'NOT_FOUND', message: 'Paciente não encontrado' })
+
+      const [consulta] = await db
+        .select({ tipoConsulta: consultasInicio.tipoConsulta, dataExameValidado: consultasInicio.dataExameValidado })
+        .from(consultasInicio)
+        .where(eq(consultasInicio.tokenId, p.tokenId))
+        .limit(1)
+
+      // Delete corrupted ficha(s) from S3 + DB
+      const fichasExistentes = await db
+        .select({ id: pdfs.id, s3Key: pdfs.s3Key })
+        .from(pdfs)
+        .where(and(eq(pdfs.pacienteId, pacienteId), eq(pdfs.tipo, 'ficha_atendimento')))
+      for (const f of fichasExistentes) {
+        await deleteObject(f.s3Key).catch(() => {})
+        await db.delete(pdfs).where(eq(pdfs.id, f.id))
+      }
+
+      const nome = decrypt(p.nomeEncrypted)
+      const cpf = decrypt(p.cpfEncrypted)
+      const dataNascimento = p.dataNascimentoEncrypted ? decrypt(p.dataNascimentoEncrypted) : ''
+      const nomeMae = p.nomeMaeEncrypted ? decrypt(p.nomeMaeEncrypted) : ''
+
+      const cond = (p.condutaJson ?? {}) as {
+        temSintomasDst?: boolean
+        usoDrogas?: boolean
+        prepAdesao?: 'diaria' | 'sob_demanda'
+      }
+      const prepAdesaoLabel = mapPrepAdesaoLabel(cond.prepAdesao)
+      const configClinica = buildConfigClinica()
+
+      const fichaBuf = Buffer.from(await preencherFichaAtendimento({
+        pacienteId,
+        cpf, nome, nomeMae, dataNascimento,
+        dataExameHiv: consulta?.dataExameValidado ?? null,
+        prepModalidade: (p.prepModalidade as 'PrEP diária' | 'PrEP sob demanda' | null) ?? 'PrEP diária',
+        tipoConsulta: (consulta?.tipoConsulta as 'primeiro_atendimento' | 'ja_faco_prep') ?? 'primeiro_atendimento',
+        prepAdesao: prepAdesaoLabel ?? null,
+        temSintomasDst: cond.temSintomasDst ?? null,
+        usoDrogas: cond.usoDrogas ?? null,
+      }, configClinica))
+
+      const { buffer: signedFicha, certificadoSerial, assinadoEm } =
+        await assinarPdf(fichaBuf, 'Ficha de Atendimento PrEP — Facilita PrEP')
+      const fichaKey = `pdfs/${pacienteId}/${Date.now()}-ficha-atendimento.pdf`
+      await uploadBuffer(fichaKey, signedFicha, 'application/pdf')
+      await db.insert(pdfs).values({ pacienteId, s3Key: fichaKey, tipo: 'ficha_atendimento', certificadoSerial, assinadoEm })
+
+      const [url] = await Promise.all([
+        getPresignedUrl(fichaKey, 3600),
+        logAudit({ actorId: ctx.session.id, actorRole: ctx.session.role, action: 'pdf.generate', resourceType: 'ficha_atendimento', resourceId: pacienteId, detalhes: { fichasRemovidas: fichasExistentes.length } }),
+      ])
+      return { ok: true, url, fichasRemovidas: fichasExistentes.length }
+    }),
+
+  // ── Dead Letter Queue — ver admin/dlq.ts ─────────────────────
+  ...dlqProcedures,
+
+  saudeIntake: adminProcedure.query(async () => {
+    let redisOk = false
+    let linkAcessoQueueSize: number | null = null
+    try {
+      linkAcessoQueueSize = await linkAcessoQueue.count()
+      redisOk = true
+    } catch {
+      // Redis inacessível
+    }
+
+    return {
+      appUrl: env.APP_URL,
+      appUrlOk: !!env.APP_URL,
+      resendKey: !!env.RESEND_API_KEY,
+      zapiInstanceId: !!env.ZAPI_INSTANCE_ID,
+      zapiToken: !!env.ZAPI_TOKEN,
+      asaasKey: !!env.ASAAS_API_KEY,
+      asaasEnv: env.ASAAS_ENV,
+      redisOk,
+      linkAcessoQueueSize,
+    }
   }),
 })

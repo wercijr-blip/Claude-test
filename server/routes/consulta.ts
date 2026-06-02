@@ -2,14 +2,17 @@ import { z } from 'zod'
 import { router, protectedProcedure, medicoProcedure } from '../_core/trpc.ts'
 import { TRPCError } from '@trpc/server'
 import { db } from '../db.ts'
-import { consultasInicio, accessTokens, precadastros, users } from '../../drizzle/schema.ts'
-import { eq, desc, inArray } from 'drizzle-orm'
+import { consultasInicio, accessTokens, precadastros, users, pacientes } from '../../drizzle/schema.ts'
+import { eq, desc, inArray, isNull, and } from 'drizzle-orm'
 import { decrypt } from '../_core/encryption.ts'
 import { extrairDadosExame, calcularSimilaridadeNome, parseDateBR, isDataValida } from '../examValidation.ts'
 import { gerarPedidosExames } from '../pdfExameRequest.ts'
+import { gerarOrientacaoInicialPdf } from '../pdfOrientacaoInicial.ts'
 import { assinarPdf } from '../pdfSigner.ts'
 import { uploadBuffer, getPresignedUrl } from '../storage.ts'
+import * as Sentry from '@sentry/node'
 import { enviarWhatsApp } from '../whatsapp.ts'
+import { notificarStaff, staffTemplates } from '../whatsapp.staff.ts'
 import {
   enviarExameAprovadoIa,
   enviarAnaliseHumanaExame,
@@ -18,8 +21,11 @@ import {
   enviarExameRejeitadoMedico,
   enviarSolicitacaoReenvio,
 } from '../email.ts'
+import { gerarLinkDeAcesso } from './intake.ts'
 import { env } from '../_core/env.ts'
+import { logger } from '../_core/logger.ts'
 import { DIAS_VALIDADE_LINK_UPLOAD } from '../../shared/const.ts'
+import { okEmpty } from '../_core/response.ts'
 
 function assertPatient(session: unknown): asserts session is { type: 'patient'; tokenId: number; pacienteId: number | null } {
   if (!session || (session as { type: string }).type !== 'patient') {
@@ -29,14 +35,18 @@ function assertPatient(session: unknown): asserts session is { type: 'patient'; 
 
 interface InfoPaciente {
   nome: string
+  cpf: string | null
   email: string | null
   telefone: string | null
+  precadastroId: number | null
 }
 
 async function getInfoPaciente(tokenId: number): Promise<InfoPaciente> {
   const [precad] = await db
     .select({
+      id: precadastros.id,
       nomeEncrypted: precadastros.nomeEncrypted,
+      cpfEncrypted: precadastros.cpfEncrypted,
       emailEncrypted: precadastros.emailEncrypted,
       telefoneEncrypted: precadastros.telefoneEncrypted,
     })
@@ -47,26 +57,28 @@ async function getInfoPaciente(tokenId: number): Promise<InfoPaciente> {
   if (precad) {
     return {
       nome: decrypt(precad.nomeEncrypted),
+      cpf: decrypt(precad.cpfEncrypted),
       email: decrypt(precad.emailEncrypted),
       telefone: decrypt(precad.telefoneEncrypted),
+      precadastroId: precad.id,
     }
   }
 
-  // Fallback: accessTokens.patientEmail
+  // Fallback: accessTokens.patientEmail (secretaria-created token without precadastro)
   const [token] = await db
     .select({ patientEmail: accessTokens.patientEmail })
     .from(accessTokens)
     .where(eq(accessTokens.id, tokenId))
     .limit(1)
 
-  return { nome: 'Paciente', email: token?.patientEmail ?? null, telefone: null }
+  return { nome: 'Paciente', cpf: null, email: token?.patientEmail ?? null, telefone: null, precadastroId: null }
 }
 
 async function getMedicosEmails(): Promise<string[]> {
   const rows = await db
     .select({ email: users.email })
     .from(users)
-    .where(inArray(users.role, ['medico', 'admin']))
+    .where(and(inArray(users.role, ['medico', 'admin']), isNull(users.deletedAt)))
   return rows.map(r => r.email).filter(Boolean) as string[]
 }
 
@@ -131,45 +143,52 @@ export const consultaRouter = router({
 
       if (!consulta?.tipoConsulta) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Inicie o atendimento primeiro.' })
 
-      if (consulta.pedidoCompletoS3Key && consulta.pedidoHivS3Key) {
-        return {
-          urlCompleto: await getPresignedUrl(consulta.pedidoCompletoS3Key, 3600),
-          urlIst: consulta.pedidoIstS3Key ? await getPresignedUrl(consulta.pedidoIstS3Key, 3600) : null,
-          urlHiv: await getPresignedUrl(consulta.pedidoHivS3Key, 3600),
-          urlDensitometria: consulta.pedidoDensitometriaS3Key ? await getPresignedUrl(consulta.pedidoDensitometriaS3Key, 3600) : null,
-        }
-      }
-
+      // Sempre regenera os pedidos para garantir que a lista de exames atual
+      // (definida em shared/const.ts) esteja sendo usada. PDFs antigos no S3
+      // ficam apenas como histórico — o paciente baixa via URL nova retornada
+      // abaixo.
       const info = await getInfoPaciente(ctx.session.tokenId)
+
+      const paciente = { nome: info.nome, cpf: info.cpf }
+      const tokenId = ctx.session.tokenId
 
       const { completo, ist, hiv, densitometria } = await gerarPedidosExames(
         consulta.tipoConsulta as 'primeiro_atendimento' | 'ja_faco_prep',
-        info.nome,
+        paciente,
+        tokenId,
       )
+
+      // Documento de Orientação Inicial — vai junto com os pedidos para
+      // explicar o paciente sobre os exames antes de iniciar a PrEP.
+      const orientacaoInicial = await gerarOrientacaoInicialPdf({ tokenId, paciente })
 
       const [
         { buffer: completoAssinado },
         { buffer: istAssinado },
         { buffer: hivAssinado },
         { buffer: densitometriaAssinada },
+        { buffer: orientacaoAssinada },
       ] = await Promise.all([
         assinarPdf(completo, 'Pedido de Exames Completo PrEP — Facilita PrEP'),
         assinarPdf(ist, 'Pedido de Exames Sorológicos IST — Facilita PrEP'),
         assinarPdf(hiv, 'Pedido de Exame Anti-HIV — Facilita PrEP'),
         assinarPdf(densitometria, 'Pedido de Densitometria Óssea — Facilita PrEP'),
+        assinarPdf(orientacaoInicial, 'Orientação para Início da PrEP — Facilita PrEP'),
       ])
 
       const ts = Date.now()
-      const keyCompleto = `pedidos/${ctx.session.tokenId}/${ts}-completo.pdf`
-      const keyIst = `pedidos/${ctx.session.tokenId}/${ts}-ist.pdf`
-      const keyHiv = `pedidos/${ctx.session.tokenId}/${ts}-hiv.pdf`
-      const keyDensit = `pedidos/${ctx.session.tokenId}/${ts}-densitometria.pdf`
+      const keyCompleto = `pedidos/${tokenId}/${ts}-completo.pdf`
+      const keyIst = `pedidos/${tokenId}/${ts}-ist.pdf`
+      const keyHiv = `pedidos/${tokenId}/${ts}-hiv.pdf`
+      const keyDensit = `pedidos/${tokenId}/${ts}-densitometria.pdf`
+      const keyOri = `pedidos/${tokenId}/${ts}-orientacao-inicial.pdf`
 
       await Promise.all([
         uploadBuffer(keyCompleto, completoAssinado, 'application/pdf'),
         uploadBuffer(keyIst, istAssinado, 'application/pdf'),
         uploadBuffer(keyHiv, hivAssinado, 'application/pdf'),
         uploadBuffer(keyDensit, densitometriaAssinada, 'application/pdf'),
+        uploadBuffer(keyOri, orientacaoAssinada, 'application/pdf'),
       ])
 
       await db.update(consultasInicio)
@@ -183,16 +202,20 @@ export const consultaRouter = router({
         .where(eq(consultasInicio.id, consulta.id))
 
       return {
-        urlCompleto: await getPresignedUrl(keyCompleto, 3600),
-        urlIst: await getPresignedUrl(keyIst, 3600),
-        urlHiv: await getPresignedUrl(keyHiv, 3600),
-        urlDensitometria: await getPresignedUrl(keyDensit, 3600),
+        urlCompleto: await getPresignedUrl(keyCompleto, 1800),
+        urlIst: await getPresignedUrl(keyIst, 1800),
+        urlHiv: await getPresignedUrl(keyHiv, 1800),
+        urlDensitometria: await getPresignedUrl(keyDensit, 1800),
+        urlOrientacao: await getPresignedUrl(keyOri, 1800),
       }
     }),
 
   // Paciente faz upload do exame — aplica as 6 regras de validação
   uploadExame: protectedProcedure
-    .input(z.object({ s3Key: z.string().min(1) }))
+    .input(z.object({
+      // Aceita apenas chaves no formato exames-inicio/uuid.ext — bloqueia path traversal
+      s3Key: z.string().regex(/^exames-inicio\/[0-9a-f-]{36}\.(jpg|jpeg|png|pdf)$/, 'Chave de arquivo inválida'),
+    }))
     .mutation(async ({ input, ctx }) => {
       assertPatient(ctx.session)
 
@@ -218,14 +241,14 @@ export const consultaRouter = router({
         .where(eq(consultasInicio.id, consulta.id))
 
       const info = await getInfoPaciente(ctx.session.tokenId)
-      const primeiroNome = info.nome.split(' ')[0]
+      const nomeCadastro = info.nome
 
       // ── AI Extraction ────────────────────────────────────────────
       let extracao
       try {
         extracao = await extrairDadosExame(input.s3Key)
       } catch (err) {
-        console.error('[consulta] Falha na extração IA:', (err as Error).message)
+        logger.error('[consulta] Falha na extração IA', { error: (err as Error).message })
         // Fallback: send to medical review
         await db.update(consultasInicio)
           .set({ status: 'pendente_revisao_medica', motivoRejeicao: 'Erro na análise automática', updatedAt: new Date() })
@@ -236,9 +259,43 @@ export const consultaRouter = router({
 
       const tentativasAtuais = consulta.tentativasReenvio ?? 0
 
+      // ── REGRA PRÉ-A — Tipo de exame ≠ HIV ──────────────────────
+      // Documento NÃO é exame de HIV (ex.: creatinina, hemograma, RG,
+      // comprovante). Só rejeita devolvendo ao paciente — não escala
+      // pro médico. O médico só vê quando IA não consegue LER o exame
+      // de HIV; se o paciente mandou o arquivo errado, é problema dele
+      // mandar o arquivo certo.
+      if (extracao.tipoExameDetectado === 'outro') {
+        const novasTentativas = tentativasAtuais + 1
+        const motivo = 'Documento enviado não parece ser um exame de HIV'
+
+        await db.update(consultasInicio)
+          .set({
+            status: 'rejeitado_tipo_invalido',
+            resultadoIa: extracao,
+            motivoRejeicao: motivo,
+            tentativasReenvio: novasTentativas,
+            updatedAt: new Date(),
+          })
+          .where(eq(consultasInicio.id, consulta.id))
+
+        if (info.telefone) {
+          const msg = `Olá ${info.nome}, o documento enviado não parece ser um exame de HIV. Confira o arquivo e envie novamente: ${env.APP_URL}/inicio`
+          await enviarWhatsApp(info.telefone, msg).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
+        }
+
+        return { status: 'rejeitado_tipo_invalido' as const, tentativasReenvio: novasTentativas }
+      }
+
       // ── REGRA A — Data inválida ──────────────────────────────────
       const dataExame = extracao.dataExame ? parseDateBR(extracao.dataExame) : null
       if (!isDataValida(dataExame)) {
+        logger.info('[consulta] Rejeitando por data inválida', {
+          dataExtraidaPelaIa: extracao.dataExame,
+          dataParsed: dataExame?.toISOString() ?? null,
+          hoje: new Date().toISOString(),
+          confiancaIa: extracao.confianca,
+        })
         const novasTentativas = tentativasAtuais + 1
 
         // REGRA B: Após 2 rejeições por data, forçar revisão médica
@@ -268,11 +325,11 @@ export const consultaRouter = router({
           .where(eq(consultasInicio.id, consulta.id))
 
         if (info.email) {
-          await enviarExameRejeitadoData(info.email, info.nome, novasTentativas, env.APP_URL).catch(console.error)
+          await enviarExameRejeitadoData(info.email, info.nome, novasTentativas, env.APP_URL).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
         }
         if (info.telefone) {
-          const msg = `Olá ${info.nome}, seu exame foi rejeitado: precisa ter menos de 7 dias. Envie um novo: ${env.APP_URL}/inicio (Tentativa ${novasTentativas}/2)`
-          await enviarWhatsApp(info.telefone, msg).catch(console.error)
+          const msg = `Olá ${info.nome}, seu exame foi rejeitado: precisa ter sido realizado há até 7 dias (inclusive). Envie um novo: ${env.APP_URL}/inicio (Tentativa ${novasTentativas}/2)`
+          await enviarWhatsApp(info.telefone, msg).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
         }
 
         return { status: 'rejeitado_data_invalida' as const, tentativasReenvio: novasTentativas }
@@ -294,20 +351,45 @@ export const consultaRouter = router({
       }
 
       // ── REGRA D — Nome não bate ──────────────────────────────────
-      if (extracao.nomeExame && primeiroNome) {
-        const sim = calcularSimilaridadeNome(extracao.nomeExame, primeiroNome)
-        if (sim < 0.80) {
+      // Mesma lógica de retry da regra de data: 1ª tentativa devolve para o paciente
+      // reenviar (ele pode ter mandado o exame errado). Na 2ª, escala para médico.
+      if (extracao.nomeExame && nomeCadastro) {
+        const sim = calcularSimilaridadeNome(extracao.nomeExame, nomeCadastro)
+        if (sim < 0.70) {
+          const novasTentativas = tentativasAtuais + 1
+          const motivoCurto = `Nome divergente — exame: "${extracao.nomeExame}", cadastro: "${nomeCadastro}" (${Math.round(sim * 100)}%)`
+
+          if (novasTentativas >= 2) {
+            await db.update(consultasInicio)
+              .set({
+                status: 'pendente_revisao_medica',
+                resultadoIa: extracao,
+                motivoRejeicao: `Limite de tentativas por nome divergente atingido — ${motivoCurto}`,
+                tentativasReenvio: novasTentativas,
+                updatedAt: new Date(),
+              })
+              .where(eq(consultasInicio.id, consulta.id))
+
+            await _notificarMedicosEPaciente(info, false, motivoCurto)
+            return { status: 'pendente_revisao_medica' as const, tentativasReenvio: novasTentativas }
+          }
+
           await db.update(consultasInicio)
             .set({
-              status: 'pendente_revisao_medica',
+              status: 'rejeitado_nome_invalido',
               resultadoIa: extracao,
-              motivoRejeicao: `Nome no exame divergente (similaridade ${Math.round(sim * 100)}%)`,
+              motivoRejeicao: motivoCurto,
+              tentativasReenvio: novasTentativas,
               updatedAt: new Date(),
             })
             .where(eq(consultasInicio.id, consulta.id))
 
-          await _notificarMedicosEPaciente(info, false, `Nome no exame (${extracao.nomeExame}) diverge do cadastro`)
-          return { status: 'pendente_revisao_medica' as const }
+          if (info.telefone) {
+            const msg = `Olá ${info.nome}, o nome no exame ("${extracao.nomeExame}") não confere com o cadastro ("${nomeCadastro}"). Verifique e envie novamente: ${env.APP_URL}/inicio (Tentativa ${novasTentativas}/2)`
+            await enviarWhatsApp(info.telefone, msg).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
+          }
+
+          return { status: 'rejeitado_nome_invalido' as const, tentativasReenvio: novasTentativas }
         }
       }
 
@@ -337,12 +419,16 @@ export const consultaRouter = router({
         })
         .where(eq(consultasInicio.id, consulta.id))
 
-      if (info.email) {
-        await enviarExameAprovadoIa(info.email, info.nome, env.APP_URL).catch(console.error)
+      const { link: linkAprovacao, codigo: codigoAprovacao } = await _gerarLinkAprovacao(info.precadastroId, 'uploadExame')
+
+      if (info.email && codigoAprovacao) {
+        await enviarExameAprovadoIa(info.email, info.nome, linkAprovacao, codigoAprovacao).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
       }
       if (info.telefone) {
-        const msg = `Olá ${info.nome}, seu exame foi aprovado! Acesse: ${env.APP_URL}/inicio`
-        await enviarWhatsApp(info.telefone, msg).catch(console.error)
+        const waMsg = codigoAprovacao
+          ? `Olá ${info.nome}, seu exame foi aprovado! Acesse o link para continuar: ${linkAprovacao}\n\nOu cole o código no site: ${codigoAprovacao}`
+          : `Olá ${info.nome}, seu exame foi aprovado! Acesse: ${linkAprovacao}`
+        await enviarWhatsApp(info.telefone, waMsg).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
       }
 
       return { status: 'aprovado_ia' as const }
@@ -353,15 +439,118 @@ export const consultaRouter = router({
     .query(async ({ ctx }) => {
       assertPatient(ctx.session)
 
+      // When pacienteId is known, use the DB-authoritative tokenId from the pacientes
+      // table rather than the JWT claim. This prevents a stale or mismatched JWT
+      // tokenId from returning another patient's consultasInicio record (LGPD).
+      let tokenIdForQuery = ctx.session.tokenId
+      if (ctx.session.pacienteId !== null) {
+        const [pac] = await db
+          .select({ tokenId: pacientes.tokenId })
+          .from(pacientes)
+          .where(eq(pacientes.id, ctx.session.pacienteId))
+          .limit(1)
+        if (!pac) {
+          return {
+            status: 'aguardando_escolha' as const,
+            tipoConsulta: null,
+            temExameRecente: null,
+            motivoRejeicao: null,
+            linkExpiresAt: null,
+            tentativasReenvio: 0,
+            dataExame: null,
+            resultadoHiv: null,
+            nomeExame: null,
+            nomeCadastro: null,
+            tipoExameDetectado: null,
+            checks: null,
+          }
+        }
+        tokenIdForQuery = pac.tokenId
+      }
+
       const [consulta] = await db
         .select()
         .from(consultasInicio)
-        .where(eq(consultasInicio.tokenId, ctx.session.tokenId))
+        .where(eq(consultasInicio.tokenId, tokenIdForQuery))
         .limit(1)
 
-      if (!consulta) return { status: 'aguardando_escolha' as const, tipoConsulta: null, tentativasReenvio: 0 }
+      if (!consulta) {
+        return {
+          status: 'aguardando_escolha' as const,
+          tipoConsulta: null,
+          temExameRecente: null,
+          motivoRejeicao: null,
+          linkExpiresAt: null,
+          tentativasReenvio: 0,
+          dataExame: null,
+          resultadoHiv: null,
+          nomeExame: null,
+          nomeCadastro: null,
+          tipoExameDetectado: null,
+          checks: null,
+        }
+      }
 
-      const resultadoIa = consulta.resultadoIa as { dataExame?: string; resultadoHiv?: string } | null
+      const resultadoIa = consulta.resultadoIa as
+        | {
+            dataExame?: string
+            resultadoHiv?: string
+            nomeExame?: string
+            tipoExameDetectado?: 'hiv' | 'outro' | 'nao_identificado'
+            confianca?: number
+          }
+        | null
+
+      // Nome cadastrado para comparação visual (mostrar ao paciente
+      // o que a IA leu vs. o que está no cadastro).
+      const info = await getInfoPaciente(tokenIdForQuery).catch(() => null)
+
+      // Calcula os 3 critérios para mostrar ao paciente sempre que houver
+      // resultado da IA — mesmo em rejeição. Permite ele entender por que
+      // foi reprovado.
+      type CheckEstado = 'ok' | 'falhou' | 'nao_avaliado'
+      let checkTipo: CheckEstado = 'nao_avaliado'
+      let checkNome: CheckEstado = 'nao_avaliado'
+      let checkResultado: CheckEstado = 'nao_avaliado'
+      let checkData: CheckEstado = 'nao_avaliado'
+
+      if (resultadoIa) {
+        const tipoDetec = resultadoIa.tipoExameDetectado
+        if (tipoDetec === 'hiv') checkTipo = 'ok'
+        else if (tipoDetec === 'outro') checkTipo = 'falhou'
+
+        if (resultadoIa.nomeExame && info?.nome) {
+          const sim = calcularSimilaridadeNome(resultadoIa.nomeExame, info.nome)
+          checkNome = sim >= 0.70 ? 'ok' : 'falhou'
+        }
+
+        if (resultadoIa.resultadoHiv === 'nao_reagente') checkResultado = 'ok'
+        else if (resultadoIa.resultadoHiv === 'reagente' || resultadoIa.resultadoHiv === 'inconclusivo') {
+          checkResultado = 'falhou'
+        }
+
+        if (resultadoIa.dataExame) {
+          const d = parseDateBR(resultadoIa.dataExame)
+          checkData = isDataValida(d) ? 'ok' : 'falhou'
+        }
+      }
+
+      // Quando o status é "aprovado" (validação médica), os 3 critérios são
+      // implicitamente OK — o médico só aprova quando passou em todos. Garante
+      // que a tela "Tudo certo" mostre os checks verdes mesmo quando a IA
+      // não tinha lido tudo (ex.: médico aprovou apesar de leitura parcial).
+      const aprovado = consulta.status === 'aprovado' || consulta.status === 'aprovado_ia'
+      if (aprovado) {
+        checkTipo = 'ok'
+        checkNome = 'ok'
+        checkResultado = 'ok'
+        checkData = 'ok'
+      }
+
+      // Quando médico aprovou e a IA não tinha extraído o nome, usa o nome
+      // do cadastro para mostrar "Confere com o cadastro" em vez de "Não
+      // foi possível ler".
+      const nomeExameMostrar = resultadoIa?.nomeExame ?? (aprovado ? info?.nome ?? null : null)
 
       return {
         status: consulta.status,
@@ -372,6 +561,15 @@ export const consultaRouter = router({
         tentativasReenvio: consulta.tentativasReenvio ?? 0,
         dataExame: consulta.dataExameValidado ?? resultadoIa?.dataExame ?? null,
         resultadoHiv: consulta.resultadoHivValidado ?? resultadoIa?.resultadoHiv ?? null,
+        nomeExame: nomeExameMostrar,
+        nomeCadastro: info?.nome ?? null,
+        tipoExameDetectado: resultadoIa?.tipoExameDetectado ?? null,
+        checks: (resultadoIa || aprovado) ? {
+          tipo: checkTipo,
+          nome: checkNome,
+          resultado: checkResultado,
+          data: checkData,
+        } : null,
       }
     }),
 
@@ -463,20 +661,44 @@ export const consultaRouter = router({
         const info = await getInfoPaciente(consulta.tokenId)
 
         if (input.acao === 'aprovar') {
-          if (info.email) await enviarExameAprovadoIa(info.email, info.nome, env.APP_URL).catch(console.error)
-          if (info.telefone) await enviarWhatsApp(info.telefone, `Olá ${info.nome}, seu exame foi aprovado pelo médico! Acesse: ${env.APP_URL}/inicio`).catch(console.error)
+          const { link: linkAprovacao, codigo: codigoAprovacao } = await _gerarLinkAprovacao(info.precadastroId, 'medico.revisar')
+          if (info.email && codigoAprovacao) await enviarExameAprovadoIa(info.email, info.nome, linkAprovacao, codigoAprovacao).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
+          if (info.telefone) {
+            const waMsg = codigoAprovacao
+              ? `Olá ${info.nome}, seu exame foi aprovado pelo médico! Acesse o link para continuar: ${linkAprovacao}\n\nOu cole o código no site: ${codigoAprovacao}`
+              : `Olá ${info.nome}, seu exame foi aprovado pelo médico! Acesse: ${linkAprovacao}`
+            await enviarWhatsApp(info.telefone, waMsg).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
+          }
         } else if (isReenvio) {
-          if (info.email) await enviarSolicitacaoReenvio(info.email, info.nome, input.observacoes, env.APP_URL).catch(console.error)
-          if (info.telefone) await enviarWhatsApp(info.telefone, `Olá ${info.nome}, nosso médico solicita um novo exame. Motivo: ${input.observacoes}. Acesse: ${env.APP_URL}/inicio`).catch(console.error)
+          if (info.email) await enviarSolicitacaoReenvio(info.email, info.nome, input.observacoes, env.APP_URL).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
+          if (info.telefone) await enviarWhatsApp(info.telefone, `Olá ${info.nome}, nosso médico solicita um novo exame. Motivo: ${input.observacoes}. Acesse: ${env.APP_URL}/inicio`).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
         } else {
-          if (info.email) await enviarExameRejeitadoMedico(info.email, info.nome, input.observacoes).catch(console.error)
-          if (info.telefone) await enviarWhatsApp(info.telefone, `Olá ${info.nome}, sobre seu exame: ${input.observacoes}. Para mais informações: (61) 4042-7188`).catch(console.error)
+          if (info.email) await enviarExameRejeitadoMedico(info.email, info.nome, input.observacoes).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
+          if (info.telefone) await enviarWhatsApp(info.telefone, `Olá ${info.nome}, sobre seu exame: ${input.observacoes}. Para mais informações: (61) 99401-8161`).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
         }
 
-        return { ok: true }
+        return okEmpty()
       }),
   }),
 })
+
+// ── Helper: gera link autenticado para continuação após aprovação ─────────────
+// Falls back to /inicio (no codigo) if precadastroId is null (secretaria-created tokens without precadastro).
+async function _gerarLinkAprovacao(precadastroId: number | null, route: string): Promise<{ link: string; codigo: string | null }> {
+  if (!precadastroId) return { link: `${env.APP_URL}/inicio`, codigo: null }
+  try {
+    const { link, raw } = await gerarLinkDeAcesso(precadastroId)
+    if (!link || !raw) throw new Error('link ou codigo vazio retornado por gerarLinkDeAcesso')
+    return { link, codigo: raw }
+  } catch (err) {
+    Sentry.captureException(err, {
+      tags: { route, stage: 'gerar-link-aprovacao' },
+      extra: { precadastroId },
+    })
+    logger.error('[consulta] falha ao gerar link de aprovação', { precadastroId, error: String(err) })
+    return { link: `${env.APP_URL}/inicio`, codigo: null }
+  }
+}
 
 // ── Helper: notifica médicos e paciente sobre revisão manual ──────────────────
 
@@ -488,16 +710,20 @@ async function _notificarMedicosEPaciente(
   const [medicosEmails] = await Promise.all([getMedicosEmails()])
   const dashboardUrl = `${env.APP_URL}/medico`
 
+  const tipo = urgente ? 'exame-urgente' : 'exame-revisar'
+  const template = urgente ? staffTemplates.medicoExameUrgente : staffTemplates.medicoExameParaRevisar
+
   await Promise.all([
-    enviarNotificacaoMedicoPendente(medicosEmails, urgente, info.nome, motivo, dashboardUrl).catch(console.error),
+    enviarNotificacaoMedicoPendente(medicosEmails, urgente, info.nome, motivo, dashboardUrl).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) })),
+    notificarStaff('medico', tipo, template).catch((e: unknown) => logger.warn('[consulta] staff WhatsApp falhou', { error: String(e) })),
     info.email
-      ? enviarAnaliseHumanaExame(info.email, info.nome).catch(console.error)
+      ? enviarAnaliseHumanaExame(info.email, info.nome).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
       : Promise.resolve(),
     info.telefone
       ? enviarWhatsApp(
           info.telefone,
           `Olá ${info.nome}, seu exame está em análise por um profissional. Prazo: até 2h em horário comercial (08-18h) ou 12h fora desse horário. Avisaremos quando estiver pronto.`,
-        ).catch(console.error)
+        ).catch((e: unknown) => logger.warn('[consulta] notificação falhou', { error: String(e) }))
       : Promise.resolve(),
   ])
 }

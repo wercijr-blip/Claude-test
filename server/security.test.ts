@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { validarCpf } from './_core/cpfValidator.ts'
 import { isAllowedRedirectUri } from './_core/originValidator.ts'
 
@@ -16,9 +16,9 @@ vi.mock('./_core/env.ts', () => ({
     AWS_REGION: 'sa-east-1',
     AWS_S3_BUCKET: 'bucket',
     REDIS_URL: 'redis://localhost:6379',
-    FOCUSNFE_ENVIRONMENT: 'homologacao',
+    ASAAS_ENV: 'sandbox',
     BUILT_IN_FORGE_API_URL: 'https://api.anthropic.com',
-    APP_URL: 'https://claude-test-production-8672.up.railway.app',
+    APP_URL: 'https://facilitaprep.com.br',
     PORT: 3000,
   },
 }))
@@ -57,13 +57,13 @@ describe('CPF Validator', () => {
 
 describe('Open Redirect Validator', () => {
   it('permite origens da whitelist', () => {
-    expect(isAllowedRedirectUri('https://claude-test-production-8672.up.railway.app/callback')).toBe(true)
+    expect(isAllowedRedirectUri('https://facilitaprep.com.br/callback')).toBe(true)
     expect(isAllowedRedirectUri('http://localhost:5173/callback')).toBe(true)
   })
 
   it('bloqueia redirecionamento para domínios externos', () => {
     expect(isAllowedRedirectUri('https://malicioso.com/phishing')).toBe(false)
-    expect(isAllowedRedirectUri('https://claude-test-production-8672.up.railway.app.evil.com/')).toBe(false)
+    expect(isAllowedRedirectUri('https://facilitaprep.com.br.evil.com/')).toBe(false)
     expect(isAllowedRedirectUri('javascript:alert(1)')).toBe(false)
   })
 

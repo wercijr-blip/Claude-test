@@ -1,0 +1,126 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: '10.4.1'
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check (server + client)
+        run: pnpm check
+
+      - name: Type check (web/Next.js)
+        run: pnpm --filter facilita-prep-web exec tsc --noEmit
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Tests
+        run: pnpm test
+
+      - name: Dependency audit
+        run: pnpm audit --audit-level=moderate
+
+      - name: License check
+        run: |
+          pnpm licenses list --prod --json > /tmp/licenses.json
+          node --input-type=module <<'EOF'
+            import { readFileSync } from 'fs'
+            const data = JSON.parse(readFileSync('/tmp/licenses.json', 'utf8'))
+            // Block AGPL and SSPL — copyleft that extends to network use (SaaS risk)
+            // LGPL is allowed (dynamic linking safe); pure GPL packages are rare in Node
+            const bad = Object.keys(data).filter(lic =>
+              /AGPL|SSPL/.test(lic)
+            )
+            if (bad.length) {
+              console.error('Forbidden licenses found:', bad.join(', '))
+              for (const lic of bad) {
+                const pkgs = data[lic].map(p => p.name).join(', ')
+                console.error(`  ${lic}: ${pkgs}`)
+              }
+              process.exit(1)
+            }
+            const total = Object.values(data).flat().length
+            console.log(`License check passed — ${total} packages, no AGPL/SSPL`)
+          EOF
+
+      - name: Build
+        run: pnpm build
+        env:
+          VITE_APP_ID: facilita-prep
+          NODE_ENV: production
+
+      - name: Generate SBOM
+        run: pnpm licenses list --prod --json > sbom.json
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: sbom-${{ github.sha }}
+          path: sbom.json
+          retention-days: 90
+
+  deploy-staging:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: staging
+    steps:
+      - name: Deploy to Railway staging
+        run: |
+          echo "Staging deploy triggered via Railway webhook"
+          curl -s -o /dev/null -w "%{http_code}" \
+            -X POST "$RAILWAY_DEPLOY_HOOK_STAGING" \
+            | grep -q "200\|201\|204" && echo "Deploy triggered" || echo "Deploy hook not configured"
+        env:
+          RAILWAY_DEPLOY_HOOK_STAGING: ${{ secrets.RAILWAY_DEPLOY_HOOK_STAGING }}
+
+  smoke-test:
+    name: Smoke test staging
+    needs: [deploy-staging]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Wait for Railway deploy
+        run: sleep 45
+
+      - name: Smoke test — health
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            --max-time 15 \
+            "$STAGING_URL/api/health")
+          [ "$STATUS" = "200" ] || { echo "Health check failed: $STATUS"; exit 1; }
+        env:
+          STAGING_URL: ${{ secrets.STAGING_URL }}
+
+      - name: Smoke test — OpenAPI spec
+        run: |
+          curl -sf --max-time 10 "$STAGING_URL/api/docs/openapi.json" | \
+            grep -q '"version"' || { echo "OpenAPI spec check failed"; exit 1; }
+        env:
+          STAGING_URL: ${{ secrets.STAGING_URL }}
+
+      - name: Smoke test — upload auth guard
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            --max-time 10 -X POST "$STAGING_URL/api/upload")
+          [ "$STATUS" = "400" ] || { echo "Upload endpoint returned $STATUS (expected 400 — multer rejects before auth)"; exit 1; }
+        env:
+          STAGING_URL: ${{ secrets.STAGING_URL }}

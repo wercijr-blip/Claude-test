@@ -1,21 +1,43 @@
 import { z } from 'zod'
 import { SignJWT } from 'jose'
+import { TRPCError } from '@trpc/server'
 import { router, publicProcedure, protectedProcedure } from '../_core/trpc.ts'
 import { env } from '../_core/env.ts'
+import { Sentry } from '../_core/instrument.ts'
+import { logger } from '../_core/logger.ts'
 import { db } from '../db.ts'
 import { users } from '../../drizzle/schema.ts'
-import { eq } from 'drizzle-orm'
+import { eq, isNull, and } from 'drizzle-orm'
 import { JWT_EXPIRY_STAFF } from '../../shared/security-constants.ts'
+import { isAllowedRedirectUri } from '../_core/originValidator.ts'
 import type { Role } from '../../shared/types.ts'
 import type { ResultSetHeader } from 'mysql2'
+import { okEmpty } from '../_core/response.ts'
 
 export const authRouter = router({
   // Callback OAuth — troca code por JWT interno
   callback: publicProcedure
-    .input(z.object({ code: z.string(), state: z.string().optional() }))
+    .input(z.object({ code: z.string(), state: z.string().optional(), redirectUri: z.string().url().optional() }))
     .mutation(async ({ input }) => {
-      // Trocar code por tokens do Google
-      const redirectUri = `${env.APP_URL}/auth/callback`
+      logger.info('[auth.callback] iniciado', {
+        hasCode: !!input.code,
+        codeLength: input.code?.length,
+        hasRedirectUri: !!input.redirectUri,
+        redirectUri: input.redirectUri,
+        appUrl: env.APP_URL,
+        googleClientIdSet: !!env.GOOGLE_CLIENT_ID,
+        googleClientSecretSet: !!env.GOOGLE_CLIENT_SECRET,
+      })
+
+      try {
+      // Usa o redirectUri enviado pelo cliente (mesmo que Google usou no início do fluxo).
+      // Valida contra origens permitidas para evitar open redirect.
+      const redirectUri = (input.redirectUri && isAllowedRedirectUri(input.redirectUri))
+        ? input.redirectUri
+        : `${env.APP_URL}/auth/callback`
+
+      logger.info('[auth.callback] redirectUri resolvido', { redirectUri, validated: input.redirectUri === redirectUri })
+
       const tokenResp = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -29,7 +51,11 @@ export const authRouter = router({
         signal: AbortSignal.timeout(10000),
       })
 
-      if (!tokenResp.ok) throw new Error('Falha ao obter token OAuth do Google')
+      if (!tokenResp.ok) {
+        const errBody = await tokenResp.text().catch(() => '(unreadable)')
+        logger.error('[auth.callback] falha token exchange', { status: tokenResp.status, body: errBody })
+        throw new Error(`Falha ao obter token OAuth do Google (${tokenResp.status}): ${errBody}`)
+      }
 
       const tokenData = (await tokenResp.json()) as { access_token: string }
 
@@ -39,7 +65,10 @@ export const authRouter = router({
         signal: AbortSignal.timeout(10000),
       })
 
-      if (!userResp.ok) throw new Error('Falha ao obter dados do usuário Google')
+      if (!userResp.ok) {
+        logger.error('[auth.callback] falha userinfo', { status: userResp.status })
+        throw new Error(`Falha ao obter dados do usuário Google (${userResp.status})`)
+      }
 
       const googleUser = (await userResp.json()) as {
         sub: string
@@ -55,18 +84,39 @@ export const authRouter = router({
       }
 
       // Upsert do usuário
-      const [existing] = await db.select().from(users).where(eq(users.openId, data.openId)).limit(1)
+      const [existing] = await db
+        .select()
+        .from(users)
+        .where(and(eq(users.openId, data.openId), isNull(users.deletedAt)))
+        .limit(1)
+
+      // When openId is not found, fall back to email lookup for pre-registered staff
+      // whose openId was set to 'pending:email' by admin before their first SSO login.
+      // This is the only case where first login would otherwise create a duplicate
+      // user record with the default 'secretaria' role, ignoring the assigned role.
+      let preRegistered: typeof existing | undefined
+      if (!existing) {
+        const [candidate] = await db
+          .select()
+          .from(users)
+          .where(and(eq(users.email, data.email), isNull(users.deletedAt)))
+          .limit(1)
+        if (candidate?.openId.startsWith('pending:')) preRegistered = candidate
+      }
+
+      const resolvedUser = existing ?? preRegistered
 
       let userId: number
       let role: Role
 
-      if (existing) {
-        userId = existing.id
-        role = existing.role as Role
+      if (resolvedUser) {
+        userId = resolvedUser.id
+        const isOwner = data.openId === env.OWNER_OPEN_ID
+        role = isOwner ? 'admin' : resolvedUser.role as Role
         await db
           .update(users)
-          .set({ email: data.email, nome: data.name, updatedAt: new Date() })
-          .where(eq(users.id, existing.id))
+          .set({ email: data.email, nome: data.name, openId: data.openId, role, updatedAt: new Date() })
+          .where(eq(users.id, resolvedUser.id))
       } else {
         const isOwner = data.openId === env.OWNER_OPEN_ID
         role = isOwner ? 'admin' : 'secretaria'
@@ -79,7 +129,23 @@ export const authRouter = router({
         userId = (result as ResultSetHeader).insertId
       }
 
+      // Fetch full user record to check 2FA status
+      const [freshUser] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
+      const requires2fa = freshUser?.totpEnabled && ['admin', 'medico'].includes(role)
+
       const secret = new TextEncoder().encode(env.JWT_SECRET)
+
+      if (requires2fa) {
+        // Issue a short-lived pending token — frontend must complete TOTP verification
+        const pendingToken = await new SignJWT({ type: 'pending_2fa', userId, role })
+          .setProtectedHeader({ alg: 'HS256' })
+          .setSubject(data.openId)
+          .setIssuedAt()
+          .setExpirationTime('5m')
+          .sign(secret)
+        return { token: pendingToken, role, requiresTwoFactor: true }
+      }
+
       const token = await new SignJWT({ type: 'staff', userId, role })
         .setProtectedHeader({ alg: 'HS256' })
         .setSubject(data.openId)
@@ -87,16 +153,31 @@ export const authRouter = router({
         .setExpirationTime(JWT_EXPIRY_STAFF)
         .sign(secret)
 
-      return { token, role }
+      logger.info('[auth.callback] sucesso', { userId, role, openId: data.openId, requires2fa })
+      return { token, role, requiresTwoFactor: false }
+
+      } catch (err) {
+        logger.error('[auth.callback] erro', {
+          message: err instanceof Error ? err.message : String(err),
+          stack: err instanceof Error ? err.stack : undefined,
+          codeLength: input.code?.length,
+          redirectUri: input.redirectUri,
+        })
+        Sentry.captureException(err, {
+          tags: { route: 'auth.callback' },
+          extra: { codeLength: input.code?.length, redirectUri: input.redirectUri },
+        })
+        throw err
+      }
     }),
 
-  // Login mock — APENAS em desenvolvimento. Pula o OAuth real e cria
-  // uma sessão de equipe direta para validação visual local.
+  // Login mock para desenvolvimento local. Responde NOT_FOUND em produção
+  // para ser indistinguível de um endpoint inexistente.
   devLogin: publicProcedure
     .input(z.object({ role: z.enum(['admin', 'medico', 'secretaria']) }))
     .mutation(async ({ input }) => {
       if (env.NODE_ENV !== 'development') {
-        throw new Error('devLogin disponível apenas em ambiente de desenvolvimento')
+        throw new TRPCError({ code: 'NOT_FOUND' })
       }
 
       const openId = `dev-${input.role}`
@@ -132,6 +213,6 @@ export const authRouter = router({
   }),
 
   logout: protectedProcedure.mutation(() => {
-    return { ok: true }
+    return okEmpty()
   }),
 })

@@ -1,9 +1,27 @@
 import { z } from 'zod'
+import { TRPCError } from '@trpc/server'
 import { router, staffProcedure } from '../_core/trpc.ts'
 import { db } from '../db.ts'
-import { exames, pacientes } from '../../drizzle/schema.ts'
+import { exames, pacientes, precadastros, accessTokens } from '../../drizzle/schema.ts'
 import { eq } from 'drizzle-orm'
 import { decrypt } from '../_core/encryption.ts'
+import { filtrarExamePorStatus } from '../examUtils.ts'
+import { logger } from '../_core/logger.ts'
+import { gerarEEnviarLinkAcesso } from './intake.ts'
+import { generateToken, hashToken } from '../_core/tokenUtils.ts'
+import { env } from '../_core/env.ts'
+
+// Defensive wrapper — registros de teste antigos podem ter dado corrompido.
+// Não queremos derrubar a listagem inteira por causa de uma linha ruim.
+function tryDecrypt(value: string | null): string | null {
+  if (!value) return null
+  try {
+    return decrypt(value)
+  } catch (err) {
+    logger.warn('[secretaria] decrypt failed', { error: (err as Error).message })
+    return null
+  }
+}
 
 export const secretariaRouter = router({
   // Listar todos os documentos (exames) enviados por pacientes
@@ -36,20 +54,14 @@ export const secretariaRouter = router({
         .from(exames)
         .leftJoin(pacientes, eq(pacientes.id, exames.pacienteId))
         .orderBy(exames.createdAt)
+        .limit(500)
 
       const statusFiltro = input?.status ?? 'todos'
 
       return rows
-        .filter((r) => {
-          if (statusFiltro === 'todos') return true
-          const ia = r.resultadoIa as { status?: string } | null
-          const iaStatus = ia?.status ?? 'pendente'
-          if (statusFiltro === 'pendente') return !ia || iaStatus === 'pendente'
-          if (statusFiltro === 'validado') return iaStatus === 'aprovado' || iaStatus === 'validado'
-          if (statusFiltro === 'rejeitado') return iaStatus === 'rejeitado' || iaStatus === 'rejeitado_ia'
-          if (statusFiltro === 'liberado') return iaStatus === 'liberado_manualmente'
-          return true
-        })
+        .filter((r) =>
+          filtrarExamePorStatus(r.resultadoIa as { status?: string } | null, statusFiltro),
+        )
         .map((r) => ({
           id: r.id,
           pacienteId: r.pacienteId,
@@ -61,11 +73,43 @@ export const secretariaRouter = router({
           liberadoEm: r.liberadoEm,
           createdAt: r.createdAt,
           paciente: {
-            nome: r.pacienteNomeEncrypted ? decrypt(r.pacienteNomeEncrypted) : null,
-            email: r.pacienteEmailEncrypted ? decrypt(r.pacienteEmailEncrypted) : null,
+            nome: tryDecrypt(r.pacienteNomeEncrypted),
+            email: tryDecrypt(r.pacienteEmailEncrypted),
             status: r.pacienteStatus,
             tipoAtendimento: r.pacienteTipoAtendimento,
           },
         }))
+    }),
+
+  reenviarLink: staffProcedure
+    .input(z.object({ tokenId: z.number().int().positive() }))
+    .mutation(async ({ input }) => {
+      const [precad] = await db
+        .select({ id: precadastros.id })
+        .from(precadastros)
+        .where(eq(precadastros.accessTokenId, input.tokenId))
+        .limit(1)
+
+      if (precad) {
+        await gerarEEnviarLinkAcesso(precad.id)
+        return { ok: true, link: null as string | null }
+      }
+
+      // Direct token (no precadastro) — rotate hash and return new link for manual sending
+      const [token] = await db
+        .select({ expiresAt: accessTokens.expiresAt })
+        .from(accessTokens)
+        .where(eq(accessTokens.id, input.tokenId))
+        .limit(1)
+
+      if (!token) throw new TRPCError({ code: 'NOT_FOUND', message: 'Token não encontrado.' })
+
+      const raw = generateToken()
+      await db.update(accessTokens)
+        .set({ tokenHash: hashToken(raw) })
+        .where(eq(accessTokens.id, input.tokenId))
+
+      const link = `${env.APP_URL}/acesso/${raw}`
+      return { ok: true, link }
     }),
 })

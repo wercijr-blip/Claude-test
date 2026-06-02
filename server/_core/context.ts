@@ -1,9 +1,12 @@
+import { createHash } from 'node:crypto'
 import type { Request } from 'express'
 import { jwtVerify } from 'jose'
 import { env } from './env.ts'
+import { logger } from './logger.ts'
+import { redis } from './redis.ts'
 import { db } from '../db.ts'
 import { users } from '../../drizzle/schema.ts'
-import { eq } from 'drizzle-orm'
+import { eq, isNull, and } from 'drizzle-orm'
 import type { AuthUser, PatientSession } from '../../shared/types.ts'
 
 export type SessionUser = AuthUser | PatientSession
@@ -21,6 +24,21 @@ export async function createContext({ req }: { req: Request }): Promise<Context>
     const secret = new TextEncoder().encode(env.JWT_SECRET)
     const { payload } = await jwtVerify(token, secret)
 
+    // Check JWT blocklist (populated on logout).
+    // Graceful degradation: if Redis is down, proceed without revocation check.
+    // Tokens still expire via JWT exp, so the security impact is minimal.
+    const tokenHash = createHash('sha256').update(token).digest('hex')
+    let revoked: string | null = null
+    try {
+      revoked = await Promise.race([
+        redis.get(`jwt:revoked:${tokenHash}`),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 300)),
+      ])
+    } catch {
+      logger.warn('[auth] Redis indisponível — prosseguindo sem verificação de revogação', { path: req.path })
+    }
+    if (revoked) return { req, session: null }
+
     if (payload['type'] === 'patient') {
       return {
         req,
@@ -36,7 +54,7 @@ export async function createContext({ req }: { req: Request }): Promise<Context>
       const user = await db
         .select()
         .from(users)
-        .where(eq(users.openId, payload.sub))
+        .where(and(eq(users.openId, payload.sub), isNull(users.deletedAt)))
         .limit(1)
         .then((rows) => rows[0] ?? null)
 
@@ -51,11 +69,12 @@ export async function createContext({ req }: { req: Request }): Promise<Context>
           nome: user.nome,
           email: user.email,
           role: user.role as AuthUser['role'],
+          totpEnabled: user.totpEnabled,
         },
       }
     }
   } catch {
-    // token inválido ou expirado
+    logger.warn('[auth] JWT inválido ou expirado', { path: req.path, method: req.method })
   }
 
   return { req, session: null }

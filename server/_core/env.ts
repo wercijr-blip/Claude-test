@@ -15,21 +15,19 @@ const envSchema = z.object({
   AWS_REGION: z.string().default('sa-east-1'),
   AWS_S3_BUCKET: z.string().min(1),
 
-  GMAIL_USER: z.string().optional(),
-  GMAIL_APP_PASSWORD: z.string().optional(),
-
   RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().default('Facilita PrEP <noreply@facilitaprep.com.br>'),
 
-  FOCUSNFE_TOKEN_HOMOLOGACAO: z.string().optional(),
-  FOCUSNFE_TOKEN_PRODUCAO: z.string().optional(),
-  FOCUSNFE_ENVIRONMENT: z.enum(['homologacao', 'producao']).default('homologacao'),
+  ASAAS_API_KEY: z.string().optional(),
+  ASAAS_ENV: z.enum(['sandbox', 'production']).default('sandbox'),
+  ASAAS_WEBHOOK_TOKEN: z.string().optional(),
 
-  STRIPE_SECRET_KEY: z.string().optional(),
-  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  // Valor da consulta em reais (ex: 150). Alterável via Railway sem deploy de código.
+  CONSULTA_VALOR: z.coerce.number().positive().default(150),
 
   BUILT_IN_FORGE_API_URL: z.string().url().default('https://api.anthropic.com'),
   BUILT_IN_FORGE_API_KEY: z.string().optional(),
+  LLM_DAILY_LIMIT: z.coerce.number().int().positive().default(200),
 
   REDIS_URL: z.string().default('redis://localhost:6379'),
 
@@ -39,15 +37,65 @@ const envSchema = z.object({
 
   ZAPI_INSTANCE_ID: z.string().optional(),
   ZAPI_TOKEN: z.string().optional(),
+  ZAPI_CLIENT_TOKEN: z.string().optional(),
 
-  MEDICO_NOME: z.string().optional(),
-  MEDICO_CRM: z.string().optional(),
+  // WhatsApp pra staff — número compartilhado por papel, formato E.164 (ex: +556198432878)
+  STAFF_WHATSAPP_MEDICOS: z.string().optional(),
+  STAFF_WHATSAPP_SECRETARIAS: z.string().optional(),
 
-  APP_URL: z.string().url().default('https://claude-test-production-8672.up.railway.app'),
+  MEDICO_NOME: z.string().default('Werciley Saraiva Vieira Junior'),
+  MEDICO_CRM: z.string().default('16381'),
+  MEDICO_CRM_UF: z.string().default('DF'),
+  MEDICO_CRM_TIPO: z.string().default('CRM'),
+
+  SUS_CNES: z.string().default('9843744'),
+
+  APP_URL: z.string().url().default('https://www.facilitaprep.com.br'),
   ALLOWED_ORIGINS: z.string().optional(),
 
   PORT: z.coerce.number().default(3000),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  // Set to false when running a dedicated worker service (server/workers.ts).
+  // Defaults to true so single-service deploys work without extra config.
+  WORKERS_ENABLED: z.coerce.boolean().default(true),
+
+  // Sentry — optional, wired up in a separate PR once DSNs are available
+  SENTRY_DSN_SERVER: z.string().url().optional(),
+  SENTRY_DSN_WEB: z.string().url().optional(),
+  SENTRY_ENVIRONMENT: z.string().default('production'),
+
+  // TOTP 2FA — chave AES separada para encriptar segredos TOTP
+  // Gerar com: openssl rand -hex 32
+  // Obrigatório quando há usuários com totpEnabled=true; opcional no boot para não bloquear deploy
+  TOTP_ENC_KEY: z.string().length(64).optional(),
+
+  // Ops endpoints protection (/api/metrics, /api/admin/usage)
+  // Gerar com: openssl rand -hex 32
+  OPS_TOKEN: z.string().min(32).optional(),
+
+  // Payment methods — toggle via Railway without code deploy.
+  // Set ENABLE_DEBIT_CARD=true once Asaas account enables DEBIT_CARD billing.
+  ENABLE_DEBIT_CARD: z.coerce.boolean().default(false),
+
+  // Meta Conversions API (CAPI) — server-side tracking sem dependência de cookie/browser.
+  // META_PIXEL_ID: ID numérico do pixel (ex: 123456789012345)
+  // META_CAPI_TOKEN: System User Access Token com permissão ads_management
+  META_PIXEL_ID: z.string().min(1).optional(),
+  META_CAPI_TOKEN: z.string().min(1).optional(),
+
+  // Admin alert email — receives LLM quota warnings and retention purge reports.
+  ADMIN_EMAIL: z.string().email().optional(),
+
+  // ── Feature flags — toggle via Railway without code deploy ────────────────
+  // FF_EXAM_AI_ANALYSIS: disable to fall back to manual review (default: on)
+  FF_EXAM_AI_ANALYSIS: z.coerce.boolean().default(true),
+  // FF_NUTRICAO_EMAILS: disable lead-nurturing drip to pause email campaigns
+  FF_NUTRICAO_EMAILS: z.coerce.boolean().default(true),
+  // FF_REQUIRE_MFA_PRESCRIBERS: enforce TOTP for medico/admin (default: off).
+  // Enable only after all prescribers have 2FA configured.
+  FF_REQUIRE_MFA_PRESCRIBERS: z.coerce.boolean().default(false),
+  // FF_ASAAS_NFSE: control NFS-e emission via Asaas on payment confirmed
+  FF_ASAAS_NFSE: z.coerce.boolean().default(true),
 })
 
 const parsed = envSchema.safeParse(process.env)
@@ -59,3 +107,16 @@ if (!parsed.success) {
 }
 
 export const env = parsed.data
+
+// Fail-fast if someone accidentally runs with NODE_ENV=development in production.
+// Railway sets NODE_ENV automatically; this catches misconfigurations.
+if (env.NODE_ENV === 'development' && process.env['RAILWAY_ENVIRONMENT']) {
+  console.error('❌ NODE_ENV=development detectado em ambiente Railway. Defina NODE_ENV=production.')
+  process.exit(1)
+}
+
+// Require OPS_TOKEN in production — metrics and usage endpoints expose internal state.
+if (env.NODE_ENV === 'production' && !env.OPS_TOKEN) {
+  console.error('❌ OPS_TOKEN não configurado em produção. Defina OPS_TOKEN (mín 32 chars) no Railway.')
+  process.exit(1)
+}

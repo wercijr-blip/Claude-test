@@ -3,8 +3,9 @@ import cors from 'cors'
 import type { Express, Request, Response, NextFunction } from 'express'
 import { env } from './env.ts'
 import { apiLimiter } from './rateLimiters.ts'
+import { MAX_REQUEST_SIZE_BYTES } from '../../shared/security-constants.ts'
 
-function buildAllowedOrigins(): string[] {
+export function buildAllowedOrigins(): string[] {
   const origins = new Set<string>()
 
   // Always include APP_URL
@@ -21,13 +22,14 @@ function buildAllowedOrigins(): string[] {
   return Array.from(origins)
 }
 
-const allowedOrigins = buildAllowedOrigins()
+export const allowedOrigins = buildAllowedOrigins()
 
-function isOriginAllowed(origin: string): boolean {
-  // Always allow localhost for development
-  if (/^https?:\/\/localhost(:\d+)?$/.test(origin)) return true
+export function isOriginAllowed(origin: string): boolean {
+  // Allow localhost ONLY in development
+  if (env.NODE_ENV === 'development' && /^https?:\/\/localhost(:\d+)?$/.test(origin)) return true
 
-  return allowedOrigins.some((o) => origin === o || origin.startsWith(o))
+  // Exact equality — prevents subdomain takeover via startsWith
+  return allowedOrigins.some((o) => origin === o)
 }
 
 export function applySecurityMiddleware(app: Express): void {
@@ -36,16 +38,96 @@ export function applySecurityMiddleware(app: Express): void {
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
-          scriptSrc: ["'self'", "'unsafe-inline'"],
-          styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-          imgSrc: ["'self'", 'data:', 'blob:'],
-          connectSrc: ["'self'"],
-          fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+          scriptSrc: [
+            "'self'",
+            // GTM and Next.js app router require inline scripts (flight data, GTM init).
+            // Static export cannot use nonces — unsafe-inline is the only viable option.
+            "'unsafe-inline'",
+            // Google Analytics and Tag Manager
+            'https://www.googletagmanager.com',
+            'https://www.google-analytics.com',
+            // Microsoft Clarity heatmaps
+            'https://www.clarity.ms',
+            // Meta Pixel
+            'https://connect.facebook.net',
+            // TikTok Pixel
+            'https://analytics.tiktok.com',
+            'https://sc-static.net',
+            // Cloudflare Web Analytics (injected automatically by Cloudflare proxy)
+            'https://static.cloudflareinsights.com',
+          ],
+          // scriptSrcElem overrides scriptSrc for <script> elements in browsers that
+          // support it — list must mirror scriptSrc to avoid regression
+          scriptSrcElem: [
+            "'self'",
+            "'unsafe-inline'",
+            'https://www.googletagmanager.com',
+            'https://www.google-analytics.com',
+            'https://www.clarity.ms',
+            'https://connect.facebook.net',
+            'https://analytics.tiktok.com',
+            'https://sc-static.net',
+            'https://static.cloudflareinsights.com',
+          ],
+          // React inline style={{}} attributes require 'unsafe-inline' for style-src
+          styleSrc: [
+            "'self'",
+            "'unsafe-inline'",
+            // Google Fonts
+            'https://fonts.googleapis.com',
+          ],
+          fontSrc: [
+            "'self'",
+            'https://fonts.gstatic.com',
+            'data:',
+          ],
+          imgSrc: [
+            "'self'",
+            'data:',
+            'blob:',
+            'https:',
+          ],
+          connectSrc: [
+            "'self'",
+            // Sentry error reporting (frontend SDK sends via fetch)
+            'https://*.ingest.sentry.io',
+            'https://*.sentry.io',
+            // Google Analytics
+            'https://www.google-analytics.com',
+            // ViaCEP (address autocomplete)
+            'https://viacep.com.br',
+            // Cloudflare Web Analytics beacon data endpoint
+            'https://cloudflareinsights.com',
+            // Microsoft Clarity
+            'https://www.clarity.ms',
+            // Meta Pixel
+            'https://www.facebook.com',
+            // TikTok Pixel
+            'https://analytics.tiktok.com',
+            // Google Tag Manager / Ads
+            'https://www.googletagmanager.com',
+            'https://stats.g.doubleclick.net',
+          ],
+          // Sentry Replay uses Web Workers via blob: URLs
+          workerSrc: [
+            "'self'",
+            'blob:',
+          ],
+          frameSrc: ["'self'"],
           objectSrc: ["'none'"],
-          frameSrc: ["'none'"],
+          baseUri: ["'self'"],
+          formAction: ["'self'"],
         },
       },
       crossOriginEmbedderPolicy: false,
+      hsts: {
+        maxAge: 15552000, // 180 days
+        includeSubDomains: true,
+        preload: true,
+      },
+      referrerPolicy: {
+        policy: 'strict-origin-when-cross-origin',
+      },
     }),
   )
 
@@ -71,10 +153,32 @@ export function applySecurityMiddleware(app: Express): void {
 
   app.use(apiLimiter)
 
+  // Permissions-Policy — desabilita APIs sensíveis não utilizadas
+  app.use((_req: Request, res: Response, next: NextFunction) => {
+    res.setHeader(
+      'Permissions-Policy',
+      [
+        'camera=()',           // sem vídeo por enquanto
+        'microphone=()',
+        'geolocation=()',
+        'payment=(self)',
+        'usb=()',
+        'fullscreen=(self)',
+        'autoplay=()',
+        'accelerometer=()',
+        'gyroscope=()',
+        'magnetometer=()',
+        'midi=()',
+        'sync-xhr=()',
+      ].join(', '),
+    )
+    next()
+  })
+
   // Bloquear payloads gigantes (proteção contra payload bomb)
   app.use((req: Request, res: Response, next: NextFunction) => {
     const contentLength = parseInt(req.headers['content-length'] ?? '0')
-    if (contentLength > 20 * 1024 * 1024) {
+    if (contentLength > MAX_REQUEST_SIZE_BYTES) {
       res.status(413).json({ error: 'Payload muito grande' })
       return
     }

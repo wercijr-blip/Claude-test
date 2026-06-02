@@ -4,11 +4,46 @@
 
 -----
 
+## ESCOPO DO PROJETO — LEIA ANTES DE QUALQUER AÇÃO
+
+Este repositório contém **EXCLUSIVAMENTE** o código do **Facilita PrEP**.
+
+- **Projeto:** Facilita PrEP (plataforma de saúde digital — PrEP/HIV)
+- **Repositório GitHub:** `wercijr-blip/Claude-test`
+- **Branch de produção:** `claude/review-facilita-prep-setup-ZDKky`
+- **Branch de desenvolvimento:** `claude/code-session-work-V5kd9`
+
+### Regras obrigatórias para toda sessão Claude
+
+1. **NUNCA** fazer push de código de outro projeto neste repositório
+2. **NUNCA** deletar arquivos do Facilita PrEP (`server/`, `drizzle/schema.ts`, `client/`, `shared/`)
+3. **NUNCA** substituir `drizzle/schema.ts` pelo schema de outro projeto
+4. **NUNCA** fazer push direto sem confirmar que o branch destino é do Facilita PrEP
+5. Em caso de dúvida sobre escopo, **PERGUNTAR** ao usuário antes de qualquer push
+
+### Projetos que existem em repositórios SEPARADOS (nunca misturar)
+
+| Projeto | Repositório | Nunca commitar aqui |
+|---------|-------------|---------------------|
+| CIS / MedScribe (inteligência clínica) | `wercijr-blip/facilita-cis` | soap_notes, clinical_sessions, cis-schema |
+| Marketing site | subpasta `web/` DENTRO deste repo | — |
+
+### Arquivos críticos — nunca deletar ou substituir
+
+- `drizzle/schema.ts` — schema do banco do Facilita PrEP
+- `drizzle/relations.ts` — relações Drizzle
+- `server/routes/` — rotas tRPC (medico, admin, paciente, secretaria, etc.)
+- `server/email.ts`, `server/pdfSigner.ts`, `server/examAnalysis.ts`
+- `server/asaas/` — integração de pagamentos Asaas
+
+-----
+
 ## 🎯 O que é este projeto
 
 **Facilita PrEP** é uma plataforma de saúde digital brasileira para prevenção do HIV via PrEP (Profilaxia Pré-Exposição). Permite que pacientes preencham formulários clínicos, façam upload de exames, assinem TCLE digitalmente e recebam prescrições com assinatura digital ICP-Brasil conforme CFM/ITI.
 
-**Domínio de produção:** `claude-test-production-8672.up.railway.app`
+**Domínio de produção:** `https://facilitaprep.com.br` (com `www.facilitaprep.com.br` redirecionando para o apex)
+**Hosting:** Railway — URL interna `claude-test-production-8672.up.railway.app` (fallback)
 
 -----
 
@@ -27,7 +62,7 @@
 |Filas             |BullMQ (geração assíncrona de PDF)                    |
 |E-mail            |Nodemailer (Gmail SMTP)                               |
 |NFS-e             |FocusNFe API (homologação/produção)                   |
-|Pagamentos        |Stripe                                                |
+|Pagamentos        |Asaas                                                 |
 |Testes            |Vitest 2.x                                            |
 |Package manager   |**pnpm** (obrigatório — não usar npm/yarn)            |
 
@@ -76,8 +111,8 @@
 │   ├── email.ts                  # Templates e envio de e-mails
 │   ├── storage.ts                # Upload S3
 │   ├── focusnfe.ts               # Emissão NFS-e
-│   ├── stripe/
-│   │   ├── products.ts
+│   ├── asaas/
+│   │   ├── client.ts
 │   │   └── webhook.ts
 │   └── certs/                    # Certificados ICP-Brasil (NÃO commitar)
 │       ├── werciley-cert.pem
@@ -194,9 +229,9 @@ FOCUSNFE_TOKEN_HOMOLOGACAO=token_homologacao
 FOCUSNFE_TOKEN_PRODUCAO=token_producao
 FOCUSNFE_ENVIRONMENT=homologacao  # ou producao
 
-# Stripe
-STRIPE_SECRET_KEY=sk_test_...
-STRIPE_WEBHOOK_SECRET=whsec_...
+# Asaas (pagamentos)
+ASAAS_API_KEY=sua_asaas_api_key
+ASAAS_ENVIRONMENT=sandbox  # ou production
 
 # LLM para análise de exames
 BUILT_IN_FORGE_API_URL=https://api.anthropic.com
