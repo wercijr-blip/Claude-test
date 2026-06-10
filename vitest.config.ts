@@ -31,10 +31,11 @@ export default defineConfig({
         "server/scripts/**",
       ],
       thresholds: {
-        // Calibrated to actual measured coverage. Raise incrementally — do not lower below these values.
-        lines: 10,
-        functions: 41,
-        branches: 72,
+        // Calibrated to actual measured coverage (19.1/64.6/79.0 em 10/06/2026)
+        // with a small margin. Raise incrementally — do not lower below these values.
+        lines: 18,
+        functions: 60,
+        branches: 77,
       },
     },
   },
