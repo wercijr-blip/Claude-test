@@ -229,7 +229,7 @@ const DDL_STATEMENTS = [
     INDEX idx_pagamentos_asaas (asaas_payment_id)
   )`,
 
-  `CREATE TABLE IF NOT EXISTS stripe_events (
+  `CREATE TABLE IF NOT EXISTS webhook_events (
     event_id VARCHAR(100) PRIMARY KEY,
     type VARCHAR(100) NOT NULL,
     processado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -355,7 +355,7 @@ const COLUMN_PATCHES: Record<string, Array<{ name: string; ddl: string }>> = {
     // Em ambientes pré-existentes a coluna já deve existir; deploys
     // novos pegam via CREATE TABLE.
   ],
-  // stripe_events (tabela de idempotência de webhooks) e pesquisa_tokens
+  // webhook_events (tabela de idempotência de webhooks) e pesquisa_tokens
   // só têm colunas NOT NULL essenciais. Nada para patch.
 };
 

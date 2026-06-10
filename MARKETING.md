@@ -26,13 +26,13 @@
 
 Monitorar semanalmente as métricas abaixo por ad set:
 
-| Sinal | Limiar de alerta | Ação |
-|---|---|---|
-| CPA semana atual vs. média das 2 semanas anteriores | +25% | Investigar criativos e frequência |
-| CPM crescente sem aumento de CTR | +20% em 7 dias | Verificar saturação de público |
-| Frequência (Meta, cold audience) | >2.5 | Rotacionar criativos imediatamente |
-| Taxa de conversão da landing page | queda >15% | Investigar funil pós-clique |
-| ROAS abaixo do break-even | <1.0 por 3 dias consecutivos | Pausar escala, não pausar campanha ainda |
+| Sinal                                               | Limiar de alerta             | Ação                                     |
+| --------------------------------------------------- | ---------------------------- | ---------------------------------------- |
+| CPA semana atual vs. média das 2 semanas anteriores | +25%                         | Investigar criativos e frequência        |
+| CPM crescente sem aumento de CTR                    | +20% em 7 dias               | Verificar saturação de público           |
+| Frequência (Meta, cold audience)                    | >2.5                         | Rotacionar criativos imediatamente       |
+| Taxa de conversão da landing page                   | queda >15%                   | Investigar funil pós-clique              |
+| ROAS abaixo do break-even                           | <1.0 por 3 dias consecutivos | Pausar escala, não pausar campanha ainda |
 
 Ferramenta de monitoramento: exportar relatório semanal toda segunda-feira às 9h. Usar Google Sheets com fórmulas de variação % semana a semana.
 
@@ -51,22 +51,22 @@ Ferramenta de monitoramento: exportar relatório semanal toda segunda-feira às 
 
 ### Datas de alta relevância para PrEP/HIV
 
-| Data | Evento | Estratégia recomendada |
-|---|---|---|
-| **1 de dezembro** | Dia Mundial de Luta contra a AIDS | Maior data do ano. Aumentar orçamento em +50% na semana anterior. Criativos educativos + urgência. Meta: conversão e consciência. Parceria com influenciadores da saúde LGBTQIA+. |
-| **Fevereiro (Carnaval)** | Período de alto risco de exposição | Campanha de prevenção 2 semanas antes do Carnaval. Foco em PrEP como proteção proativa. Segmentar grandes centros + destinos de Carnaval (Salvador, Rio, Recife, São Paulo). TikTok prioritário para público 18-30. |
-| **Junho** | Mes do Orgulho LGBTQIA+ | Mês inteiro de campanha. Representatividade nos criativos. Budget +30% durante a semana da Parada (São Paulo: último domingo de junho). |
-| **27 de agosto** | Dia Nacional do Teste de HIV | Campanha de conscientização. Conteúdo educativo sobre janela imunológica. CTA para teste + consulta PrEP. |
-| **Novembro (semana antes de 1/dez)** | Aquecimento Dia Mundial da AIDS | Início de campanha de consciência para preparar audiência para 1/dezembro. |
+| Data                                 | Evento                             | Estratégia recomendada                                                                                                                                                                                              |
+| ------------------------------------ | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1 de dezembro**                    | Dia Mundial de Luta contra a AIDS  | Maior data do ano. Aumentar orçamento em +50% na semana anterior. Criativos educativos + urgência. Meta: conversão e consciência. Parceria com influenciadores da saúde LGBTQIA+.                                   |
+| **Fevereiro (Carnaval)**             | Período de alto risco de exposição | Campanha de prevenção 2 semanas antes do Carnaval. Foco em PrEP como proteção proativa. Segmentar grandes centros + destinos de Carnaval (Salvador, Rio, Recife, São Paulo). TikTok prioritário para público 18-30. |
+| **Junho**                            | Mes do Orgulho LGBTQIA+            | Mês inteiro de campanha. Representatividade nos criativos. Budget +30% durante a semana da Parada (São Paulo: último domingo de junho).                                                                             |
+| **27 de agosto**                     | Dia Nacional do Teste de HIV       | Campanha de conscientização. Conteúdo educativo sobre janela imunológica. CTA para teste + consulta PrEP.                                                                                                           |
+| **Novembro (semana antes de 1/dez)** | Aquecimento Dia Mundial da AIDS    | Início de campanha de consciência para preparar audiência para 1/dezembro.                                                                                                                                          |
 
 ### Datas gerais com impacto em conversão
 
-| Data | Impacto esperado | Estratégia |
-|---|---|---|
+| Data                                        | Impacto esperado                                | Estratégia                                                                             |
+| ------------------------------------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------- |
 | **Black Friday** (última sexta de novembro) | Usuários em modo de compra; custo de mídia alto | Avaliar se vale competir. Testar oferta especial (ex: primeira consulta com desconto). |
-| **Virada de Ano** (27 dez - 3 jan) | Resoluções de saúde; CPM menor | Campanha de "novo ano, nova proteção". Budget moderado. |
-| **Início de ano letivo** (fevereiro) | Público universitário mais ativo | Segmentação por interesse universitário + regiões com campi grandes. |
-| **Dias úteis vs. finais de semana** | Conversão cai ~20-30% no fim de semana | Usar dayparting: concentrar budget em ter-sex, especialmente das 12h às 21h. |
+| **Virada de Ano** (27 dez - 3 jan)          | Resoluções de saúde; CPM menor                  | Campanha de "novo ano, nova proteção". Budget moderado.                                |
+| **Início de ano letivo** (fevereiro)        | Público universitário mais ativo                | Segmentação por interesse universitário + regiões com campi grandes.                   |
+| **Dias úteis vs. finais de semana**         | Conversão cai ~20-30% no fim de semana          | Usar dayparting: concentrar budget em ter-sex, especialmente das 12h às 21h.           |
 
 ### Períodos para evitar escala agressiva
 
@@ -162,13 +162,13 @@ _______________________________________________
 
 **Pausar o criativo (não o ad set) quando:**
 
-| Métrica | Cold Audience | Remarketing |
-|---|---|---|
-| Frequência | > 2.5 | > 4.0 |
-| CTR vs. semana anterior | queda > 30% | queda > 30% |
-| CPM crescendo > 25% sem melhora de CTR | pausar | pausar |
-| Thumbstop rate (vídeos) | < 20% | < 20% |
-| Hook rate (3s view / impressões) | < 15% | — |
+| Métrica                                | Cold Audience | Remarketing |
+| -------------------------------------- | ------------- | ----------- |
+| Frequência                             | > 2.5         | > 4.0       |
+| CTR vs. semana anterior                | queda > 30%   | queda > 30% |
+| CPM crescendo > 25% sem melhora de CTR | pausar        | pausar      |
+| Thumbstop rate (vídeos)                | < 20%         | < 20%       |
+| Hook rate (3s view / impressões)       | < 15%         | —           |
 
 **Procedimento ao pausar:**
 
@@ -214,15 +214,16 @@ _______________________________________________
 
 **Campos:**
 
-| Campo | Valores aceitos |
-|---|---|
-| canal | `meta` / `google` / `tiktok` / `whatsapp` |
-| temperatura | `cold` / `warm` / `hot` |
-| formato | `feed` / `stories` / `reels` / `display` / `rsa` / `yt-bumper` / `yt-instream` / `tiktok-video` |
-| versão | `v01` / `v02` ... (incrementar a cada variação) |
-| AAAA-MM | Mês de criação (ex: `2026-06`) |
+| Campo       | Valores aceitos                                                                                 |
+| ----------- | ----------------------------------------------------------------------------------------------- |
+| canal       | `meta` / `google` / `tiktok` / `whatsapp`                                                       |
+| temperatura | `cold` / `warm` / `hot`                                                                         |
+| formato     | `feed` / `stories` / `reels` / `display` / `rsa` / `yt-bumper` / `yt-instream` / `tiktok-video` |
+| versão      | `v01` / `v02` ... (incrementar a cada variação)                                                 |
+| AAAA-MM     | Mês de criação (ex: `2026-06`)                                                                  |
 
 **Exemplos:**
+
 ```
 meta-cold-reels-v01-2026-06.mp4
 meta-warm-feed-v03-2026-06.jpg
@@ -256,11 +257,11 @@ google-cold-display-300x250-v01-2026-05.jpg
 
 ### Sistema de classificacao por tier
 
-| Tier | Critério de entrada | Critério de saída |
-|---|---|---|
-| **Winning** | CPA menor ou igual a meta por 14+ dias E volume mínimo 20 conversões | CPA sobe > 25% acima da meta por 7 dias: move para Testing; frequência acima do limite: move para Archived |
-| **Testing** | Criativo recém-lançado (< 14 dias OU < 20 conversões) | Após 14 dias: se CPA menor ou igual a meta: Winning; se CPA > meta +40%: Archived |
-| **Archived** | Pausado por fadiga ou performance ruim | Nunca deletar. Pode ser reativado após 60+ dias de descanso com revisão prévia. |
+| Tier         | Critério de entrada                                                  | Critério de saída                                                                                          |
+| ------------ | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| **Winning**  | CPA menor ou igual a meta por 14+ dias E volume mínimo 20 conversões | CPA sobe > 25% acima da meta por 7 dias: move para Testing; frequência acima do limite: move para Archived |
+| **Testing**  | Criativo recém-lançado (< 14 dias OU < 20 conversões)                | Após 14 dias: se CPA menor ou igual a meta: Winning; se CPA > meta +40%: Archived                          |
+| **Archived** | Pausado por fadiga ou performance ruim                               | Nunca deletar. Pode ser reativado após 60+ dias de descanso com revisão prévia.                            |
 
 **Log obrigatório ao mover para Archived (adicionar no nome do arquivo ou planilha de controle):**
 
@@ -283,10 +284,12 @@ Motivo de pausa: [fadiga de frequência / CTR / CPA / outro]
 Seguir esta ordem antes de subir orçamento verticalmente:
 
 **1. Novos públicos (mesmo canal)**
+
 - Testar novos segmentos de interesse ou lookalikes de diferentes sementes (ex: lookalike de compradores vs. lookalike de visitantes de página).
 - Nunca colocar mais de 2 públicos no mesmo ad set — manter separados para leitura de dados.
 
 **2. Novas geografias**
+
 - Expansão recomendada por fase:
   - Fase 1: São Paulo capital + Grande SP
   - Fase 2: Rio de Janeiro + Curitiba + Belo Horizonte
@@ -295,11 +298,13 @@ Seguir esta ordem antes de subir orçamento verticalmente:
 - Criar ad sets separados por região para controle de CPA geográfico.
 
 **3. Novos canais**
+
 - Validar CPA no canal atual antes de abrir novo canal.
 - Sequência recomendada: Meta → Google Search → TikTok → Google Display → YouTube.
 - Orçamento de teste por novo canal: R$1.500-R$3.000 por 14 dias antes de decisão de escala.
 
 **4. Novos ângulos criativos**
+
 - Ângulos a testar sistematicamente:
   - Educacional ("O que é PrEP e por que tomar?")
   - Prova social ("Depoimento de paciente — com consentimento explícito por escrito")
@@ -389,22 +394,25 @@ Antes de aprovar qualquer aumento significativo de budget (> +50% em relação a
 ### Checklist de acesso (a ser concluído em D+1 da contratação)
 
 **Acesso a plataformas de anúncio:**
+
 - [ ] Adicionar como "Anunciante" no Meta Business Manager (nunca Admin pessoal)
 - [ ] Criar conta Google Ads vinculada ao MCC próprio da agência; conceder acesso Standard
 - [ ] Adicionar no TikTok Ads Manager como Operador
 - [ ] NÃO compartilhar senhas de contas pessoais — usar acesso por usuário sempre
 
 **Acesso a dados e analytics:**
+
 - [ ] Compartilhar acesso de leitura ao Google Analytics (se configurado)
 - [ ] Criar usuário "read-only" no Railway para ver logs de erro (não deploy)
 - [ ] Compartilhar planilha de controle de CPA e criativos no Google Drive (permissão de edição)
 - [ ] Acesso ao repositório de criativos (Google Drive ou similar) — pasta /testing e /winning
 
 **O que NÃO conceder:**
+
 - [ ] Acesso ao painel admin do sistema (Railway deploy, variáveis de ambiente)
 - [ ] Acesso ao banco de dados
 - [ ] Acesso a dados de pacientes (LGPD — dado de saúde sensível)
-- [ ] Chaves de API (Stripe, AWS, etc.)
+- [ ] Chaves de API (Asaas, AWS, etc.)
 
 ### O que entregar no onboarding (D+3)
 
@@ -434,5 +442,5 @@ Entregar até o 5º dia útil do mês seguinte ao período reportado.
 
 ---
 
-*Última atualização: 2026-05-20*
-*Responsável pelo documento: equipe de marketing / gestão Facilita PrEP*
+_Última atualização: 2026-05-20_
+_Responsável pelo documento: equipe de marketing / gestão Facilita PrEP_
