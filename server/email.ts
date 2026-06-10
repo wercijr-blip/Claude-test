@@ -20,6 +20,17 @@ function assertResend(): NonNullable<typeof resend> {
   return resend;
 }
 
+// Escapa conteúdo fornecido por usuários antes de interpolar em HTML de e-mail.
+// Nomes de pacientes e observações médicas vêm de input externo — sem escape,
+// um payload como <img onerror=...> executaria no cliente de e-mail.
+function escHtml(v: string): string {
+  return v
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 async function send(opts: {
   to: string | string[];
   subject: string;
@@ -150,7 +161,7 @@ export async function enviarConfirmacaoEnvio(
     subject: "Formulário recebido — Facilita PrEP",
     html: baseTemplate(
       "Formulário recebido",
-      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nomePaciente}</strong>!</p>
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${escHtml(nomePaciente)}</strong>!</p>
       <p style="color:#334155;font-size:15px;">Seu formulário foi recebido com sucesso e está em análise pelo médico responsável.</p>
       <p style="color:#64748b;font-size:13px;">Você receberá um novo e-mail quando houver uma atualização.</p>`,
     ),
@@ -166,7 +177,7 @@ export async function enviarResultadoAprovado(
     subject: "Prescrição aprovada — Facilita PrEP",
     html: baseTemplate(
       "Prescrição aprovada",
-      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nomePaciente}</strong>!</p>
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${escHtml(nomePaciente)}</strong>!</p>
       <p style="color:#334155;font-size:15px;">Sua prescrição foi aprovada pelo médico. Em breve você receberá o documento assinado digitalmente.</p>`,
     ),
   });
@@ -210,7 +221,7 @@ export async function enviarLinkAcessoIntake(
     subject: titulo,
     html: baseTemplate(
       "Pagamento confirmado",
-      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nome.split(" ")[0]}</strong>!</p>
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${escHtml(nome.split(" ")[0])}</strong>!</p>
       <p style="color:#334155;font-size:15px;">Recebemos seu pagamento. Você já tem acesso à plataforma.</p>
       <a href="${link}" style="display:inline-block;background:#1d4ed8;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:600;margin:20px 0;font-size:16px;">
         Acessar formulário PrEP
@@ -244,7 +255,7 @@ export async function enviarCadastroRecebidoExames(
     subject: "Recebemos seu cadastro — Próximo passo: exames — Facilita PrEP",
     html: baseTemplate(
       "Cadastro recebido",
-      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nome.split(" ")[0]}</strong>! Recebemos seu cadastro.</p>
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${escHtml(nome.split(" ")[0])}</strong>! Recebemos seu cadastro.</p>
       <p style="color:#334155;font-size:15px;">Próximo passo: realize os exames laboratoriais abaixo e envie pelo nosso portal.</p>
       <div style="background:#f0fdf4;border-left:4px solid #16a34a;padding:14px 16px;border-radius:4px;margin:20px 0;">
         <p style="margin:0 0 8px;color:#15803d;font-size:13px;font-weight:600;">Exames necessários</p>
@@ -281,7 +292,7 @@ export async function enviarDocumentosAssinados(
     subject: "Seus documentos PrEP estão prontos — Facilita PrEP",
     html: baseTemplate(
       "Documentos prontos",
-      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nomePaciente}</strong>!</p>
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${escHtml(nomePaciente)}</strong>!</p>
       <p style="color:#334155;font-size:15px;">Seus documentos PrEP foram gerados e assinados digitalmente. Você os encontra em anexo neste e-mail.</p>
       <p style="color:#64748b;font-size:13px;">Estes documentos possuem assinatura digital ICP-Brasil com validade legal conforme CFM 2.299/2021.</p>
       <p style="color:#64748b;font-size:13px;">Guarde estes arquivos para seu controle.</p>`,
@@ -320,7 +331,7 @@ export async function enviarPrescricaoPronta(
     subject: "Sua receita e documentos estão prontos — Facilita PrEP",
     html: baseTemplate(
       "Receita e documentos prontos",
-      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nomePaciente.split(" ")[0]}</strong>! Sua consulta foi concluída.</p>
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${escHtml(nomePaciente.split(" ")[0])}</strong>! Sua consulta foi concluída.</p>
       <div style="background:#f0fdf4;border-left:4px solid #16a34a;padding:16px;border-radius:4px;margin:20px 0;">
         <p style="color:#15803d;margin:0 0 8px;font-size:14px;font-weight:600;">Receita emitida com sucesso</p>
         <table style="border-collapse:collapse;width:100%;">
@@ -369,7 +380,7 @@ export async function enviarPesquisaSatisfacao(
     subject: "Como foi sua experiência com a PrEP? — Facilita PrEP",
     html: baseTemplate(
       "Pesquisa de satisfação",
-      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nomePaciente}</strong>!</p>
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${escHtml(nomePaciente)}</strong>!</p>
       <p style="color:#334155;font-size:15px;">Gostaríamos de saber como foi sua experiência com o atendimento PrEP. A pesquisa leva menos de 1 minuto.</p>
       <a href="${link}" style="display:inline-block;background:#1d4ed8;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin:16px 0;">
         Responder pesquisa
@@ -393,7 +404,7 @@ export async function enviarNotificacaoNovoPlano(
       "Novo paciente para validação",
       `<p style="color:#334155;font-size:15px;">Um novo paciente se cadastrou via <strong>plano de saúde</strong> e aguarda validação dos documentos.</p>
       <table style="border-collapse:collapse;width:100%;margin:16px 0;">
-        <tr><td style="padding:8px 0;color:#64748b;font-size:13px;width:140px;">Paciente:</td><td style="padding:8px 0;color:#1e293b;font-size:13px;font-weight:600;">${nomePaciente}</td></tr>
+        <tr><td style="padding:8px 0;color:#64748b;font-size:13px;width:140px;">Paciente:</td><td style="padding:8px 0;color:#1e293b;font-size:13px;font-weight:600;">${escHtml(nomePaciente)}</td></tr>
         <tr><td style="padding:8px 0;color:#64748b;font-size:13px;">Plano:</td><td style="padding:8px 0;color:#1e293b;font-size:13px;">${plano}</td></tr>
       </table>
       <a href="${dashboardUrl}" style="display:inline-block;background:#1d4ed8;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin:8px 0;">
@@ -413,7 +424,7 @@ export async function enviarConfirmacaoPlano(
     subject: "Cadastro recebido — aguardando validação — Facilita PrEP",
     html: baseTemplate(
       "Cadastro recebido",
-      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nomePaciente}</strong>!</p>
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${escHtml(nomePaciente)}</strong>!</p>
       <p style="color:#334155;font-size:15px;">Recebemos seus documentos com sucesso. Nossa equipe irá verificar suas informações e entrará em contato.</p>
       <div style="background:#fefce8;border-left:4px solid #eab308;padding:12px 16px;border-radius:4px;margin:16px 0;">
         <p style="color:#713f12;margin:0;font-size:13px;"><strong>Prazo de retorno:</strong> Em horário comercial (seg.–sex. 08h–18h), até 2 horas. Fora desse horário, até 12 horas.</p>
@@ -433,10 +444,10 @@ export async function enviarResultadoRejeitado(
     subject: "Atualização sobre seu pedido — Facilita PrEP",
     html: baseTemplate(
       "Pedido não aprovado",
-      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nomePaciente}</strong>!</p>
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${escHtml(nomePaciente)}</strong>!</p>
       <p style="color:#334155;font-size:15px;">Após análise médica, não foi possível aprovar sua solicitação de PrEP neste momento.</p>
       <div style="background:#fef2f2;border-left:4px solid #ef4444;padding:12px 16px;border-radius:4px;margin:16px 0;">
-        <p style="color:#dc2626;margin:0;font-size:13px;"><strong>Motivo:</strong> ${motivo}</p>
+        <p style="color:#dc2626;margin:0;font-size:13px;"><strong>Motivo:</strong> ${escHtml(motivo)}</p>
       </div>
       <p style="color:#64748b;font-size:13px;">Entre em contato com a clínica para mais informações.</p>`,
     ),
@@ -465,7 +476,7 @@ export async function enviarExameAprovadoIa(
     subject: "Exame recebido — Vamos dar prosseguimento — Facilita PrEP",
     html: baseTemplate(
       "Exame recebido",
-      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nome.split(" ")[0]}</strong>! Recebemos seu(s) exame(s).</p>
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${escHtml(nome.split(" ")[0])}</strong>! Recebemos seu(s) exame(s).</p>
       <div style="background:#f0fdf4;border-left:4px solid #16a34a;padding:14px 16px;border-radius:4px;margin:16px 0;">
         <p style="margin:0 0 6px;color:#15803d;font-size:13px;font-weight:600;">✓ Exame de HIV validado</p>
         <p style="margin:0;color:#166534;font-size:12px;">Recebido em: ${agora}</p>
@@ -493,7 +504,7 @@ export async function enviarAnaliseHumanaExame(
     subject: "Seu exame está em análise — Facilita PrEP",
     html: baseTemplate(
       "Exame em análise",
-      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nome}</strong>!</p>
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${escHtml(nome)}</strong>!</p>
       <p style="color:#334155;font-size:15px;">Seu exame não pôde ser validado automaticamente e será avaliado por um profissional de saúde.</p>
       <div style="background:#fefce8;border-left:4px solid #eab308;padding:12px 16px;border-radius:4px;margin:16px 0;">
         <p style="color:#713f12;margin:0 0 8px;font-size:13px;font-weight:600;">Prazo de resposta:</p>
@@ -517,7 +528,7 @@ export async function enviarExameRejeitadoData(
     subject: "Exame rejeitado — necessário enviar novo exame",
     html: baseTemplate(
       "Exame rejeitado — data inválida",
-      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nome}</strong>!</p>
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${escHtml(nome)}</strong>!</p>
       <p style="color:#334155;font-size:15px;">Seu exame foi recebido, mas não pode ser aceito porque foi realizado há mais de 7 dias.</p>
       <div style="background:#fef2f2;border-left:4px solid #ef4444;padding:12px 16px;border-radius:4px;margin:16px 0;">
         <p style="color:#dc2626;margin:0;font-size:13px;"><strong>Motivo:</strong> Para garantir a segurança do tratamento PrEP, o exame de HIV deve ter sido realizado há no máximo 7 dias.</p>
@@ -544,10 +555,10 @@ export async function enviarExameRejeitadoMedico(
     subject: "Atualização sobre seu exame — Facilita PrEP",
     html: baseTemplate(
       "Avaliação do exame concluída",
-      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nome}</strong>!</p>
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${escHtml(nome)}</strong>!</p>
       <p style="color:#334155;font-size:15px;">Após análise do seu exame pelo médico, não foi possível dar seguimento ao processo PrEP no momento.</p>
       <div style="background:#fef2f2;border-left:4px solid #ef4444;padding:12px 16px;border-radius:4px;margin:16px 0;">
-        <p style="color:#dc2626;margin:0;font-size:13px;"><strong>Orientação do médico:</strong> ${observacoes}</p>
+        <p style="color:#dc2626;margin:0;font-size:13px;"><strong>Orientação do médico:</strong> ${escHtml(observacoes)}</p>
       </div>
       <p style="color:#64748b;font-size:13px;">Para mais informações, entre em contato com a clínica:</p>
       <p style="color:#64748b;font-size:13px;">
@@ -571,10 +582,10 @@ export async function enviarSolicitacaoReenvio(
     subject: "Novo envio de exame necessário — Facilita PrEP",
     html: baseTemplate(
       "Envio de novo exame",
-      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nome}</strong>!</p>
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${escHtml(nome)}</strong>!</p>
       <p style="color:#334155;font-size:15px;">Nosso médico avaliou seu exame e solicita o envio de um novo documento:</p>
       <div style="background:#fefce8;border-left:4px solid #eab308;padding:12px 16px;border-radius:4px;margin:16px 0;">
-        <p style="color:#713f12;margin:0;font-size:13px;"><strong>Solicitação:</strong> ${motivo}</p>
+        <p style="color:#713f12;margin:0;font-size:13px;"><strong>Solicitação:</strong> ${escHtml(motivo)}</p>
       </div>
       <a href="${appUrl}/inicio" style="display:inline-block;background:#1d4ed8;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:600;margin:20px 0;font-size:16px;">
         Enviar novo exame
@@ -601,7 +612,7 @@ export async function enviarNotificacaoMedicoPendente(
   const corTexto = urgente ? "#dc2626" : "#713f12";
   const alerta = urgente
     ? "<strong>ATENÇÃO URGENTE:</strong> Resultado HIV possivelmente reagente. Requer avaliação imediata."
-    : `Motivo: <strong>${motivo}</strong>`;
+    : `Motivo: <strong>${escHtml(motivo)}</strong>`;
 
   await send({
     to: emails,
@@ -610,7 +621,7 @@ export async function enviarNotificacaoMedicoPendente(
       urgente ? "Exame URGENTE para revisão" : "Exame pendente de revisão",
       `<p style="color:#334155;font-size:15px;">Um exame de HIV necessita de revisão médica.</p>
       <table style="border-collapse:collapse;width:100%;margin:16px 0;">
-        <tr><td style="padding:8px 0;color:#64748b;font-size:13px;width:120px;">Paciente:</td><td style="padding:8px 0;color:#1e293b;font-size:13px;font-weight:600;">${nomePaciente}</td></tr>
+        <tr><td style="padding:8px 0;color:#64748b;font-size:13px;width:120px;">Paciente:</td><td style="padding:8px 0;color:#1e293b;font-size:13px;font-weight:600;">${escHtml(nomePaciente)}</td></tr>
       </table>
       <div style="background:${corFundo};border-left:4px solid ${corBorda};padding:12px 16px;border-radius:4px;margin:16px 0;">
         <p style="color:${corTexto};margin:0;font-size:13px;">${alerta}</p>
@@ -686,6 +697,30 @@ export async function enviarAlertaDlq(
         <p style="color:#7f1d1d;margin:0;font-size:13px;">Acesse o painel administrativo → DLQ para reprocessar ou investigar os jobs com falha.</p>
       </div>
       <p style="color:#64748b;font-size:13px;">Jobs acumulados indicam falha recorrente em análise de exames ou geração de PDFs. Investigue os logs para identificar a causa raiz.</p>`,
+    ),
+  }).catch((err) => {
+    void err;
+  });
+}
+
+// Falha na emissão de NFS-e exige ação manual — pagamento confirmado sem nota
+// fiscal é passivo fiscal. Não há retry automático: reemitir após timeout pode
+// duplicar a nota na Asaas, e nota duplicada precisa ser cancelada manualmente.
+export async function enviarAlertaNfse(
+  paymentId: string,
+  motivo: string,
+): Promise<void> {
+  if (!env.ADMIN_EMAIL) return;
+  await send({
+    to: env.ADMIN_EMAIL,
+    subject: `[FacilitaPrEP] NFS-e NÃO emitida — pagamento ${paymentId}`,
+    html: baseTemplate(
+      "Alerta — Falha na emissão de NFS-e",
+      `<p style="color:#334155;font-size:15px;">A emissão automática de NFS-e falhou para o pagamento <strong>${escHtml(paymentId)}</strong>.</p>
+      <div style="background:#fef2f2;border-left:4px solid #dc2626;padding:12px 16px;border-radius:4px;margin:16px 0;">
+        <p style="color:#7f1d1d;margin:0;font-size:13px;"><strong>Erro:</strong> ${escHtml(motivo)}</p>
+      </div>
+      <p style="color:#64748b;font-size:13px;">O pagamento foi confirmado normalmente — apenas a nota fiscal precisa ser emitida manualmente no painel da Asaas (Cobranças → pagamento → Emitir nota fiscal).</p>`,
     ),
   }).catch((err) => {
     void err;

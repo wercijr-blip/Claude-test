@@ -137,7 +137,15 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
     trackFormStart();
   }
 
+  // Manter em sincronia com MAX_UPLOAD_SIZE_BYTES em shared/security-constants.ts
+  const MAX_UPLOAD_MB = 10;
+
   async function uploadArquivo(file: File): Promise<string> {
+    if (file.size > MAX_UPLOAD_MB * 1024 * 1024) {
+      throw new Error(
+        `Arquivo muito grande (máximo ${MAX_UPLOAD_MB}MB). Reduza o tamanho e tente novamente.`,
+      );
+    }
     const fd = new FormData();
     fd.append("file", file);
     fd.append("tipo", "documento_intake");
@@ -777,11 +785,15 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
                         const file = e.target.files?.[0];
                         if (!file) return;
                         setCarteirinhaNome(file.name);
+                        setUploadError(null);
                         try {
                           setCarteirinhaKey(await uploadArquivo(file));
-                        } catch {
+                        } catch (err) {
+                          setCarteirinhaNome(null);
                           setUploadError(
-                            "Erro ao enviar carteirinha. Tente novamente.",
+                            err instanceof Error && err.message
+                              ? err.message
+                              : "Erro ao enviar carteirinha. Tente novamente.",
                           );
                         }
                       }}
@@ -835,11 +847,15 @@ export default function IntakePage({ initialTipo, autoStart }: Props = {}) {
                         const file = e.target.files?.[0];
                         if (!file) return;
                         setDocumentoNome(file.name);
+                        setUploadError(null);
                         try {
                           setDocumentoKey(await uploadArquivo(file));
-                        } catch {
+                        } catch (err) {
+                          setDocumentoNome(null);
                           setUploadError(
-                            "Erro ao enviar documento. Tente novamente.",
+                            err instanceof Error && err.message
+                              ? err.message
+                              : "Erro ao enviar documento. Tente novamente.",
                           );
                         }
                       }}

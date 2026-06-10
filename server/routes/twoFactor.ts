@@ -3,7 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { generateSecret, generateURI, verifySync } from "otplib";
 import qrcode from "qrcode";
 import { SignJWT, jwtVerify } from "jose";
-import { createHash, randomBytes } from "crypto";
+import { createHash, randomBytes, timingSafeEqual } from "crypto";
 import { router, staffProcedure, publicProcedure } from "../_core/trpc.ts";
 import { env } from "../_core/env.ts";
 import { db } from "../db.ts";
@@ -269,8 +269,16 @@ async function consumeBackupCode(
   const codes = Array.isArray(user.totpBackupCodes)
     ? (user.totpBackupCodes as string[])
     : [];
-  const hashed = hashBackupCode(code.toUpperCase());
-  const idx = codes.indexOf(hashed);
+  const hashed = Buffer.from(hashBackupCode(code.toUpperCase()));
+  // Constant-time scan: compara todos os códigos sem early-exit para não vazar
+  // via timing qual posição (ou quantos chars do hash) casou.
+  let idx = -1;
+  for (let i = 0; i < codes.length; i++) {
+    const stored = Buffer.from(codes[i] ?? "");
+    if (stored.length === hashed.length && timingSafeEqual(stored, hashed)) {
+      idx = i;
+    }
+  }
   if (idx === -1) return false;
 
   const remaining = codes.filter((_, i) => i !== idx);

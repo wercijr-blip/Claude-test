@@ -259,11 +259,20 @@ function AuthCallback() {
   // Read code once from URL, then immediately clear it from the address bar so
   // a page-refresh cannot replay the same code (Google rejects reused codes with
   // invalid_grant). useState lazy initializer runs only on first mount.
-  const [code] = useState(() => {
+  // The OAuth state must match the value generated at login start (LoginPage
+  // stores it in sessionStorage) — without this check an attacker could complete
+  // the flow with their own code and log the victim into the attacker's account.
+  const [{ code, stateValid }] = useState(() => {
     const p = new URLSearchParams(window.location.search);
     const c = p.get("code") ?? "";
+    const returnedState = p.get("state") ?? "";
+    const expectedState = sessionStorage.getItem("oauth_state") ?? "";
+    sessionStorage.removeItem("oauth_state");
     if (c) window.history.replaceState({}, "", "/auth/callback");
-    return c;
+    return {
+      code: c,
+      stateValid: !!expectedState && returnedState === expectedState,
+    };
   });
 
   const hasAttempted = useRef(false);
@@ -286,7 +295,7 @@ function AuthCallback() {
   });
 
   useEffect(() => {
-    if (!code) return;
+    if (!code || !stateValid) return;
     // Guard against React StrictMode double-invoke and page refreshes after the
     // code has already been consumed.
     const storageKey = `oauth_code_used:${code}`;
@@ -308,7 +317,7 @@ function AuthCallback() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (callbackMutation.isError || timedOut) {
+  if (callbackMutation.isError || timedOut || (code && !stateValid)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -316,10 +325,12 @@ function AuthCallback() {
             Falha na autenticação
           </h1>
           <p className="text-slate-500 mb-4">
-            {timedOut && !callbackMutation.isError
-              ? "O servidor demorou muito para responder. Tente novamente."
-              : (callbackMutation.error?.message ??
-                "Não foi possível completar o login. Tente novamente.")}
+            {code && !stateValid
+              ? "Sessão de login inválida ou expirada. Inicie o login novamente."
+              : timedOut && !callbackMutation.isError
+                ? "O servidor demorou muito para responder. Tente novamente."
+                : (callbackMutation.error?.message ??
+                  "Não foi possível completar o login. Tente novamente.")}
           </p>
           <a
             href="/login"

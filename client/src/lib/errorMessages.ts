@@ -18,6 +18,11 @@ const CODE_MAP: Record<string, string> = {
 
 const MESSAGE_PATTERNS: Array<{ pattern: RegExp; message: string }> = [
   {
+    // Erros de rede do fetch chegam com mensagem em inglês do navegador
+    pattern: /failed to fetch|networkerror|load failed|network request failed/i,
+    message: "Erro de conexão. Verifique sua internet e tente novamente.",
+  },
+  {
     pattern: /Limite por minuto/i,
     message:
       "Muitas análises em andamento. Aguarde 1 minuto e tente novamente.",

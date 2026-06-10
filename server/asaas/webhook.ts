@@ -204,17 +204,21 @@ async function handlePaymentConfirmed(
       value,
     }).catch(() => {});
 
-    // NFS-e via Asaas native endpoint (fire-and-forget — non-fatal)
+    // NFS-e via Asaas native endpoint (fire-and-forget — non-fatal).
+    // Sem retry automático: reemitir após timeout pode duplicar a nota.
+    // Na falha, alerta o admin por e-mail para emissão manual no painel Asaas.
     if (precad.tipo === "particular") {
-      emitirNfseAsaas(paymentId).catch((err: unknown) => {
+      emitirNfseAsaas(paymentId).catch(async (err: unknown) => {
         log(
-          "WARN",
-          `NFS-e emission failed (non-fatal): ${(err as Error).message}`,
+          "ERROR",
+          `NFS-e emission failed — manual action required: ${(err as Error).message}`,
         );
         Sentry.captureException(err, {
           tags: { route: "asaas-webhook", stage: "nfse" },
           extra: { paymentId, precadastroId },
         });
+        const { enviarAlertaNfse } = await import("../email.ts");
+        await enviarAlertaNfse(paymentId, (err as Error).message);
       });
     }
 
