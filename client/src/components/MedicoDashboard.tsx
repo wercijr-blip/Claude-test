@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { trpc } from "../lib/trpc.ts";
+import { trpc, type RouterOutputs } from "../lib/trpc.ts";
 import { useAuth } from "../_core/hooks/useAuth.ts";
 import { PACIENTE_STATUS } from "@shared/const.ts";
 import { fmt } from "../lib/format.ts";
@@ -579,11 +579,13 @@ export default function MedicoDashboard() {
   );
 }
 
+type Revisao = RouterOutputs["consulta"]["medico"]["listarRevisoes"][number];
+
 function ExamesInicioTab({
   revisoes,
   isLoading,
 }: {
-  revisoes: Array<any> | undefined;
+  revisoes: Revisao[] | undefined;
   isLoading: boolean;
 }) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
