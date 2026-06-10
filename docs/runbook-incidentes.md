@@ -85,7 +85,7 @@
 **Diagnóstico:**
 
 1. Verificar logs Railway: buscar `[asaas-webhook]`
-2. Verificar tabela `stripe_events` no banco (deduplicação)
+2. Verificar tabela `webhook_events` no banco (deduplicação)
 3. Verificar `ASAAS_WEBHOOK_TOKEN` no Railway
 4. Header esperado: `asaas-access-token` (não `access_token`)
 

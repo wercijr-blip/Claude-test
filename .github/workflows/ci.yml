@@ -32,8 +32,7 @@ jobs:
       - name: Lint
         run: pnpm lint
 
-      # Escopo restrito ao código que o lint-staged já formata — o repo tem
-      # arquivos legados (web/app, atos-saude-bot) fora do padrão prettier.
+      # Escopo restrito ao código que o lint-staged já formata (web/app usa padrão próprio).
       - name: Format check
         run: pnpm prettier --check "server/**/*.ts" "client/src/**/*.{ts,tsx}" "shared/**/*.ts"
 

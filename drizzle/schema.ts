@@ -409,9 +409,8 @@ export const pagamentos = mysqlTable(
 
 // ── Idempotência de webhook (Asaas / pagamentos) ──────────────
 // Registra event.id processado para evitar reprocessamento em caso de retry.
-// Tabela mantida com nome histórico stripe_events no banco.
 
-export const webhookEvents = mysqlTable("stripe_events", {
+export const webhookEvents = mysqlTable("webhook_events", {
   eventId: varchar("event_id", { length: 100 }).primaryKey(),
   type: varchar("type", { length: 100 }).notNull(),
   processadoEm: datetime("processado_em")
