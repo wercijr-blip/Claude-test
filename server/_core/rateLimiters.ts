@@ -1,85 +1,90 @@
-import rateLimit from 'express-rate-limit'
-import { RedisStore } from 'rate-limit-redis'
-import { redis } from './redis.ts'
-import { RATE_LIMITS } from '../../shared/security-constants.ts'
-import type { SendCommandFn } from 'rate-limit-redis'
+import rateLimit from "express-rate-limit";
+import { RedisStore } from "rate-limit-redis";
+import { redis } from "./redis.ts";
+import { RATE_LIMITS } from "../../shared/security-constants.ts";
+import type { SendCommandFn } from "rate-limit-redis";
 
 function makeStore(prefix: string) {
   return new RedisStore({
-    sendCommand: ((...args: string[]) => redis.call(args[0]!, ...args.slice(1))) as unknown as SendCommandFn,
+    sendCommand: ((...args: string[]) =>
+      redis.call(args[0]!, ...args.slice(1))) as unknown as SendCommandFn,
     prefix: `rl:${prefix}:`,
-  })
+  });
 }
 
 // Global IP limiter — blanket protection against floods across all endpoints
 export const globalLimiter = rateLimit({
   windowMs: 60_000,
   max: 300,
-  message: { error: 'Muitas requisições. Tente novamente em 1 minuto.' },
+  message: { error: "Muitas requisições. Tente novamente em 1 minuto." },
   standardHeaders: true,
   legacyHeaders: false,
-  store: makeStore('global'),
-})
+  store: makeStore("global"),
+});
 
 export const authLimiter = rateLimit({
   windowMs: RATE_LIMITS.AUTH.windowMs,
   max: RATE_LIMITS.AUTH.max,
-  message: { error: 'Muitas tentativas de login. Aguarde 15 minutos.' },
+  message: { error: "Muitas tentativas de login. Aguarde 15 minutos." },
   standardHeaders: true,
   legacyHeaders: false,
-  store: makeStore('auth'),
-})
+  store: makeStore("auth"),
+});
 
 export const tokenValidateLimiter = rateLimit({
   windowMs: RATE_LIMITS.TOKEN_VALIDATE.windowMs,
   max: RATE_LIMITS.TOKEN_VALIDATE.max,
-  message: { error: 'Muitas tentativas. Aguarde alguns minutos.' },
+  message: { error: "Muitas tentativas. Aguarde alguns minutos." },
   standardHeaders: true,
   legacyHeaders: false,
-  store: makeStore('token'),
-})
+  store: makeStore("token"),
+});
 
 export const uploadLimiter = rateLimit({
   windowMs: RATE_LIMITS.UPLOAD.windowMs,
   max: RATE_LIMITS.UPLOAD.max,
-  message: { error: 'Limite de uploads atingido. Aguarde 1 minuto.' },
+  message: { error: "Limite de uploads atingido. Aguarde 1 minuto." },
   standardHeaders: true,
   legacyHeaders: false,
-  store: makeStore('upload'),
-})
+  store: makeStore("upload"),
+});
 
 export const apiLimiter = rateLimit({
   windowMs: RATE_LIMITS.API_GERAL.windowMs,
   max: RATE_LIMITS.API_GERAL.max,
-  message: { error: 'Muitas requisições. Aguarde.' },
+  message: { error: "Muitas requisições. Aguarde." },
   standardHeaders: true,
   legacyHeaders: false,
-  store: makeStore('api'),
-})
+  store: makeStore("api"),
+});
 
 export const pdfLimiter = rateLimit({
   windowMs: RATE_LIMITS.PDF_GENERATE.windowMs,
   max: RATE_LIMITS.PDF_GENERATE.max,
-  message: { error: 'Limite de geração de PDFs atingido.' },
+  message: { error: "Limite de geração de PDFs atingido." },
   standardHeaders: true,
   legacyHeaders: false,
-  store: makeStore('pdf'),
-})
+  store: makeStore("pdf"),
+});
 
 export const dataRightsLimiter = rateLimit({
   windowMs: RATE_LIMITS.DATA_RIGHTS.windowMs,
   max: RATE_LIMITS.DATA_RIGHTS.max,
-  message: { error: 'Limite de solicitações LGPD atingido. Tente novamente em 1 hora.' },
+  message: {
+    error: "Limite de solicitações LGPD atingido. Tente novamente em 1 hora.",
+  },
   standardHeaders: true,
   legacyHeaders: false,
-  store: makeStore('data-rights'),
-})
+  store: makeStore("data-rights"),
+});
 
 export const totpLimiter = rateLimit({
   windowMs: RATE_LIMITS.TOTP.windowMs,
   max: RATE_LIMITS.TOTP.max,
-  message: { error: 'Muitas tentativas de verificação 2FA. Aguarde 15 minutos.' },
+  message: {
+    error: "Muitas tentativas de verificação 2FA. Aguarde 15 minutos.",
+  },
   standardHeaders: true,
   legacyHeaders: false,
-  store: makeStore('totp'),
-})
+  store: makeStore("totp"),
+});

@@ -1,0 +1,1 @@
+ALTER TABLE `nfse_registros` DROP COLUMN `focusnfe_ref`;

@@ -57,6 +57,7 @@ pnpm start
 Acesse: `http://localhost:3000/painel`
 
 **Roles disponíveis:**
+
 - `admin` — acesso total
 - `secretaria` — agenda, atendimento, encaixe, marcação manual
 - `faturamento` — agenda, exportação Excel
@@ -71,29 +72,29 @@ pnpm run add:doctor     # Adiciona novo médico interativamente
 
 ## API — Endpoints Principais
 
-| Método | Endpoint | Acesso | Descrição |
-|--------|----------|--------|-----------|
-| `POST` | `/api/auth/login` | público | Login |
-| `GET` | `/api/auth/me` | autenticado | Dados do usuário |
-| `GET` | `/api/agendamentos` | todos | Lista agendamentos |
-| `POST` | `/api/agendamentos/:id/cancelar` | admin/secretaria | Cancela agendamento |
-| `PATCH` | `/api/agendamentos/:id/status` | admin/secretaria | Atualiza status |
-| `POST` | `/api/agendamentos/manual` | admin/secretaria | Marcação manual |
-| `GET` | `/api/slots` | autenticado | Horários disponíveis |
-| `GET` | `/api/stats` | autenticado | Estatísticas do dia |
-| `GET` | `/api/encaixe` | autenticado | Fila de encaixe |
-| `GET` | `/api/sessions/humanas` | admin/secretaria | Atendimentos humanos |
-| `POST` | `/api/sessions/:phone/assume` | admin/secretaria | Assume atendimento |
-| `POST` | `/api/sessions/:phone/encerrar` | admin/secretaria | Encerra atendimento |
-| `GET` | `/api/conversations` | admin/secretaria | Monitor de conversas |
-| `POST` | `/api/conversations/:phone/reply` | admin/secretaria | Responde via painel |
-| `GET` | `/api/events` | admin/secretaria | SSE para updates em tempo real |
-| `GET` | `/api/medicos` | admin/secretaria | Lista médicos |
-| `POST` | `/api/conhecimento/upload` | admin | Upload base de conhecimento |
-| `POST` | `/api/export` | admin/faturamento | Exportar Excel |
-| `GET` | `/api/whatsapp/status` | admin | Status conexão WhatsApp |
-| `GET` | `/health` | público | Health check |
-| `POST` | `/webhook` | Evolution API | Webhook WhatsApp |
+| Método  | Endpoint                          | Acesso            | Descrição                      |
+| ------- | --------------------------------- | ----------------- | ------------------------------ |
+| `POST`  | `/api/auth/login`                 | público           | Login                          |
+| `GET`   | `/api/auth/me`                    | autenticado       | Dados do usuário               |
+| `GET`   | `/api/agendamentos`               | todos             | Lista agendamentos             |
+| `POST`  | `/api/agendamentos/:id/cancelar`  | admin/secretaria  | Cancela agendamento            |
+| `PATCH` | `/api/agendamentos/:id/status`    | admin/secretaria  | Atualiza status                |
+| `POST`  | `/api/agendamentos/manual`        | admin/secretaria  | Marcação manual                |
+| `GET`   | `/api/slots`                      | autenticado       | Horários disponíveis           |
+| `GET`   | `/api/stats`                      | autenticado       | Estatísticas do dia            |
+| `GET`   | `/api/encaixe`                    | autenticado       | Fila de encaixe                |
+| `GET`   | `/api/sessions/humanas`           | admin/secretaria  | Atendimentos humanos           |
+| `POST`  | `/api/sessions/:phone/assume`     | admin/secretaria  | Assume atendimento             |
+| `POST`  | `/api/sessions/:phone/encerrar`   | admin/secretaria  | Encerra atendimento            |
+| `GET`   | `/api/conversations`              | admin/secretaria  | Monitor de conversas           |
+| `POST`  | `/api/conversations/:phone/reply` | admin/secretaria  | Responde via painel            |
+| `GET`   | `/api/events`                     | admin/secretaria  | SSE para updates em tempo real |
+| `GET`   | `/api/medicos`                    | admin/secretaria  | Lista médicos                  |
+| `POST`  | `/api/conhecimento/upload`        | admin             | Upload base de conhecimento    |
+| `POST`  | `/api/export`                     | admin/faturamento | Exportar Excel                 |
+| `GET`   | `/api/whatsapp/status`            | admin             | Status conexão WhatsApp        |
+| `GET`   | `/health`                         | público           | Health check                   |
+| `POST`  | `/webhook`                        | Evolution API     | Webhook WhatsApp               |
 
 ## Segurança
 

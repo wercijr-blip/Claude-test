@@ -1,0 +1,110 @@
+# Prometheus Alerting Rules — Facilita PrEP
+# Scrape endpoint: GET /api/metrics/prometheus (requires x-ops-token header)
+#
+# To integrate with Alertmanager:
+#   alerting:
+#     alertmanagers:
+#       - static_configs:
+#           - targets: ['alertmanager:9093']
+#
+# Load via: --web.config.file=alertmanager.yml OR paste into Prometheus rule_files.
+# Thresholds based on observed production baselines — review after 30 days.
+
+groups:
+  - name: facilita-prep.workers
+    rules:
+      - alert: ExamQueueBacklog
+        expr: fp_queue_waiting{queue="exam-analysis"} > 20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Fila de análise de exames com backlog > 20 jobs"
+          description: "{{ $value }} jobs aguardando processamento na fila exam-analysis."
+          runbook: "RUNBOOK.md § Workers — verificar logs do examWorker, checar limites LLM"
+
+      - alert: PdfQueueBacklog
+        expr: fp_queue_waiting{queue="pdf-generation"} > 50
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Fila de geração de PDF com backlog > 50 jobs"
+          description: "{{ $value }} PDFs aguardando geração."
+          runbook: "RUNBOOK.md § Workers — verificar pdfWorker, ICP-Brasil cert válido"
+
+      - alert: QueueFailedJobs
+        expr: fp_queue_failed > 10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.queue }}: mais de 10 jobs com falha"
+          description: "{{ $value }} jobs falhados na fila {{ $labels.queue }}."
+          runbook: "RUNBOOK.md § Workers — verificar DLQ e logs de erro"
+
+  - name: facilita-prep.dlq
+    rules:
+      - alert: DLQAccumulating
+        expr: fp_dlq_total > 5
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Dead Letter Queue acumulando (> 5 jobs)"
+          description: "{{ $value }} jobs no DLQ. Requer atenção manual."
+          runbook: "RUNBOOK.md § DLQ — consultar tabela dlq_jobs no banco, verificar causa raiz"
+
+      - alert: DLQCritical
+        expr: fp_dlq_total >= 10
+        for: 0m
+        labels:
+          severity: page
+        annotations:
+          summary: "DLQ crítico: {{ $value }} jobs irrecuperáveis"
+          description: "Alert email já enviado automaticamente pelo persistDlq. Ação imediata necessária."
+          runbook: "RUNBOOK.md § DLQ"
+
+  - name: facilita-prep.llm
+    rules:
+      - alert: LlmDailyUsageHigh
+        expr: fp_llm_daily_usage > 160
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Uso de LLM acima de 80% do limite diário"
+          description: "{{ $value }}/200 chamadas utilizadas hoje."
+          runbook: "Verificar se há loop ou abuso de endpoint de análise"
+
+      - alert: LlmDailyLimitNear
+        expr: fp_llm_daily_usage > 190
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "LLM: limite diário quase esgotado ({{ $value }}/200)"
+          description: "Novas análises de exame serão bloqueadas ao atingir 200."
+
+  - name: facilita-prep.infra
+    rules:
+      - alert: NodeHeapPressure
+        expr: >
+          fp_nodejs_heap_space_used_bytes{space="old"}
+          / fp_nodejs_heap_space_size_available_bytes{space="old"} > 0.85
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Heap Node.js acima de 85% — risco de OOM"
+          description: "Old space: {{ $value | humanizePercentage }} utilizado."
+          runbook: "RUNBOOK.md § Infra — verificar memory leaks, reiniciar worker se necessário"
+
+      - alert: HttpSlowResponses
+        expr: fp_http_request_duration_ms_last > 5000
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Respostas HTTP lentas ({{ $value }}ms)"
+          description: "Endpoint {{ $labels.method }} {{ $labels.status }} acima de 5s."

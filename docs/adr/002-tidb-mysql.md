@@ -15,20 +15,22 @@ Usar **TiDB** (dialeto MySQL 8) hospedado via serviço gerenciado, com Drizzle O
 ## Consequências
 
 **Positivas:**
+
 - Compatibilidade total com MySQL 8 — sem lock-in de ORM
 - Escala horizontal nativa (sharding automático) sem refatoração futura
 - ACID com transações distribuídas
 - Suporte a `CURRENT_TIMESTAMP`, JSON columns, índices compostos
 
 **Negativas:**
+
 - Não suporta todas as features MySQL avançadas (ex: stored procedures complexas)
 - Latência ligeiramente maior que MySQL local em operações single-row
 - Requer SSL obrigatório na connection string
 
 ## Alternativas consideradas
 
-| Alternativa | Motivo de descarte |
-|-------------|-------------------|
-| PostgreSQL | Drizzle ORM tem suporte, mas migraria para dialeto diferente sem benefício claro |
-| PlanetScale | Sem suporte a foreign keys; limitações de branching incompatíveis com Drizzle push |
-| MySQL gerenciado (RDS) | Sem escala horizontal nativa; custo maior para o mesmo workload |
+| Alternativa            | Motivo de descarte                                                                 |
+| ---------------------- | ---------------------------------------------------------------------------------- |
+| PostgreSQL             | Drizzle ORM tem suporte, mas migraria para dialeto diferente sem benefício claro   |
+| PlanetScale            | Sem suporte a foreign keys; limitações de branching incompatíveis com Drizzle push |
+| MySQL gerenciado (RDS) | Sem escala horizontal nativa; custo maior para o mesmo workload                    |

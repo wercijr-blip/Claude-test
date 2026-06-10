@@ -1,81 +1,87 @@
-import { useState, useEffect, useCallback } from 'react'
-import type { AuthUser, PatientSession } from '@shared/types.ts'
+import { useState, useEffect, useCallback } from "react";
+import type { AuthUser, PatientSession } from "@shared/types.ts";
 
-const TOKEN_KEY = 'fp_token'
+const TOKEN_KEY = "fp_token";
 
 export function isJwtExpired(token: string): boolean {
   try {
-    const [, part] = token.split('.')
-    const { exp } = JSON.parse(atob(part.replace(/-/g, '+').replace(/_/g, '/')))
-    if (!exp) return true
-    return exp * 1000 < Date.now()
+    const [, part] = token.split(".");
+    const { exp } = JSON.parse(
+      atob(part.replace(/-/g, "+").replace(/_/g, "/")),
+    );
+    if (!exp) return true;
+    return exp * 1000 < Date.now();
   } catch {
-    return true
+    return true;
   }
 }
 
 export function useAuth() {
   const [token, setTokenState] = useState<string | null>(() => {
-    const stored = localStorage.getItem(TOKEN_KEY)
-    if (!stored) return null
+    const stored = localStorage.getItem(TOKEN_KEY);
+    if (!stored) return null;
     if (isJwtExpired(stored)) {
-      localStorage.removeItem(TOKEN_KEY)
-      return null
+      localStorage.removeItem(TOKEN_KEY);
+      return null;
     }
-    return stored
-  })
+    return stored;
+  });
 
   const setToken = useCallback((t: string | null) => {
     if (t) {
-      localStorage.setItem(TOKEN_KEY, t)
+      localStorage.setItem(TOKEN_KEY, t);
     } else {
-      localStorage.removeItem(TOKEN_KEY)
+      localStorage.removeItem(TOKEN_KEY);
     }
-    setTokenState(t)
-  }, [])
+    setTokenState(t);
+  }, []);
 
-  const logout = useCallback(() => setToken(null), [setToken])
+  const logout = useCallback(() => setToken(null), [setToken]);
 
   // Read directly from localStorage so the reference is stable and the tRPC
   // client (created once via useState) always gets the current token.
-  const getToken = useCallback(() => localStorage.getItem(TOKEN_KEY), [])
+  const getToken = useCallback(() => localStorage.getItem(TOKEN_KEY), []);
 
   useEffect(() => {
-    if (!token) return
+    if (!token) return;
     const id = setInterval(() => {
       if (isJwtExpired(token)) {
-        localStorage.removeItem(TOKEN_KEY)
-        setTokenState(null)
-        if (window.location.pathname !== '/') window.location.href = '/'
+        localStorage.removeItem(TOKEN_KEY);
+        setTokenState(null);
+        if (window.location.pathname !== "/") window.location.href = "/";
       }
-    }, 60_000)
-    return () => clearInterval(id)
-  }, [token])
+    }, 60_000);
+    return () => clearInterval(id);
+  }, [token]);
 
   useEffect(() => {
     const handler = (e: StorageEvent) => {
-      if (e.key !== TOKEN_KEY) return
-      const newToken = e.newValue
+      if (e.key !== TOKEN_KEY) return;
+      const newToken = e.newValue;
       if (!newToken || isJwtExpired(newToken)) {
-        setTokenState(null)
-        if (window.location.pathname !== '/') window.location.href = '/'
+        setTokenState(null);
+        if (window.location.pathname !== "/") window.location.href = "/";
       } else {
-        setTokenState(newToken)
+        setTokenState(newToken);
       }
-    }
-    window.addEventListener('storage', handler)
-    return () => window.removeEventListener('storage', handler)
-  }, [])
+    };
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
+  }, []);
 
-  return { token, setToken, logout, getToken, isAuthenticated: !!token }
+  return { token, setToken, logout, getToken, isAuthenticated: !!token };
 }
 
-export function parseJwtPayload(token: string): AuthUser | PatientSession | null {
+export function parseJwtPayload(
+  token: string,
+): AuthUser | PatientSession | null {
   try {
-    const [, payload] = token.split('.')
-    const decoded = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')))
-    return decoded as AuthUser | PatientSession
+    const [, payload] = token.split(".");
+    const decoded = JSON.parse(
+      atob(payload.replace(/-/g, "+").replace(/_/g, "/")),
+    );
+    return decoded as AuthUser | PatientSession;
   } catch {
-    return null
+    return null;
   }
 }

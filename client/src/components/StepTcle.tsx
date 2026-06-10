@@ -1,10 +1,10 @@
-import { useState } from 'react'
-import { trpc } from '../lib/trpc.ts'
+import { useState } from "react";
+import { trpc } from "../lib/trpc.ts";
 
 interface Props {
-  pacienteId: number | null
-  onNext: () => void
-  onBack: () => void
+  pacienteId: number | null;
+  onNext: () => void;
+  onBack: () => void;
 }
 
 const TCLE_TEXT = `
@@ -18,40 +18,64 @@ Eu, paciente identificado neste formulário, declaro que:
 4. Entendo que devo comunicar ao médico qualquer efeito adverso ou alteração de saúde.
 5. Autorizo o armazenamento dos meus dados clínicos conforme a LGPD (Lei 13.709/2018), com retenção por 20 anos conforme resolução CFM 2.218/2018.
 6. Consinto com o tratamento proposto e me comprometo a seguir as orientações médicas.
+7. CONSENTIMENTO PARA USO DE INTELIGÊNCIA ARTIFICIAL (SBIS NGS1.11 / LGPD art. 11):
+   Estou ciente e AUTORIZO a utilização de sistemas de Inteligência Artificial (IA) para
+   análise automatizada dos meus exames laboratoriais enviados a esta plataforma. Fui
+   informado(a) de que:
+   a) Os resultados gerados pela IA são SEMPRE revisados por médico habilitado antes de
+      qualquer decisão clínica;
+   b) O Responsável Técnico é Dr. Werciley Saraiva Vieira Júnior — CRM/DF 16381,
+      RQE 14486, especialidade Infectologia;
+   c) A IA não substitui o julgamento clínico do profissional de saúde;
+   d) Posso revogar este consentimento a qualquer momento pelo e-mail
+      dpo@facilitaprep.com.br, sem prejuízo ao atendimento já realizado;
+   e) A plataforma é certificada conforme Manual SBIS (BPIA + ECF + NGS1 + NGS2)
+      e opera em conformidade com a LGPD — Lei 13.709/2018, art. 11.
 
 Este documento tem validade legal conforme CFM 2.299/2021 e possui assinatura digital ICP-Brasil.
-`.trim()
+`.trim();
 
 export default function StepTcle({ pacienteId, onNext, onBack }: Props) {
-  const [lido, setLido] = useState(false)
-  const [error, setError] = useState('')
+  const [lido, setLido] = useState(false);
+  const [error, setError] = useState("");
 
-  const finalizar = trpc.paciente.finalizar.useMutation({ onSuccess: () => onNext() })
+  const finalizar = trpc.paciente.finalizar.useMutation({
+    onSuccess: () => onNext(),
+  });
   const salvarAceite = trpc.paciente.salvarTcle.useMutation({
-    onSuccess: () => { if (pacienteId) finalizar.mutate({ pacienteId }) },
+    onSuccess: () => {
+      if (pacienteId) finalizar.mutate({ pacienteId });
+    },
     onError: (err) => setError(err.message),
-  })
+  });
 
-  const isPending = salvarAceite.isPending || finalizar.isPending
+  const isPending = salvarAceite.isPending || finalizar.isPending;
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    if (!lido) { setError('Confirme que leu e compreendeu o TCLE.'); return }
-    if (!pacienteId) return
-    salvarAceite.mutate({ pacienteId, aceite: true })
-  }
+    e.preventDefault();
+    setError("");
+    if (!lido) {
+      setError("Confirme que leu e compreendeu o TCLE.");
+      return;
+    }
+    if (!pacienteId) return;
+    salvarAceite.mutate({ pacienteId, aceite: true });
+  };
 
-  if (!pacienteId) return null
+  if (!pacienteId) return null;
 
   return (
     <div>
       <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-800 mb-4">Termo de Consentimento (TCLE)</h2>
+        <h2 className="text-lg font-semibold text-slate-800 mb-4">
+          Termo de Consentimento (TCLE)
+        </h2>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="bg-slate-50 rounded-xl p-4 max-h-64 overflow-y-auto border border-slate-200">
-            <pre className="text-xs text-slate-700 whitespace-pre-wrap font-sans leading-relaxed">{TCLE_TEXT}</pre>
+            <pre className="text-xs text-slate-700 whitespace-pre-wrap font-sans leading-relaxed">
+              {TCLE_TEXT}
+            </pre>
           </div>
 
           <label className="flex items-start gap-3 cursor-pointer">
@@ -62,25 +86,33 @@ export default function StepTcle({ pacienteId, onNext, onBack }: Props) {
               className="mt-0.5 rounded"
             />
             <span className="text-sm text-slate-700">
-              Li, compreendi e <strong>aceito</strong> o Termo de Consentimento Livre e Esclarecido acima.
-              Este aceite tem validade legal e será registrado eletronicamente com data, hora e endereço de IP.
+              Li, compreendi e <strong>aceito</strong> o Termo de Consentimento
+              Livre e Esclarecido acima. Este aceite tem validade legal e será
+              registrado eletronicamente com data, hora e endereço de IP.
             </span>
           </label>
 
           {error && <p className="text-red-500 text-sm">{error}</p>}
 
           <div className="flex justify-between pt-2">
-            <button type="button" onClick={onBack} className={btnSecondary}>← Anterior</button>
-            <button type="submit" disabled={isPending || !lido} className={btnPrimary}>
-              {isPending ? 'Enviando…' : 'Aceitar e finalizar ✓'}
+            <button type="button" onClick={onBack} className={btnSecondary}>
+              ← Anterior
+            </button>
+            <button
+              type="submit"
+              disabled={isPending || !lido}
+              className={btnPrimary}
+            >
+              {isPending ? "Enviando…" : "Aceitar e finalizar ✓"}
             </button>
           </div>
         </form>
       </div>
     </div>
-  )
+  );
 }
 
-
-const btnPrimary = 'bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-medium py-2 px-6 rounded-lg transition-colors'
-const btnSecondary = 'text-slate-600 hover:text-slate-800 font-medium py-2 px-4 rounded-lg transition-colors'
+const btnPrimary =
+  "bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-medium py-2 px-6 rounded-lg transition-colors";
+const btnSecondary =
+  "text-slate-600 hover:text-slate-800 font-medium py-2 px-4 rounded-lg transition-colors";

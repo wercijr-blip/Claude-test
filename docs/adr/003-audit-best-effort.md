@@ -21,10 +21,12 @@ O servidor de produção está em Railway com autoscaling, e o banco de dados (T
 ## Consequências
 
 **Prós:**
+
 - Falhas transitórias no banco (timeout, connection pool exhausted) não interrompem o atendimento clínico
 - UX do paciente não é afetada por problemas de infra de auditoria
 
 **Contras:**
+
 - Em cenário de indisponibilidade total do banco, eventos de auditoria são perdidos sem notificação ao operador
 - Não há replay/buffer: eventos perdidos durante downtime não são recuperáveis automaticamente
 

@@ -21,11 +21,13 @@ A plataforma é **intencionalmente monolíngue em pt-BR**. Não há i18n framewo
 ## Consequências
 
 **Prós:**
+
 - Código mais simples: strings inline, sem chaves de tradução, sem `t()` wrappers
 - Menos surface area para erros de tradução em contexto médico crítico
 - Builds mais rápidos e bundle menor
 
 **Contras:**
+
 - Se a clínica expandir internacionalmente, i18n precisará ser retrofitted — custo maior que adicionar desde o início
 
 ## Alternativas Consideradas

@@ -42,31 +42,31 @@
 
 ### Mapa de Endpoints do Painel
 
-| Método | Rota | Descrição |
-|--------|------|-----------|
-| GET | `/api/agendamentos` | Lista agendamentos (filtros: data, status, medico_id) |
-| POST | `/api/agendamentos` | Cria novo agendamento |
-| PATCH | `/api/agendamentos/:id/status` | Atualiza status do agendamento |
-| DELETE | `/api/agendamentos/:id` | Cancela agendamento |
-| GET | `/api/pacientes` | Lista pacientes |
-| GET | `/api/medicos` | Lista médicos |
-| POST | `/api/medicos` | Cadastra novo médico |
-| PATCH | `/api/medicos/:id/toggle` | Ativa/desativa médico |
-| GET | `/api/medicos/:id/slots` | Slots disponíveis de um médico |
-| GET | `/api/encaixes` | Lista fila de encaixe |
-| POST | `/api/encaixes` | Adiciona à fila de encaixe |
-| GET | `/api/atendimento/humano` | Lista chats em atendimento humano |
-| GET | `/api/textos` | Lista textos/mensagens configuráveis |
-| PUT | `/api/textos` | Salva todos os textos em bulk |
-| GET | `/api/usuarios` | Lista usuários do sistema |
-| GET | `/api/whatsapp/status` | Status da conexão WhatsApp |
-| GET | `/api/whatsapp/qr` | QR Code para conexão (base64) |
-| GET | `/api/stats` | Estatísticas gerais |
-| GET | `/api/export` | Exporta agendamentos (Excel) |
-| POST | `/api/auth/login` | Login de usuário |
-| POST | `/api/auth/change-password` | Troca de senha própria |
-| GET | `/api/auth/users` | Lista usuários (admin) |
-| POST | `/api/auth/users` | Cria usuário (admin) |
-| PATCH | `/api/auth/users/:id/toggle` | Ativa/desativa usuário (admin) |
-| POST | `/api/auth/users/:id/reset-password` | Reset de senha (admin) |
-| GET | `/api/auth/me` | Dados do usuário logado |
+| Método | Rota                                 | Descrição                                             |
+| ------ | ------------------------------------ | ----------------------------------------------------- |
+| GET    | `/api/agendamentos`                  | Lista agendamentos (filtros: data, status, medico_id) |
+| POST   | `/api/agendamentos`                  | Cria novo agendamento                                 |
+| PATCH  | `/api/agendamentos/:id/status`       | Atualiza status do agendamento                        |
+| DELETE | `/api/agendamentos/:id`              | Cancela agendamento                                   |
+| GET    | `/api/pacientes`                     | Lista pacientes                                       |
+| GET    | `/api/medicos`                       | Lista médicos                                         |
+| POST   | `/api/medicos`                       | Cadastra novo médico                                  |
+| PATCH  | `/api/medicos/:id/toggle`            | Ativa/desativa médico                                 |
+| GET    | `/api/medicos/:id/slots`             | Slots disponíveis de um médico                        |
+| GET    | `/api/encaixes`                      | Lista fila de encaixe                                 |
+| POST   | `/api/encaixes`                      | Adiciona à fila de encaixe                            |
+| GET    | `/api/atendimento/humano`            | Lista chats em atendimento humano                     |
+| GET    | `/api/textos`                        | Lista textos/mensagens configuráveis                  |
+| PUT    | `/api/textos`                        | Salva todos os textos em bulk                         |
+| GET    | `/api/usuarios`                      | Lista usuários do sistema                             |
+| GET    | `/api/whatsapp/status`               | Status da conexão WhatsApp                            |
+| GET    | `/api/whatsapp/qr`                   | QR Code para conexão (base64)                         |
+| GET    | `/api/stats`                         | Estatísticas gerais                                   |
+| GET    | `/api/export`                        | Exporta agendamentos (Excel)                          |
+| POST   | `/api/auth/login`                    | Login de usuário                                      |
+| POST   | `/api/auth/change-password`          | Troca de senha própria                                |
+| GET    | `/api/auth/users`                    | Lista usuários (admin)                                |
+| POST   | `/api/auth/users`                    | Cria usuário (admin)                                  |
+| PATCH  | `/api/auth/users/:id/toggle`         | Ativa/desativa usuário (admin)                        |
+| POST   | `/api/auth/users/:id/reset-password` | Reset de senha (admin)                                |
+| GET    | `/api/auth/me`                       | Dados do usuário logado                               |

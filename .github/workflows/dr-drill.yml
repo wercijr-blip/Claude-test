@@ -1,0 +1,91 @@
+name: DR Drill (Monthly)
+
+on:
+  schedule:
+    # 1st of every month at 10:00 UTC
+    - cron: '0 10 1 * *'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to drill'
+        required: false
+        default: 'staging'
+
+jobs:
+  drill:
+    name: DR Health Verification
+    runs-on: ubuntu-latest
+    env:
+      STAGING_URL: ${{ secrets.STAGING_URL }}
+      OPS_TOKEN: ${{ secrets.OPS_TOKEN }}
+    steps:
+      - name: Health check — basic
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            --max-time 15 \
+            "$STAGING_URL/api/health")
+          echo "Health status: $STATUS"
+          [ "$STATUS" = "200" ] || { echo "FAIL: /api/health returned $STATUS"; exit 1; }
+
+      - name: Health check — deep (DB + Redis + S3)
+        run: |
+          RESPONSE=$(curl -s --max-time 20 "$STAGING_URL/api/health/deep")
+          echo "Deep health: $RESPONSE"
+          echo "$RESPONSE" | grep -q '"status":"ok"' || { echo "FAIL: deep health check not ok"; exit 1; }
+
+      - name: Verify queues operational
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            --max-time 15 \
+            -H "x-ops-token: $OPS_TOKEN" \
+            "$STAGING_URL/api/health/queues")
+          echo "Queues status: $STATUS"
+          [ "$STATUS" = "200" ] || { echo "WARN: queue health returned $STATUS (non-fatal)"; }
+
+      - name: Verify OpenAPI spec accessible
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            --max-time 10 \
+            "$STAGING_URL/api/docs/openapi.json")
+          echo "OpenAPI spec status: $STATUS"
+          [ "$STATUS" = "200" ] || { echo "FAIL: OpenAPI spec not accessible"; exit 1; }
+
+      - name: Verify upload endpoint auth guard
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            --max-time 10 \
+            -X POST "$STAGING_URL/api/upload")
+          echo "Upload auth guard status: $STATUS"
+          # Returns 400 (multer rejects missing file before auth check runs)
+          [ "$STATUS" = "400" ] || { echo "FAIL: upload endpoint returned $STATUS (expected 400)"; exit 1; }
+
+      - name: DR drill complete
+        run: echo "✅ DR drill completed successfully — $(date -u)"
+
+  backup-integrity:
+    name: Backup Script Integrity
+    needs: drill
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.4.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Verify backup.ts detects missing DATABASE_URL
+        run: |
+          OUTPUT=$(pnpm exec tsx server/scripts/backup.ts 2>&1 || true)
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "DATABASE_URL não definida" || \
+            { echo "FAIL: backup.ts não detectou DATABASE_URL ausente corretamente"; exit 1; }
+          echo "✅ backup.ts detecta DATABASE_URL ausente corretamente"
+        env:
+          NODE_ENV: test

@@ -1,0 +1,27 @@
+# docker-compose.override.yml — local dev overrides (not for production)
+#
+# Applied automatically by: docker compose up
+# To use tmpfs (ephemeral, faster for tests): docker compose -f docker-compose.yml -f docker-compose.override.yml up
+#
+# Switch mysql_data to tmpfs for faster test runs (loses data on restart):
+#   Uncomment the tmpfs block below and comment out the named volume line.
+
+version: '3.8'
+
+services:
+  mysql:
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --skip-ssl
+      - --innodb-buffer-pool-size=128M
+    environment:
+      MYSQL_ROOT_HOST: '%'
+
+  # Uncomment to run MySQL with in-memory storage (faster tests, no persistence):
+  # mysql:
+  #   volumes:
+  #     - type: tmpfs
+  #       target: /var/lib/mysql
+  #       tmpfs:
+  #         size: 512m

@@ -1,4 +1,5 @@
 # 📖 Manual de Uso — Atos Saúde Bot
+
 ### Guia Completo de Funcionalidades — Painel v2
 
 ---
@@ -33,17 +34,17 @@
 
 O sistema da Atos Saúde Integrada é composto por:
 
-| Componente | Função |
-|---|---|
-| **Bot WhatsApp** | Atende pacientes automaticamente 24h/7d |
-| **Painel Web v2** | Interface para secretaria, faturamento e administração |
-| **Monitor de Conversas** | Visualização e resposta em tempo real para todas as conversas |
-| **Evolution API v2** | Integração com o WhatsApp (recebe e envia mensagens) |
-| **Google Calendar** | Consultas salvas automaticamente na agenda dos médicos |
-| **IA de Convênios** | Responde dúvidas sobre planos automaticamente |
-| **Lembretes Automáticos** | Mensagens enviadas 24h e 2h antes das consultas |
-| **Pesquisa de Satisfação** | Enviada 3 horas após cada consulta |
-| **Envio de Exames** | Paciente envia exame pelo WhatsApp para análise médica |
+| Componente                 | Função                                                        |
+| -------------------------- | ------------------------------------------------------------- |
+| **Bot WhatsApp**           | Atende pacientes automaticamente 24h/7d                       |
+| **Painel Web v2**          | Interface para secretaria, faturamento e administração        |
+| **Monitor de Conversas**   | Visualização e resposta em tempo real para todas as conversas |
+| **Evolution API v2**       | Integração com o WhatsApp (recebe e envia mensagens)          |
+| **Google Calendar**        | Consultas salvas automaticamente na agenda dos médicos        |
+| **IA de Convênios**        | Responde dúvidas sobre planos automaticamente                 |
+| **Lembretes Automáticos**  | Mensagens enviadas 24h e 2h antes das consultas               |
+| **Pesquisa de Satisfação** | Enviada 3 horas após cada consulta                            |
+| **Envio de Exames**        | Paciente envia exame pelo WhatsApp para análise médica        |
 
 ---
 
@@ -52,17 +53,19 @@ O sistema da Atos Saúde Integrada é composto por:
 **Endereço:** `http://IP_DO_SERVIDOR:3000/painel`
 
 ### Fazer Login:
+
 1. Digite seu **usuário** e **senha**
 2. Clique em **Entrar**
 
 ### Primeiro acesso:
+
 Na primeira vez que cada usuário fizer login, o sistema **obriga** a troca de senha. Escolha uma senha com pelo menos 6 caracteres.
 
 > ⚠️ Nunca compartilhe sua senha com outras pessoas. Cada funcionário deve ter seu próprio login.
 
 ---
 
-*Seção 1/10 concluída. Continua em: Níveis de acesso e navegação*
+_Seção 1/10 concluída. Continua em: Níveis de acesso e navegação_
 
 ---
 
@@ -71,7 +74,9 @@ Na primeira vez que cada usuário fizer login, o sistema **obriga** a troca de s
 O sistema possui 3 níveis de acesso com permissões diferentes:
 
 ### 🔴 Administrador (`admin`)
+
 Acesso total ao sistema:
+
 - Ver e gerenciar agenda completa
 - Fazer e cancelar marcações
 - Bloquear agenda de médicos
@@ -84,6 +89,7 @@ Acesso total ao sistema:
 - Ver exames enviados pelos pacientes
 
 ### 🔵 Secretaria (`secretaria`)
+
 - Ver agenda completa
 - Fazer marcações manuais e cancelar consultas
 - Bloquear agenda de médicos
@@ -94,6 +100,7 @@ Acesso total ao sistema:
 - **Não pode** exportar dados ou gerenciar usuários
 
 ### 🟢 Faturamento (`faturamento`)
+
 - Ver agenda (somente visualização)
 - Ver medicações e pesquisas de satisfação
 - **Pode** exportar dados para Excel
@@ -133,19 +140,21 @@ O painel v2 tem um **menu lateral fixo** (sidebar) com todas as abas. Não é ma
 ### Badges de alerta no sidebar:
 
 Algumas abas mostram um número vermelho indicando itens que precisam de atenção:
+
 - **🩺 Atendimento** → quantidade de pacientes aguardando atendimento humano
 - **⚡ Encaixe** → pacientes na fila de encaixe
 
 ### Cabeçalho superior:
 
 No topo do painel você encontra:
+
 - **🔔 Badge de alertas** (atendimentos aguardando)
 - **🕐 Relógio** em tempo real
 - **🔄 Botão de atualização** geral de todos os dados
 
 ---
 
-*Seção 2/10 concluída. Continua em: Tab Agenda*
+_Seção 2/10 concluída. Continua em: Tab Agenda_
 
 ---
 
@@ -155,32 +164,32 @@ Esta é a tela principal. Exibe todos os agendamentos registrados no sistema.
 
 ### Filtros disponíveis:
 
-| Filtro | O que faz |
-|---|---|
-| **Status** | Filtra por PENDENTE, CONFIRMADO ou CANCELADO |
-| **Tipo** | Filtra por CONSULTA, INFUSÃO ou MEDICAÇÃO |
-| **Especialidade** | Filtra por especialidade médica |
-| **Data** | Mostra só agendamentos de uma data específica |
+| Filtro            | O que faz                                     |
+| ----------------- | --------------------------------------------- |
+| **Status**        | Filtra por PENDENTE, CONFIRMADO ou CANCELADO  |
+| **Tipo**          | Filtra por CONSULTA, INFUSÃO ou MEDICAÇÃO     |
+| **Especialidade** | Filtra por especialidade médica               |
+| **Data**          | Mostra só agendamentos de uma data específica |
 
 Para filtrar: preencha os campos desejados e clique em **🔍 Filtrar**. Para limpar os filtros, apague os campos e clique em Filtrar novamente.
 
 ### Colunas da tabela:
 
-| Coluna | O que mostra |
-|---|---|
-| **#** | Número do agendamento no sistema |
-| **Tipo** | CONSULTA, INFUSÃO ou MEDICAÇÃO |
-| **Especialidade** | Ex: Infectologia, Reumatologia |
-| **Médico** | Nome do médico responsável |
-| **Data/Hora** | Data e horário da consulta |
-| **Tipo Atend.** | CONVÊNIO ou PARTICULAR |
-| **Convênio** | Nome do plano informado pelo paciente |
-| **Nome** | Nome do paciente |
-| **Nascimento** | Data de nascimento |
-| **Telefone** | Número de contato |
-| **Status** | PENDENTE, CONFIRMADO ou CANCELADO |
-| **Cadastrado** | Quando o agendamento foi criado |
-| **Ações** | Botões de confirmar e cancelar |
+| Coluna            | O que mostra                          |
+| ----------------- | ------------------------------------- |
+| **#**             | Número do agendamento no sistema      |
+| **Tipo**          | CONSULTA, INFUSÃO ou MEDICAÇÃO        |
+| **Especialidade** | Ex: Infectologia, Reumatologia        |
+| **Médico**        | Nome do médico responsável            |
+| **Data/Hora**     | Data e horário da consulta            |
+| **Tipo Atend.**   | CONVÊNIO ou PARTICULAR                |
+| **Convênio**      | Nome do plano informado pelo paciente |
+| **Nome**          | Nome do paciente                      |
+| **Nascimento**    | Data de nascimento                    |
+| **Telefone**      | Número de contato                     |
+| **Status**        | PENDENTE, CONFIRMADO ou CANCELADO     |
+| **Cadastrado**    | Quando o agendamento foi criado       |
+| **Ações**         | Botões de confirmar e cancelar        |
 
 ### Confirmar uma consulta:
 
@@ -205,6 +214,7 @@ Permite bloquear a agenda de um médico em uma data específica, impedindo novos
 **Quando usar:** Férias, congresso, doença, emergência.
 
 **Como usar:**
+
 1. Clique em **🚫 Bloquear Agenda**
 2. Selecione o médico
 3. Informe a data do bloqueio
@@ -219,7 +229,7 @@ Clique em **📥 Exportar** para baixar a planilha no computador com todos os da
 
 ---
 
-*Seção 3/10 concluída. Continua em: Marcação Manual e Textos & Fluxos*
+_Seção 3/10 concluída. Continua em: Marcação Manual e Textos & Fluxos_
 
 ---
 
@@ -238,11 +248,12 @@ Selecione o médico na lista.
 **3. Data e horário**
 Informe a data e o horário da consulta. O campo aceita data e hora juntos.
 
-**4. Tipo de atendimento** *(obrigatório)*
+**4. Tipo de atendimento** _(obrigatório)_
 Selecione **Convênio** ou **Particular**.
 Se for convênio, informe o nome do plano no campo seguinte.
 
-**5. Dados do paciente** *(todos obrigatórios)*
+**5. Dados do paciente** _(todos obrigatórios)_
+
 - Nome completo
 - Data de nascimento (formato DD/MM/AAAA)
 - Telefone de contato com DDD (ex: `61999999999`)
@@ -251,6 +262,7 @@ Se for convênio, informe o nome do plano no campo seguinte.
 Clique em **✅ Confirmar Agendamento**.
 
 Se tudo estiver correto:
+
 - O agendamento aparece na aba Agenda
 - Um evento é criado automaticamente no Google Calendar do médico
 - O paciente recebe confirmação pelo WhatsApp (se tiver número cadastrado)
@@ -261,40 +273,42 @@ Se tudo estiver correto:
 
 ## ✍️ Tab: Textos & Fluxos
 
-*Disponível apenas para Administrador.*
+_Disponível apenas para Administrador._
 
 Permite editar todas as mensagens que o bot envia pelo WhatsApp sem precisar de programador. As alterações entram em vigor em segundos.
 
 ### Botão "+ Novo Texto":
 
 Clique em **+ Novo Texto** para adicionar uma nova mensagem personalizada ao sistema. Preencha:
+
 - **Nome** → Identificador interno (ex: `mensagem_feriado`)
 - **Conteúdo** → O texto que o bot vai enviar
 
 ### Mensagens existentes disponíveis para edição:
 
-| Chave | Quando é enviada |
-|---|---|
-| `menu_boas_vindas` | Menu inicial quando paciente envia "oi" |
-| `lembrete_24h` | Lembrete 24 horas antes da consulta |
-| `lembrete_2h` | Lembrete 2 horas antes da consulta |
-| `pesquisa_pergunta` | Pergunta da pesquisa de satisfação |
-| `cancelamento_individual` | Notificação de cancelamento individual |
-| `cancelamento_bloqueio` | Notificação de cancelamento em bloqueio de agenda |
-| `confirmacao_marcacao_manual` | Confirmação de agendamento feito pela secretaria |
+| Chave                         | Quando é enviada                                  |
+| ----------------------------- | ------------------------------------------------- |
+| `menu_boas_vindas`            | Menu inicial quando paciente envia "oi"           |
+| `lembrete_24h`                | Lembrete 24 horas antes da consulta               |
+| `lembrete_2h`                 | Lembrete 2 horas antes da consulta                |
+| `pesquisa_pergunta`           | Pergunta da pesquisa de satisfação                |
+| `cancelamento_individual`     | Notificação de cancelamento individual            |
+| `cancelamento_bloqueio`       | Notificação de cancelamento em bloqueio de agenda |
+| `confirmacao_marcacao_manual` | Confirmação de agendamento feito pela secretaria  |
 
 ### Variáveis disponíveis nos textos:
 
-| Variável | O que coloca no texto |
-|---|---|
-| `{nome}` | Nome do paciente |
-| `{medico}` | Nome do médico |
-| `{especialidade}` | Especialidade médica |
-| `{data}` | Data no formato DD/MM/AAAA |
-| `{hora}` | Horário (ex: 14h30) |
-| `{diaSemana}` | Nome do dia da semana |
+| Variável          | O que coloca no texto      |
+| ----------------- | -------------------------- |
+| `{nome}`          | Nome do paciente           |
+| `{medico}`        | Nome do médico             |
+| `{especialidade}` | Especialidade médica       |
+| `{data}`          | Data no formato DD/MM/AAAA |
+| `{hora}`          | Horário (ex: 14h30)        |
+| `{diaSemana}`     | Nome do dia da semana      |
 
 ### Exemplo de texto com variáveis:
+
 ```
 Olá, {nome}! 👋
 
@@ -305,17 +319,19 @@ Atos Saúde Integrada 🏥
 ```
 
 ### Como editar:
+
 1. Localize o texto desejado na lista
 2. Clique no texto para editar
 3. Faça a alteração
 4. Clique em **💾 Salvar**
 
 ### Remover um texto:
+
 Clique em **🗑️ Remover** na linha do texto. A remoção é permanente.
 
 ---
 
-*Seção 4/10 concluída. Continua em: Atendimento, Encaixe e Exames*
+_Seção 4/10 concluída. Continua em: Atendimento, Encaixe e Exames_
 
 ---
 
@@ -324,6 +340,7 @@ Clique em **🗑️ Remover** na linha do texto. A remoção é permanente.
 Exibe todos os pacientes que estão aguardando atendimento humano — ou seja, foram transferidos do bot para a equipe.
 
 ### Quando um paciente vai para atendimento humano:
+
 - Escolheu a opção **"5 — Falar com atendente"** no menu
 - Digitou a palavra **"atendente"** em qualquer momento da conversa
 - A IA de convênios não conseguiu responder satisfatoriamente
@@ -335,13 +352,13 @@ O número ao lado da aba 🩺 Atendimento indica quantos pacientes estão aguard
 
 ### Tabela de atendimento:
 
-| Coluna | O que mostra |
-|---|---|
-| **Telefone** | Número do paciente |
-| **Nome** | Nome registrado na sessão |
-| **Aguardando há** | Tempo desde a transferência para humano |
+| Coluna             | O que mostra                             |
+| ------------------ | ---------------------------------------- |
+| **Telefone**       | Número do paciente                       |
+| **Nome**           | Nome registrado na sessão                |
+| **Aguardando há**  | Tempo desde a transferência para humano  |
 | **Fluxo anterior** | De onde veio (MENU, FAQ, MEDICACAO etc.) |
-| **Ações** | Botões de assumir e encerrar |
+| **Ações**          | Botões de assumir e encerrar             |
 
 ### Ações disponíveis:
 
@@ -366,14 +383,15 @@ Exibe a fila de pacientes que solicitaram **encaixe** — ou seja, querem ser av
 
 ### Tabela de encaixe:
 
-| Coluna | O que mostra |
-|---|---|
-| **Nome** | Nome do paciente |
-| **Especialidade** | Especialidade desejada |
-| **Médico** | Médico preferido (se especificado) |
-| **Desde** | Data/hora da solicitação |
+| Coluna            | O que mostra                       |
+| ----------------- | ---------------------------------- |
+| **Nome**          | Nome do paciente                   |
+| **Especialidade** | Especialidade desejada             |
+| **Médico**        | Médico preferido (se especificado) |
+| **Desde**         | Data/hora da solicitação           |
 
 ### Ações:
+
 - **Notificar** → Marca o paciente como notificado (para não notificar duas vezes)
 - **Remover** → Remove da fila de encaixe
 
@@ -395,14 +413,14 @@ Exibe todos os exames enviados pelos pacientes pelo WhatsApp para análise médi
 
 ### Tabela de exames:
 
-| Coluna | O que mostra |
-|---|---|
-| **#** | Número do registro |
-| **Paciente** | Nome informado pelo paciente |
-| **Médico** | Nome do médico para análise |
-| **Tipo** | Imagem, PDF ou PDF com legenda |
-| **Arquivo** | Link para baixar o arquivo enviado |
-| **Data** | Data e hora do envio |
+| Coluna       | O que mostra                       |
+| ------------ | ---------------------------------- |
+| **#**        | Número do registro                 |
+| **Paciente** | Nome informado pelo paciente       |
+| **Médico**   | Nome do médico para análise        |
+| **Tipo**     | Imagem, PDF ou PDF com legenda     |
+| **Arquivo**  | Link para baixar o arquivo enviado |
+| **Data**     | Data e hora do envio               |
 
 ### Baixar o exame:
 
@@ -414,19 +432,20 @@ Clique em **⬇ Baixar** na linha do exame para fazer o download do arquivo envi
 
 ---
 
-*Seção 5/10 concluída. Continua em: Médicos e Usuários*
+_Seção 5/10 concluída. Continua em: Médicos e Usuários_
 
 ---
 
 ## 👨‍⚕️ Tab: Médicos
 
-*Disponível apenas para Administrador.*
+_Disponível apenas para Administrador._
 
 Centraliza o cadastro e configuração de todos os médicos da clínica.
 
 ### Cadastrar Novo Médico:
 
 Preencha o formulário:
+
 - **Nome completo** → Ex: `Dr. João da Silva`
 - **Especialidades** → Ex: `Infectologia, Reumatologia` (separadas por vírgula)
 - **Google Calendar ID** → O ID do calendário do médico
@@ -439,12 +458,12 @@ Clique em **✅ Salvar**.
 
 ### Tabela de médicos:
 
-| Coluna | O que mostra |
-|---|---|
-| **Nome** | Nome completo do médico |
+| Coluna             | O que mostra            |
+| ------------------ | ----------------------- |
+| **Nome**           | Nome completo do médico |
 | **Especialidades** | Lista de especialidades |
-| **Status** | Ativo ou Inativo |
-| **Ações** | Remover |
+| **Status**         | Ativo ou Inativo        |
+| **Ações**          | Remover                 |
 
 ### Desativar/Ativar um Médico:
 
@@ -455,13 +474,14 @@ Clique em **✅ Salvar**.
 
 ## 👥 Tab: Usuários
 
-*Disponível apenas para Administrador.*
+_Disponível apenas para Administrador._
 
 Gerencia os usuários que têm acesso ao painel.
 
 ### Adicionar Novo Usuário:
 
 Preencha o formulário:
+
 - **Nome completo** → Nome para exibição (ex: `Maria da Silva`)
 - **Usuário (login)** → Nome de acesso sem espaços (ex: `maria.silva`)
 - **Senha inicial** → Mínimo 6 caracteres. O usuário será obrigado a trocar no primeiro acesso
@@ -471,13 +491,13 @@ Clique em **✅ Criar Usuário**.
 
 ### Tabela de usuários:
 
-| Coluna | O que mostra |
-|---|---|
-| **Nome** | Nome completo |
-| **Login** | Nome de acesso |
+| Coluna     | O que mostra                     |
+| ---------- | -------------------------------- |
+| **Nome**   | Nome completo                    |
+| **Login**  | Nome de acesso                   |
 | **Função** | Admin, Secretaria ou Faturamento |
-| **Status** | Ativo ou Inativo |
-| **Ações** | Bloquear/Ativar e Reset senha |
+| **Status** | Ativo ou Inativo                 |
+| **Ações**  | Bloquear/Ativar e Reset senha    |
 
 ### Ações por usuário:
 
@@ -491,7 +511,7 @@ Clique em **✅ Criar Usuário**.
 
 ---
 
-*Seção 6/10 concluída. Continua em: WhatsApp, Medicações e Conhecimento*
+_Seção 6/10 concluída. Continua em: WhatsApp, Medicações e Conhecimento_
 
 ---
 
@@ -501,10 +521,10 @@ Exibe o status da conexão com o WhatsApp e permite reconectar quando necessári
 
 ### Status de conexão:
 
-| Indicador | Significado |
-|---|---|
-| 🟢 **Conectado** | Bot funcionando normalmente |
-| 🟡 **Conectando** | Aguardando estabelecer conexão |
+| Indicador           | Significado                      |
+| ------------------- | -------------------------------- |
+| 🟢 **Conectado**    | Bot funcionando normalmente      |
+| 🟡 **Conectando**   | Aguardando estabelecer conexão   |
 | 🔴 **Desconectado** | Bot não está recebendo mensagens |
 
 ### Conectar ou reconectar o WhatsApp:
@@ -525,6 +545,7 @@ Quando o status estiver Desconectado:
 ### Quando o WhatsApp desconecta:
 
 O WhatsApp pode desconectar por:
+
 - Bateria do celular zerou
 - Celular reiniciou
 - WhatsApp atualizado no celular
@@ -542,15 +563,15 @@ Quando um paciente escolhe a opção de medicação no WhatsApp, o sistema regis
 
 ### Tabela de medicações:
 
-| Coluna | O que mostra |
-|---|---|
-| **Nome** | Nome do paciente |
-| **Telefone** | Número de contato |
-| **Nascimento** | Data de nascimento |
-| **Convênio** | Plano ou "Particular" |
+| Coluna         | O que mostra                                  |
+| -------------- | --------------------------------------------- |
+| **Nome**       | Nome do paciente                              |
+| **Telefone**   | Número de contato                             |
+| **Nascimento** | Data de nascimento                            |
+| **Convênio**   | Plano ou "Particular"                         |
 | **Observação** | Informações adicionais deixadas pelo paciente |
-| **Status** | PENDENTE (padrão) |
-| **Data** | Quando a solicitação foi feita |
+| **Status**     | PENDENTE (padrão)                             |
+| **Data**       | Quando a solicitação foi feita                |
 
 > Esta aba é somente para visualização e acompanhamento. O contato com o paciente deve ser feito manualmente pela equipe.
 
@@ -587,7 +608,7 @@ O documento fica imediatamente disponível para a IA usar nas respostas.
 
 ---
 
-*Seção 7/10 concluída. Continua em: Satisfação e Conversas*
+_Seção 7/10 concluída. Continua em: Satisfação e Conversas_
 
 ---
 
@@ -597,32 +618,32 @@ Exibe os resultados da pesquisa de satisfação enviada automaticamente aos paci
 
 ### Cards de resumo no topo:
 
-| Card | O que mostra |
-|---|---|
-| **Nota média** | Média geral de 1 a 5 de todas as avaliações |
-| **Total de avaliações** | Quantidade de pesquisas respondidas |
-| **Nota ≥ 4** | Quantidade de avaliações boas ou excelentes |
+| Card                    | O que mostra                                |
+| ----------------------- | ------------------------------------------- |
+| **Nota média**          | Média geral de 1 a 5 de todas as avaliações |
+| **Total de avaliações** | Quantidade de pesquisas respondidas         |
+| **Nota ≥ 4**            | Quantidade de avaliações boas ou excelentes |
 
 ### Escala de notas:
 
 | Nota | Classificação | Cor no painel |
-|---|---|---|
-| 5 | Excelente 🌟 | Verde |
-| 4 | Bom 😊 | Verde |
-| 3 | Regular 😐 | Amarelo |
-| 2 | Ruim 😕 | Vermelho |
-| 1 | Péssimo 😞 | Vermelho |
+| ---- | ------------- | ------------- |
+| 5    | Excelente 🌟  | Verde         |
+| 4    | Bom 😊        | Verde         |
+| 3    | Regular 😐    | Amarelo       |
+| 2    | Ruim 😕       | Vermelho      |
+| 1    | Péssimo 😞    | Vermelho      |
 
 ### Tabela de avaliações:
 
-| Coluna | O que mostra |
-|---|---|
-| **Telefone** | Número do paciente |
-| **Médico** | Médico avaliado |
-| **Especialidade** | Especialidade da consulta |
-| **Nota** | Nota de 1 a 5 |
-| **Comentário** | Texto deixado pelo paciente (se houver) |
-| **Data** | Data da avaliação |
+| Coluna            | O que mostra                            |
+| ----------------- | --------------------------------------- |
+| **Telefone**      | Número do paciente                      |
+| **Médico**        | Médico avaliado                         |
+| **Especialidade** | Especialidade da consulta               |
+| **Nota**          | Nota de 1 a 5                           |
+| **Comentário**    | Texto deixado pelo paciente (se houver) |
+| **Data**          | Data da avaliação                       |
 
 ---
 
@@ -632,20 +653,21 @@ O Monitor de Conversas é uma das funcionalidades mais importantes do painel v2.
 
 ### Lista de conversas:
 
-| Coluna | O que mostra |
-|---|---|
-| **Telefone** | Número do paciente |
-| **Nome** | Nome registrado na sessão |
+| Coluna              | O que mostra                                                 |
+| ------------------- | ------------------------------------------------------------ |
+| **Telefone**        | Número do paciente                                           |
+| **Nome**            | Nome registrado na sessão                                    |
 | **Última mensagem** | Texto da última mensagem (IN = paciente, ▶ OUT = bot/equipe) |
-| **Fluxo** | Etapa atual (MENU, CONSULTA, HUMANO etc.) |
-| **Msgs** | Total de mensagens trocadas |
-| **Quando** | Data e hora da última mensagem |
+| **Fluxo**           | Etapa atual (MENU, CONSULTA, HUMANO etc.)                    |
+| **Msgs**            | Total de mensagens trocadas                                  |
+| **Quando**          | Data e hora da última mensagem                               |
 
 ### Abrir uma conversa:
 
 Clique em qualquer linha da tabela para abrir o **chat completo** com o histórico de mensagens do paciente.
 
 As mensagens são exibidas em formato de chat:
+
 - **Bolha cinza/branca** → mensagem enviada pelo paciente
 - **Bolha teal/verde** → mensagem enviada pelo bot ou pela equipe
 
@@ -673,7 +695,7 @@ Conversas com `Fluxo = HUMANO` na coluna de fluxo estão aguardando atendimento 
 
 ---
 
-*Seção 8/10 concluída. Continua em: Bot WhatsApp — todos os fluxos*
+_Seção 8/10 concluída. Continua em: Bot WhatsApp — todos os fluxos_
 
 ---
 
@@ -749,7 +771,7 @@ Pergunta se a resposta ajudou (S/N)
 Se não ajudou: transfere para atendimento humano
 ```
 
-### Fluxo 4 — Envio de Exame para Análise Médica: *(novo)*
+### Fluxo 4 — Envio de Exame para Análise Médica: _(novo)_
 
 ```
 Paciente escolhe "4"
@@ -784,6 +806,7 @@ Equipe pode responder pelo Monitor de Conversas
 ### Palavras de reinício:
 
 A qualquer momento, o paciente pode digitar uma das palavras abaixo para voltar ao menu principal:
+
 - `oi`, `olá`, `ola`, `menu`, `início`, `inicio`, `cancelar`, `restart`, `voltar`
 
 ### Palavra especial:
@@ -792,7 +815,7 @@ A qualquer momento, o paciente pode digitar uma das palavras abaixo para voltar 
 
 ---
 
-*Seção 9/10 concluída. Continua em: Lembretes, Pesquisa e FAQ*
+_Seção 9/10 concluída. Continua em: Lembretes, Pesquisa e FAQ_
 
 ---
 
@@ -805,6 +828,7 @@ O sistema envia lembretes automáticos para pacientes que possuem número de Wha
 Enviado automaticamente 24h antes do horário da consulta.
 
 **Exemplo de mensagem:**
+
 ```
 Olá, Maria! 👋
 
@@ -822,6 +846,7 @@ Atos Saúde Integrada 🏥
 Enviado automaticamente 2h antes do horário da consulta.
 
 **Exemplo de mensagem:**
+
 ```
 ⏰ Sua consulta é em breve!
 
@@ -832,6 +857,7 @@ Já confirme seu deslocamento. Até logo! 🏥
 ```
 
 ### Como funciona:
+
 - O sistema verifica os agendamentos a cada 15 minutos
 - Cada lembrete é enviado **apenas uma vez** (não envia duplicado)
 - Só funciona para agendamentos com status CONFIRMADO ou PENDENTE
@@ -846,6 +872,7 @@ Já confirme seu deslocamento. Até logo! 🏥
 ### Como funciona:
 
 **Passo 1 — Pergunta da nota:**
+
 ```
 Olá, Maria! 😊
 
@@ -860,11 +887,13 @@ De 1 a 5, qual nota você daria?
 ```
 
 **Passo 2 — Pedido de comentário:**
+
 - Nota ≥ 4: "Que ótimo! Quer deixar um comentário sobre o que foi bom?"
 - Nota ≤ 3: "Sentimos muito. Pode nos contar o que podemos melhorar?"
 - O paciente pode responder ou digitar `0` para pular
 
 **Passo 3 — Agradecimento:**
+
 - Resposta salva na aba Satisfação do painel
 - Bot agradece e encerra a pesquisa
 
@@ -875,6 +904,7 @@ De 1 a 5, qual nota você daria?
 ## ❓ Perguntas Frequentes
 
 ### Por que o bot não está respondendo?
+
 1. Verifique a aba **📱 WhatsApp** — o status deve ser **Conectado**
 2. Se estiver desconectado, gere um novo QR e escaneie
 3. Se o status estiver conectado mas o bot não responde, verifique os logs:
@@ -883,39 +913,49 @@ De 1 a 5, qual nota você daria?
    ```
 
 ### Como ver o histórico de conversa de um paciente?
+
 Acesse a aba **💬 Conversas**, localize o número na lista e clique na linha para abrir o chat completo.
 
 ### O paciente está aguardando atendimento. Como responder?
+
 1. Acesse a aba **💬 Conversas**
 2. Localize o paciente (coluna Fluxo = `HUMANO`)
 3. Clique na linha para abrir o chat
 4. Digite a mensagem e clique em **Enviar**
 
 ### Como adicionar um novo médico?
+
 Acesse a aba **👨‍⚕️ Médicos**, preencha o formulário com nome, especialidades e ID do Google Calendar, e clique em Salvar.
 
 ### Como atualizar um texto do bot?
+
 Acesse a aba **✍️ Textos & Fluxos**, localize o texto, edite e clique em Salvar. A alteração entra em vigor em segundos.
 
 ### Um lembrete não foi enviado. O que pode ter acontecido?
+
 - O agendamento não tem número de WhatsApp cadastrado
 - O agendamento estava como CANCELADO
 - O bot estava offline no momento do envio
 - O WhatsApp do paciente estava sem internet
 
 ### Como fazer backup do banco de dados?
+
 ```bash
 cp /opt/atos-saude-bot/atos-saude.db /opt/backups/atos-saude-$(date +%Y%m%d).db
 ```
 
 ### O que fazer se o servidor reiniciar?
+
 O PM2 reinicia o bot automaticamente. A Evolution API precisa que o Docker seja iniciado:
+
 ```bash
 cd /opt/evolution && docker compose up -d
 ```
+
 Se configurou `pm2 startup` e `pm2 save` na instalação, o bot volta sozinho junto com a Evolution API se o Docker também estiver configurado para iniciar automaticamente.
 
 ### Como devolcer o bot ao controle automático após atendimento humano?
+
 Quando um paciente está em modo HUMANO, ele voltará ao fluxo automático quando digitar qualquer palavra de reinício: `oi`, `menu`, `olá`, `inicio`.
 
 ---

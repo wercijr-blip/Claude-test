@@ -2,310 +2,400 @@
 // vêm do intake (accessToken). Pacientes com currentStep=6 (step antigo)
 // passam direto pro TCLE — comportamento idempotente.
 export const FORM_STEPS = [
-  { step: 1, titulo: 'Dados Pessoais', rota: 'paciente' },
-  { step: 2, titulo: 'Dados Demográficos', rota: 'demografico' },
-  { step: 3, titulo: 'Contato', rota: 'contato' },
-  { step: 4, titulo: 'Conduta', rota: 'conduta' },
-  { step: 5, titulo: 'Prescrição', rota: 'prescricao' },
-  { step: 6, titulo: 'TCLE', rota: 'tcle' },
-] as const
+  { step: 1, titulo: "Dados Pessoais", rota: "paciente" },
+  { step: 2, titulo: "Dados Demográficos", rota: "demografico" },
+  { step: 3, titulo: "Contato", rota: "contato" },
+  { step: 4, titulo: "Conduta", rota: "conduta" },
+  { step: 5, titulo: "Prescrição", rota: "prescricao" },
+  { step: 6, titulo: "TCLE", rota: "tcle" },
+] as const;
 
-export const TOTAL_FORM_STEPS = 6
+export const TOTAL_FORM_STEPS = 6;
 
 export const ERROR_MESSAGES = {
-  UNAUTHORIZED: 'Não autorizado. Faça login para continuar.',
-  FORBIDDEN: 'Acesso negado. Você não tem permissão para esta ação.',
-  TOKEN_INVALID: 'Link inválido ou expirado.',
-  TOKEN_EXPIRED: 'LINK_EXPIRED',
-  TOKEN_USED: 'Este link já foi utilizado.',
-  TOKEN_REVOKED: 'Este link foi revogado.',
-  CPF_INVALID: 'CPF inválido.',
-  NOT_FOUND: 'Registro não encontrado.',
-  INTERNAL_ERROR: 'Erro interno. Tente novamente.',
-  UPLOAD_SIZE: 'Arquivo muito grande. Máximo 10MB.',
-  UPLOAD_TYPE: 'Tipo de arquivo não permitido.',
-  RATE_LIMIT: 'Muitas tentativas. Aguarde e tente novamente.',
-} as const
+  UNAUTHORIZED: "Não autorizado. Faça login para continuar.",
+  FORBIDDEN: "Acesso negado. Você não tem permissão para esta ação.",
+  TOKEN_INVALID: "Link inválido ou expirado.",
+  TOKEN_EXPIRED: "LINK_EXPIRED",
+  TOKEN_USED: "Este link já foi utilizado.",
+  TOKEN_REVOKED: "Este link foi revogado.",
+  CPF_INVALID: "CPF inválido.",
+  NOT_FOUND: "Registro não encontrado.",
+  INTERNAL_ERROR: "Erro interno. Tente novamente.",
+  UPLOAD_SIZE: "Arquivo muito grande. Máximo 10MB.",
+  UPLOAD_TYPE: "Tipo de arquivo não permitido.",
+  RATE_LIMIT: "Muitas tentativas. Aguarde e tente novamente.",
+} as const;
 
 export const ROLES = {
-  USER: 'user',
-  SECRETARIA: 'secretaria',
-  MEDICO: 'medico',
-  ADMIN: 'admin',
-} as const
+  USER: "user",
+  SECRETARIA: "secretaria",
+  MEDICO: "medico",
+  ADMIN: "admin",
+} as const;
 
 export const PACIENTE_STATUS = {
-  RASCUNHO: 'rascunho',
-  PENDENTE: 'pendente',
-  EM_REVISAO: 'em_revisao',
-  APROVADO: 'aprovado',
-  REJEITADO: 'rejeitado',
-} as const
+  RASCUNHO: "rascunho",
+  PENDENTE: "pendente",
+  EM_REVISAO: "em_revisao",
+  APROVADO: "aprovado",
+  REJEITADO: "rejeitado",
+} as const;
 
 export const COR_RACA_OPTIONS = [
-  { value: 'branca', label: 'Branca' },
-  { value: 'preta', label: 'Preta' },
-  { value: 'parda', label: 'Parda' },
-  { value: 'amarela', label: 'Amarela' },
-  { value: 'indigena', label: 'Indígena' },
-  { value: 'nao_informado', label: 'Prefiro não informar' },
-] as const
+  { value: "branca", label: "Branca" },
+  { value: "preta", label: "Preta" },
+  { value: "parda", label: "Parda" },
+  { value: "amarela", label: "Amarela" },
+  { value: "indigena", label: "Indígena" },
+  { value: "nao_informado", label: "Prefiro não informar" },
+] as const;
 
 export const IDENTIDADE_GENERO_OPTIONS = [
-  { value: 'cisgênero_fem', label: 'Mulher cisgênero' },
-  { value: 'cisgênero_masc', label: 'Homem cisgênero' },
-  { value: 'transgênero_fem', label: 'Mulher transgênero / Travesti' },
-  { value: 'transgênero_masc', label: 'Homem transgênero' },
-  { value: 'nao_binario', label: 'Não-binário(a)' },
-  { value: 'nao_informado', label: 'Prefiro não informar' },
-] as const
+  { value: "cisgênero_fem", label: "Mulher cisgênero" },
+  { value: "cisgênero_masc", label: "Homem cisgênero" },
+  { value: "transgênero_fem", label: "Mulher transgênero / Travesti" },
+  { value: "transgênero_masc", label: "Homem transgênero" },
+  { value: "nao_binario", label: "Não-binário(a)" },
+  { value: "nao_informado", label: "Prefiro não informar" },
+] as const;
 
 export const ORIENTACAO_SEXUAL_OPTIONS = [
-  { value: 'heterossexual', label: 'Heterossexual' },
-  { value: 'homossexual', label: 'Gay / Lésbica' },
-  { value: 'bissexual', label: 'Bissexual' },
-  { value: 'nao_informado', label: 'Prefiro não informar' },
-] as const
+  { value: "heterossexual", label: "Heterossexual" },
+  { value: "homossexual", label: "Gay / Lésbica" },
+  { value: "bissexual", label: "Bissexual" },
+  { value: "nao_informado", label: "Prefiro não informar" },
+] as const;
 
 export const ESCOLARIDADE_OPTIONS = [
-  { value: 'sem_escolaridade', label: 'Sem escolaridade' },
-  { value: 'fundamental_incompleto', label: 'Fundamental incompleto' },
-  { value: 'fundamental_completo', label: 'Fundamental completo' },
-  { value: 'medio_incompleto', label: 'Médio incompleto' },
-  { value: 'medio_completo', label: 'Médio completo' },
-  { value: 'superior_incompleto', label: 'Superior incompleto' },
-  { value: 'superior_completo', label: 'Superior completo' },
-  { value: 'pos_graduacao', label: 'Pós-graduação' },
-] as const
+  { value: "sem_escolaridade", label: "Sem escolaridade" },
+  { value: "fundamental_incompleto", label: "Fundamental incompleto" },
+  { value: "fundamental_completo", label: "Fundamental completo" },
+  { value: "medio_incompleto", label: "Médio incompleto" },
+  { value: "medio_completo", label: "Médio completo" },
+  { value: "superior_incompleto", label: "Superior incompleto" },
+  { value: "superior_completo", label: "Superior completo" },
+  { value: "pos_graduacao", label: "Pós-graduação" },
+] as const;
 
 export const ESTADOS_BR = [
-  'AC','AL','AP','AM','BA','CE','DF','ES','GO',
-  'MA','MT','MS','MG','PA','PB','PR','PE','PI',
-  'RJ','RN','RS','RO','RR','SC','SP','SE','TO',
-] as const
+  "AC",
+  "AL",
+  "AP",
+  "AM",
+  "BA",
+  "CE",
+  "DF",
+  "ES",
+  "GO",
+  "MA",
+  "MT",
+  "MS",
+  "MG",
+  "PA",
+  "PB",
+  "PR",
+  "PE",
+  "PI",
+  "RJ",
+  "RN",
+  "RS",
+  "RO",
+  "RR",
+  "SC",
+  "SP",
+  "SE",
+  "TO",
+] as const;
 
 export const PLANOS_VALIDOS = [
-  'AFEB BRASAL',
-  'AFFEGO',
-  'ASTE (ASETE)',
-  'ASSEDF / VIDA CARD',
-  'BACEN',
-  'BOMBEIROS DF',
-  'BRB SAÚDE',
-  'CAEME-GO',
-  'CAESAN',
-  'CAIXA SAÚDE',
-  'CAMED',
-  'CARE PLUS',
-  'CASEC (CODEVASF)',
-  'CNTI',
-  'CONAB',
-  'E-VIDA (ELETRONORTE)',
-  'EMB. DA AUSTRÁLIA',
-  'EMB. COTE D\'IVOIRE',
-  'EMB. DA DINAMARCA',
-  'EMB. DA QUÊNIA',
-  'EMBRATEL — DEMAIS PLANOS',
-  'FACEB',
-  'FAPES (BNDES)',
-  'FASCAL',
-  'FUSEX',
-  'GAMA SAÚDE',
-  'GEAP',
-  'GRAVIA',
-  'INFRAERO',
-  'LIFE EMPRESARIAL',
-  'MEDSENIOR',
-  'NOTRE DAME',
-  'OMINT SAÚDE',
-  'PETROBRÁS DISTRIBUIDORA',
-  'PETROBRÁS PETRÓLEO',
-  'PLAN ASSISTE (MPF)',
-  'PLAN ASSISTE (MPM)',
-  'PLAN ASSISTE (MPT)',
-  'PLAS/JMU (STM)',
-  'PMDF',
-  'POSTAL SAÚDE (ECT)',
-  'PROASA',
-  'PRÓ-SAÚDE (TJDFT)',
-  'PRÓ-SOCIAL (TRF)',
-  'REAL GRANDEZA',
-  'SERPRO',
-  'STF-MED (STF)',
-  'SULAMÉRICA',
-  'TRE SAÚDE',
-  'TRT SAÚDE',
-  'TST SAÚDE',
-  'UNAFISCO (SINDIFISCO)',
-  'Outro',
-] as const
+  "AFEB BRASAL",
+  "AFFEGO",
+  "ASTE (ASETE)",
+  "ASSEDF / VIDA CARD",
+  "BACEN",
+  "BOMBEIROS DF",
+  "BRB SAÚDE",
+  "CAEME-GO",
+  "CAESAN",
+  "CAIXA SAÚDE",
+  "CAMED",
+  "CARE PLUS",
+  "CASEC (CODEVASF)",
+  "CNTI",
+  "CONAB",
+  "E-VIDA (ELETRONORTE)",
+  "EMB. DA AUSTRÁLIA",
+  "EMB. COTE D'IVOIRE",
+  "EMB. DA DINAMARCA",
+  "EMB. DA QUÊNIA",
+  "EMBRATEL — DEMAIS PLANOS",
+  "FACEB",
+  "FAPES (BNDES)",
+  "FASCAL",
+  "FUSEX",
+  "GAMA SAÚDE",
+  "GEAP",
+  "GRAVIA",
+  "INFRAERO",
+  "LIFE EMPRESARIAL",
+  "MEDSENIOR",
+  "NOTRE DAME",
+  "OMINT SAÚDE",
+  "PETROBRÁS DISTRIBUIDORA",
+  "PETROBRÁS PETRÓLEO",
+  "PLAN ASSISTE (MPF)",
+  "PLAN ASSISTE (MPM)",
+  "PLAN ASSISTE (MPT)",
+  "PLAS/JMU (STM)",
+  "PMDF",
+  "POSTAL SAÚDE (ECT)",
+  "PROASA",
+  "PRÓ-SAÚDE (TJDFT)",
+  "PRÓ-SOCIAL (TRF)",
+  "REAL GRANDEZA",
+  "SERPRO",
+  "STF-MED (STF)",
+  "SULAMÉRICA",
+  "TRE SAÚDE",
+  "TRT SAÚDE",
+  "TST SAÚDE",
+  "UNAFISCO (SINDIFISCO)",
+  "Outro",
+] as const;
 
 export const HORARIO_ATENDIMENTO = {
   ABERTURA_HORA: 8,
   FECHAMENTO_HORA: 18,
-} as const
+} as const;
 
 export const PRECADASTRO_STATUS = {
-  AGUARDANDO_VALIDACAO: 'aguardando_validacao',
-  AGUARDANDO_PAGAMENTO: 'aguardando_pagamento',
-  LINK_ENVIADO: 'link_enviado',
-  REJEITADO: 'rejeitado',
-} as const
+  AGUARDANDO_VALIDACAO: "aguardando_validacao",
+  AGUARDANDO_PAGAMENTO: "aguardando_pagamento",
+  LINK_ENVIADO: "link_enviado",
+  REJEITADO: "rejeitado",
+} as const;
 
-export const VALOR_CONSULTA_CENTAVOS = 25000 // R$ 250,00
+export const VALOR_CONSULTA_CENTAVOS = 25000; // R$ 250,00
 
 export const TIPO_CONSULTA = {
-  PRIMEIRO_ATENDIMENTO: 'primeiro_atendimento',
-  JA_FACO_PREP: 'ja_faco_prep',
-} as const
+  PRIMEIRO_ATENDIMENTO: "primeiro_atendimento",
+  JA_FACO_PREP: "ja_faco_prep",
+} as const;
 
 // ── Dados institucionais da clínica ──────────────────────────
 // Usados nos cabeçalhos dos PDFs custom (Receita, Formulário, Pedidos de Exame).
 // Fonte de verdade — alterando aqui propaga para todos os documentos.
 export const CLINICA_INFO = {
-  nomeFantasia: 'Iaso Saúde Hospital Dia',
-  razaoSocial: 'Saraiva e Dornelas Hospital Dia LTDA',
-  cnpj: '61.983.778/0001-52',
-  endereco: 'SHLS Quadra 716, Conjunto A, Consultórios 607 e 609, Parte B, S/N — 6º Andar',
-  bairroCidadeUf: 'Asa Sul — Brasília/DF',
-  cep: '70390-700',
-  whatsapp: '(61) 99401-8161',
-  telefone: '(61) 4042-7188',
-  email: 'contato@facilitaprep.com.br',
-  responsavelTecnico: 'Dr. Werciley Saraiva Vieira Júnior',
-  crmRt: 'CRM/DF 16381',
-  appNome: 'Facilita PrEP',
-  appTagline: 'Plataforma de Saúde Digital',
-} as const
+  nomeFantasia: "Iaso Saúde Hospital Dia",
+  razaoSocial: "Saraiva e Dornelas Hospital Dia LTDA",
+  cnpj: "61.983.778/0001-52",
+  endereco:
+    "SHLS Quadra 716, Conjunto A, Consultórios 607 e 609, Parte B, S/N — 6º Andar",
+  bairroCidadeUf: "Asa Sul — Brasília/DF",
+  cep: "70390-700",
+  whatsapp: "(61) 99401-8161",
+  telefone: "(61) 4042-7188",
+  email: "contato@facilitaprep.com.br",
+  responsavelTecnico: "Dr. Werciley Saraiva Vieira Júnior",
+  crmRt: "CRM/DF 16381",
+  appNome: "Facilita PrEP",
+  appTagline: "Plataforma de Saúde Digital",
+} as const;
 
 // ── Modalidades de PrEP ──────────────────────────────────────
 // PrEP diária é o esquema preferencial (recomendação oficial AZT/MS).
 // Sob demanda (2-1-1) restrito a homens cis HSH adultos com contato
 // sexual programado e baixa frequência.
 export const PREP_MODALIDADE = {
-  DIARIA: 'PrEP diária',
-  SOB_DEMANDA: 'PrEP sob demanda',
-} as const
+  DIARIA: "PrEP diária",
+  SOB_DEMANDA: "PrEP sob demanda",
+} as const;
 
-export type PrepModalidade = typeof PREP_MODALIDADE[keyof typeof PREP_MODALIDADE]
+export type PrepModalidade =
+  (typeof PREP_MODALIDADE)[keyof typeof PREP_MODALIDADE];
 
 /** Posologia e duração padrão por modalidade (preenche prescricaoJson). */
-export const PREP_POSOLOGIA: Record<PrepModalidade, { posologia: string; duracao: string }> = {
-  'PrEP diária': {
-    posologia: '1 comprimido por via oral, uma vez ao dia, em horário fixo',
-    duracao: 'Uso contínuo — reavaliar a cada 90 dias com o médico',
+export const PREP_POSOLOGIA: Record<
+  PrepModalidade,
+  { posologia: string; duracao: string }
+> = {
+  "PrEP diária": {
+    posologia: "1 comprimido por via oral, uma vez ao dia, em horário fixo",
+    duracao: "Uso contínuo — reavaliar a cada 90 dias com o médico",
   },
-  'PrEP sob demanda': {
-    posologia: 'Esquema 2-1-1: 2 comp 2-24h antes da relação sexual, 1 comp 24h após a 1ª dose, 1 comp 48h após a 1ª dose',
-    duracao: 'Conforme exposição — reavaliar elegibilidade a cada 90 dias',
+  "PrEP sob demanda": {
+    posologia:
+      "Esquema 2-1-1: 2 comp 2-24h antes da relação sexual, 1 comp 24h após a 1ª dose, 1 comp 48h após a 1ª dose",
+    duracao: "Conforme exposição — reavaliar elegibilidade a cada 90 dias",
   },
-}
+};
 
 export const STATUS_EXAME = {
-  AGUARDANDO_ESCOLHA: 'aguardando_escolha',
-  AGUARDANDO_UPLOAD: 'aguardando_upload',
-  EM_VALIDACAO_IA: 'em_validacao_ia',
-  EM_VALIDACAO_MEDICA: 'em_validacao_medica',
-  APROVADO: 'aprovado',
-  REJEITADO: 'rejeitado',
-} as const
+  AGUARDANDO_ESCOLHA: "aguardando_escolha",
+  AGUARDANDO_UPLOAD: "aguardando_upload",
+  EM_VALIDACAO_IA: "em_validacao_ia",
+  EM_VALIDACAO_MEDICA: "em_validacao_medica",
+  APROVADO: "aprovado",
+  REJEITADO: "rejeitado",
+} as const;
 
 export const MOTIVO_REJEICAO_EXAME = {
-  ILEGIVEL: 'ilegivel',
-  DATA_INVALIDA: 'data_invalida',
-  NOME_DIVERGENTE: 'nome_divergente',
-  RESULTADO_POSITIVO: 'resultado_positivo',
-} as const
+  ILEGIVEL: "ilegivel",
+  DATA_INVALIDA: "data_invalida",
+  NOME_DIVERGENTE: "nome_divergente",
+  RESULTADO_POSITIVO: "resultado_positivo",
+} as const;
+
+export const EXAME_IA_STATUS = {
+  PENDENTE: "pendente",
+  APROVADO_AUTO: "aprovado_automaticamente",
+  REJEITADO_IA: "rejeitado_ia",
+  REJEITADO: "rejeitado",
+  PENDENTE_REVISAO: "pendente_revisao",
+  LIBERADO_MANUALMENTE: "liberado_manualmente",
+} as const;
 
 // ── Estrutura de exame com código TUSS ───────────────────────
 export interface Exame {
-  nome: string
-  tuss: string
+  nome: string;
+  tuss: string;
 }
 
 // ── Catálogo completo de exames disponíveis ───────────────────
 export const CATALOGO_EXAMES = {
   // Hematologia
-  HEMOGRAMA:            { nome: 'Hemograma Completo',                                           tuss: '40303858' },
+  HEMOGRAMA: { nome: "Hemograma Completo", tuss: "40303858" },
 
   // Bioquímica / Função renal
-  UREIA:                { nome: 'Ureia',                                                         tuss: '40302872' },
-  CREATININA:           { nome: 'Creatinina',                                                    tuss: '40302163' },
-  SODIO:                { nome: 'Sódio',                                                         tuss: '40302821' },
-  POTASSIO:             { nome: 'Potássio',                                                      tuss: '40302694' },
-  CALCIO_TOTAL:         { nome: 'Cálcio Total',                                                  tuss: '40302015' },
-  CALCIO_IONICO:        { nome: 'Cálcio Iônico',                                                 tuss: '40302023' },
-  MAGNESIO:             { nome: 'Magnésio',                                                      tuss: '40302279' },
-  FOSFORO:              { nome: 'Fósforo',                                                       tuss: '40302538' },
-  CREATININA_PROTEINA:  { nome: 'Creatinina + Proteinúria Isolada (relação proteína/creatinina)', tuss: '40302163' },
-  PROTEINURIA:          { nome: 'Proteinúria Isolada (amostra)',                                 tuss: '40302724' },
-  EAS:                  { nome: 'EAS (Urina Tipo I / Elementos Anormais e Sedimento)',            tuss: '40311017' },
+  UREIA: { nome: "Ureia", tuss: "40302872" },
+  CREATININA: { nome: "Creatinina", tuss: "40302163" },
+  SODIO: { nome: "Sódio", tuss: "40302821" },
+  POTASSIO: { nome: "Potássio", tuss: "40302694" },
+  CALCIO_TOTAL: { nome: "Cálcio Total", tuss: "40302015" },
+  CALCIO_IONICO: { nome: "Cálcio Iônico", tuss: "40302023" },
+  MAGNESIO: { nome: "Magnésio", tuss: "40302279" },
+  FOSFORO: { nome: "Fósforo", tuss: "40302538" },
+  CREATININA_PROTEINA: {
+    nome: "Creatinina + Proteinúria Isolada (relação proteína/creatinina)",
+    tuss: "40302163",
+  },
+  PROTEINURIA: { nome: "Proteinúria Isolada (amostra)", tuss: "40302724" },
+  EAS: {
+    nome: "EAS (Urina Tipo I / Elementos Anormais e Sedimento)",
+    tuss: "40311017",
+  },
 
   // Função hepática
-  TGO:                  { nome: 'TGO (AST)',                                                     tuss: '40302848' },
-  TGP:                  { nome: 'TGP (ALT)',                                                     tuss: '40302856' },
-  FOSFATASE_ALC:        { nome: 'Fosfatase Alcalina (FA)',                                       tuss: '40302511' },
-  GAMA_GT:              { nome: 'Gama GT (GGT)',                                                 tuss: '40302236' },
-  PROTEINAS_TOTAIS:     { nome: 'Proteínas Totais e Frações (albumina/globulina)',               tuss: '40302708' },
-  BILIRRUBINAS:         { nome: 'Bilirrubinas Totais e Frações',                                tuss: '40301958' },
-  DHL:                  { nome: 'DHL (Desidrogenase Lática / LDH)',                              tuss: '40302198' },
+  TGO: { nome: "TGO (AST)", tuss: "40302848" },
+  TGP: { nome: "TGP (ALT)", tuss: "40302856" },
+  FOSFATASE_ALC: { nome: "Fosfatase Alcalina (FA)", tuss: "40302511" },
+  GAMA_GT: { nome: "Gama GT (GGT)", tuss: "40302236" },
+  PROTEINAS_TOTAIS: {
+    nome: "Proteínas Totais e Frações (albumina/globulina)",
+    tuss: "40302708",
+  },
+  BILIRRUBINAS: { nome: "Bilirrubinas Totais e Frações", tuss: "40301958" },
+  DHL: { nome: "DHL (Desidrogenase Lática / LDH)", tuss: "40302198" },
 
   // Inflamação
-  PCR:                  { nome: 'Proteína C Reativa (PCR)',                                      tuss: '40302716' },
-  VHS:                  { nome: 'VHS (Velocidade de Hemossedimentação)',                         tuss: '40303904' },
+  PCR: { nome: "Proteína C Reativa (PCR)", tuss: "40302716" },
+  VHS: { nome: "VHS (Velocidade de Hemossedimentação)", tuss: "40303904" },
 
   // Sífilis
-  SIFILIS_VDRL:         { nome: 'Sífilis — VDRL',                                               tuss: '40302490' },
-  SIFILIS_ECMIA:        { nome: 'Sífilis — ECMIa (quimioluminescência)',                         tuss: '40302511' },
-  SIFILIS_FTA_IGM:      { nome: 'Sífilis — FTA-ABS IgM',                                        tuss: '40302201' },
-  SIFILIS_FTA_IGG:      { nome: 'Sífilis — FTA-ABS IgG',                                        tuss: '40302201' },
-  SIFILIS_TPHA:         { nome: 'Sífilis — TPHA/TPPA (confirmatório)',                           tuss: '40302503' },
-  SIFILIS_TP_TOTAL:     { nome: 'Sífilis — Treponema pallidum, anticorpos totais',               tuss: '40302511' },
+  SIFILIS_VDRL: { nome: "Sífilis — VDRL", tuss: "40302490" },
+  SIFILIS_ECMIA: {
+    nome: "Sífilis — ECMIa (quimioluminescência)",
+    tuss: "40302511",
+  },
+  SIFILIS_FTA_IGM: { nome: "Sífilis — FTA-ABS IgM", tuss: "40302201" },
+  SIFILIS_FTA_IGG: { nome: "Sífilis — FTA-ABS IgG", tuss: "40302201" },
+  SIFILIS_TPHA: {
+    nome: "Sífilis — TPHA/TPPA (confirmatório)",
+    tuss: "40302503",
+  },
+  SIFILIS_TP_TOTAL: {
+    nome: "Sífilis — Treponema pallidum, anticorpos totais",
+    tuss: "40302511",
+  },
 
   // HIV / HTLV
-  HIV:                  { nome: 'HIV 1 e 2 — Anticorpos',                                       tuss: '40301680' },
-  HTLV:                 { nome: 'HTLV I e II — Anticorpos',                                     tuss: '40301699' },
+  HIV: { nome: "HIV 1 e 2 — Anticorpos", tuss: "40301680" },
+  HTLV: { nome: "HTLV I e II — Anticorpos", tuss: "40301699" },
 
   // Hepatite A
-  HAV_TOTAL:            { nome: 'Sorologia Hepatite A — Anti-HAV Total',                         tuss: '40301028' },
-  HAV_IGM:              { nome: 'Sorologia Hepatite A — Anti-HAV IgM',                           tuss: '40301036' },
+  HAV_TOTAL: {
+    nome: "Sorologia Hepatite A — Anti-HAV Total",
+    tuss: "40301028",
+  },
+  HAV_IGM: { nome: "Sorologia Hepatite A — Anti-HAV IgM", tuss: "40301036" },
 
   // Hepatite B
-  HBSAG:                { nome: 'Hepatite B — HBsAg (antígeno de superfície)',                   tuss: '40301079' },
-  ANTI_HBS:             { nome: 'Hepatite B — Anti-HBs (anticorpo)',                             tuss: '40301060' },
-  ANTI_HBC_TOTAL:       { nome: 'Hepatite B — Anti-HBc Total',                                  tuss: '40301044' },
-  ANTI_HBC_IGM:         { nome: 'Hepatite B — Anti-HBc IgM',                                    tuss: '40301052' },
-  HBEAG:                { nome: 'Hepatite B — HBeAg',                                           tuss: '40301087' },
-  ANTI_HBE:             { nome: 'Hepatite B — Anti-HBe',                                        tuss: '40301095' },
+  HBSAG: {
+    nome: "Hepatite B — HBsAg (antígeno de superfície)",
+    tuss: "40301079",
+  },
+  ANTI_HBS: { nome: "Hepatite B — Anti-HBs (anticorpo)", tuss: "40301060" },
+  ANTI_HBC_TOTAL: { nome: "Hepatite B — Anti-HBc Total", tuss: "40301044" },
+  ANTI_HBC_IGM: { nome: "Hepatite B — Anti-HBc IgM", tuss: "40301052" },
+  HBEAG: { nome: "Hepatite B — HBeAg", tuss: "40301087" },
+  ANTI_HBE: { nome: "Hepatite B — Anti-HBe", tuss: "40301095" },
 
   // Hepatite C
-  ANTI_HCV:             { nome: 'Hepatite C — Anti-HCV (sorologia)',                             tuss: '40301117' },
+  ANTI_HCV: { nome: "Hepatite C — Anti-HCV (sorologia)", tuss: "40301117" },
 
   // Herpes
-  HSV_IGG:              { nome: 'Herpes Simplex — Anti-HSV IgG (tipos 1 e 2)',                  tuss: '40302252' },
-  HSV_IGM:              { nome: 'Herpes Simplex — Anti-HSV IgM',                                tuss: '40302260' },
+  HSV_IGG: {
+    nome: "Herpes Simplex — Anti-HSV IgG (tipos 1 e 2)",
+    tuss: "40302252",
+  },
+  HSV_IGM: { nome: "Herpes Simplex — Anti-HSV IgM", tuss: "40302260" },
 
   // Clamídia
-  CLAMÍDIA_IGG:         { nome: 'Sorologia Clamídia — IgG',                                          tuss: '40302074' },
-  CLAMÍDIA_IGM:         { nome: 'Sorologia Clamídia — IgM',                                          tuss: '40302082' },
-  CLAMÍDIA_PCR:         { nome: 'Chlamydia trachomatis — PCR (urina)',                                tuss: '40600912' },
-  CLAMÍDIA_CULTURA:     { nome: 'Chlamydia trachomatis — Cultura material: urina',                    tuss: '40302082' },
+  CLAMÍDIA_IGG: { nome: "Sorologia Clamídia — IgG", tuss: "40302074" },
+  CLAMÍDIA_IGM: { nome: "Sorologia Clamídia — IgM", tuss: "40302082" },
+  CLAMÍDIA_PCR: {
+    nome: "Chlamydia trachomatis — PCR (urina)",
+    tuss: "40600912",
+  },
+  CLAMÍDIA_CULTURA: {
+    nome: "Chlamydia trachomatis — Cultura material: urina",
+    tuss: "40302082",
+  },
 
   // Gonorreia
-  GONORREIA_PCR:        { nome: 'Neisseria gonorrhoeae — PCR (urina)',                                tuss: '40600912' },
-  GONORREIA_CULTURA:    { nome: 'Neisseria gonorrhoeae — Cultura (urina)',                            tuss: '40302279' },
+  GONORREIA_PCR: {
+    nome: "Neisseria gonorrhoeae — PCR (urina)",
+    tuss: "40600912",
+  },
+  GONORREIA_CULTURA: {
+    nome: "Neisseria gonorrhoeae — Cultura (urina)",
+    tuss: "40302279",
+  },
 
   // Mycoplasma / Ureaplasma
-  MYCOPLASMA:           { nome: 'Mycoplasma hominis — Cultura material: urina + TSA',                 tuss: '40302317' },
-  UREAPLASMA:           { nome: 'Ureaplasma urealyticum/parvum — Cultura material: urina + TSA',      tuss: '40302325' },
+  MYCOPLASMA: {
+    nome: "Mycoplasma hominis — Cultura material: urina + TSA",
+    tuss: "40302317",
+  },
+  UREAPLASMA: {
+    nome: "Ureaplasma urealyticum/parvum — Cultura material: urina + TSA",
+    tuss: "40302325",
+  },
 
   // Painel molecular
-  PAINEL_IST_MOLECULAR: { nome: 'Painel IST Molecular',                                         tuss: '40600912' },
+  PAINEL_IST_MOLECULAR: { nome: "Painel IST Molecular", tuss: "40600912" },
 
   // Densitometria óssea
-  DENSITOMETRIA_LOMBAR: { nome: 'Densitometria óssea — coluna lombar (L1-L4)',                  tuss: '88.98.00' },
-  DENSITOMETRIA_FEMUR:  { nome: 'Densitometria óssea — fêmur proximal bilateral',               tuss: '88.98.00' },
-} as const satisfies Record<string, Exame>
+  DENSITOMETRIA_LOMBAR: {
+    nome: "Densitometria óssea — coluna lombar (L1-L4)",
+    tuss: "88.98.00",
+  },
+  DENSITOMETRIA_FEMUR: {
+    nome: "Densitometria óssea — fêmur proximal bilateral",
+    tuss: "88.98.00",
+  },
+} as const satisfies Record<string, Exame>;
 
 // ── PDF 1 — Pedido Completo: Primeiro Atendimento ─────────────
 export const EXAMES_PRIMEIRO_ATENDIMENTO: readonly Exame[] = [
@@ -369,7 +459,7 @@ export const EXAMES_PRIMEIRO_ATENDIMENTO: readonly Exame[] = [
   CATALOGO_EXAMES.UREAPLASMA,
   // Painel molecular
   CATALOGO_EXAMES.PAINEL_IST_MOLECULAR,
-]
+];
 
 // ── PDF 1 — Pedido Completo: Acompanhamento (já faz PrEP) ─────
 export const EXAMES_FOLLOWUP_PREP: readonly Exame[] = [
@@ -436,7 +526,7 @@ export const EXAMES_FOLLOWUP_PREP: readonly Exame[] = [
   CATALOGO_EXAMES.UREAPLASMA,
   // Painel molecular
   CATALOGO_EXAMES.PAINEL_IST_MOLECULAR,
-]
+];
 
 // ── PDF 2 — Sorológicos de IST ────────────────────────────────
 export const EXAMES_SOROLOGICOS_IST: readonly Exame[] = [
@@ -475,18 +565,16 @@ export const EXAMES_SOROLOGICOS_IST: readonly Exame[] = [
   CATALOGO_EXAMES.UREAPLASMA,
   // Painel molecular
   CATALOGO_EXAMES.PAINEL_IST_MOLECULAR,
-]
+];
 
 // ── PDF 3 — Anti-HIV isolado ──────────────────────────────────
-export const EXAMES_HIV_ISOLADO: readonly Exame[] = [
-  CATALOGO_EXAMES.HIV,
-]
+export const EXAMES_HIV_ISOLADO: readonly Exame[] = [CATALOGO_EXAMES.HIV];
 
 // ── PDF 4 — Densitometria Óssea ───────────────────────────────
 export const EXAMES_DENSITOMETRIA: readonly Exame[] = [
   CATALOGO_EXAMES.DENSITOMETRIA_LOMBAR,
   CATALOGO_EXAMES.DENSITOMETRIA_FEMUR,
-]
+];
 
-export const DIAS_VALIDADE_EXAME = 7
-export const DIAS_VALIDADE_LINK_UPLOAD = 7
+export const DIAS_VALIDADE_EXAME = 7;
+export const DIAS_VALIDADE_LINK_UPLOAD = 7;

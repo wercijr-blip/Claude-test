@@ -1,82 +1,112 @@
-import { Resend } from 'resend'
-import { env } from './_core/env.ts'
-import { logger } from './_core/logger.ts'
-import { withCircuitBreaker } from './_core/circuitBreaker.ts'
+import { Resend } from "resend";
+import { env } from "./_core/env.ts";
+import { logger } from "./_core/logger.ts";
+import { withCircuitBreaker } from "./_core/circuitBreaker.ts";
 
-const resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null
+const resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null;
 
 function assertResend(): NonNullable<typeof resend> {
   if (!resend) {
-    if (env.NODE_ENV === 'production') {
-      throw new Error('RESEND_API_KEY não configurado em produção — e-mail bloqueado')
+    if (env.NODE_ENV === "production") {
+      throw new Error(
+        "RESEND_API_KEY não configurado em produção — e-mail bloqueado",
+      );
     }
-    logger.warn('[email] RESEND_API_KEY não configurado — e-mail ignorado em desenvolvimento')
-    throw new Error('__dev_skip__')
+    logger.warn(
+      "[email] RESEND_API_KEY não configurado — e-mail ignorado em desenvolvimento",
+    );
+    throw new Error("__dev_skip__");
   }
-  return resend
+  return resend;
+}
+
+// Escapa conteúdo fornecido por usuários antes de interpolar em HTML de e-mail.
+// Nomes de pacientes e observações médicas vêm de input externo — sem escape,
+// um payload como <img onerror=...> executaria no cliente de e-mail.
+function escHtml(v: string): string {
+  return v
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 async function send(opts: {
-  to: string | string[]
-  subject: string
-  html: string
-  attachments?: { filename: string; content: Buffer }[]
+  to: string | string[];
+  subject: string;
+  html: string;
+  attachments?: { filename: string; content: Buffer }[];
 }): Promise<void> {
-  let client: NonNullable<typeof resend>
+  let client: NonNullable<typeof resend>;
   try {
-    client = assertResend()
+    client = assertResend();
   } catch (e) {
-    if ((e as Error).message === '__dev_skip__') return
-    throw e
+    if ((e as Error).message === "__dev_skip__") return;
+    throw e;
   }
-  const { error } = await withCircuitBreaker('resend', () => client.emails.send({
-    from: env.EMAIL_FROM,
-    to: opts.to,
-    subject: opts.subject,
-    html: opts.html,
-    attachments: opts.attachments?.map(a => ({ filename: a.filename, content: a.content })),
-  }), { threshold: 5, resetMs: 60_000 })
-  if (error) throw new Error(`Resend: ${error.message}`)
+  const { error } = await withCircuitBreaker(
+    "resend",
+    () =>
+      client.emails.send({
+        from: env.EMAIL_FROM,
+        to: opts.to,
+        subject: opts.subject,
+        html: opts.html,
+        attachments: opts.attachments?.map((a) => ({
+          filename: a.filename,
+          content: a.content,
+        })),
+      }),
+    { threshold: 5, resetMs: 60_000 },
+  );
+  if (error) throw new Error(`Resend: ${error.message}`);
 }
 
 async function _sendMultiple(opts: {
-  to: string[]
-  subject: string
-  html: string
+  to: string[];
+  subject: string;
+  html: string;
 }): Promise<void> {
-  let client: NonNullable<typeof resend>
+  let client: NonNullable<typeof resend>;
   try {
-    client = assertResend()
+    client = assertResend();
   } catch (e) {
-    if ((e as Error).message === '__dev_skip__') return
-    throw e
+    if ((e as Error).message === "__dev_skip__") return;
+    throw e;
   }
-  const { error } = await withCircuitBreaker('resend', () => client.emails.send({
-    from: env.EMAIL_FROM,
-    to: opts.to,
-    subject: opts.subject,
-    html: opts.html,
-  }), { threshold: 5, resetMs: 60_000 })
-  if (error) throw new Error(`Resend: ${error.message}`)
+  const { error } = await withCircuitBreaker(
+    "resend",
+    () =>
+      client.emails.send({
+        from: env.EMAIL_FROM,
+        to: opts.to,
+        subject: opts.subject,
+        html: opts.html,
+      }),
+    { threshold: 5, resetMs: 60_000 },
+  );
+  if (error) throw new Error(`Resend: ${error.message}`);
 }
 
-
 function formatarValidade(expiresAt: Date): string {
-  return expiresAt.toLocaleString('pt-BR', {
-    day: '2-digit',
-    month: 'long',
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'America/Sao_Paulo',
-  })
+  return expiresAt.toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "long",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "America/Sao_Paulo",
+  });
 }
 
 function formatarMoeda(centavos: number): string {
-  return (centavos / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+  return (centavos / 100).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
 }
 
 function baseTemplate(titulo: string, corpo: string): string {
-  const dominio = env.APP_URL.replace('https://', '').replace('http://', '')
+  const dominio = env.APP_URL.replace("https://", "").replace("http://", "");
   return `
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -98,16 +128,20 @@ function baseTemplate(titulo: string, corpo: string): string {
     </div>
   </div>
 </body>
-</html>`
+</html>`;
 }
 
-export async function enviarLinkAcesso(para: string, link: string, expiresAt: Date): Promise<void> {
-  const dataExpiracao = expiresAt.toLocaleDateString('pt-BR')
+export async function enviarLinkAcesso(
+  para: string,
+  link: string,
+  expiresAt: Date,
+): Promise<void> {
+  const dataExpiracao = expiresAt.toLocaleDateString("pt-BR");
   await send({
     to: para,
-    subject: 'Seu link de acesso ao formulário PrEP',
+    subject: "Seu link de acesso ao formulário PrEP",
     html: baseTemplate(
-      'Acesso ao formulário PrEP',
+      "Acesso ao formulário PrEP",
       `<p style="color:#334155;font-size:15px;">Você recebeu um link para preencher o formulário PrEP.</p>
       <a href="${link}" style="display:inline-block;background:#1d4ed8;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin:16px 0;">
         Acessar formulário
@@ -115,40 +149,46 @@ export async function enviarLinkAcesso(para: string, link: string, expiresAt: Da
       <p style="color:#64748b;font-size:13px;">Link válido até <strong>${dataExpiracao}</strong>.</p>
       <p style="color:#64748b;font-size:13px;">Se você não solicitou este acesso, ignore este e-mail.</p>`,
     ),
-  })
+  });
 }
 
-export async function enviarConfirmacaoEnvio(para: string, nomePaciente: string): Promise<void> {
+export async function enviarConfirmacaoEnvio(
+  para: string,
+  nomePaciente: string,
+): Promise<void> {
   await send({
     to: para,
-    subject: 'Formulário recebido — Facilita PrEP',
+    subject: "Formulário recebido — Facilita PrEP",
     html: baseTemplate(
-      'Formulário recebido',
-      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nomePaciente}</strong>!</p>
+      "Formulário recebido",
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${escHtml(nomePaciente)}</strong>!</p>
       <p style="color:#334155;font-size:15px;">Seu formulário foi recebido com sucesso e está em análise pelo médico responsável.</p>
       <p style="color:#64748b;font-size:13px;">Você receberá um novo e-mail quando houver uma atualização.</p>`,
     ),
-  })
+  });
 }
 
-export async function enviarResultadoAprovado(para: string, nomePaciente: string): Promise<void> {
+export async function enviarResultadoAprovado(
+  para: string,
+  nomePaciente: string,
+): Promise<void> {
   await send({
     to: para,
-    subject: 'Prescrição aprovada — Facilita PrEP',
+    subject: "Prescrição aprovada — Facilita PrEP",
     html: baseTemplate(
-      'Prescrição aprovada',
-      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nomePaciente}</strong>!</p>
+      "Prescrição aprovada",
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${escHtml(nomePaciente)}</strong>!</p>
       <p style="color:#334155;font-size:15px;">Sua prescrição foi aprovada pelo médico. Em breve você receberá o documento assinado digitalmente.</p>`,
     ),
-  })
+  });
 }
 
 export type PagamentoMeta = {
-  valorCentavos: number
-  formaPagamento: string
-  dataHora: Date
-  idTransacao: string
-}
+  valorCentavos: number;
+  formaPagamento: string;
+  dataHora: Date;
+  idTransacao: string;
+};
 
 // Email 1 — Pagamento confirmado + link de acesso
 export async function enviarLinkAcessoIntake(
@@ -159,9 +199,10 @@ export async function enviarLinkAcessoIntake(
   codigo: string,
   pagamento?: PagamentoMeta,
 ): Promise<void> {
-  const validadeFormatada = formatarValidade(expiresAt)
+  const validadeFormatada = formatarValidade(expiresAt);
 
-  const blocoTransacao = pagamento ? `
+  const blocoTransacao = pagamento
+    ? `
     <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px 20px;margin:20px 0;">
       <p style="margin:0 0 10px;color:#475569;font-size:13px;font-weight:600;">Detalhes do pagamento</p>
       <table style="border-collapse:collapse;width:100%;">
@@ -170,16 +211,17 @@ export async function enviarLinkAcessoIntake(
         <tr><td style="padding:3px 0;color:#64748b;font-size:12px;">Data/hora:</td><td style="padding:3px 0;color:#0f172a;font-size:12px;">${formatarValidade(pagamento.dataHora)}</td></tr>
         <tr><td style="padding:3px 0;color:#64748b;font-size:12px;">ID transação:</td><td style="padding:3px 0;color:#0f172a;font-size:12px;font-family:monospace;">...${pagamento.idTransacao.slice(-8)}</td></tr>
       </table>
-    </div>` : ''
+    </div>`
+    : "";
 
-  const titulo = 'Pagamento confirmado — Seu acesso ao Facilita PrEP'
+  const titulo = "Pagamento confirmado — Seu acesso ao Facilita PrEP";
 
   await send({
     to: para,
     subject: titulo,
     html: baseTemplate(
-      'Pagamento confirmado',
-      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nome.split(' ')[0]}</strong>!</p>
+      "Pagamento confirmado",
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${escHtml(nome.split(" ")[0])}</strong>!</p>
       <p style="color:#334155;font-size:15px;">Recebemos seu pagamento. Você já tem acesso à plataforma.</p>
       <a href="${link}" style="display:inline-block;background:#1d4ed8;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:600;margin:20px 0;font-size:16px;">
         Acessar formulário PrEP
@@ -196,7 +238,7 @@ export async function enviarLinkAcessoIntake(
       </div>
       <p style="color:#64748b;font-size:12px;">Guarde este e-mail como comprovante. Se você não solicitou este acesso, ignore este e-mail.</p>`,
     ),
-  })
+  });
 }
 
 // Email 2 — Cadastro recebido + pedido de exames
@@ -207,13 +249,13 @@ export async function enviarCadastroRecebidoExames(
   expiresAt: Date,
   codigo: string,
 ): Promise<void> {
-  const validadeFormatada = formatarValidade(expiresAt)
+  const validadeFormatada = formatarValidade(expiresAt);
   await send({
     to: para,
-    subject: 'Recebemos seu cadastro — Próximo passo: exames — Facilita PrEP',
+    subject: "Recebemos seu cadastro — Próximo passo: exames — Facilita PrEP",
     html: baseTemplate(
-      'Cadastro recebido',
-      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nome.split(' ')[0]}</strong>! Recebemos seu cadastro.</p>
+      "Cadastro recebido",
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${escHtml(nome.split(" ")[0])}</strong>! Recebemos seu cadastro.</p>
       <p style="color:#334155;font-size:15px;">Próximo passo: realize os exames laboratoriais abaixo e envie pelo nosso portal.</p>
       <div style="background:#f0fdf4;border-left:4px solid #16a34a;padding:14px 16px;border-radius:4px;margin:20px 0;">
         <p style="margin:0 0 8px;color:#15803d;font-size:13px;font-weight:600;">Exames necessários</p>
@@ -237,7 +279,7 @@ export async function enviarCadastroRecebidoExames(
       </div>
       <p style="color:#64748b;font-size:12px;">Dúvidas? Entre em contato: (61) 99401-8161 ou contato@facilitaprep.com.br</p>`,
     ),
-  })
+  });
 }
 
 export async function enviarDocumentosAssinados(
@@ -247,16 +289,19 @@ export async function enviarDocumentosAssinados(
 ): Promise<void> {
   await send({
     to: para,
-    subject: 'Seus documentos PrEP estão prontos — Facilita PrEP',
+    subject: "Seus documentos PrEP estão prontos — Facilita PrEP",
     html: baseTemplate(
-      'Documentos prontos',
-      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nomePaciente}</strong>!</p>
+      "Documentos prontos",
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${escHtml(nomePaciente)}</strong>!</p>
       <p style="color:#334155;font-size:15px;">Seus documentos PrEP foram gerados e assinados digitalmente. Você os encontra em anexo neste e-mail.</p>
       <p style="color:#64748b;font-size:13px;">Estes documentos possuem assinatura digital ICP-Brasil com validade legal conforme CFM 2.299/2021.</p>
       <p style="color:#64748b;font-size:13px;">Guarde estes arquivos para seu controle.</p>`,
     ),
-    attachments: anexos.map(a => ({ filename: a.filename, content: a.buffer })),
-  })
+    attachments: anexos.map((a) => ({
+      filename: a.filename,
+      content: a.buffer,
+    })),
+  });
 }
 
 // Email 4 — Receita + formulário clínico prontos (entrega final)
@@ -265,20 +310,28 @@ export async function enviarPrescricaoPronta(
   nomePaciente: string,
   anexos: { filename: string; buffer: Buffer }[],
 ): Promise<void> {
-  const validadeDate = new Date()
-  validadeDate.setMonth(validadeDate.getMonth() + 4)
-  const dataValidade = validadeDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+  const validadeDate = new Date();
+  validadeDate.setMonth(validadeDate.getMonth() + 4);
+  const dataValidade = validadeDate.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
 
-  const reavaliacaoDate = new Date()
-  reavaliacaoDate.setDate(reavaliacaoDate.getDate() + 90)
-  const dataReavaliacao = reavaliacaoDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+  const reavaliacaoDate = new Date();
+  reavaliacaoDate.setDate(reavaliacaoDate.getDate() + 90);
+  const dataReavaliacao = reavaliacaoDate.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
 
   await send({
     to: para,
-    subject: 'Sua receita e documentos estão prontos — Facilita PrEP',
+    subject: "Sua receita e documentos estão prontos — Facilita PrEP",
     html: baseTemplate(
-      'Receita e documentos prontos',
-      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nomePaciente.split(' ')[0]}</strong>! Sua consulta foi concluída.</p>
+      "Receita e documentos prontos",
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${escHtml(nomePaciente.split(" ")[0])}</strong>! Sua consulta foi concluída.</p>
       <div style="background:#f0fdf4;border-left:4px solid #16a34a;padding:16px;border-radius:4px;margin:20px 0;">
         <p style="color:#15803d;margin:0 0 8px;font-size:14px;font-weight:600;">Receita emitida com sucesso</p>
         <table style="border-collapse:collapse;width:100%;">
@@ -310,8 +363,11 @@ export async function enviarPrescricaoPronta(
       📞 Fixo: (61) 4042-7188 &nbsp;|&nbsp;
       ✉️ <a href="mailto:contato@facilitaprep.com.br" style="color:#1d4ed8;">contato@facilitaprep.com.br</a></p>`,
     ),
-    attachments: anexos.map(a => ({ filename: a.filename, content: a.buffer })),
-  })
+    attachments: anexos.map((a) => ({
+      filename: a.filename,
+      content: a.buffer,
+    })),
+  });
 }
 
 export async function enviarPesquisaSatisfacao(
@@ -321,17 +377,17 @@ export async function enviarPesquisaSatisfacao(
 ): Promise<void> {
   await send({
     to: para,
-    subject: 'Como foi sua experiência com a PrEP? — Facilita PrEP',
+    subject: "Como foi sua experiência com a PrEP? — Facilita PrEP",
     html: baseTemplate(
-      'Pesquisa de satisfação',
-      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nomePaciente}</strong>!</p>
+      "Pesquisa de satisfação",
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${escHtml(nomePaciente)}</strong>!</p>
       <p style="color:#334155;font-size:15px;">Gostaríamos de saber como foi sua experiência com o atendimento PrEP. A pesquisa leva menos de 1 minuto.</p>
       <a href="${link}" style="display:inline-block;background:#1d4ed8;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin:16px 0;">
         Responder pesquisa
       </a>
       <p style="color:#64748b;font-size:13px;">Se você não quiser responder, apenas ignore este e-mail.</p>`,
     ),
-  })
+  });
 }
 
 export async function enviarNotificacaoNovoPlano(
@@ -340,15 +396,15 @@ export async function enviarNotificacaoNovoPlano(
   plano: string,
   dashboardUrl: string,
 ): Promise<void> {
-  if (!emails.length) return
+  if (!emails.length) return;
   await send({
     to: emails,
     subject: `Novo paciente aguardando validação — ${plano}`,
     html: baseTemplate(
-      'Novo paciente para validação',
+      "Novo paciente para validação",
       `<p style="color:#334155;font-size:15px;">Um novo paciente se cadastrou via <strong>plano de saúde</strong> e aguarda validação dos documentos.</p>
       <table style="border-collapse:collapse;width:100%;margin:16px 0;">
-        <tr><td style="padding:8px 0;color:#64748b;font-size:13px;width:140px;">Paciente:</td><td style="padding:8px 0;color:#1e293b;font-size:13px;font-weight:600;">${nomePaciente}</td></tr>
+        <tr><td style="padding:8px 0;color:#64748b;font-size:13px;width:140px;">Paciente:</td><td style="padding:8px 0;color:#1e293b;font-size:13px;font-weight:600;">${escHtml(nomePaciente)}</td></tr>
         <tr><td style="padding:8px 0;color:#64748b;font-size:13px;">Plano:</td><td style="padding:8px 0;color:#1e293b;font-size:13px;">${plano}</td></tr>
       </table>
       <a href="${dashboardUrl}" style="display:inline-block;background:#1d4ed8;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin:8px 0;">
@@ -356,55 +412,71 @@ export async function enviarNotificacaoNovoPlano(
       </a>
       <p style="color:#64748b;font-size:12px;margin-top:16px;">Acesse a aba "Planos de Saúde" para visualizar os documentos e aprovar ou rejeitar o cadastro.</p>`,
     ),
-  })
+  });
 }
 
-export async function enviarConfirmacaoPlano(para: string, nomePaciente: string): Promise<void> {
+export async function enviarConfirmacaoPlano(
+  para: string,
+  nomePaciente: string,
+): Promise<void> {
   await send({
     to: para,
-    subject: 'Cadastro recebido — aguardando validação — Facilita PrEP',
+    subject: "Cadastro recebido — aguardando validação — Facilita PrEP",
     html: baseTemplate(
-      'Cadastro recebido',
-      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nomePaciente}</strong>!</p>
+      "Cadastro recebido",
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${escHtml(nomePaciente)}</strong>!</p>
       <p style="color:#334155;font-size:15px;">Recebemos seus documentos com sucesso. Nossa equipe irá verificar suas informações e entrará em contato.</p>
       <div style="background:#fefce8;border-left:4px solid #eab308;padding:12px 16px;border-radius:4px;margin:16px 0;">
         <p style="color:#713f12;margin:0;font-size:13px;"><strong>Prazo de retorno:</strong> Em horário comercial (seg.–sex. 08h–18h), até 2 horas. Fora desse horário, até 12 horas.</p>
       </div>
       <p style="color:#64748b;font-size:13px;">Você receberá um novo e-mail com o link de acesso assim que seus documentos forem validados.</p>`,
     ),
-  })
+  });
 }
 
-export async function enviarResultadoRejeitado(para: string, nomePaciente: string, motivo: string): Promise<void> {
+export async function enviarResultadoRejeitado(
+  para: string,
+  nomePaciente: string,
+  motivo: string,
+): Promise<void> {
   await send({
     to: para,
-    subject: 'Atualização sobre seu pedido — Facilita PrEP',
+    subject: "Atualização sobre seu pedido — Facilita PrEP",
     html: baseTemplate(
-      'Pedido não aprovado',
-      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nomePaciente}</strong>!</p>
+      "Pedido não aprovado",
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${escHtml(nomePaciente)}</strong>!</p>
       <p style="color:#334155;font-size:15px;">Após análise médica, não foi possível aprovar sua solicitação de PrEP neste momento.</p>
       <div style="background:#fef2f2;border-left:4px solid #ef4444;padding:12px 16px;border-radius:4px;margin:16px 0;">
-        <p style="color:#dc2626;margin:0;font-size:13px;"><strong>Motivo:</strong> ${motivo}</p>
+        <p style="color:#dc2626;margin:0;font-size:13px;"><strong>Motivo:</strong> ${escHtml(motivo)}</p>
       </div>
       <p style="color:#64748b;font-size:13px;">Entre em contato com a clínica para mais informações.</p>`,
     ),
-  })
+  });
 }
 
 // ── Sprint 3: Templates de exame ────────────────────────────────────────────
 
 // Email 3 — Exame recebido + prosseguimento pro formulário clínico
-export async function enviarExameAprovadoIa(para: string, nome: string, link: string, codigo: string): Promise<void> {
-  const agora = new Date().toLocaleString('pt-BR', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo',
-  })
+export async function enviarExameAprovadoIa(
+  para: string,
+  nome: string,
+  link: string,
+  codigo: string,
+): Promise<void> {
+  const agora = new Date().toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "America/Sao_Paulo",
+  });
   await send({
     to: para,
-    subject: 'Exame recebido — Vamos dar prosseguimento — Facilita PrEP',
+    subject: "Exame recebido — Vamos dar prosseguimento — Facilita PrEP",
     html: baseTemplate(
-      'Exame recebido',
-      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nome.split(' ')[0]}</strong>! Recebemos seu(s) exame(s).</p>
+      "Exame recebido",
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${escHtml(nome.split(" ")[0])}</strong>! Recebemos seu(s) exame(s).</p>
       <div style="background:#f0fdf4;border-left:4px solid #16a34a;padding:14px 16px;border-radius:4px;margin:16px 0;">
         <p style="margin:0 0 6px;color:#15803d;font-size:13px;font-weight:600;">✓ Exame de HIV validado</p>
         <p style="margin:0;color:#166534;font-size:12px;">Recebido em: ${agora}</p>
@@ -419,17 +491,20 @@ export async function enviarExameAprovadoIa(para: string, nome: string, link: st
       </div>
       <p style="color:#64748b;font-size:13px;">Link válido por 7 dias. Se você não solicitou este acesso, ignore este e-mail.</p>`,
     ),
-  })
+  });
 }
 
 // TEMPLATE-2 — Exame encaminhado para análise humana
-export async function enviarAnaliseHumanaExame(para: string, nome: string): Promise<void> {
+export async function enviarAnaliseHumanaExame(
+  para: string,
+  nome: string,
+): Promise<void> {
   await send({
     to: para,
-    subject: 'Seu exame está em análise — Facilita PrEP',
+    subject: "Seu exame está em análise — Facilita PrEP",
     html: baseTemplate(
-      'Exame em análise',
-      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nome}</strong>!</p>
+      "Exame em análise",
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${escHtml(nome)}</strong>!</p>
       <p style="color:#334155;font-size:15px;">Seu exame não pôde ser validado automaticamente e será avaliado por um profissional de saúde.</p>
       <div style="background:#fefce8;border-left:4px solid #eab308;padding:12px 16px;border-radius:4px;margin:16px 0;">
         <p style="color:#713f12;margin:0 0 8px;font-size:13px;font-weight:600;">Prazo de resposta:</p>
@@ -438,7 +513,7 @@ export async function enviarAnaliseHumanaExame(para: string, nome: string): Prom
       </div>
       <p style="color:#64748b;font-size:13px;">Você receberá um novo e-mail assim que a avaliação for concluída.</p>`,
     ),
-  })
+  });
 }
 
 // TEMPLATE-3 — Exame rejeitado por data inválida
@@ -450,10 +525,10 @@ export async function enviarExameRejeitadoData(
 ): Promise<void> {
   await send({
     to: para,
-    subject: 'Exame rejeitado — necessário enviar novo exame',
+    subject: "Exame rejeitado — necessário enviar novo exame",
     html: baseTemplate(
-      'Exame rejeitado — data inválida',
-      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nome}</strong>!</p>
+      "Exame rejeitado — data inválida",
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${escHtml(nome)}</strong>!</p>
       <p style="color:#334155;font-size:15px;">Seu exame foi recebido, mas não pode ser aceito porque foi realizado há mais de 7 dias.</p>
       <div style="background:#fef2f2;border-left:4px solid #ef4444;padding:12px 16px;border-radius:4px;margin:16px 0;">
         <p style="color:#dc2626;margin:0;font-size:13px;"><strong>Motivo:</strong> Para garantir a segurança do tratamento PrEP, o exame de HIV deve ter sido realizado há no máximo 7 dias.</p>
@@ -464,7 +539,7 @@ export async function enviarExameRejeitadoData(
       </a>
       <p style="color:#64748b;font-size:13px;">Tentativa ${tentativaAtual}/2.</p>`,
     ),
-  })
+  });
 }
 
 // ── Sprint 4: Notificações de ação médica ───────────────────────────────────
@@ -477,13 +552,13 @@ export async function enviarExameRejeitadoMedico(
 ): Promise<void> {
   await send({
     to: para,
-    subject: 'Atualização sobre seu exame — Facilita PrEP',
+    subject: "Atualização sobre seu exame — Facilita PrEP",
     html: baseTemplate(
-      'Avaliação do exame concluída',
-      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nome}</strong>!</p>
+      "Avaliação do exame concluída",
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${escHtml(nome)}</strong>!</p>
       <p style="color:#334155;font-size:15px;">Após análise do seu exame pelo médico, não foi possível dar seguimento ao processo PrEP no momento.</p>
       <div style="background:#fef2f2;border-left:4px solid #ef4444;padding:12px 16px;border-radius:4px;margin:16px 0;">
-        <p style="color:#dc2626;margin:0;font-size:13px;"><strong>Orientação do médico:</strong> ${observacoes}</p>
+        <p style="color:#dc2626;margin:0;font-size:13px;"><strong>Orientação do médico:</strong> ${escHtml(observacoes)}</p>
       </div>
       <p style="color:#64748b;font-size:13px;">Para mais informações, entre em contato com a clínica:</p>
       <p style="color:#64748b;font-size:13px;">
@@ -492,7 +567,7 @@ export async function enviarExameRejeitadoMedico(
         ✉️ <a href="mailto:contato@facilitaprep.com.br" style="color:#1d4ed8;">contato@facilitaprep.com.br</a>
       </p>`,
     ),
-  })
+  });
 }
 
 // Médico solicita envio de novo exame (reenvio ou confirmação)
@@ -504,20 +579,20 @@ export async function enviarSolicitacaoReenvio(
 ): Promise<void> {
   await send({
     to: para,
-    subject: 'Novo envio de exame necessário — Facilita PrEP',
+    subject: "Novo envio de exame necessário — Facilita PrEP",
     html: baseTemplate(
-      'Envio de novo exame',
-      `<p style="color:#334155;font-size:15px;">Olá, <strong>${nome}</strong>!</p>
+      "Envio de novo exame",
+      `<p style="color:#334155;font-size:15px;">Olá, <strong>${escHtml(nome)}</strong>!</p>
       <p style="color:#334155;font-size:15px;">Nosso médico avaliou seu exame e solicita o envio de um novo documento:</p>
       <div style="background:#fefce8;border-left:4px solid #eab308;padding:12px 16px;border-radius:4px;margin:16px 0;">
-        <p style="color:#713f12;margin:0;font-size:13px;"><strong>Solicitação:</strong> ${motivo}</p>
+        <p style="color:#713f12;margin:0;font-size:13px;"><strong>Solicitação:</strong> ${escHtml(motivo)}</p>
       </div>
       <a href="${appUrl}/inicio" style="display:inline-block;background:#1d4ed8;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:600;margin:20px 0;font-size:16px;">
         Enviar novo exame
       </a>
       <p style="color:#64748b;font-size:13px;">Acesse a plataforma e faça o upload do novo documento.</p>`,
     ),
-  })
+  });
 }
 
 export async function enviarNotificacaoMedicoPendente(
@@ -527,26 +602,26 @@ export async function enviarNotificacaoMedicoPendente(
   motivo: string,
   dashboardUrl: string,
 ): Promise<void> {
-  if (!emails.length) return
+  if (!emails.length) return;
   const subject = urgente
     ? `URGENTE: Exame HIV reagente — ${nomePaciente} — Facilita PrEP`
-    : `Exame aguardando revisão — ${nomePaciente} — Facilita PrEP`
+    : `Exame aguardando revisão — ${nomePaciente} — Facilita PrEP`;
 
-  const corBorda = urgente ? '#ef4444' : '#eab308'
-  const corFundo = urgente ? '#fef2f2' : '#fefce8'
-  const corTexto = urgente ? '#dc2626' : '#713f12'
+  const corBorda = urgente ? "#ef4444" : "#eab308";
+  const corFundo = urgente ? "#fef2f2" : "#fefce8";
+  const corTexto = urgente ? "#dc2626" : "#713f12";
   const alerta = urgente
-    ? '<strong>ATENÇÃO URGENTE:</strong> Resultado HIV possivelmente reagente. Requer avaliação imediata.'
-    : `Motivo: <strong>${motivo}</strong>`
+    ? "<strong>ATENÇÃO URGENTE:</strong> Resultado HIV possivelmente reagente. Requer avaliação imediata."
+    : `Motivo: <strong>${escHtml(motivo)}</strong>`;
 
   await send({
     to: emails,
     subject,
     html: baseTemplate(
-      urgente ? 'Exame URGENTE para revisão' : 'Exame pendente de revisão',
+      urgente ? "Exame URGENTE para revisão" : "Exame pendente de revisão",
       `<p style="color:#334155;font-size:15px;">Um exame de HIV necessita de revisão médica.</p>
       <table style="border-collapse:collapse;width:100%;margin:16px 0;">
-        <tr><td style="padding:8px 0;color:#64748b;font-size:13px;width:120px;">Paciente:</td><td style="padding:8px 0;color:#1e293b;font-size:13px;font-weight:600;">${nomePaciente}</td></tr>
+        <tr><td style="padding:8px 0;color:#64748b;font-size:13px;width:120px;">Paciente:</td><td style="padding:8px 0;color:#1e293b;font-size:13px;font-weight:600;">${escHtml(nomePaciente)}</td></tr>
       </table>
       <div style="background:${corFundo};border-left:4px solid ${corBorda};padding:12px 16px;border-radius:4px;margin:16px 0;">
         <p style="color:${corTexto};margin:0;font-size:13px;">${alerta}</p>
@@ -555,5 +630,119 @@ export async function enviarNotificacaoMedicoPendente(
         Revisar no painel médico
       </a>`,
     ),
-  })
+  });
+}
+
+export async function enviarAlerteLimiteLLM(
+  percentual: number,
+  usado: number,
+  limite: number,
+): Promise<void> {
+  if (!env.ADMIN_EMAIL) return;
+  await send({
+    to: env.ADMIN_EMAIL,
+    subject: `[FacilitaPrEP] Alerta: ${percentual}% do limite diário de análises IA consumido`,
+    html: baseTemplate(
+      "Alerta de cota LLM",
+      `<p style="color:#334155;font-size:15px;">O sistema atingiu <strong>${percentual}%</strong> do limite diário de análises por IA.</p>
+      <table style="border-collapse:collapse;width:100%;margin:16px 0;">
+        <tr><td style="padding:8px 0;color:#64748b;font-size:13px;width:140px;">Análises realizadas:</td><td style="padding:8px 0;color:#1e293b;font-size:13px;font-weight:600;">${usado} / ${limite}</td></tr>
+        <tr><td style="padding:8px 0;color:#64748b;font-size:13px;">Limite diário:</td><td style="padding:8px 0;color:#1e293b;font-size:13px;">${limite} análises/dia</td></tr>
+      </table>
+      <div style="background:#fef9c3;border-left:4px solid #ca8a04;padding:12px 16px;border-radius:4px;margin:16px 0;">
+        <p style="color:#713f12;margin:0;font-size:13px;">Verifique o volume de uploads e ajuste o limite via variável <code>LLM_DAILY_LIMIT</code> se necessário.</p>
+      </div>`,
+    ),
+  }).catch((err) => {
+    // Non-critical — log and continue
+    void err;
+  });
+}
+
+export async function enviarRelatorioRetencao(
+  purgedCount: number,
+  errors: number,
+): Promise<void> {
+  if (!env.ADMIN_EMAIL) return;
+  if (purgedCount === 0 && errors === 0) return;
+  await send({
+    to: env.ADMIN_EMAIL,
+    subject: `[FacilitaPrEP] Relatório de retenção LGPD — ${purgedCount} registros anonimizados`,
+    html: baseTemplate(
+      "Relatório de Retenção LGPD",
+      `<p style="color:#334155;font-size:15px;">Purga automática de dados concluída conforme prazo de retenção LGPD / CFM.</p>
+      <table style="border-collapse:collapse;width:100%;margin:16px 0;">
+        <tr><td style="padding:8px 0;color:#64748b;font-size:13px;width:180px;">Registros anonimizados:</td><td style="padding:8px 0;color:#1e293b;font-size:13px;font-weight:600;">${purgedCount}</td></tr>
+        <tr><td style="padding:8px 0;color:#64748b;font-size:13px;">Erros:</td><td style="padding:8px 0;color:${errors > 0 ? "#dc2626" : "#16a34a"};font-size:13px;font-weight:600;">${errors}</td></tr>
+        <tr><td style="padding:8px 0;color:#64748b;font-size:13px;">Data:</td><td style="padding:8px 0;color:#1e293b;font-size:13px;">${new Date().toLocaleDateString("pt-BR")}</td></tr>
+      </table>`,
+    ),
+  }).catch((err) => {
+    void err;
+  });
+}
+
+export async function enviarAlertaDlq(
+  queue: string,
+  total: number,
+): Promise<void> {
+  if (!env.ADMIN_EMAIL) return;
+  await send({
+    to: env.ADMIN_EMAIL,
+    subject: `[FacilitaPrEP] Alerta: ${total} jobs acumulados na DLQ (${queue})`,
+    html: baseTemplate(
+      "Alerta — Dead Letter Queue",
+      `<p style="color:#334155;font-size:15px;">A fila de jobs com falha (<strong>DLQ</strong>) acumulou <strong>${total} jobs</strong> na fila <code>${queue}</code>.</p>
+      <div style="background:#fef2f2;border-left:4px solid #dc2626;padding:12px 16px;border-radius:4px;margin:16px 0;">
+        <p style="color:#7f1d1d;margin:0;font-size:13px;">Acesse o painel administrativo → DLQ para reprocessar ou investigar os jobs com falha.</p>
+      </div>
+      <p style="color:#64748b;font-size:13px;">Jobs acumulados indicam falha recorrente em análise de exames ou geração de PDFs. Investigue os logs para identificar a causa raiz.</p>`,
+    ),
+  }).catch((err) => {
+    void err;
+  });
+}
+
+// Falha na emissão de NFS-e exige ação manual — pagamento confirmado sem nota
+// fiscal é passivo fiscal. Não há retry automático: reemitir após timeout pode
+// duplicar a nota na Asaas, e nota duplicada precisa ser cancelada manualmente.
+export async function enviarAlertaNfse(
+  paymentId: string,
+  motivo: string,
+): Promise<void> {
+  if (!env.ADMIN_EMAIL) return;
+  await send({
+    to: env.ADMIN_EMAIL,
+    subject: `[FacilitaPrEP] NFS-e NÃO emitida — pagamento ${paymentId}`,
+    html: baseTemplate(
+      "Alerta — Falha na emissão de NFS-e",
+      `<p style="color:#334155;font-size:15px;">A emissão automática de NFS-e falhou para o pagamento <strong>${escHtml(paymentId)}</strong>.</p>
+      <div style="background:#fef2f2;border-left:4px solid #dc2626;padding:12px 16px;border-radius:4px;margin:16px 0;">
+        <p style="color:#7f1d1d;margin:0;font-size:13px;"><strong>Erro:</strong> ${escHtml(motivo)}</p>
+      </div>
+      <p style="color:#64748b;font-size:13px;">O pagamento foi confirmado normalmente — apenas a nota fiscal precisa ser emitida manualmente no painel da Asaas (Cobranças → pagamento → Emitir nota fiscal).</p>`,
+    ),
+  }).catch((err) => {
+    void err;
+  });
+}
+
+export async function enviarAlertaCertificado(
+  diasRestantes: number,
+): Promise<void> {
+  if (!env.ADMIN_EMAIL) return;
+  await send({
+    to: env.ADMIN_EMAIL,
+    subject: `[FacilitaPrEP] Alerta: Certificado ICP-Brasil vence em ${diasRestantes} dias`,
+    html: baseTemplate(
+      "Alerta — Certificado ICP-Brasil",
+      `<p style="color:#334155;font-size:15px;">O certificado digital ICP-Brasil usado para assinatura de prescrições vence em <strong>${diasRestantes} dias</strong>.</p>
+      <div style="background:#fef9c3;border-left:4px solid #ca8a04;padding:12px 16px;border-radius:4px;margin:16px 0;">
+        <p style="color:#713f12;margin:0;font-size:13px;">Renove o certificado e atualize a variável <code>ICP_PFX_BASE64</code> no Railway antes do vencimento para evitar interrupção nas assinaturas digitais.</p>
+      </div>
+      <p style="color:#64748b;font-size:13px;">Consulte o RUNBOOK.md — seção "Rotação de certificado ICP-Brasil" para o procedimento completo.</p>`,
+    ),
+  }).catch((err) => {
+    void err;
+  });
 }

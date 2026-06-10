@@ -1,4 +1,4 @@
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { trpc } from "../../lib/trpc.ts";
@@ -45,7 +45,7 @@ export default function StepPaciente({
   const {
     register,
     handleSubmit,
-    setValue,
+    control,
     formState: { errors },
   } = form;
   const { clearDraft } = useFormDraft(form, "step-paciente-draft", {
@@ -108,27 +108,32 @@ export default function StepPaciente({
           </Field>
         ) : (
           <Field label="CPF" error={errors.cpf?.message} name="cpf">
-            <input
-              id="cpf"
-              {...register("cpf", {
-                onChange: (e) => {
-                  const digits = e.target.value.replace(/\D/g, "").slice(0, 11);
-                  const fmt = digits
-                    .replace(/(\d{3})(\d)/, "$1.$2")
-                    .replace(/(\d{3})\.(\d{3})(\d)/, "$1.$2.$3")
-                    .replace(/(\d{3})\.(\d{3})\.(\d{3})(\d)/, "$1.$2.$3-$4");
-                  e.target.value = fmt;
-                  setValue("cpf", fmt, {
-                    shouldValidate: digits.length === 11,
-                  });
-                },
-              })}
-              className={inputCls(!!errors.cpf)}
-              aria-invalid={errors.cpf ? true : undefined}
-              aria-describedby={errors.cpf ? "cpf-err" : undefined}
-              placeholder="000.000.000-00"
-              inputMode="numeric"
-              maxLength={14}
+            <Controller
+              name="cpf"
+              control={control}
+              render={({ field }) => (
+                <input
+                  id="cpf"
+                  value={field.value}
+                  onChange={(e) => {
+                    const digits = e.target.value
+                      .replace(/\D/g, "")
+                      .slice(0, 11);
+                    const fmt = digits
+                      .replace(/(\d{3})(\d)/, "$1.$2")
+                      .replace(/(\d{3})\.(\d{3})(\d)/, "$1.$2.$3")
+                      .replace(/(\d{3})\.(\d{3})\.(\d{3})(\d)/, "$1.$2.$3-$4");
+                    field.onChange(fmt);
+                  }}
+                  onBlur={field.onBlur}
+                  className={inputCls(!!errors.cpf)}
+                  aria-invalid={errors.cpf ? true : undefined}
+                  aria-describedby={errors.cpf ? "cpf-err" : undefined}
+                  placeholder="000.000.000-00"
+                  inputMode="numeric"
+                  maxLength={14}
+                />
+              )}
             />
           </Field>
         )}

@@ -1,4 +1,5 @@
 {
+  "_comment": "Aplicar com: aws s3api put-bucket-lifecycle-configuration --bucket $BUCKET --lifecycle-configuration file://infra/s3-lifecycle.json",
   "Rules": [
     {
       "ID": "lgpd-retencao-exames-20-anos",
@@ -49,6 +50,29 @@
       ],
       "Expiration": {
         "Days": 7300
+      }
+    },
+    {
+      "ID": "backups-transicao-glacier-retencao-20-anos",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": "backups/"
+      },
+      "Transitions": [
+        {
+          "Days": 90,
+          "StorageClass": "GLACIER"
+        },
+        {
+          "Days": 365,
+          "StorageClass": "DEEP_ARCHIVE"
+        }
+      ],
+      "Expiration": {
+        "Days": 7300
+      },
+      "AbortIncompleteMultipartUpload": {
+        "DaysAfterInitiation": 3
       }
     }
   ]

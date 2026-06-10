@@ -186,7 +186,42 @@ curl -H "x-ops-token: $OPS_TOKEN" https://facilitaprep.com.br/api/metrics | jq .
 
 ---
 
-## 9. Pós-incidente
+## 9. Branch errado em produção
+
+**Sintomas:** Funcionalidades críticas desapareceram; logs mostram erros de módulo inexistente; schema de DB diferente do esperado.
+
+**Como identificar:**
+```bash
+curl https://facilitaprep.com.br/api/health/version | jq .commit
+git log --oneline origin/claude/review-facilita-prep-setup-ZDKky -5
+```
+
+**Recovery imediato:**
+```bash
+# Verificar estado local
+git log --oneline -5
+
+# Force-push para restaurar estado correto
+# ATENÇÃO: confirmar que o branch local está no estado desejado antes deste comando
+git push --force-with-lease origin claude/review-facilita-prep-setup-ZDKky
+```
+
+Railway faz redeploy automático ao detectar o push.
+
+---
+
+## 9b. Vazamento de dados (LGPD Art. 48 — prazo 72h ANPD)
+
+1. **Isolar sistema** imediatamente: Railway → Variables → `MAINTENANCE_MODE=true` → Redeploy
+2. **Mapear escopo**: consultar `security_events` e `audit_log` para identificar pacientes afetados
+3. **Notificar ANPD**: https://www.gov.br/anpd/pt-br/assuntos/noticias/incidentes (prazo 72h)
+4. **Notificar titulares**: e-mail individualizado com dados afetados e medidas tomadas
+5. **Documentar**: data/hora descoberta, causa raiz, dados afetados, ações corretivas
+6. **Post-mortem**: criar `docs/post-mortems/YYYY-MM-DD-<titulo>.md`
+
+---
+
+## 10. Pós-incidente
 
 Após resolução de qualquer incidente de P1 (site fora) ou P2 (feature crítica inoperante):
 
@@ -240,6 +275,68 @@ openssl rand -hex 32
 # Atualizar TOTP_ENC_KEY no Railway → Deploy
 # Notificar admin e medico para reconfigurar 2FA no próximo login
 ```
+
+---
+
+## 13. Restore de dados (TiDB PITR + backup manual)
+
+### Quando usar
+
+| Situação | Método |
+|----------|--------|
+| Dados corrompidos / delete acidental (≤ 30 dias) | PITR via TiDB Cloud Console |
+| Restore para data > 30 dias atrás | mysqldump manual do S3 |
+| Auditoria / exportação de subconjunto | mysqldump seletivo |
+
+### PITR (Point-in-Time Recovery) — recomendado
+
+1. Acesse https://tidbcloud.com e autentique com conta do projeto
+2. Selecione o cluster **facilita_prep** → aba **Backup**
+3. Clique em **Restore** → escolha o ponto no tempo (granularidade: segundos)
+4. TiDB cria um **novo cluster** (nunca sobrescreve o original) — aguardar ~5–15 min
+5. Valide os dados no cluster restaurado antes de qualquer ação em produção
+6. Para restaurar registros específicos: `mysqldump` do cluster restaurado + `INSERT` seletivo em produção
+
+> **NUNCA** use "Restore" diretamente na produção — sempre em novo cluster primeiro.
+
+### Restore de arquivo mysqldump (S3)
+
+```bash
+# 1. Baixar o arquivo de backup do S3
+aws s3 cp s3://$BUCKET/backups/facilitaprep-YYYY-MM-DD.sql.gz /tmp/
+
+# 2. Descomprimir
+gzip -d /tmp/facilitaprep-YYYY-MM-DD.sql.gz
+
+# 3. Conferir tamanho e data do dump
+head -20 /tmp/facilitaprep-YYYY-MM-DD.sql
+
+# 4. Importar — requer janela de manutenção (bloqueia writes)
+mysql \
+  --host=gateway01.eu-central-1.prod.aws.tidbcloud.com \
+  --port=4000 \
+  --user="$DB_USER" \
+  --password="$DB_PASS" \
+  --ssl-mode=VERIFY_IDENTITY \
+  facilita_prep < /tmp/facilitaprep-YYYY-MM-DD.sql
+```
+
+### Verificar backups disponíveis
+
+```bash
+# Status de conectividade + link para console
+pnpm backup
+
+# Listar backups manuais no S3
+aws s3 ls s3://$BUCKET/backups/ --human-readable | sort -k1,2
+```
+
+### RTO / RPO para restore
+
+| Tipo | RPO | RTO estimado |
+|------|-----|-------------|
+| PITR | ~5 min | 15–30 min (criação cluster) + validação |
+| mysqldump S3 | Última execução manual | 30–60 min |
 
 ---
 

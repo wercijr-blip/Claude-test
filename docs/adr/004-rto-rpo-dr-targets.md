@@ -9,20 +9,20 @@ O Facilita PrEP processa dados sensíveis de saúde sob LGPD e CFM 2.299/2021. P
 
 ## Decisão
 
-| Métrica | Alvo | Justificativa |
-|---------|------|---------------|
-| **RTO** (Recovery Time Objective) | ≤ 2 horas | Clínica tolera pausa curta; acima disso impacta atendimento |
-| **RPO** (Recovery Point Objective) | ≤ 24 horas | TiDB Cloud Serverless faz backup automático diário |
+| Métrica                            | Alvo       | Justificativa                                               |
+| ---------------------------------- | ---------- | ----------------------------------------------------------- |
+| **RTO** (Recovery Time Objective)  | ≤ 2 horas  | Clínica tolera pausa curta; acima disso impacta atendimento |
+| **RPO** (Recovery Point Objective) | ≤ 24 horas | TiDB Cloud Serverless faz backup automático diário          |
 
 ## Componentes de Infra e Estratégia de DR
 
-| Componente | Provedor | Estratégia | RTO local |
-|---|---|---|---|
-| Banco de dados | TiDB Cloud Serverless | Backup automático diário + restore via console | < 1h |
-| Redis | Railway (ephemeral) | Dados são efêmeros (filas, rate-limit) — reiniciar zerando é aceitável | < 5 min |
-| Arquivos S3 | AWS S3 | S3 Versioning habilitado; Cross-Region Replication recomendada | < 30 min |
-| App (Railway) | Railway | Redeployar última imagem via painel; autoscaling | < 15 min |
-| Certificado ICP | PFX armazenado como var `ICP_PFX_BASE64` | Rekeying requer ICP-Brasil (1–5 dias úteis) | N/A (não é DR |
+| Componente      | Provedor                                 | Estratégia                                                             | RTO local     |
+| --------------- | ---------------------------------------- | ---------------------------------------------------------------------- | ------------- |
+| Banco de dados  | TiDB Cloud Serverless                    | Backup automático diário + restore via console                         | < 1h          |
+| Redis           | Railway (ephemeral)                      | Dados são efêmeros (filas, rate-limit) — reiniciar zerando é aceitável | < 5 min       |
+| Arquivos S3     | AWS S3                                   | S3 Versioning habilitado; Cross-Region Replication recomendada         | < 30 min      |
+| App (Railway)   | Railway                                  | Redeployar última imagem via painel; autoscaling                       | < 15 min      |
+| Certificado ICP | PFX armazenado como var `ICP_PFX_BASE64` | Rekeying requer ICP-Brasil (1–5 dias úteis)                            | N/A (não é DR |
 
 ## Checklist de Drill Mensal
 

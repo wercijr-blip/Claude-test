@@ -7,18 +7,18 @@
  * "undefined/undefined/24/04/2026", deixando campos em branco nos PDFs SUS.
  */
 export function formatarDataBR(input: string): string {
-  if (!input) return ''
+  if (!input) return "";
   // Já em DD/MM/AAAA? normaliza o zero-padding
-  const matchBR = input.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/)
+  const matchBR = input.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
   if (matchBR) {
-    const [, dd, mm, yyyy] = matchBR
-    return `${dd.padStart(2, '0')}/${mm.padStart(2, '0')}/${yyyy}`
+    const [, dd, mm, yyyy] = matchBR;
+    return `${dd.padStart(2, "0")}/${mm.padStart(2, "0")}/${yyyy}`;
   }
   // ISO YYYY-MM-DD
-  const matchISO = input.match(/(\d{4})-(\d{2})-(\d{2})/)
+  const matchISO = input.match(/(\d{4})-(\d{2})-(\d{2})/);
   if (matchISO) {
-    const [, yyyy, mm, dd] = matchISO
-    return `${dd}/${mm}/${yyyy}`
+    const [, yyyy, mm, dd] = matchISO;
+    return `${dd}/${mm}/${yyyy}`;
   }
-  return input
+  return input;
 }
