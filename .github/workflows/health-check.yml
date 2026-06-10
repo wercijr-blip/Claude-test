@@ -10,8 +10,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping health endpoint
+        # -L segue o 301 do apex → www (APP_URL canônico é www.facilitaprep.com.br)
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://facilitaprep.com.br/api/health || echo "000")
+          STATUS=$(curl -sL -o /dev/null -w "%{http_code}" --max-time 10 https://facilitaprep.com.br/api/health || echo "000")
           echo "HTTP status: $STATUS"
           if [ "$STATUS" != "200" ]; then
             echo "Health check falhou: HTTP $STATUS"
