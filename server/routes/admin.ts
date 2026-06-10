@@ -35,11 +35,7 @@ import {
 import { okEmpty } from "../_core/response.ts";
 import { userProcedures } from "./admin/users.ts";
 import { dlqProcedures } from "./admin/dlq.ts";
-
-type ResultadoIaJson = {
-  status?: string;
-  [key: string]: unknown;
-};
+import type { ResultadoIa } from "../../shared/types.ts";
 
 export const adminRouter = router({
   // ── Gestão de equipe — ver admin/users.ts ─────────────────────
@@ -186,10 +182,11 @@ export const adminRouter = router({
           message: "Exame não encontrado.",
         });
 
-      const resultadoAtual = exame.resultadoIa as ResultadoIaJson | null;
+      const resultadoAtual = exame.resultadoIa;
       if (
-        resultadoAtual?.status !== "rejeitado_ia" &&
-        resultadoAtual?.status !== "rejeitado"
+        !resultadoAtual ||
+        (resultadoAtual.status !== "rejeitado_ia" &&
+          resultadoAtual.status !== "rejeitado")
       ) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -198,7 +195,7 @@ export const adminRouter = router({
         });
       }
 
-      const novoResultado: ResultadoIaJson = {
+      const novoResultado: ResultadoIa = {
         ...resultadoAtual,
         status: "liberado_manualmente",
         observacoesMedico: input.observacoes ?? null,

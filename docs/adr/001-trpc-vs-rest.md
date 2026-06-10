@@ -15,20 +15,22 @@ Adotar **tRPC v11** com Zod para validação de input e inferência automática 
 ## Consequências
 
 **Positivas:**
+
 - Type-safety completo em tempo de compilação — cliente não pode chamar endpoint com parâmetros errados
 - Sem necessidade de OpenAPI/Swagger para o cliente interno
 - Zod schemas reutilizáveis no servidor e no cliente
 - Suporte nativo a React Query (cache, refetch, optimistic updates)
 
 **Negativas:**
+
 - Clientes não-TypeScript (mobile nativo, terceiros) não podem usar o contrato
 - Curva de aprendizado para devs habituados a REST
 - Debug de rede mais complexo (batch requests)
 
 ## Alternativas consideradas
 
-| Alternativa | Motivo de descarte |
-|-------------|-------------------|
-| REST + OpenAPI | Código de tipagem gerado é verboso; dessincronia frequente entre spec e implementação |
-| GraphQL | Overhead de schema + resolver; complexidade desnecessária para um sistema com frontend único |
-| JSON-RPC manual | Sem type inference automática; reinventar o que tRPC já resolve |
+| Alternativa     | Motivo de descarte                                                                           |
+| --------------- | -------------------------------------------------------------------------------------------- |
+| REST + OpenAPI  | Código de tipagem gerado é verboso; dessincronia frequente entre spec e implementação        |
+| GraphQL         | Overhead de schema + resolver; complexidade desnecessária para um sistema com frontend único |
+| JSON-RPC manual | Sem type inference automática; reinventar o que tRPC já resolve                              |

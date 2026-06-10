@@ -1,0 +1,2105 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Atos Hospital Dia — Painel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<style>
+  :root {
+    --brand:       #0D9488;
+    --brand-dark:  #0F766E;
+    --brand-2:     #0891B2;
+    --brand-glow:  rgba(13,148,136,.22);
+    --sidebar-bg:  #0B1120;
+    --bg:          #EFF3F8;
+    --surface:     #FFFFFF;
+    --border:      #E4EAF2;
+    --border-2:    #D1DBE8;
+    --text-1:      #1A2332;
+    --text-2:      #4A5568;
+    --text-3:      #8FA0B5;
+    --radius-card: 18px;
+    --radius-btn:  10px;
+    --shadow-card: 0 1px 2px rgba(15,23,42,.04), 0 4px 20px rgba(15,23,42,.06);
+    --shadow-hover:0 4px 24px rgba(15,23,42,.10), 0 1px 4px rgba(15,23,42,.06);
+    --shadow-btn:  0 2px 8px var(--brand-glow);
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  * { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  [x-cloak] { display: none !important; }
+  html { scroll-behavior: smooth; }
+
+  /* ── SIDEBAR NAV ───────────────────────────────────────── */
+  .nav-section {
+    padding: 16px 12px 4px; font-size: 9.5px; font-weight: 700;
+    letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.25);
+    user-select: none;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+    border-radius: 9px; font-size: 13px; transition: all .15s ease; cursor: pointer;
+    width: 100%; text-align: left; color: rgba(255,255,255,.5); font-weight: 500;
+  }
+  .nav-item:hover { background: rgba(255,255,255,.07); color: rgba(255,255,255,.85); }
+  .nav-item.active {
+    background: linear-gradient(135deg, var(--brand) 0%, var(--brand-2) 100%);
+    color: #fff; font-weight: 600;
+    box-shadow: 0 3px 12px var(--brand-glow), inset 0 1px 0 rgba(255,255,255,.15);
+  }
+  .nav-badge {
+    margin-left: auto; background: #EF4444; color: #fff; font-size: 10px; font-weight: 700;
+    border-radius: 999px; min-width: 18px; height: 18px; padding: 0 5px;
+    display: flex; align-items: center; justify-content: center;
+    animation: pulse 2s cubic-bezier(.4,0,.6,1) infinite;
+    box-shadow: 0 2px 6px rgba(239,68,68,.4);
+  }
+
+  /* ── CARDS ─────────────────────────────────────────────── */
+  .card {
+    background: var(--surface); border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card); border: 1px solid var(--border);
+  }
+
+  /* ── STAT CARDS ────────────────────────────────────────── */
+  .stat-card {
+    background: var(--surface); border-radius: 16px; padding: 18px 20px;
+    border: 1px solid var(--border); box-shadow: var(--shadow-card);
+    transition: transform .2s ease, box-shadow .2s ease;
+    overflow: hidden; position: relative;
+  }
+  .stat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-hover); }
+  .stat-card::before {
+    content: ''; position: absolute; inset: 0 auto 0 0;
+    width: 4px; border-radius: 16px 0 0 16px;
+    background: var(--stat-color, #64748B);
+  }
+
+  /* ── TABLE ─────────────────────────────────────────────── */
+  .tbl-head th {
+    background: #F6F9FC; color: var(--text-3); font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .065em; padding: 11px 16px; text-align: left;
+    border-bottom: 1px solid var(--border); white-space: nowrap;
+  }
+  .tbl-row td {
+    padding: 11px 16px; font-size: 13px; border-bottom: 1px solid #F4F7FB;
+    color: var(--text-1); vertical-align: middle;
+  }
+  .tbl-row:last-child td { border-bottom: none; }
+  .tbl-row { transition: background .1s; }
+  .tbl-row:hover td { background: #F6FFFE; }
+
+  /* ── BUTTONS ───────────────────────────────────────────── */
+  .btn-primary {
+    background: linear-gradient(135deg, var(--brand) 0%, var(--brand-2) 100%);
+    color: #fff; border-radius: var(--radius-btn); padding: 8px 18px;
+    font-size: 13px; font-weight: 600; transition: all .18s ease;
+    box-shadow: var(--shadow-btn); cursor: pointer; border: none;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .btn-primary:hover { filter: brightness(1.07); transform: translateY(-1px); box-shadow: 0 5px 16px var(--brand-glow); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:disabled { opacity: .45; cursor: not-allowed; transform: none; filter: none; box-shadow: none; }
+  .btn-danger {
+    background: linear-gradient(135deg, #F87171, #EF4444);
+    color: #fff; border-radius: var(--radius-btn); padding: 8px 18px;
+    font-size: 13px; font-weight: 600; transition: all .18s ease;
+    box-shadow: 0 2px 8px rgba(239,68,68,.22); cursor: pointer; border: none;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .btn-danger:hover { filter: brightness(1.06); transform: translateY(-1px); }
+  .btn-danger:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+  .btn-ghost {
+    background: #F0F5FB; color: var(--text-2); border-radius: var(--radius-btn);
+    padding: 8px 18px; font-size: 13px; font-weight: 600; transition: all .15s ease;
+    border: 1px solid var(--border); cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .btn-ghost:hover { background: var(--border); color: var(--text-1); }
+  .btn-icon {
+    width: 30px; height: 30px; border-radius: 8px; border: none; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 13px; transition: all .15s ease;
+  }
+  .btn-icon-teal { background: #CCFBF1; color: #0F766E; }
+  .btn-icon-teal:hover { background: #0D9488; color: #fff; }
+  .btn-icon-red  { background: #FEE2E2; color: #991B1B; }
+  .btn-icon-red:hover  { background: #EF4444; color: #fff; }
+  .btn-icon-blue { background: #DBEAFE; color: #1D4ED8; }
+  .btn-icon-blue:hover { background: #3B82F6; color: #fff; }
+
+  /* ── BADGES ────────────────────────────────────────────── */
+  .badge { border-radius: 6px; padding: 3px 9px; font-size: 11px; font-weight: 600; display: inline-block; }
+  .badge-pendente   { background: #FEF3C7; color: #92400E; }
+  .badge-confirmado { background: #D1FAE5; color: #065F46; }
+  .badge-cancelado  { background: #FEE2E2; color: #991B1B; }
+  .badge-convenio   { background: #E0F2FE; color: #0369A1; }
+  .badge-particular { background: #FEF9C3; color: #854D0E; }
+
+  /* ── ROW TINTS ─────────────────────────────────────────── */
+  .row-particular td { background: #FFFDF0 !important; }
+  .row-infusao    td { background: #FAF5FF !important; }
+  .row-medicacao  td { background: #F0FDF4 !important; }
+
+  /* ── INPUTS ────────────────────────────────────────────── */
+  .inp {
+    border: 1.5px solid var(--border-2); border-radius: var(--radius-btn);
+    padding: 9px 13px; font-size: 13px; width: 100%;
+    transition: border-color .15s, box-shadow .15s; outline: none;
+    background: var(--surface); color: var(--text-1); font-family: inherit;
+  }
+  .inp:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(13,148,136,.12); }
+  .inp::placeholder { color: var(--text-3); }
+  select.inp { cursor: pointer; }
+  textarea.inp { line-height: 1.6; }
+
+  /* ── DRAG OVER ─────────────────────────────────────────── */
+  .drag-over { border-color: var(--brand) !important; background: #CCFBF1 !important; }
+
+  /* ── SCROLLBAR ─────────────────────────────────────────── */
+  .sidebar-nav::-webkit-scrollbar { width: 3px; }
+  .sidebar-nav::-webkit-scrollbar-track { background: transparent; }
+  .sidebar-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 3px; }
+
+  /* ── SKELETON LOADER ───────────────────────────────────── */
+  .skeleton {
+    background: linear-gradient(90deg, #EEF2F7 25%, #E4EAF2 50%, #EEF2F7 75%);
+    background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 6px;
+  }
+  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+  /* ── TOAST ─────────────────────────────────────────────── */
+  .toast-item {
+    padding: 12px 16px; border-radius: 12px; font-size: 13px; font-weight: 600;
+    box-shadow: 0 8px 24px rgba(0,0,0,.12), 0 2px 6px rgba(0,0,0,.06);
+    display: flex; align-items: center; gap: 10px;
+    min-width: 260px; max-width: 360px; pointer-events: auto;
+    animation: toastIn .25s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes toastIn {
+    from { transform: translateX(120%) scale(.95); opacity: 0; }
+    to   { transform: translateX(0)    scale(1);   opacity: 1; }
+  }
+  .toast-success { background: #ECFDF5; color: #065F46; border-left: 4px solid #10B981; }
+  .toast-error   { background: #FEF2F2; color: #991B1B; border-left: 4px solid #EF4444; }
+  .toast-info    { background: #EFF6FF; color: #1E40AF; border-left: 4px solid #3B82F6; }
+
+  /* ── EMPTY STATE ────────────────────────────────────────── */
+  .empty-state { padding: 56px 24px; text-align: center; }
+  .empty-state-icon  { font-size: 44px; opacity: .15; margin-bottom: 14px; }
+  .empty-state-title { font-size: 14px; font-weight: 600; color: var(--text-3); }
+  .empty-state-sub   { font-size: 12px; color: #CBD5E1; margin-top: 5px; }
+
+  /* ── RATING BAR ─────────────────────────────────────────── */
+  .rating-bar-track { height: 8px; background: var(--bg); border-radius: 4px; overflow: hidden; flex: 1; }
+  .rating-bar-fill  { height: 100%; border-radius: 4px; transition: width .8s cubic-bezier(.4,0,.2,1); }
+
+  /* ── MODAL BACKDROP ─────────────────────────────────────── */
+  .modal-bg { background: rgba(11,17,32,.6); backdrop-filter: blur(4px); }
+
+  /* ── CHAT BUBBLE ─────────────────────────────────────────── */
+  .bubble-in  { background: var(--surface); border: 1px solid var(--border); color: var(--text-1); border-radius: 16px 16px 16px 4px; }
+  .bubble-out { background: linear-gradient(135deg, var(--brand), var(--brand-2)); color: #fff; border-radius: 16px 16px 4px 16px; }
+
+  /* ── FILTER LABEL ───────────────────────────────────────── */
+  .filter-label { display: block; font-size: 10.5px; font-weight: 700;
+    color: var(--text-3); margin-bottom: 5px; text-transform: uppercase; letter-spacing: .04em; }
+</style>
+</head>
+<body style="background:var(--bg)" x-data="painel()" x-init="init()">
+
+<!-- ═══════════════════ TOAST CONTAINER ═══════════════════ -->
+<div class="fixed top-4 right-4 z-[9999] flex flex-col gap-2" style="pointer-events:none" aria-live="polite">
+  <template x-for="t in toasts" :key="t.id">
+    <div class="toast-item" :class="`toast-${t.type}`">
+      <span x-text="t.icon" class="shrink-0"></span>
+      <span x-text="t.msg" class="flex-1 leading-tight"></span>
+      <button @click="dismissToast(t.id)" class="shrink-0 opacity-50 hover:opacity-100 text-lg leading-none">×</button>
+    </div>
+  </template>
+</div>
+
+<!-- ═══════════════════ TELA DE LOGIN ═══════════════════ -->
+<div x-show="!autenticado" x-cloak class="min-h-screen flex items-center justify-center relative overflow-hidden"
+  style="background: linear-gradient(145deg, #060D1A 0%, #0B1A2C 45%, #0D2E2E 100%)">
+  <!-- Decorative blobs -->
+  <div class="absolute top-0 right-0 w-96 h-96 rounded-full opacity-10 pointer-events-none"
+    style="background:radial-gradient(circle, #0D9488 0%, transparent 70%); transform:translate(30%,-30%)"></div>
+  <div class="absolute bottom-0 left-0 w-80 h-80 rounded-full opacity-10 pointer-events-none"
+    style="background:radial-gradient(circle, #0891B2 0%, transparent 70%); transform:translate(-30%,30%)"></div>
+
+  <div class="relative z-10 w-full max-w-sm mx-4">
+    <!-- Card -->
+    <div class="rounded-2xl p-8"
+      style="background:rgba(255,255,255,.97); box-shadow:0 24px 60px rgba(0,0,0,.35), 0 4px 16px rgba(0,0,0,.2)">
+
+      <!-- Logo -->
+      <div class="flex flex-col items-center mb-8">
+        <div class="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
+          style="background:linear-gradient(135deg,#0D9488,#0891B2); box-shadow:0 8px 24px rgba(13,148,136,.35)">
+          <svg viewBox="0 0 32 32" fill="none" class="w-9 h-9">
+            <circle cx="16" cy="8"  r="5.5" fill="white" opacity=".95"/>
+            <circle cx="9"  cy="19" r="5.5" fill="white" opacity=".8"/>
+            <circle cx="23" cy="19" r="5.5" fill="white" opacity=".65"/>
+            <circle cx="16" cy="28" r="4"   fill="white" opacity=".5"/>
+          </svg>
+        </div>
+        <h1 class="text-xl font-black tracking-tight" style="color:#1A2332">Atos Hospital Dia</h1>
+        <p class="text-xs font-medium mt-1" style="color:#8FA0B5">Painel Administrativo</p>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="filter-label" style="color:#4A5568">Usuário</label>
+          <input type="text" x-model="login.username" @keydown.enter="fazerLogin()"
+            placeholder="seu.usuario" class="inp" autocomplete="username">
+        </div>
+        <div>
+          <label class="filter-label" style="color:#4A5568">Senha</label>
+          <input type="password" x-model="login.password" @keydown.enter="fazerLogin()"
+            placeholder="••••••••" class="inp" autocomplete="current-password">
+        </div>
+        <div x-show="login.erro" x-cloak
+          class="flex items-center gap-2 text-red-700 text-xs bg-red-50 border border-red-100 px-3 py-2.5 rounded-lg">
+          <span>⚠️</span><span x-text="login.erro"></span>
+        </div>
+        <button @click="fazerLogin()" :disabled="login.loading"
+          class="btn-primary w-full py-3 text-sm" style="border-radius:12px">
+          <span x-show="!login.loading">Entrar no painel</span>
+          <span x-show="login.loading">Autenticando…</span>
+        </button>
+      </div>
+    </div>
+    <p class="text-center text-xs mt-5" style="color:rgba(255,255,255,.25)">© 2025 Atos Saúde Integrada</p>
+  </div>
+</div>
+<!-- ═══════════════════ MODAL TROCA DE SENHA ═══════════════════ -->
+<div x-show="autenticado && showChangePwd" x-cloak
+  class="fixed inset-0 flex items-center justify-center z-50 modal-bg">
+  <div class="card p-8 w-full max-w-sm mx-4" style="box-shadow:0 24px 60px rgba(0,0,0,.2)">
+    <div class="text-center mb-6">
+      <div class="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
+        style="background:linear-gradient(135deg,#6D28D9,#7C3AED); box-shadow:0 6px 18px rgba(109,40,217,.3)">
+        <span class="text-2xl">🔐</span>
+      </div>
+      <h2 class="text-lg font-bold" style="color:var(--text-1)">Troque sua senha</h2>
+      <p class="text-xs mt-1" style="color:var(--text-3)">Por segurança, defina uma senha pessoal antes de continuar.</p>
+    </div>
+    <div class="space-y-3">
+      <input type="password" x-model="changePwd.current" placeholder="Senha atual" class="inp" autocomplete="current-password">
+      <input type="password" x-model="changePwd.new1"    placeholder="Nova senha (mín. 6 caracteres)" class="inp" autocomplete="new-password">
+      <input type="password" x-model="changePwd.new2"    placeholder="Confirmar nova senha" class="inp" autocomplete="new-password">
+      <div x-show="changePwd.erro" x-text="changePwd.erro"
+        class="text-red-700 text-xs bg-red-50 border border-red-100 px-3 py-2 rounded-lg"></div>
+      <div x-show="changePwd.ok"
+        class="text-green-700 text-xs bg-green-50 border border-green-100 px-3 py-2 rounded-lg">✅ Senha alterada com sucesso!</div>
+      <button @click="trocarSenha()" :disabled="changePwd.loading" class="btn-primary w-full py-2.5">
+        <span x-show="!changePwd.loading">Salvar nova senha</span>
+        <span x-show="changePwd.loading">Salvando…</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ MODAL BLOQUEAR AGENDA ═══════════════════ -->
+<div x-show="modalBloqueio" x-cloak
+  class="fixed inset-0 flex items-center justify-center z-50 modal-bg">
+  <div class="card p-6 w-full max-w-md mx-4" style="box-shadow:0 24px 60px rgba(0,0,0,.2)">
+    <div class="flex items-center gap-3 mb-1">
+      <div class="w-10 h-10 rounded-xl flex items-center justify-center bg-red-100 shrink-0">
+        <span class="text-lg">🚫</span>
+      </div>
+      <div>
+        <h2 class="text-base font-bold text-red-700">Bloquear Agenda do Médico</h2>
+        <p class="text-xs text-red-400 mt-0.5">Cancela consultas, remove do Calendar e notifica pacientes.</p>
+      </div>
+    </div>
+    <div class="h-px bg-red-100 my-4"></div>
+    <div class="space-y-3">
+      <div>
+        <label class="block text-xs font-semibold text-gray-500 mb-1">Médico</label>
+        <select x-model="bloqueio.doctorId" class="inp">
+          <option value="">— selecione —</option>
+          <template x-for="doc in doctors" :key="doc.id">
+            <option :value="doc.id" x-text="doc.nome + ' — ' + doc.especialidade"></option>
+          </template>
+        </select>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 mb-1">Início</label>
+          <input type="datetime-local" x-model="bloqueio.inicio" class="inp">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 mb-1">Fim</label>
+          <input type="datetime-local" x-model="bloqueio.fim" class="inp">
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-500 mb-1">Motivo (exibido ao paciente)</label>
+        <input type="text" x-model="bloqueio.motivo" placeholder="Ex: Congresso médico, Férias…" class="inp">
+      </div>
+    </div>
+    <div x-show="bloqueio.msg" x-text="bloqueio.msg"
+      class="mt-3 text-xs font-medium p-2 rounded-lg"
+      :class="bloqueio.erro ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'"></div>
+    <div class="flex gap-3 mt-5">
+      <button @click="confirmarBloqueio()" :disabled="bloqueio.loading" class="btn-danger flex-1 py-2">
+        <span x-show="!bloqueio.loading">🚫 Confirmar Bloqueio</span>
+        <span x-show="bloqueio.loading">Bloqueando…</span>
+      </button>
+      <button @click="modalBloqueio = false" class="btn-ghost flex-1 py-2">Cancelar</button>
+    </div>
+  </div>
+</div>
+<!-- ═══════════════════ PAINEL PRINCIPAL ═══════════════════ -->
+<div x-show="autenticado && !showChangePwd" x-cloak class="flex min-h-screen">
+
+  <!-- SIDEBAR -->
+  <aside class="fixed left-0 top-0 h-screen w-60 flex flex-col z-30 transition-transform duration-200"
+    :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
+    style="background:linear-gradient(180deg,#0B1120 0%,#0D1526 100%);box-shadow:4px 0 32px rgba(0,0,0,0.28)"
+    aria-label="Navegação principal">
+
+    <!-- Logo -->
+    <div class="px-5 py-5 flex items-center gap-3" style="border-bottom:1px solid rgba(255,255,255,.06)">
+      <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+        style="background:linear-gradient(135deg,#0D9488,#0891B2);box-shadow:0 4px 12px rgba(13,148,136,.35)">
+        <svg viewBox="0 0 24 24" fill="none" class="w-5 h-5">
+          <circle cx="12" cy="5"  r="4" fill="white" opacity=".95"/>
+          <circle cx="6"  cy="14" r="4" fill="white" opacity=".75"/>
+          <circle cx="18" cy="14" r="4" fill="white" opacity=".6"/>
+          <circle cx="12" cy="21" r="3" fill="white" opacity=".45"/>
+        </svg>
+      </div>
+      <div>
+        <p class="text-sm font-black text-white leading-tight">ATOS</p>
+        <p class="text-xs font-medium leading-tight" style="color:rgba(255,255,255,.35);letter-spacing:.06em">HOSPITAL DIA</p>
+      </div>
+    </div>
+
+    <!-- Nav com seções -->
+    <nav class="flex-1 px-3 py-2 overflow-y-auto sidebar-nav">
+
+      <!-- Atendimento -->
+      <p class="nav-section">Atendimento</p>
+      <template x-for="navItem in tabs.filter(t => ['agenda','marcacao','atendimento','encaixe'].includes(t.id) && permissions?.tabs?.includes(t.id))" :key="navItem.id">
+        <button @click="activeTab = navItem.id"
+          :class="activeTab === navItem.id ? 'nav-item active' : 'nav-item'"
+          :aria-current="activeTab === navItem.id ? 'page' : undefined">
+          <span x-text="navItem.icon" class="text-sm w-5 text-center shrink-0" aria-hidden="true"></span>
+          <span x-text="navItem.label" class="truncate flex-1"></span>
+          <span x-show="navItem.id === 'atendimento' && humanWaiting.length > 0"
+            class="nav-badge" x-text="humanWaiting.length > 9 ? '9+' : humanWaiting.length"></span>
+        </button>
+      </template>
+
+      <!-- Gestão -->
+      <template x-if="permissions?.tabs?.some(t => ['medicos','usuarios','exames','medicacoes'].includes(t))">
+        <p class="nav-section">Gestão</p>
+      </template>
+      <template x-for="navItem in tabs.filter(t => ['medicos','usuarios','exames','medicacoes'].includes(t.id) && permissions?.tabs?.includes(t.id))" :key="navItem.id">
+        <button @click="activeTab = navItem.id"
+          :class="activeTab === navItem.id ? 'nav-item active' : 'nav-item'"
+          :aria-current="activeTab === navItem.id ? 'page' : undefined">
+          <span x-text="navItem.icon" class="text-sm w-5 text-center shrink-0" aria-hidden="true"></span>
+          <span x-text="navItem.label" class="truncate flex-1"></span>
+        </button>
+      </template>
+
+      <!-- Comunicação -->
+      <template x-if="permissions?.tabs?.some(t => ['conversas','whatsapp'].includes(t))">
+        <p class="nav-section">Comunicação</p>
+      </template>
+      <template x-for="navItem in tabs.filter(t => ['conversas','whatsapp'].includes(t.id) && permissions?.tabs?.includes(t.id))" :key="navItem.id">
+        <button @click="activeTab = navItem.id"
+          :class="activeTab === navItem.id ? 'nav-item active' : 'nav-item'"
+          :aria-current="activeTab === navItem.id ? 'page' : undefined">
+          <span x-text="navItem.icon" class="text-sm w-5 text-center shrink-0" aria-hidden="true"></span>
+          <span x-text="navItem.label" class="truncate flex-1"></span>
+        </button>
+      </template>
+
+      <!-- Conteúdo & Análise -->
+      <template x-if="permissions?.tabs?.some(t => ['textos','conhecimento','satisfacao'].includes(t))">
+        <p class="nav-section">Conteúdo & Análise</p>
+      </template>
+      <template x-for="navItem in tabs.filter(t => ['textos','conhecimento','satisfacao'].includes(t.id) && permissions?.tabs?.includes(t.id))" :key="navItem.id">
+        <button @click="activeTab = navItem.id"
+          :class="activeTab === navItem.id ? 'nav-item active' : 'nav-item'"
+          :aria-current="activeTab === navItem.id ? 'page' : undefined">
+          <span x-text="navItem.icon" class="text-sm w-5 text-center shrink-0" aria-hidden="true"></span>
+          <span x-text="navItem.label" class="truncate flex-1"></span>
+        </button>
+      </template>
+    </nav>
+
+    <!-- User + logout -->
+    <div class="p-3 mx-3 mb-3 rounded-xl" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06)">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold shrink-0"
+          style="background:linear-gradient(135deg,#0D9488,#0891B2);color:#fff"
+          x-text="(currentUser?.name || 'U').charAt(0).toUpperCase()"></div>
+        <div class="overflow-hidden flex-1">
+          <p class="text-sm font-semibold text-white truncate leading-tight" x-text="currentUser?.name"></p>
+          <span class="text-xs px-2 py-0.5 rounded-md font-medium leading-tight mt-0.5 inline-block"
+            :class="{
+              'bg-red-500/20 text-red-300':    currentUser?.role==='admin',
+              'bg-blue-500/20 text-blue-300':  currentUser?.role==='secretaria',
+              'bg-green-500/20 text-green-300':currentUser?.role==='faturamento'
+            }"
+            x-text="{'admin':'Admin','secretaria':'Secretaria','faturamento':'Faturamento'}[currentUser?.role]">
+          </span>
+        </div>
+      </div>
+      <button @click="sairSessao()" class="nav-item w-full text-xs py-2 justify-center" style="color:rgba(255,255,255,.4)">
+        ↩ Sair da conta
+      </button>
+    </div>
+  </aside>
+  <!-- /SIDEBAR -->
+
+  <!-- Overlay mobile para fechar sidebar -->
+  <div x-show="sidebarOpen" x-cloak
+    class="fixed inset-0 bg-black/40 z-20 lg:hidden"
+    @click="sidebarOpen=false"></div>
+
+  <!-- MAIN CONTENT -->
+  <main class="lg:ml-60 flex-1 min-h-screen flex flex-col" style="background:var(--bg)">
+
+    <!-- TOP BAR -->
+    <header class="sticky top-0 z-20 flex items-center justify-between px-4 lg:px-6 py-3"
+      style="background:rgba(239,243,248,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);box-shadow:0 1px 16px rgba(15,23,42,.05)">
+      <div class="flex items-center gap-3">
+        <button @click="sidebarOpen=!sidebarOpen"
+          class="lg:hidden w-9 h-9 flex items-center justify-center rounded-xl text-lg transition-colors"
+          style="background:var(--surface);border:1px solid var(--border);color:var(--text-2)"
+          aria-label="Abrir menu">☰</button>
+        <div class="flex items-center gap-2">
+          <span class="text-lg" x-text="tabs.find(t=>t.id===activeTab)?.icon || '📋'"></span>
+          <h1 class="text-base font-bold" style="color:var(--text-1)"
+            x-text="tabs.find(t=>t.id===activeTab)?.label || 'Painel'"></h1>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <!-- Alert fila humana -->
+        <button x-show="humanWaiting.length > 0" x-cloak
+          @click="activeTab='atendimento'"
+          class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold animate-pulse transition-colors"
+          style="background:#FEF2F2;border:1px solid #FECACA;color:#991B1B">
+          <span class="w-2 h-2 bg-red-500 rounded-full"></span>
+          <span x-text="humanWaiting.length + ' aguardando'"></span>
+        </button>
+        <div class="text-right hidden md:block">
+          <p class="text-xs font-semibold" style="color:var(--text-2)" x-text="currentDate"></p>
+          <p class="text-xs font-mono" style="color:var(--text-3)" x-text="currentTime"></p>
+        </div>
+        <button @click="loadAll()" title="Atualizar dados"
+          class="w-9 h-9 rounded-xl flex items-center justify-center transition-colors text-base"
+          style="background:var(--surface);border:1px solid var(--border);color:var(--text-2)"
+          onmouseover="this.style.background='#E4EAF2'" onmouseout="this.style.background='var(--surface)'">
+          🔄
+        </button>
+      </div>
+    </header>
+
+    <!-- STATS BAR -->
+    <div class="px-6 pt-5 pb-3 grid grid-cols-2 md:grid-cols-6 gap-3">
+      <template x-for="card in statCards" :key="card.label">
+        <div class="stat-card flex items-center gap-3 pl-6"
+          :style="`--stat-color:${card.color}`">
+          <div class="flex-1 min-w-0">
+            <p class="text-2xl font-extrabold leading-none" :style="'color:'+card.color" x-text="stats[card.key] ?? 0"></p>
+            <p class="text-xs mt-1.5 font-medium" style="color:var(--text-3)" x-text="card.label"></p>
+          </div>
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0"
+            :style="`background:color-mix(in srgb, ${card.color} 12%, white)`">
+            <span x-text="card.icon || '📊'"></span>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- TAB CONTENT AREA -->
+    <div class="flex-1 px-6 pb-8">
+
+    <!-- ── Tab: Agenda ──────────────────────────────────────── -->
+    <div x-show="activeTab==='agenda'" x-cloak class="pt-4 space-y-4">
+      <!-- Filtros -->
+      <div class="card p-4">
+        <div class="flex flex-wrap gap-3 items-end">
+          <div>
+            <label class="filter-label">Tipo</label>
+            <select x-model="filters.tipo" @change="loadAgenda()" class="inp w-32">
+              <option value="">Todos</option>
+              <option>CONSULTA</option><option>INFUSAO</option><option>MEDICACAO</option>
+            </select>
+          </div>
+          <div>
+            <label class="filter-label">Especialidade</label>
+            <input x-model="filters.especialidade" @input.debounce.500ms="loadAgenda()" placeholder="Ex: Infectologia" class="inp w-36">
+          </div>
+          <div>
+            <label class="filter-label">Data</label>
+            <input type="date" x-model="filters.data" @change="loadAgenda()" class="inp w-36">
+          </div>
+          <div>
+            <label class="filter-label">Status</label>
+            <select x-model="filters.status" @change="loadAgenda()" class="inp w-32">
+              <option value="">Todos</option>
+              <option>PENDENTE</option><option>CONFIRMADO</option><option>CANCELADO</option>
+            </select>
+          </div>
+          <button @click="loadAgenda()" class="btn-primary px-4 py-2 text-xs">🔍 Filtrar</button>
+          <div class="ml-auto flex gap-2 flex-wrap">
+            <button x-show="permissions?.canBlock" @click="abrirModalBloqueio()"
+              class="btn-danger px-3 py-2 text-xs">🚫 Bloquear</button>
+            <button x-show="permissions?.canExport" @click="exportar(false)"
+              class="btn-primary px-3 py-2 text-xs" style="background:#059669">📥 Exportar Pendentes</button>
+            <button x-show="permissions?.canExport" @click="exportar(true)"
+              class="btn-ghost px-3 py-2 text-xs">📋 Exportar Todos</button>
+          </div>
+        </div>
+      </div>
+      <!-- Tabela -->
+      <div class="card overflow-auto">
+        <table class="w-full">
+          <thead><tr class="tbl-head">
+            <th>#</th><th>Tipo</th><th>Especialidade</th><th>Médico</th>
+            <th>Data / Hora</th><th>Atend.</th><th>Convênio</th>
+            <th>Paciente</th><th>Nasc.</th><th>Telefone</th><th>Status</th><th>Ação</th>
+          </tr></thead>
+          <tbody>
+            <template x-if="agendaLoading">
+              <template x-for="i in [1,2,3,4,5]" :key="i">
+                <tr><td colspan="12" class="px-4 py-2.5"><div class="skeleton h-4 w-full"></div></td></tr>
+              </template>
+            </template>
+            <template x-if="!agendaLoading && agendamentos.length===0">
+              <tr><td colspan="12">
+                <div class="empty-state">
+                  <div class="empty-state-icon">📅</div>
+                  <p class="empty-state-title">Nenhum agendamento encontrado</p>
+                  <p class="empty-state-sub">Ajuste os filtros ou aguarde novos agendamentos via WhatsApp.</p>
+                </div>
+              </td></tr>
+            </template>
+            <template x-for="row in agendamentos" :key="row.id">
+              <tr class="tbl-row" :class="rowClass(row)">
+                <td class="font-mono text-xs" style="color:var(--text-3)" x-text="row.id"></td>
+                <td><span class="badge" :class="tipoClass(row.tipo)" x-text="row.tipo"></span></td>
+                <td class="text-xs" x-text="row.especialidade||'—'"></td>
+                <td class="text-xs font-medium" x-text="row.medico_nome||'—'"></td>
+                <td class="text-xs whitespace-nowrap" x-text="formatDate(row.slot_datetime)"></td>
+                <td><span class="badge" :class="row.tipo_atendimento==='PARTICULAR'?'badge-particular':'badge-convenio'"
+                  x-text="row.tipo_atendimento||'—'"></span></td>
+                <td class="text-xs" x-text="row.convenio_informado||'—'"></td>
+                <td class="font-semibold text-sm" x-text="row.nome"></td>
+                <td class="text-xs" x-text="row.nascimento"></td>
+                <td class="font-mono text-xs" x-text="row.telefone_contato"></td>
+                <td><span class="badge" :class="statusClass(row.status)" x-text="row.status"></span></td>
+                <td>
+                  <button x-show="permissions?.canCancel && row.status!=='CANCELADO'"
+                    @click="cancelarAgendamento(row)"
+                    class="btn-icon btn-icon-red" title="Cancelar">✕</button>
+                  <span x-show="row.status==='CANCELADO'" style="color:var(--text-3)" class="text-xs">—</span>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <!-- /Tab Agenda ─────────────────────────────────────────── -->
+
+    <!-- ── Tab: Nova Marcação ───────────────────────────────── -->
+    <div x-show="activeTab==='marcacao'" x-cloak class="pt-4">
+      <div class="card p-6 max-w-2xl mx-auto">
+        <div class="flex items-center gap-3 mb-5">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0"
+            style="background:linear-gradient(135deg,#0D9488,#0891B2);box-shadow:0 4px 12px var(--brand-glow)">📝</div>
+          <div>
+            <h2 class="text-base font-bold" style="color:var(--text-1)">Nova Marcação Manual</h2>
+            <p class="text-xs" style="color:var(--text-3)">Lembretes de 24h e 2h + pesquisa de satisfação disparam automaticamente.</p>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="md:col-span-2">
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Médico *</label>
+            <select x-model="marcacao.doctorId" @change="marcacao.slots=[];marcacao.slotISO=''" class="inp">
+              <option value="">— selecione o médico —</option>
+              <template x-for="doc in doctors" :key="doc.id">
+                <option :value="doc.id" x-text="doc.nome + ' — ' + doc.especialidade"></option>
+              </template>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Data da consulta *</label>
+            <div class="flex gap-2">
+              <input type="date" x-model="marcacao.date" class="inp flex-1">
+              <button @click="buscarSlots()" :disabled="!marcacao.doctorId||!marcacao.date||marcacao.loadingSlots"
+                class="btn-primary px-4 disabled:opacity-40">
+                <span x-show="!marcacao.loadingSlots">🔍</span>
+                <span x-show="marcacao.loadingSlots">⏳</span>
+              </button>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Horário *</label>
+            <div x-show="marcacao.slots.length===0&&!marcacao.loadingSlots" class="text-xs text-gray-300 py-2">Selecione médico e data</div>
+            <div x-show="marcacao.loadingSlots" class="text-xs text-teal-600 py-2">Buscando no Google Calendar…</div>
+            <div class="flex flex-wrap gap-2 mt-1">
+              <template x-for="slot in marcacao.slots" :key="slot.iso">
+                <button @click="marcacao.slotISO=slot.iso"
+                  :class="marcacao.slotISO===slot.iso?'btn-primary':'btn-ghost'"
+                  class="px-3 py-1 text-sm" x-text="slot.hora"></button>
+              </template>
+            </div>
+          </div>
+          <div class="md:col-span-2 border-t pt-4 mt-1" style="border-color:var(--border)">
+            <p class="text-xs font-bold uppercase tracking-widest mb-3" style="color:var(--text-3)">Dados do Paciente</p>
+          </div>
+          <div class="md:col-span-2">
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Nome completo *</label>
+            <input type="text" x-model="marcacao.nome" placeholder="Ex: Maria da Silva" class="inp">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Nascimento *</label>
+            <input type="text" x-model="marcacao.nascimento" placeholder="DD/MM/AAAA" maxlength="10" class="inp">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Telefone *</label>
+            <input type="text" x-model="marcacao.telefone" placeholder="61999999999" class="inp">
+          </div>
+          <div class="md:col-span-2">
+            <label class="block text-xs font-semibold text-gray-500 mb-1">WhatsApp <span class="font-normal text-gray-300">(opcional — para lembretes)</span></label>
+            <input type="text" x-model="marcacao.phone" placeholder="556199999999 (com DDI 55)" class="inp">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Tipo de atendimento</label>
+            <select x-model="marcacao.tipo" class="inp">
+              <option value="CONVENIO">Convênio</option>
+              <option value="PARTICULAR">Particular</option>
+            </select>
+          </div>
+          <div x-show="marcacao.tipo==='CONVENIO'">
+            <label class="block text-xs font-semibold text-gray-500 mb-1">Nome do convênio</label>
+            <input type="text" x-model="marcacao.convenio" placeholder="Ex: CAIXA SAÚDE" class="inp">
+          </div>
+        </div>
+        <div x-show="marcacao.msg" x-text="marcacao.msg"
+          class="mt-4 p-3 rounded-lg text-sm font-medium"
+          :class="marcacao.erro?'bg-red-50 text-red-700':'bg-green-50 text-green-700'"></div>
+        <button @click="salvarMarcacao()" :disabled="marcacao.loading" class="btn-primary w-full py-3 mt-5">
+          <span x-show="!marcacao.loading">✅ Confirmar Agendamento</span>
+          <span x-show="marcacao.loading">Agendando…</span>
+        </button>
+      </div>
+    </div>
+    <!-- /Tab Marcação ──────────────────────────────────────── -->
+
+    <!-- ── Tab: Textos ──────────────────────────────────────── -->
+    <div x-show="activeTab==='textos'" x-cloak class="pt-4">
+      <div class="max-w-3xl mx-auto space-y-4">
+        <div class="card p-5">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h2 class="text-base font-bold" style="color:var(--text-1)">✏️ Textos do Bot</h2>
+              <p class="text-xs mt-0.5" style="color:var(--text-3)">Alterações entram em vigor imediatamente.</p>
+            </div>
+            <div class="flex gap-2">
+              <button @click="novoTextoModal=true" class="btn-ghost px-3 py-2 text-xs">+ Novo</button>
+              <button @click="salvarTextos()" :disabled="textosSaving" class="btn-primary px-4 py-2 text-xs">
+                <span x-show="!textosSaving&&!textosSaved">💾 Salvar</span>
+                <span x-show="textosSaving">Salvando…</span>
+                <span x-show="textosSaved&&!textosSaving">✅ Salvo!</span>
+              </button>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-1.5 p-3 rounded-xl text-xs" style="background:#EFF6FF;border:1px solid #BFDBFE">
+            <span style="color:#1E40AF">💡 Variáveis disponíveis:</span>
+            <template x-for="v in ['{nome}','{medico}','{especialidade}','{data}','{hora}','{diaSemana}']" :key="v">
+              <code class="px-2 py-0.5 rounded-md font-mono" style="background:#DBEAFE;color:#1D4ED8" x-text="v"></code>
+            </template>
+          </div>
+        </div>
+        <template x-for="[chave, valor] in Object.entries(textosEditados).filter(([k])=>!k.startsWith('_'))" :key="chave">
+          <div class="card p-4">
+            <div class="flex items-center justify-between mb-2">
+              <code class="text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-500" x-text="chave"></code>
+              <span x-show="textosEditados[chave]!==textos[chave]"
+                class="text-xs text-orange-500 font-medium">● modificado</span>
+            </div>
+            <textarea x-model="textosEditados[chave]" @input="textosSaved=false" rows="4"
+              class="inp font-mono resize-y"
+              :class="textosEditados[chave]!==textos[chave]?'border-orange-300 bg-orange-50':''">
+            </textarea>
+          </div>
+        </template>
+        <div class="sticky bottom-4 flex justify-end">
+          <button @click="salvarTextos()" :disabled="textosSaving" class="btn-primary px-6 py-3 shadow-lg">
+            <span x-show="!textosSaving&&!textosSaved">💾 Salvar Todas</span>
+            <span x-show="textosSaving">Salvando…</span>
+            <span x-show="textosSaved&&!textosSaving">✅ Salvas!</span>
+          </button>
+        </div>
+      </div>
+    </div>
+    <!-- /Tab Textos ────────────────────────────────────────── -->
+
+    <!-- ── Tab: Atendimento ─────────────────────────────────── -->
+    <div x-show="activeTab==='atendimento'" x-cloak class="pt-4">
+      <div class="card overflow-auto">
+        <div class="p-4 flex items-center justify-between" style="border-bottom:1px solid var(--border)">
+          <div class="flex items-center gap-3">
+            <h2 class="font-bold" style="color:var(--text-1)">👩‍⚕️ Fila de Atendimento Humano</h2>
+            <span x-show="humanWaiting.length>0" x-cloak
+              class="nav-badge static" x-text="humanWaiting.length"></span>
+          </div>
+          <button @click="loadHumanWaiting()" class="btn-ghost px-3 py-1.5 text-xs">🔄 Atualizar</button>
+        </div>
+        <table class="w-full">
+          <thead><tr class="tbl-head">
+            <th>WhatsApp</th><th>Nome</th><th>Fluxo</th><th>Desde</th><th>Espera</th><th>Ações</th>
+          </tr></thead>
+          <tbody>
+            <template x-if="humanWaiting.length===0">
+              <tr><td colspan="6">
+                <div class="empty-state">
+                  <div class="empty-state-icon">✅</div>
+                  <p class="empty-state-title">Nenhum paciente aguardando</p>
+                </div>
+              </td></tr>
+            </template>
+            <template x-for="row in humanWaiting" :key="row.phone">
+              <tr class="tbl-row"
+                :class="row.human_transfer_at && (new Date()-new Date(row.human_transfer_at))>600000?'!bg-red-50':''">
+                <td class="font-mono text-xs" style="color:var(--text-3)" x-text="row.phone"></td>
+                <td class="font-semibold" x-text="row.nome||'—'"></td>
+                <td><span class="badge bg-purple-100 text-purple-700" x-text="row.flow||'—'"></span></td>
+                <td class="text-xs" x-text="row.human_transfer_at ? formatDate(row.human_transfer_at) : '—'"></td>
+                <td class="font-bold"
+                  :class="row.human_transfer_at && (new Date()-new Date(row.human_transfer_at))>600000?'text-red-600':''"
+                  style="color:var(--text-2)"
+                  x-text="row.human_transfer_at ? Math.floor((new Date()-new Date(row.human_transfer_at))/60000)+'min' : '—'"></td>
+                <td class="flex gap-2">
+                  <button @click="assumirAtendimento(row.phone)" class="btn-primary px-3 py-1.5 text-xs">✅ Assumir</button>
+                  <button @click="encerrarAtendimento(row.phone)" class="btn-danger px-3 py-1.5 text-xs">🔚 Encerrar</button>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <!-- /Tab Atendimento ───────────────────────────────────── -->
+
+    <!-- ── Tab: Encaixe ─────────────────────────────────────── -->
+    <div x-show="activeTab==='encaixe'" x-cloak class="pt-4">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="card p-5">
+          <h2 class="font-bold mb-4" style="color:var(--text-1)">⚡ Adicionar à Fila</h2>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 mb-1">WhatsApp *</label>
+              <input type="text" x-model="novoEncaixe.phone" placeholder="556199999999" class="inp">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 mb-1">Nome do paciente</label>
+              <input type="text" x-model="novoEncaixe.nome" placeholder="Nome completo" class="inp">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 mb-1">Especialidade</label>
+              <input type="text" x-model="novoEncaixe.especialidade" placeholder="Ex: Infectologia" class="inp">
+            </div>
+            <div x-show="novoEncaixe.msg" x-text="novoEncaixe.msg"
+              class="text-xs p-2 rounded-lg"
+              :class="novoEncaixe.erro?'bg-red-50 text-red-700':'bg-green-50 text-green-700'"></div>
+            <button @click="adicionarEncaixe()" class="btn-primary w-full py-2">Adicionar</button>
+          </div>
+        </div>
+        <div class="md:col-span-2 card overflow-auto">
+          <div class="p-4 flex items-center justify-between" style="border-bottom:1px solid var(--border)">
+            <div class="flex items-center gap-2">
+              <h2 class="font-bold" style="color:var(--text-1)">Fila de Encaixe</h2>
+              <span x-show="encaixeQueue.length>0" x-cloak
+                class="text-xs px-2 py-0.5 rounded-full font-bold bg-orange-100 text-orange-700"
+                x-text="encaixeQueue.length + ' na fila'"></span>
+            </div>
+            <button @click="loadEncaixe()" class="btn-ghost px-3 py-1.5 text-xs">🔄 Atualizar</button>
+          </div>
+          <table class="w-full">
+            <thead><tr class="tbl-head">
+              <th>#</th><th>WhatsApp</th><th>Nome</th><th>Especialidade</th><th>Adicionado</th><th></th>
+            </tr></thead>
+            <tbody>
+              <template x-if="encaixeQueue.length===0">
+                <tr><td colspan="6" class="text-center py-10 text-gray-300 text-sm">Fila vazia.</td></tr>
+              </template>
+              <template x-for="(row,idx) in encaixeQueue" :key="row.id||idx">
+                <tr class="tbl-row">
+                  <td class="font-semibold text-teal-600" x-text="(idx+1)+'º'"></td>
+                  <td class="font-mono text-xs text-gray-500" x-text="row.phone"></td>
+                  <td class="font-medium" x-text="row.nome||'—'"></td>
+                  <td x-text="row.especialidade||'—'"></td>
+                  <td x-text="formatDate(row.created_at)"></td>
+                  <td>
+                    <button @click="removerEncaixe(row.id)" class="btn-icon btn-icon-red" title="Remover da fila">✕</button>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <!-- /Tab Encaixe ───────────────────────────────────────── -->
+
+    <!-- ── Tab: Médicos ─────────────────────────────────────── -->
+    <div x-show="activeTab==='medicos'" x-cloak class="pt-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="card p-5">
+          <h2 class="font-bold mb-1" style="color:var(--text-1)">👨‍⚕️ Cadastrar Médico</h2>
+          <p class="text-xs mb-4" style="color:var(--text-3)">Google Calendar criado automaticamente.</p>
+          <div class="space-y-3">
+            <div class="grid grid-cols-2 gap-3">
+              <div class="col-span-2">
+                <label class="block text-xs font-semibold text-gray-500 mb-1">Nome completo *</label>
+                <input type="text" x-model="novoMedico.nome" placeholder="Dr. João Silva" class="inp">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-gray-500 mb-1">CRM</label>
+                <input type="text" x-model="novoMedico.crm" placeholder="DF-123456" class="inp">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-gray-500 mb-1">Especialidade *</label>
+                <input type="text" x-model="novoMedico.especialidade" placeholder="Infectologia" class="inp">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-gray-500 mb-1">E-mail</label>
+                <input type="email" x-model="novoMedico.email" placeholder="dr@clinica.com" class="inp">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-gray-500 mb-1">WhatsApp</label>
+                <input type="text" x-model="novoMedico.whatsapp" placeholder="556199999999" class="inp">
+              </div>
+            </div>
+            <div class="border-t pt-3" style="border-color:var(--border)">
+              <p class="text-xs font-bold uppercase tracking-widest mb-2" style="color:var(--text-3)">Grade de Horários</p>
+              <div class="flex flex-wrap gap-1 mb-3">
+                <template x-for="(dia,idx) in ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb']" :key="idx">
+                  <button @click="toggleDia(idx)"
+                    :class="novoMedico.diasSemana.includes(idx)?'btn-primary':'btn-ghost'"
+                    class="px-2.5 py-1 text-xs" x-text="dia"></button>
+                </template>
+              </div>
+              <div class="grid grid-cols-3 gap-2">
+                <div>
+                  <label class="block text-xs font-semibold text-gray-500 mb-1">Início</label>
+                  <input type="time" x-model="novoMedico.horarioInicio" class="inp">
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-gray-500 mb-1">Fim</label>
+                  <input type="time" x-model="novoMedico.horarioFim" class="inp">
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-gray-500 mb-1">Duração (min)</label>
+                  <input type="number" x-model.number="novoMedico.slotDurationMinutes"
+                    min="15" max="120" step="15" class="inp">
+                </div>
+              </div>
+            </div>
+            <div x-show="novoMedico.msg" x-text="novoMedico.msg"
+              class="text-xs p-2 rounded-lg"
+              :class="novoMedico.erro?'bg-red-50 text-red-700':'bg-green-50 text-green-700'"></div>
+            <button @click="salvarMedico()" :disabled="novoMedico.loading" class="btn-primary w-full py-2.5">
+              <span x-show="!novoMedico.loading">✅ Cadastrar Médico</span>
+              <span x-show="novoMedico.loading">Cadastrando…</span>
+            </button>
+          </div>
+        </div>
+        <div class="card overflow-auto">
+          <div class="p-4 flex items-center justify-between" style="border-bottom:1px solid var(--border)">
+            <h2 class="font-bold" style="color:var(--text-1)">Médicos Cadastrados</h2>
+            <button @click="loadDoctorsAll()" class="btn-ghost px-3 py-1.5 text-xs">🔄 Atualizar</button>
+          </div>
+          <table class="w-full">
+            <thead><tr class="tbl-head">
+              <th>Nome</th><th>Especialidade</th><th>CRM</th><th>Status</th><th></th>
+            </tr></thead>
+            <tbody>
+              <template x-if="doctorsAll.length===0">
+                <tr><td colspan="5" class="text-center py-10 text-gray-300 text-sm">Nenhum médico.</td></tr>
+              </template>
+              <template x-for="doc in doctorsAll" :key="doc.id">
+                <tr class="tbl-row">
+                  <td class="font-medium" x-text="doc.nome"></td>
+                  <td x-text="doc.especialidade"></td>
+                  <td class="font-mono text-xs text-gray-400" x-text="doc.crm||'—'"></td>
+                  <td><span class="badge"
+                    :class="doc.active?'badge-confirmado':'bg-gray-100 text-gray-400'"
+                    x-text="doc.active?'Ativo':'Inativo'"></span></td>
+                  <td>
+                    <button @click="toggleMedico(doc)"
+                      :class="doc.active ? 'btn-icon btn-icon-red' : 'btn-icon btn-icon-teal'"
+                      class="btn-icon"
+                      :title="doc.active ? 'Desativar' : 'Ativar'"
+                      x-text="doc.active ? '✕' : '✓'"></button>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <!-- /Tab Médicos ───────────────────────────────────────── -->
+
+    <!-- ── Tab: Usuários ────────────────────────────────────── -->
+    <div x-show="activeTab==='usuarios'" x-cloak class="pt-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="card p-5">
+          <h2 class="font-bold mb-4" style="color:var(--text-1)">👤 Criar Usuário</h2>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 mb-1">Nome completo *</label>
+              <input type="text" x-model="novoUsuario.name" placeholder="Maria Secretaria" class="inp">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 mb-1">Login *</label>
+              <input type="text" x-model="novoUsuario.username" placeholder="maria.secretaria" class="inp">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 mb-1">Função *</label>
+              <select x-model="novoUsuario.role" class="inp">
+                <option value="">— selecione —</option>
+                <option value="admin">Admin</option>
+                <option value="secretaria">Secretaria</option>
+                <option value="faturamento">Faturamento</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 mb-1">Senha inicial *</label>
+              <input type="password" x-model="novoUsuario.password" placeholder="mín. 6 caracteres" class="inp">
+              <p class="text-xs text-gray-300 mt-1">Usuário trocará no primeiro acesso.</p>
+            </div>
+            <div x-show="novoUsuario.msg" x-text="novoUsuario.msg"
+              class="text-xs p-2 rounded-lg"
+              :class="novoUsuario.erro?'bg-red-50 text-red-700':'bg-green-50 text-green-700'"></div>
+            <button @click="criarUsuario()" :disabled="novoUsuario.loading" class="btn-primary w-full py-2.5">
+              <span x-show="!novoUsuario.loading">✅ Criar Usuário</span>
+              <span x-show="novoUsuario.loading">Criando…</span>
+            </button>
+          </div>
+        </div>
+        <div class="card overflow-auto">
+          <div class="p-4 flex items-center justify-between" style="border-bottom:1px solid var(--border)">
+            <h2 class="font-bold" style="color:var(--text-1)">Usuários do Sistema</h2>
+            <button @click="loadUsuarios()" class="btn-ghost px-3 py-1.5 text-xs">🔄 Atualizar</button>
+          </div>
+          <table class="w-full">
+            <thead><tr class="tbl-head">
+              <th>Nome</th><th>Login</th><th>Função</th><th>Status</th><th>Ações</th>
+            </tr></thead>
+            <tbody>
+              <template x-if="usuarios.length===0">
+                <tr><td colspan="5" class="text-center py-10 text-gray-300 text-sm">Nenhum usuário.</td></tr>
+              </template>
+              <template x-for="usr in usuarios" :key="usr.id">
+                <tr class="tbl-row">
+                  <td class="font-medium" x-text="usr.name"></td>
+                  <td class="font-mono text-xs text-gray-400" x-text="usr.username"></td>
+                  <td><span class="badge"
+                    :class="{'bg-red-100 text-red-700':usr.role==='admin','bg-blue-100 text-blue-700':usr.role==='secretaria','bg-green-100 text-green-700':usr.role==='faturamento'}"
+                    x-text="{'admin':'Admin','secretaria':'Secretaria','faturamento':'Faturamento'}[usr.role]||usr.role">
+                  </span></td>
+                  <td><span class="badge"
+                    :class="usr.active?'badge-confirmado':'bg-gray-100 text-gray-400'"
+                    x-text="usr.active?'Ativo':'Inativo'"></span></td>
+                  <td class="flex gap-1.5">
+                    <button @click="toggleUsuario(usr)"
+                      :class="usr.active ? 'btn-icon btn-icon-red' : 'btn-icon btn-icon-teal'"
+                      class="btn-icon"
+                      :title="usr.active ? 'Bloquear' : 'Ativar'"
+                      x-text="usr.active ? '✕' : '✓'"></button>
+                    <button @click="resetarSenha(usr)"
+                      class="btn-icon btn-icon-blue" title="Redefinir senha">🔑</button>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <!-- /Tab Usuários ──────────────────────────────────────── -->
+
+    <!-- Tab Exames ───────────────────────────────────────────── -->
+    <div x-show="activeTab==='exames'" x-cloak class="space-y-4 pt-4">
+      <div class="card overflow-auto">
+        <div class="p-4 flex items-center justify-between" style="border-bottom:1px solid var(--border)">
+          <h2 class="font-bold" style="color:var(--text-1)">🩺 Exames Enviados para Análise</h2>
+          <button @click="loadExames()" class="btn-ghost px-3 py-1.5 text-xs">🔄 Atualizar</button>
+        </div>
+        <table class="w-full">
+          <thead><tr class="tbl-head">
+            <th>#</th><th>Paciente</th><th>Médico</th><th>Tipo</th><th>Arquivo</th><th>Data</th>
+          </tr></thead>
+          <tbody>
+            <template x-if="exames.length===0">
+              <tr><td colspan="6" class="text-center py-10 text-gray-300 text-sm">Nenhum exame enviado ainda.</td></tr>
+            </template>
+            <template x-for="e in exames" :key="e.id">
+              <tr class="tbl-row">
+                <td class="text-xs text-gray-400" x-text="e.id"></td>
+                <td class="font-medium" x-text="e.nome||'—'"></td>
+                <td x-text="e.medico_nome||'—'"></td>
+                <td>
+                  <span class="badge bg-blue-100 text-blue-700 text-xs"
+                    x-text="{'imageMessage':'Imagem','documentMessage':'PDF','documentWithCaptionMessage':'PDF+Legenda'}[e.media_type]||e.media_type||'—'">
+                  </span>
+                </td>
+                <td>
+                  <a x-show="e.file_path"
+                    :href="'/api/exames/'+e.id+'/download'"
+                    class="text-xs text-teal-600 underline font-medium"
+                    target="_blank">⬇ Baixar</a>
+                  <span x-show="!e.file_path" class="text-xs text-gray-300">Sem arquivo</span>
+                </td>
+                <td class="text-xs text-gray-400" x-text="formatDate(e.created_at)"></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <!-- /Tab Exames ──────────────────────────────────────────── -->
+
+    <!-- Tab WhatsApp ─────────────────────────────────────────── -->
+    <div x-show="activeTab==='whatsapp'" x-cloak class="space-y-5 pt-4">
+      <div class="card p-6">
+        <h2 class="font-bold mb-5" style="color:var(--text-1)">📱 Conexão WhatsApp</h2>
+        <div class="flex items-center gap-4 mb-5 p-4 rounded-xl" style="background:var(--bg);border:1px solid var(--border)">
+          <span class="w-3 h-3 rounded-full flex-shrink-0" role="status"
+            :class="{'bg-green-400':waStatus==='open','bg-yellow-400':waStatus==='connecting','bg-red-400':!waStatus||waStatus==='close'}"
+          ></span>
+          <span class="font-semibold text-sm flex-1" style="color:var(--text-1)"
+            x-text="{'open':'● Conectado','connecting':'Conectando…','close':'Desconectado'}[waStatus]||'Verificando…'"
+          ></span>
+          <button @click="loadWAStatus()" class="btn-ghost px-3 py-1.5 text-xs">🔄 Verificar</button>
+        </div>
+        <!-- QR Code -->
+        <div x-show="waStatus!=='open'" class="text-center">
+          <p class="text-sm text-gray-500 mb-3">Escaneie o QR Code com o WhatsApp do celular:</p>
+          <div x-show="qrCode" class="inline-block border-4 border-[#2D8C8C] rounded-xl p-2 bg-white shadow-lg">
+            <img :src="qrCode.startsWith('data:') ? qrCode : 'data:image/png;base64,'+qrCode" alt="QR Code" class="rounded-lg w-56 h-56" />
+          </div>
+          <div x-show="!qrCode" class="w-56 h-56 mx-auto flex items-center justify-center bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
+            <span class="text-gray-300 text-sm">Aguardando QR…</span>
+          </div>
+          <p class="text-xs text-gray-400 mt-2">Atualiza automaticamente a cada 25 segundos</p>
+          <button @click="loadQR()" class="btn-primary mt-3 text-sm px-5 py-2">🔄 Gerar novo QR</button>
+        </div>
+        <div x-show="waStatus==='open'" class="text-center py-6">
+          <div class="text-5xl mb-3">✅</div>
+          <p class="text-green-600 font-bold text-lg">WhatsApp conectado!</p>
+          <p class="text-sm text-gray-400 mt-1">O bot está ativo e recebendo mensagens.</p>
+          <div class="flex justify-center gap-3 mt-4">
+            <button @click="reiniciarWhatsApp()" class="btn-ghost px-4 py-2 text-sm">🔁 Reiniciar</button>
+            <button @click="desconectarWhatsApp()" class="btn-danger px-4 py-2 text-sm">🔌 Desconectar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- /Tab WhatsApp ────────────────────────────────────────── -->
+
+    <!-- Tab Medicações ───────────────────────────────────────── -->
+    <div x-show="activeTab==='medicacoes'" x-cloak class="space-y-4 pt-4">
+      <div class="card overflow-auto">
+        <div class="p-4 flex items-center justify-between" style="border-bottom:1px solid var(--border)">
+          <h2 class="font-bold" style="color:var(--text-1)">💊 Solicitações de Medicação</h2>
+          <button @click="loadMedicacoes()" class="btn-ghost px-3 py-1.5 text-xs">🔄 Atualizar</button>
+        </div>
+        <table class="w-full">
+          <thead><tr class="tbl-head">
+            <th>Nome</th><th>Telefone</th><th>Nascimento</th><th>Convênio</th><th>Observação</th><th>Status</th><th>Data</th>
+          </tr></thead>
+          <tbody>
+            <template x-if="medicacoes.length===0">
+              <tr><td colspan="7" class="text-center py-10 text-gray-300 text-sm">Nenhuma solicitação.</td></tr>
+            </template>
+            <template x-for="m in medicacoes" :key="m.id">
+              <tr class="tbl-row">
+                <td class="font-medium" x-text="m.nome||'—'"></td>
+                <td class="font-mono text-xs" x-text="m.telefone_contato||m.phone"></td>
+                <td x-text="m.nascimento||'—'"></td>
+                <td x-text="m.convenio_informado||'—'"></td>
+                <td class="max-w-xs truncate text-xs text-gray-500" x-text="m.observacao||'—'"></td>
+                <td><span class="badge" :class="m.status==='PENDENTE'?'badge-pendente':'badge-confirmado'" x-text="m.status"></span></td>
+                <td class="text-xs text-gray-400" x-text="formatDate(m.created_at)"></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <!-- /Tab Medicações ──────────────────────────────────────── -->
+
+    <!-- Tab Conhecimento ─────────────────────────────────────── -->
+    <div x-show="activeTab==='conhecimento'" x-cloak class="space-y-4 pt-4">
+      <div class="grid grid-cols-2 gap-4">
+        <div class="stat-card pl-6" style="--stat-color:#0D9488">
+          <p class="text-2xl font-extrabold" style="color:#0D9488" x-text="conhecimentoStats.perguntasHoje ?? 0"></p>
+          <p class="text-xs mt-1.5 font-medium" style="color:var(--text-3)">Perguntas hoje</p>
+        </div>
+        <div class="stat-card pl-6" :style="(conhecimentoStats.taxaResolucao||0)>=70?'--stat-color:#10B981':'--stat-color:#F59E0B'">
+          <p class="text-2xl font-extrabold"
+            :style="(conhecimentoStats.taxaResolucao||0)>=70?'color:#10B981':'color:#F59E0B'"
+            x-text="(conhecimentoStats.taxaResolucao??0)+'%'"></p>
+          <p class="text-xs mt-1.5 font-medium" style="color:var(--text-3)">Taxa de resolução IA</p>
+        </div>
+      </div>
+      <div class="card p-5">
+        <h2 class="font-bold mb-4" style="color:var(--text-1)">📚 Base de Conhecimento</h2>
+        <div class="flex gap-2 mb-4">
+          <input x-model="novoConhecimento.filename" class="inp flex-1" placeholder="Nome / título">
+          <select x-model="novoConhecimento.category" class="inp w-40">
+            <option value="">Categoria…</option>
+            <option>autorizacao</option><option>convenio</option><option>geral</option>
+          </select>
+        </div>
+        <textarea x-model="novoConhecimento.content" class="inp w-full h-32 mb-3 font-mono text-xs" placeholder="Conteúdo do documento…"></textarea>
+        <button @click="salvarConhecimento()" class="btn-primary text-sm px-5 py-2">💾 Salvar</button>
+      </div>
+      <div class="card overflow-auto">
+        <div class="p-4 flex items-center justify-between" style="border-bottom:1px solid var(--border)">
+          <span class="font-bold" style="color:var(--text-1)">Documentos ativos</span>
+          <button @click="loadConhecimento()" class="btn-ghost px-3 py-1.5 text-xs">🔄 Atualizar</button>
+        </div>
+        <table class="w-full">
+          <thead><tr class="tbl-head"><th>Título</th><th>Categoria</th><th>Criado em</th><th></th></tr></thead>
+          <tbody>
+            <template x-if="conhecimentos.length===0">
+              <tr><td colspan="4" class="text-center py-10 text-gray-300 text-sm">Nenhum documento.</td></tr>
+            </template>
+            <template x-for="k in conhecimentos" :key="k.id">
+              <tr class="tbl-row">
+                <td class="font-medium text-sm" x-text="k.filename"></td>
+                <td><span class="badge bg-purple-100 text-purple-700" x-text="k.category||'geral'"></span></td>
+                <td class="text-xs text-gray-400" x-text="formatDate(k.created_at)"></td>
+                <td><button @click="removerConhecimento(k.id)" class="btn-icon btn-icon-red" title="Remover">✕</button></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <!-- /Tab Conhecimento ────────────────────────────────────── -->
+
+    <!-- Tab Satisfação ───────────────────────────────────────── -->
+    <div x-show="activeTab==='satisfacao'" x-cloak class="space-y-4 pt-4">
+      <!-- KPIs -->
+      <div class="grid grid-cols-3 gap-4">
+        <div class="stat-card pl-6" style="--stat-color:#0D9488">
+          <p class="text-3xl font-extrabold" style="color:#0D9488" x-text="mediaNotas||'—'"></p>
+          <p class="text-xs mt-1.5 font-medium" style="color:var(--text-3)">Nota média</p>
+        </div>
+        <div class="stat-card pl-6" style="--stat-color:#3B82F6">
+          <p class="text-3xl font-extrabold" style="color:#3B82F6" x-text="satisfacoes.length"></p>
+          <p class="text-xs mt-1.5 font-medium" style="color:var(--text-3)">Avaliações totais</p>
+        </div>
+        <div class="stat-card pl-6" style="--stat-color:#10B981">
+          <p class="text-3xl font-extrabold" style="color:#10B981"
+            x-text="satisfacoes.length ? Math.round(satisfacoes.filter(s=>s.nota>=4).length/satisfacoes.length*100)+'%' : '—'"></p>
+          <p class="text-xs mt-1.5 font-medium" style="color:var(--text-3)">Satisfação ≥ 4</p>
+        </div>
+      </div>
+      <!-- Distribuição visual de notas -->
+      <div class="card p-5">
+        <h3 class="font-bold mb-4 text-sm" style="color:var(--text-1)">📊 Distribuição de Notas</h3>
+        <div class="space-y-3">
+          <template x-for="r in ratingDistribution" :key="r.nota">
+            <div class="flex items-center gap-3">
+              <span class="text-sm font-bold w-12 shrink-0" :style="`color:${r.color}`"
+                x-text="'★ ' + r.nota"></span>
+              <div class="rating-bar-track">
+                <div class="rating-bar-fill" :style="`width:${r.pct}%;background:${r.color}`"></div>
+              </div>
+              <span class="text-xs text-gray-400 w-8 text-right shrink-0" x-text="r.count"></span>
+              <span class="text-xs text-gray-300 w-8 text-right shrink-0"
+                x-text="r.pct > 0 ? r.pct+'%' : ''"></span>
+            </div>
+          </template>
+          <template x-if="satisfacoes.length === 0">
+            <div class="text-center py-4 text-gray-300 text-sm">Nenhuma avaliação ainda.</div>
+          </template>
+        </div>
+      </div>
+      <div class="card overflow-auto">
+        <div class="p-4 flex items-center justify-between" style="border-bottom:1px solid var(--border)">
+          <h2 class="font-bold" style="color:var(--text-1)">⭐ Pesquisas de Satisfação</h2>
+          <button @click="loadSatisfacao()" class="btn-ghost px-3 py-1.5 text-xs">🔄 Atualizar</button>
+        </div>
+        <table class="w-full">
+          <thead><tr class="tbl-head"><th>Telefone</th><th>Médico</th><th>Especialidade</th><th>Nota</th><th>Comentário</th><th>Data</th></tr></thead>
+          <tbody>
+            <template x-if="satisfacoes.length===0">
+              <tr><td colspan="6">
+                <div class="empty-state">
+                  <div class="empty-state-icon">⭐</div>
+                  <p class="empty-state-title">Nenhuma avaliação recebida</p>
+                  <p class="empty-state-sub">As pesquisas são enviadas automaticamente após cada consulta.</p>
+                </div>
+              </td></tr>
+            </template>
+            <template x-for="s in satisfacoes" :key="s.id">
+              <tr class="tbl-row">
+                <td class="font-mono text-xs" x-text="s.phone"></td>
+                <td x-text="s.medico_nome||'—'"></td>
+                <td x-text="s.especialidade||'—'"></td>
+                <td>
+                  <span class="font-bold" :class="s.nota>=4?'text-green-500':s.nota>=3?'text-yellow-500':'text-red-500'" x-text="'★ '+s.nota"></span>
+                </td>
+                <td class="max-w-xs truncate text-xs text-gray-500" x-text="s.comentario||'—'"></td>
+                <td class="text-xs text-gray-400" x-text="formatDate(s.created_at)"></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <!-- /Tab Satisfação ──────────────────────────────────────── -->
+
+    <!-- Tab Conversas ────────────────────────────────────────── -->
+    <div x-show="activeTab==='conversas'" x-cloak class="space-y-4 pt-4">
+      <div x-show="!conversaAberta" class="card overflow-auto">
+        <div class="p-4 flex items-center justify-between" style="border-bottom:1px solid var(--border)">
+          <h2 class="font-bold" style="color:var(--text-1)">💬 Monitor de Conversas</h2>
+          <button @click="loadConversas()" class="btn-ghost px-3 py-1.5 text-xs">🔄 Atualizar</button>
+        </div>
+        <table class="w-full">
+          <thead><tr class="tbl-head"><th>Telefone</th><th>Nome</th><th>Última mensagem</th><th>Fluxo</th><th>Msgs</th><th>Quando</th><th></th></tr></thead>
+          <tbody>
+            <template x-if="conversas.length===0">
+              <tr><td colspan="7" class="text-center py-10 text-gray-300 text-sm">Nenhuma conversa.</td></tr>
+            </template>
+            <template x-for="c in conversas" :key="c.phone">
+              <tr class="tbl-row cursor-pointer hover:bg-[#F0F9F9]" @click="abrirConversa(c)">
+                <td class="font-mono text-xs text-gray-500" x-text="c.phone"></td>
+                <td class="font-medium" x-text="c.nome||'—'"></td>
+                <td class="max-w-xs truncate text-sm"
+                  :class="c.last_direction==='IN'?'text-gray-700':'text-teal-600'"
+                  x-text="(c.last_direction==='IN'?'':'▶ ')+c.last_message">
+                </td>
+                <td><span class="badge bg-purple-100 text-purple-700 text-xs" x-text="c.current_flow||c.last_flow||'—'"></span></td>
+                <td class="text-center text-xs font-bold text-slate-800" x-text="c.message_count"></td>
+                <td class="text-xs text-gray-400" x-text="formatDate(c.last_timestamp)"></td>
+                <td><button class="btn-icon btn-icon-teal" title="Ver conversa">→</button></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+      <!-- Chat detail view -->
+      <div x-show="conversaAberta" class="card flex flex-col" style="height:72vh">
+        <div class="p-4 flex items-center gap-3" style="border-bottom:1px solid var(--border)">
+          <button @click="conversaAberta=null" class="btn-ghost px-3 py-1.5 text-xs">← Voltar</button>
+          <div>
+            <p class="font-bold text-slate-800" x-text="conversaAberta?.nome||conversaAberta?.phone"></p>
+            <p class="text-xs text-gray-400 font-mono" x-text="conversaAberta?.phone"></p>
+          </div>
+          <span class="ml-auto badge bg-purple-100 text-purple-700" x-text="conversaAberta?.current_flow||'—'"></span>
+        </div>
+        <div class="flex-1 overflow-y-auto p-4 space-y-2" id="chatScroll">
+          <template x-for="m in mensagensAbertas" :key="m.id">
+            <div class="flex" :class="m.direction==='OUT'?'justify-end':'justify-start'">
+              <div class="max-w-xs px-3 py-2 text-sm shadow-sm"
+                :class="m.direction==='OUT' ? 'bubble-out' : 'bubble-in'">
+                <p x-text="m.text"></p>
+                <p class="text-xs mt-1 opacity-60" x-text="new Date(m.timestamp).toLocaleTimeString('pt-BR')"></p>
+              </div>
+            </div>
+          </template>
+        </div>
+        <!-- Campo de resposta -->
+        <div class="border-t border-gray-100 p-3">
+          <p class="text-xs text-amber-500 mb-2">⚠️ Ao enviar, a sessão do paciente será assumida como atendimento humano (bot silenciado).</p>
+          <div class="flex gap-2">
+            <input
+              x-model="replyText"
+              @keydown.enter.prevent="sendReply()"
+              class="inp flex-1 text-sm"
+              placeholder="Digite sua resposta…"
+              :disabled="replySending"
+            >
+            <button
+              @click="sendReply()"
+              :disabled="replySending || !replyText.trim()"
+              class="btn-primary px-4 py-2 text-sm disabled:opacity-40"
+              x-text="replySending ? 'Enviando…' : 'Enviar'"
+            ></button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- /Tab Conversas ───────────────────────────────────────── -->
+
+  </main>
+  <!-- /MAIN CONTENT -->
+
+  <!-- ══ Modal: Novo Texto ══════════════════════════════════ -->
+  <div x-show="novoTextoModal" x-cloak
+    class="fixed inset-0 z-50 flex items-center justify-center modal-bg">
+    <div class="card p-6 w-full max-w-lg mx-4" @click.stop style="box-shadow:0 24px 60px rgba(0,0,0,.2)">
+      <h3 class="font-bold mb-4" style="color:var(--text-1)">➕ Novo Texto</h3>
+      <div class="space-y-3">
+        <div>
+          <label class="text-xs font-medium text-gray-600 mb-1 block">Chave (ex: boas_vindas)</label>
+          <input x-model="novoTexto.nome" class="inp" placeholder="nome_da_chave" />
+        </div>
+        <div>
+          <label class="text-xs font-medium text-gray-600 mb-1 block">Conteúdo</label>
+          <textarea x-model="novoTexto.conteudo" class="inp font-mono resize-y" rows="5"
+            placeholder="Texto da mensagem... use {nome}, {medico}, etc."></textarea>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 mt-5">
+        <button @click="novoTextoModal=false; novoTexto={nome:'',conteudo:''}"
+          class="btn-ghost px-4 py-2 text-sm">Cancelar</button>
+        <button @click="adicionarTexto()" class="btn-primary px-4 py-2 text-sm">Salvar</button>
+      </div>
+    </div>
+  </div>
+  <!-- /Modal Novo Texto ════════════════════════════════════ -->
+
+  <!-- ══ Modal: Reset de Senha ══════════════════════════════ -->
+  <div x-show="resetSenhaModal" x-cloak
+    class="fixed inset-0 z-50 flex items-center justify-center modal-bg">
+    <div class="card p-6 w-full max-w-sm mx-4" @click.stop style="box-shadow:0 24px 60px rgba(0,0,0,.2)">
+      <h3 class="font-bold mb-1" style="color:var(--text-1)">🔑 Redefinir Senha</h3>
+      <p class="text-xs mb-4" style="color:var(--text-3)"
+        x-text="resetSenhaTarget ? 'Usuário: '+resetSenhaTarget.name : ''"></p>
+      <div>
+        <label class="text-xs font-medium text-gray-600 mb-1 block">Nova senha (mín. 6 caracteres)</label>
+        <input type="password" x-model="resetSenhaPwd" class="inp"
+          placeholder="••••••••"
+          @keydown.enter="confirmarResetSenha()" />
+      </div>
+      <div class="flex justify-end gap-2 mt-5">
+        <button @click="resetSenhaModal=false; resetSenhaPwd=''"
+          class="btn-ghost px-4 py-2 text-sm">Cancelar</button>
+        <button @click="confirmarResetSenha()" class="btn-primary px-4 py-2 text-sm">Redefinir</button>
+      </div>
+    </div>
+  </div>
+  <!-- /Modal Reset Senha ═══════════════════════════════════ -->
+
+</div>
+<!-- /PAINEL PRINCIPAL ══════════════════════════════════════ -->
+
+<script>
+function painel() {
+  return {
+    // Auth
+    autenticado: false, showChangePwd: false,
+    loginUser: '', loginPass: '', loginErr: '', loginLoading: false,
+    token: localStorage.getItem('token') || '',
+    user: JSON.parse(localStorage.getItem('user') || 'null'),
+    newPwd: '', newPwd2: '', currentPwd: '', changePwdErr: '',
+
+    // Auth compat objects (usados pelo HTML)
+    login: { username:'', password:'', erro:'', loading: false },
+    changePwd: { current:'', new1:'', new2:'', erro:'', ok: false, loading: false },
+
+    // Navigation
+    tab: 'agenda',
+    sidebarOpen: false,
+    get activeTab() { return this.tab },
+    set activeTab(v) { this.tab = v; this.sidebarOpen = false },
+    tabs: [
+      { id:'agenda',        icon:'📅', label:'Agenda' },
+      { id:'marcacao',      icon:'➕', label:'Marcação Manual' },
+      { id:'textos',        icon:'✍️',  label:'Textos & Fluxos' },
+      { id:'atendimento',   icon:'🩺', label:'Atendimento' },
+      { id:'encaixe',       icon:'⚡', label:'Encaixe' },
+      { id:'medicos',       icon:'👨‍⚕️', label:'Médicos' },
+      { id:'usuarios',      icon:'👥', label:'Usuários' },
+      { id:'exames',        icon:'🩺', label:'Exames' },
+      { id:'whatsapp',      icon:'📱', label:'WhatsApp' },
+      { id:'medicacoes',    icon:'💊', label:'Medicações' },
+      { id:'conhecimento',  icon:'📚', label:'Conhecimento' },
+      { id:'satisfacao',    icon:'⭐', label:'Satisfação' },
+      { id:'conversas',     icon:'💬', label:'Conversas' },
+    ],
+
+    // Agenda
+    agendamentos: [], agFilter: { status:'', tipo:'', especialidade:'', data:'' },
+    bloqModal: false, bloqData: '', bloqMedico: '', bloqObs: '',
+    get modalBloqueio() { return this.bloqModal },
+    set modalBloqueio(v) { this.bloqModal = v },
+    bloqueio: { doctorId:'', inicio:'', fim:'', motivo:'', msg:'', erro: false, loading: false },
+    doctors: [],
+
+    // Agenda filters compat (HTML usa filters.*, JS usa agFilter.*)
+    get filters() { return this.agFilter },
+    set filters(v) { this.agFilter = v },
+
+    // Stats cards definition
+    statCards: [
+      { key:'agenda',    label:'Pendentes',  color:'#F59E0B', icon:'⏳' },
+      { key:'hoje',      label:'Hoje',       color:'#10B981', icon:'📅' },
+      { key:'humano',    label:'Humano',     color:'#EF4444', icon:'🙋' },
+      { key:'encaixe',   label:'Encaixe',    color:'#8B5CF6', icon:'🔄' },
+      { key:'conversas', label:'Conversas',  color:'#0D9488', icon:'💬' },
+      { key:'consultas', label:'Consultas',  color:'#3B82F6', icon:'🩺' },
+    ],
+
+    // Clock compat
+    get currentDate() {
+      return new Date().toLocaleDateString('pt-BR', { weekday:'long', year:'numeric', month:'long', day:'numeric' })
+    },
+    get currentTime() { return this.clockStr },
+
+    // humanWaiting compat (HTML usa humanWaiting, JS usa sessoesHumanas)
+    get humanWaiting() { return this.sessoesHumanas },
+
+    // currentUser compat
+    get currentUser() { return this.user },
+
+    // Permissions baseadas em role
+    get permissions() {
+      const r = this.user?.role
+      const allTabs = ['agenda','marcacao','textos','atendimento','encaixe','medicos','usuarios','exames','whatsapp','medicacoes','conhecimento','satisfacao','conversas']
+      return {
+        tabs: r==='admin' ? allTabs :
+              r==='secretaria' ? ['agenda','marcacao','atendimento','encaixe','conversas','satisfacao'] :
+              r ? ['agenda','conversas'] : [],
+        canBlock:  r==='admin' || r==='secretaria',
+        canExport: r==='admin' || r==='secretaria',
+        canCancel: r==='admin' || r==='secretaria',
+      }
+    },
+
+    // Marcação manual
+    marcacaoForm: { especialidade:'', medico_id:'', slot_datetime:'', tipo_atendimento:'', convenio_informado:'', nome:'', nascimento:'', telefone_contato:'' },
+    marcacao: { doctorId:'', slots:[], slotISO:'', date:'', loadingSlots:false, nome:'', nascimento:'', telefone:'', phone:'', tipo:'CONVENIO', convenio:'', msg:'', erro:false, loading:false },
+    medicosLista: [],
+
+    // Textos
+    textos: {}, textosEditados: {}, textosSaving: false, textosSaved: false,
+    novoTextoModal: false,
+    novoTexto: { nome:'', conteudo:'' },
+
+    // Atendimento (sessões humanas)
+    sessoesHumanas: [], humanBadge: 0,
+
+    // Encaixe
+    encaixeQueue: [],
+    novoEncaixe: { phone:'', nome:'', especialidade:'', msg:'', erro:false },
+
+    // Médicos
+    medicos: [],
+    get doctorsAll() { return this.medicos },
+    novoMedico: { nome:'', crm:'', especialidade:'', email:'', whatsapp:'', diasSemana:[], horarioInicio:'08:00', horarioFim:'18:00', slotDurationMinutes:30, msg:'', erro:false, loading:false },
+
+    // Usuários
+    usuarios: [], novoUsuario: { username:'', name:'', role:'secretaria', password:'', msg:'', erro:false, loading:false },
+    resetSenhaModal: false, resetSenhaTarget: null, resetSenhaPwd: '',
+
+    // Exames
+    exames: [],
+
+    // WhatsApp
+    waStatus: null, qrCode: '', qrTimer: null, sseSource: null, sseRetryTimer: null,
+
+    // Medicações
+    medicacoes: [],
+
+    // Conhecimento
+    conhecimentos: [], novoConhecimento: { filename:'', category:'', content:'' },
+
+    // Satisfação
+    satisfacoes: [], mediaNotas: null,
+    toasts: [], _toastSeq: 0,
+    agendaLoading: false,
+
+    // Conversas
+    conversas: [], conversaAberta: null, mensagensAbertas: [],
+    replyText: '', replySending: false,
+
+    // Stats
+    stats: { agenda: 0, humano: 0, encaixe: 0, conversas: 0, hoje: 0, consultas: 0, infusoes: 0 },
+    conhecimentoStats: { perguntasHoje: 0, taxaResolucao: 0 },
+    satisfacaoStats: { excelente: 0, bom: 0, regular: 0, ruim: 0 },
+
+    get ratingDistribution() {
+      const total = this.satisfacoes.length
+      const counts = [5,4,3,2,1].map(nota => ({
+        nota,
+        count: this.satisfacoes.filter(s => s.nota === nota).length,
+        color: nota===5?'#10B981':nota===4?'#3B82F6':nota===3?'#F59E0B':nota===2?'#F97316':'#EF4444'
+      }))
+      return counts.map(r => ({ ...r, pct: total > 0 ? Math.round(r.count/total*100) : 0 }))
+    },
+
+    // Clock
+    clockStr: '',
+
+    init() {
+      if (this.token) this.autenticado = true
+      this.tickClock()
+      setInterval(() => this.tickClock(), 1000)
+      if (this.autenticado) {
+        this.loadAll()
+        this._startSSE()
+      }
+    },
+
+    _startSSE() {
+      if (this.sseSource) return
+      const src = new EventSource('/api/events?token=' + encodeURIComponent(this.token))
+      src.addEventListener('session_update', () => this.loadSessoesHumanas())
+      src.addEventListener('encaixe_update', () => this.loadEncaixe())
+      src.onerror = () => {
+        src.close(); this.sseSource = null
+        if (!this.sseRetryTimer) {
+          this.sseRetryTimer = setTimeout(() => { this.sseRetryTimer = null; this._startSSE() }, 15000)
+        }
+      }
+      this.sseSource = src
+    },
+
+    _stopSSE() {
+      if (this.sseSource) { this.sseSource.close(); this.sseSource = null }
+      clearTimeout(this.sseRetryTimer); this.sseRetryTimer = null
+    },
+
+    tickClock() {
+      this.clockStr = new Date().toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit', second:'2-digit' })
+    },
+
+    api(path, opts = {}) {
+      return fetch('/api' + path, {
+        ...opts,
+        headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+this.token, ...(opts.headers||{}) }
+      }).then(async r => {
+        if (r.status === 401) { this.logout(); throw new Error('Não autorizado') }
+        const j = await r.json()
+        if (!r.ok) throw new Error(j.error || r.statusText)
+        return j
+      })
+    },
+
+    async _doLogin() {
+      this.loginErr = ''; this.loginLoading = true
+      try {
+        const d = await fetch('/api/auth/login', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ username: this.loginUser, password: this.loginPass })
+        }).then(r => r.json())
+        if (!d.token) throw new Error(d.error || 'Credenciais inválidas')
+        this.token = d.token; this.user = d.user
+        localStorage.setItem('token', d.token)
+        localStorage.setItem('user', JSON.stringify(d.user))
+        this.autenticado = true
+        if (d.user?.first_login) { this.showChangePwd = true; return }
+        this.loadAll()
+        this._startSSE()
+      } catch (e) { this.loginErr = e.message }
+      finally { this.loginLoading = false }
+    },
+
+    async logout() {
+      try {
+        if (this.token) await this.api('/auth/logout', { method: 'POST' })
+      } catch { /* ignora erro de rede — token já pode ter expirado */ }
+      finally {
+        this.token = ''; this.user = null; this.autenticado = false
+        localStorage.removeItem('token'); localStorage.removeItem('user')
+        clearInterval(this.qrTimer)
+        this._stopSSE()
+      }
+    },
+
+    async salvarNovaSenha() {
+      this.changePwdErr = ''
+      if (!this.currentPwd) { this.changePwdErr = 'Informe a senha atual'; return }
+      if (this.newPwd !== this.newPwd2) { this.changePwdErr = 'Senhas não conferem'; return }
+      if (this.newPwd.length < 6) { this.changePwdErr = 'Mínimo 6 caracteres'; return }
+      try {
+        await this.api('/auth/change-password', { method:'POST', body: JSON.stringify({ currentPassword: this.currentPwd, newPassword: this.newPwd }) })
+        this.showChangePwd = false; this.newPwd = ''; this.newPwd2 = ''; this.currentPwd = ''
+        this.loadAll()
+        this._startSSE()
+      } catch (e) { this.changePwdErr = e.message }
+    },
+
+    loadAll() {
+      // Carga inicial: dados essenciais para todas as tabs visíveis
+      Promise.all([
+        this.loadAgenda(), this.loadTextos(), this.loadSessoesHumanas(),
+        this.loadEncaixe(), this.loadWAStatus(), this.loadStats()
+      ]).catch(e => console.error('loadAll error:', e))
+      // Dados secundários: carregados em background sem bloquear
+      Promise.all([
+        this.loadMedicos(), this.loadUsuarios(), this.loadMedicacoes(),
+        this.loadConhecimento(), this.loadSatisfacao(),
+        this.loadConversas(), this.loadExames()
+      ]).catch(e => console.error('loadAll secondary error:', e))
+    },
+
+    async loadStats() {
+      try {
+        const d = await this.api('/stats')
+        this.stats.hoje     = d.hoje     ?? 0
+        this.stats.consultas = d.consultas ?? 0
+        this.stats.infusoes  = d.infusoes  ?? 0
+      } catch (e) { console.error(e) }
+    },
+
+    // Agenda
+    async loadAgenda() {
+      this.agendaLoading = true
+      try {
+        const p = new URLSearchParams()
+        if (this.agFilter.status) p.set('status', this.agFilter.status)
+        if (this.agFilter.tipo) p.set('tipo', this.agFilter.tipo)
+        if (this.agFilter.especialidade) p.set('especialidade', this.agFilter.especialidade)
+        if (this.agFilter.data) p.set('data', this.agFilter.data)
+        const d = await this.api('/agendamentos?' + p.toString())
+        this.agendamentos = d.data || d
+        this.stats.agenda = this.agendamentos.filter(a => a.status === 'PENDENTE').length
+      } catch (e) { console.error(e) }
+      finally { this.agendaLoading = false }
+    },
+
+    showToast(msg, type = 'info', durationMs = 4000) {
+      const icons = { success: '✅', error: '❌', info: 'ℹ️' }
+      const id = ++this._toastSeq
+      this.toasts.push({ id, msg, type, icon: icons[type] || 'ℹ️' })
+      setTimeout(() => this.dismissToast(id), durationMs)
+    },
+    dismissToast(id) { this.toasts = this.toasts.filter(t => t.id !== id) },
+
+    async confirmarAgendamento(id) {
+      try {
+        await this.api('/agendamentos/'+id+'/status', { method:'PATCH', body: JSON.stringify({ status:'CONFIRMADO' }) })
+        this.loadAgenda()
+        this.showToast('Agendamento confirmado.', 'success')
+      } catch (e) { this.showToast(e.message, 'error') }
+    },
+
+    async cancelarAgendamento(idOrRow) {
+      const id = (idOrRow && typeof idOrRow === 'object') ? idOrRow.id : idOrRow
+      if (!confirm('Cancelar este agendamento?')) return
+      try {
+        await this.api('/agendamentos/'+id+'/status', { method:'PATCH', body: JSON.stringify({ status:'CANCELADO' }) })
+        this.loadAgenda()
+        this.showToast('Agendamento cancelado.', 'info')
+      } catch (e) { this.showToast(e.message, 'error') }
+    },
+
+    // Compat wrappers usados pelo HTML v1/v2
+    async fazerLogin() {
+      this.loginUser = this.login.username
+      this.loginPass = this.login.password
+      this.login.loading = true; this.login.erro = ''
+      await this._doLogin()
+      this.login.loading = false
+      if (this.loginErr) this.login.erro = this.loginErr
+    },
+
+    async trocarSenha() {
+      this.changePwd.loading = true; this.changePwd.erro = ''; this.changePwd.ok = false
+      this.currentPwd = this.changePwd.current
+      this.newPwd = this.changePwd.new1; this.newPwd2 = this.changePwd.new2
+      await this.salvarNovaSenha()
+      this.changePwd.loading = false
+      if (this.changePwdErr) { this.changePwd.erro = this.changePwdErr }
+      else { this.changePwd.ok = true }
+    },
+
+    async confirmarBloqueio() {
+      this.bloqueio.loading = true; this.bloqueio.msg = ''; this.bloqueio.erro = false
+      if (!this.bloqueio.inicio) {
+        this.bloqueio.msg = 'Informe o horário de início.'
+        this.bloqueio.erro = true; this.bloqueio.loading = false; return
+      }
+      const startISO = this.bloqueio.inicio
+      const endISO   = this.bloqueio.fim || (this.bloqueio.inicio.slice(0, 10) + 'T23:59:59')
+      try {
+        await this.api('/calendar/bloquear', {
+          method:'POST',
+          body: JSON.stringify({
+            doctorId: this.bloqueio.doctorId,
+            startISO,
+            endISO,
+            motivo: this.bloqueio.motivo
+          })
+        })
+        this.bloqueio.msg = '✅ Bloqueio registrado com sucesso!'
+        this.bloqueio.loading = false
+        setTimeout(() => { this.bloqModal = false; this.bloqueio = { doctorId:'', inicio:'', fim:'', motivo:'', msg:'', erro:false, loading:false } }, 1500)
+      } catch (e) {
+        this.bloqueio.erro = true; this.bloqueio.msg = e.message
+        this.bloqueio.loading = false
+      }
+    },
+
+    sairSessao() { this.logout() },
+    loadAgendamentos() { return this.loadAgenda() },
+    async exportar(todos) {
+      try {
+        const url = '/api/agendamentos/export' + (todos ? '?all=true' : '')
+        const resp = await fetch(url, { headers: { 'Authorization': 'Bearer ' + this.token } })
+        if (!resp.ok) { const j = await resp.json().catch(() => ({})); throw new Error(j.error || resp.statusText) }
+        const blob = await resp.blob()
+        const a = document.createElement('a')
+        a.href = URL.createObjectURL(blob)
+        a.download = 'agendamentos_' + new Date().toISOString().slice(0, 10) + '.xlsx'
+        a.click()
+        setTimeout(() => URL.revokeObjectURL(a.href), 5000)
+      } catch (e) { this.showToast(e.message, 'error') }
+    },
+    abrirModalBloqueio() { this.bloqModal = true },
+
+    // Marcação manual
+    async buscarSlots() {
+      if (!this.marcacao.doctorId || !this.marcacao.date) return
+      this.marcacao.loadingSlots = true; this.marcacao.slots = []; this.marcacao.slotISO = ''
+      try {
+        const d = await this.api('/medicos/'+this.marcacao.doctorId+'/slots?date='+this.marcacao.date)
+        this.marcacao.slots = (d.data || d).map(s => typeof s === 'string' ? { iso: s, hora: s.slice(11,16) } : s)
+      } catch (e) { console.error('slots:', e.message) }
+      finally { this.marcacao.loadingSlots = false }
+    },
+
+    async salvarMarcacao() {
+      if (!this.marcacao.slotISO) {
+        this.marcacao.erro = true; this.marcacao.msg = 'Selecione um horário disponível.'
+        return
+      }
+      this.marcacao.loading = true; this.marcacao.msg = ''; this.marcacao.erro = false
+      try {
+        const payload = {
+          doctorId: this.marcacao.doctorId,
+          slotISO: this.marcacao.slotISO,
+          tipoAtendimento: this.marcacao.tipo || 'CONVENIO',
+          convenio: this.marcacao.convenio,
+          nome: this.marcacao.nome,
+          nascimento: this.marcacao.nascimento,
+          telefone: this.marcacao.telefone,
+          phone: this.marcacao.phone,
+        }
+        await this.api('/agendamentos/manual', { method:'POST', body: JSON.stringify(payload) })
+        this.marcacao.msg = '✅ Agendamento criado com sucesso!'
+        this.loadAgenda()
+        setTimeout(() => {
+          this.marcacao = { doctorId:'', slots:[], slotISO:'', date:'', loadingSlots:false, nome:'', nascimento:'', telefone:'', phone:'', tipo:'CONVENIO', convenio:'', msg:'', erro:false, loading:false }
+        }, 2000)
+      } catch (e) { this.marcacao.erro = true; this.marcacao.msg = e.message }
+      finally { this.marcacao.loading = false }
+    },
+
+    // Textos & Fluxos
+    async loadTextos() {
+      try {
+        const d = await this.api('/textos')
+        const arr = d.data || (Array.isArray(d) ? d : [])
+        const obj = {}
+        arr.forEach(t => { obj[t.nome || t.id] = t.conteudo || t.valor || '' })
+        this.textos = obj
+        this.textosEditados = { ...obj }
+      } catch (e) { console.error(e) }
+    },
+
+    async salvarTextos() {
+      this.textosSaving = true; this.textosSaved = false
+      try {
+        await this.api('/textos', { method:'PUT', body: JSON.stringify(this.textosEditados) })
+        this.textos = { ...this.textosEditados }
+        this.textosSaved = true
+        setTimeout(() => { this.textosSaved = false }, 3000)
+      } catch (e) { this.showToast(e.message, 'error') }
+      finally { this.textosSaving = false }
+    },
+
+    async adicionarTexto() {
+      if (!this.novoTexto.nome || !this.novoTexto.conteudo) { this.showToast('Preencha nome e conteúdo', 'error'); return }
+      try {
+        await this.api('/textos', { method:'POST', body: JSON.stringify(this.novoTexto) })
+        this.novoTextoModal = false; this.novoTexto = { nome:'', conteudo:'' }; this.loadTextos()
+      } catch (e) { this.showToast(e.message, 'error') }
+    },
+
+    async removerTexto(id) {
+      if (!confirm('Remover este texto?')) return
+      try { await this.api('/textos/'+id, { method:'DELETE' }); this.loadTextos() }
+      catch (e) { this.showToast(e.message, 'error') }
+    },
+
+    // Atendimento humano
+    async loadSessoesHumanas() {
+      try {
+        const d = await this.api('/sessions/humanas')
+        this.sessoesHumanas = d.data || d
+        this.humanBadge = this.sessoesHumanas.length
+        this.stats.humano = this.humanBadge
+      } catch (e) { console.error(e) }
+    },
+    loadHumanWaiting() { return this.loadSessoesHumanas() },
+
+    async assumirAtendimento(phone) {
+      try {
+        await this.api('/sessions/'+encodeURIComponent(phone)+'/assume', { method:'POST' })
+        this.loadSessoesHumanas()
+        this.showToast('Atendimento assumido.', 'success')
+      } catch (e) { this.showToast(e.message, 'error') }
+    },
+
+    async encerrarAtendimento(phone) {
+      try {
+        await this.api('/sessions/'+encodeURIComponent(phone)+'/encerrar', { method:'POST' })
+        this.loadSessoesHumanas()
+        this.showToast('Sessão encerrada.', 'info')
+      } catch (e) { this.showToast(e.message, 'error') }
+    },
+
+    // Encaixe
+    async loadEncaixe() {
+      try {
+        const d = await this.api('/encaixe')
+        this.encaixeQueue = d.data || d
+        this.stats.encaixe = this.encaixeQueue.length
+      } catch (e) { console.error(e) }
+    },
+
+    async removerEncaixe(id) {
+      if (!confirm('Remover da fila?')) return
+      try { await this.api('/encaixe/'+id, { method:'DELETE' }); this.loadEncaixe() }
+      catch (e) { this.showToast(e.message, 'error') }
+    },
+
+    async adicionarEncaixe() {
+      if (!this.novoEncaixe.phone) { this.novoEncaixe.msg = 'Informe o WhatsApp'; this.novoEncaixe.erro = true; return }
+      try {
+        await this.api('/encaixe', { method:'POST', body: JSON.stringify({ phone: this.novoEncaixe.phone, nome: this.novoEncaixe.nome, especialidade: this.novoEncaixe.especialidade }) })
+        this.novoEncaixe = { phone:'', nome:'', especialidade:'', msg:'✅ Adicionado!', erro:false }
+        this.loadEncaixe()
+        setTimeout(() => { this.novoEncaixe.msg = '' }, 3000)
+      } catch (e) { this.novoEncaixe.erro = true; this.novoEncaixe.msg = e.message }
+    },
+
+    formatDate(iso) {
+      if (!iso) return '—'
+      try { return new Date(iso).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) }
+      catch { return iso }
+    },
+
+    rowClass(row) {
+      if (row.tipo === 'INFUSAO') return 'row-infusao'
+      if (row.tipo === 'MEDICACAO') return 'row-medicacao'
+      if (row.tipo_atendimento === 'PARTICULAR') return 'row-particular'
+      return ''
+    },
+    tipoClass(tipo) {
+      return { CONSULTA:'bg-blue-100 text-blue-700', INFUSAO:'bg-purple-100 text-purple-700', MEDICACAO:'bg-green-100 text-green-700' }[tipo] || 'bg-gray-100 text-gray-500'
+    },
+    statusClass(status) {
+      return { PENDENTE:'badge-pendente', CONFIRMADO:'badge-confirmado', CANCELADO:'badge-cancelado' }[status] || 'bg-gray-100 text-gray-400'
+    },
+
+    // Médicos
+    async loadMedicos() {
+      try { const d = await this.api('/medicos'); this.medicos = d.data || d; this.medicosLista = this.medicos; this.doctors = this.medicos } catch (e) { console.error(e) }
+    },
+    loadDoctorsAll() { return this.loadMedicos() },
+
+    async toggleMedico(doc) {
+      const acao = doc.ativo ? 'desativar' : 'ativar'
+      if (!confirm(`Deseja ${acao} o médico ${doc.nome}?`)) return
+      try { await this.api('/medicos/'+doc.id+'/toggle', { method:'PATCH' }); this.loadMedicos() }
+      catch (e) { this.showToast(e.message, 'error') }
+    },
+
+    toggleDia(idx) {
+      const i = this.novoMedico.diasSemana.indexOf(idx)
+      if (i === -1) this.novoMedico.diasSemana.push(idx)
+      else this.novoMedico.diasSemana.splice(i, 1)
+    },
+
+    async salvarMedico() {
+      if (!this.novoMedico.nome) { this.novoMedico.erro = true; this.novoMedico.msg = 'Informe o nome'; return }
+      this.novoMedico.loading = true; this.novoMedico.msg = ''; this.novoMedico.erro = false
+      try {
+        await this.api('/medicos', { method:'POST', body: JSON.stringify(this.novoMedico) })
+        this.novoMedico = { nome:'', crm:'', especialidade:'', email:'', whatsapp:'', diasSemana:[], horarioInicio:'08:00', horarioFim:'18:00', slotDurationMinutes:30, msg:'✅ Médico cadastrado!', erro:false, loading:false }
+        this.loadMedicos()
+        setTimeout(() => { this.novoMedico.msg = '' }, 3000)
+      } catch (e) { this.novoMedico.erro = true; this.novoMedico.msg = e.message }
+      finally { this.novoMedico.loading = false }
+    },
+
+    async removerMedico(id) {
+      if (!confirm('Remover médico?')) return
+      try { await this.api('/medicos/'+id, { method:'DELETE' }); this.loadMedicos() }
+      catch (e) { this.showToast(e.message, 'error') }
+    },
+
+    // Usuários
+    async loadUsuarios() {
+      try { const d = await this.api('/usuarios'); this.usuarios = d.data || d } catch (e) { console.error(e) }
+    },
+
+    async salvarUsuario() {
+      this.novoUsuario.loading = true; this.novoUsuario.msg = ''; this.novoUsuario.erro = false
+      try {
+        await this.api('/usuarios', { method:'POST', body: JSON.stringify(this.novoUsuario) })
+        this.novoUsuario = { username:'', name:'', role:'secretaria', password:'', msg:'✅ Usuário criado!', erro:false, loading:false }
+        this.loadUsuarios()
+        setTimeout(() => { this.novoUsuario.msg = '' }, 3000)
+      } catch (e) { this.novoUsuario.erro = true; this.novoUsuario.msg = e.message }
+      finally { this.novoUsuario.loading = false }
+    },
+    criarUsuario() { return this.salvarUsuario() },
+
+    async toggleUsuario(usr) {
+      const acao = usr.active ? 'bloquear' : 'ativar'
+      if (!confirm(`Deseja ${acao} o usuário ${usr.name}?`)) return
+      try { await this.api('/usuarios/'+usr.id+'/toggle', { method:'PATCH' }); this.loadUsuarios() }
+      catch (e) { this.showToast(e.message, 'error') }
+    },
+
+    resetarSenha(usr) {
+      this.resetSenhaTarget = usr; this.resetSenhaPwd = ''; this.resetSenhaModal = true
+    },
+
+    async confirmarResetSenha() {
+      if (!this.resetSenhaPwd || this.resetSenhaPwd.length < 6) { this.showToast('Mínimo 6 caracteres', 'error'); return }
+      try {
+        await this.api('/usuarios/'+this.resetSenhaTarget.id+'/reset-senha', { method:'PATCH', body: JSON.stringify({ password: this.resetSenhaPwd }) })
+        this.resetSenhaModal = false; this.resetSenhaPwd = ''; this.resetSenhaTarget = null
+        this.showToast('Senha redefinida com sucesso!', 'success')
+      } catch (e) { this.showToast(e.message, 'error') }
+    },
+
+    // WhatsApp / QR
+    async desconectarWhatsApp() {
+      if (!confirm('Desconectar o WhatsApp? O bot ficará offline até reconectar.')) return
+      try { await this.api('/whatsapp/logout', { method:'POST' }); this.waStatus = 'close'; this.loadQR() }
+      catch (e) { this.showToast(e.message, 'error') }
+    },
+
+    async reiniciarWhatsApp() {
+      if (!confirm('Reiniciar a conexão WhatsApp?')) return
+      try { await this.api('/whatsapp/restart', { method:'POST' }); await this.loadWAStatus() }
+      catch (e) { this.showToast(e.message, 'error') }
+    },
+
+    async loadWAStatus() {
+      try { const d = await this.api('/whatsapp/status'); this.waStatus = d.instance?.state || d.instance?.connectionStatus || d.state || d.status || null } catch (e) { console.error(e) }
+      if (this.waStatus !== 'open') this.loadQR()
+    },
+
+    async loadQR() {
+      clearInterval(this.qrTimer)
+      try { const d = await this.api('/whatsapp/qr'); this.qrCode = d.qrcode?.base64 || d.base64 || d.qr || '' } catch (e) { console.error(e) }
+      this.qrTimer = setInterval(async () => {
+        await this.loadWAStatus()
+        if (this.waStatus === 'open') { clearInterval(this.qrTimer); this.qrCode = '' }
+        else this.loadQR()
+      }, 25000)
+    },
+
+    // Medicações
+    async loadMedicacoes() {
+      try { const d = await this.api('/medicacoes'); this.medicacoes = d.data || d } catch (e) { console.error(e) }
+    },
+
+    // Conhecimento
+    async loadConhecimento() {
+      try {
+        const d = await this.api('/knowledge')
+        this.conhecimentos = d.documents || d.data || d
+        if (d.stats) this.conhecimentoStats = d.stats
+      } catch (e) { console.error(e) }
+    },
+
+    async salvarConhecimento() {
+      if (!this.novoConhecimento.filename || !this.novoConhecimento.content) { this.showToast('Preencha título e conteúdo', 'error'); return }
+      try {
+        await this.api('/conhecimento', { method:'POST', body: JSON.stringify(this.novoConhecimento) })
+        this.novoConhecimento = { filename:'', category:'', content:'' }; this.loadConhecimento()
+      } catch (e) { this.showToast(e.message, 'error') }
+    },
+
+    async removerConhecimento(id) {
+      if (!confirm('Remover documento?')) return
+      try { await this.api('/conhecimento/'+id, { method:'DELETE' }); this.loadConhecimento() }
+      catch (e) { this.showToast(e.message, 'error') }
+    },
+
+    // Satisfação
+    async loadSatisfacao() {
+      try {
+        const d = await this.api('/satisfaction')
+        this.satisfacoes = d.data || d
+        if (d.stats) {
+          this.mediaNotas = d.stats.media?.toFixed(1) ?? null
+          this.satisfacaoStats = { excelente: d.stats.excelente||0, bom: d.stats.bom||0, regular: d.stats.regular||0, ruim: d.stats.ruim||0 }
+        } else if (this.satisfacoes.length) {
+          const sum = this.satisfacoes.reduce((a, s) => a + (s.nota||0), 0)
+          this.mediaNotas = (sum / this.satisfacoes.length).toFixed(1)
+        }
+      } catch (e) { console.error(e) }
+    },
+
+    // Conversas
+    async loadConversas() {
+      try {
+        const d = await this.api('/conversations')
+        this.conversas = d.data || d
+        this.stats.conversas = this.conversas.length
+      } catch (e) { console.error(e) }
+    },
+
+    async abrirConversa(c) {
+      this.conversaAberta = c
+      this.replyText = ''
+      try {
+        const d = await this.api('/conversations/'+encodeURIComponent(c.phone))
+        this.mensagensAbertas = d.data || d
+        this.$nextTick(() => {
+          const el = document.getElementById('chatScroll')
+          if (el) el.scrollTop = el.scrollHeight
+        })
+      } catch (e) { console.error(e) }
+    },
+
+    async sendReply() {
+      if (!this.replyText.trim() || !this.conversaAberta) return
+      this.replySending = true
+      try {
+        await this.api('/conversations/'+encodeURIComponent(this.conversaAberta.phone)+'/reply', {
+          method: 'POST',
+          body: JSON.stringify({ text: this.replyText.trim() })
+        })
+        this.replyText = ''
+        await this.abrirConversa(this.conversaAberta)
+      } catch (e) { this.showToast('Erro ao enviar: ' + e.message, 'error') }
+      finally { this.replySending = false }
+    },
+
+    // Exames
+    async loadExames() {
+      try { const d = await this.api('/exames'); this.exames = d.data || d } catch (e) { console.error(e) }
+    },
+  }
+}
+</script>
+</body>
+</html>

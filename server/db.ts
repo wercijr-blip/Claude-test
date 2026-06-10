@@ -1,34 +1,43 @@
-import { drizzle } from 'drizzle-orm/mysql2'
-import mysql from 'mysql2/promise'
-import type { Connection as RawConnection } from 'mysql2'
-import { env } from './_core/env.ts'
-import { logger } from './_core/logger.ts'
-import * as schema from '../drizzle/schema.ts'
-import * as relations from '../drizzle/relations.ts'
+import { drizzle } from "drizzle-orm/mysql2";
+import mysql from "mysql2/promise";
+import type { Connection as RawConnection } from "mysql2";
+import { env } from "./_core/env.ts";
+import { logger } from "./_core/logger.ts";
+import * as schema from "../drizzle/schema.ts";
+import * as relations from "../drizzle/relations.ts";
 
 export const pool = mysql.createPool({
   uri: env.DATABASE_URL,
   waitForConnections: true,
-  connectionLimit: env.NODE_ENV === 'production' ? 10 : 3,
+  connectionLimit: env.NODE_ENV === "production" ? 10 : 3,
   queueLimit: 50,
   connectTimeout: 10_000,
   enableKeepAlive: true,
   keepAliveInitialDelay: 30_000,
   idleTimeout: 300_000,
-  timezone: '+00:00',
-})
+  timezone: "+00:00",
+});
 
 // Cancel any query running longer than 30s — prevents slow queries from holding
 // the connection pool and cascading into a full outage under load.
 // The 'connection' event emits a raw (callback-based) connection even when the
 // pool is created via mysql2/promise. Cast to RawConnection to use callback form
 // and avoid calling .catch() on a non-Promise at runtime.
-pool.on('connection', (conn) => {
-  (conn as unknown as RawConnection).query('SET SESSION MAX_EXECUTION_TIME = 30000', (err) => {
-    if (err) logger.warn('[db] SET MAX_EXECUTION_TIME falhou (TiDB pode ignorar)', { error: err.message })
-  })
-})
+pool.on("connection", (conn) => {
+  (conn as unknown as RawConnection).query(
+    "SET SESSION MAX_EXECUTION_TIME = 30000",
+    (err) => {
+      if (err)
+        logger.warn("[db] SET MAX_EXECUTION_TIME falhou (TiDB pode ignorar)", {
+          error: err.message,
+        });
+    },
+  );
+});
 
-export const db = drizzle(pool, { schema: { ...schema, ...relations }, mode: 'default' })
+export const db = drizzle(pool, {
+  schema: { ...schema, ...relations },
+  mode: "default",
+});
 
-export type Db = typeof db
+export type Db = typeof db;

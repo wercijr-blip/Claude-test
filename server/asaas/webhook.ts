@@ -5,7 +5,7 @@ import { db } from "../db.ts";
 import {
   pagamentos,
   precadastros,
-  stripeEvents,
+  webhookEvents,
 } from "../../drizzle/schema.ts";
 import { eq } from "drizzle-orm";
 import { gerarEEnviarLinkAcesso } from "../routes/intake.ts";
@@ -54,13 +54,22 @@ export async function handleAsaasWebhook(
       : "NENHUM";
   log("INFO", "Webhook Asaas recebido", { headerUsado });
   if (!env.ASAAS_WEBHOOK_TOKEN) {
-    log("ERROR", "ASAAS_WEBHOOK_TOKEN não configurado — rejeitando webhook");
-    res.status(503).json({ error: "Webhook não configurado" });
-    return;
+    if (env.NODE_ENV === "production") {
+      log(
+        "ERROR",
+        "ASAAS_WEBHOOK_TOKEN não configurado — rejeitando webhook em produção",
+      );
+      res.status(503).json({ error: "Webhook não configurado" });
+      return;
+    }
+    log(
+      "WARN",
+      "ASAAS_WEBHOOK_TOKEN ausente — pulando verificação (não-produção)",
+    );
   } else {
     const expected = Buffer.from(env.ASAAS_WEBHOOK_TOKEN);
     const provided = Buffer.from(token ?? "");
-    // Pad to equal length before timingSafeEqual to avoid token-length oracle
+    // Pad both to same length so timingSafeEqual doesn't leak token length via timing
     const maxLen = Math.max(expected.length, provided.length);
     const paddedExpected = Buffer.concat([
       expected,
@@ -88,12 +97,11 @@ export async function handleAsaasWebhook(
     return;
   }
 
-  // Idempotency key reuses stripeEvents table (same PK uniqueness pattern)
   const eventId = `asaas-${eventType}-${paymentId}`;
   log("INFO", `Webhook received: ${eventType}`, { eventId });
 
   try {
-    await db.insert(stripeEvents).values({ eventId, type: eventType });
+    await db.insert(webhookEvents).values({ eventId, type: eventType });
   } catch (claimErr) {
     if ((claimErr as NodeJS.ErrnoException).code === "ER_DUP_ENTRY") {
       log(
@@ -124,8 +132,8 @@ export async function handleAsaasWebhook(
     });
     // Remove idempotency claim so Asaas can retry
     await db
-      .delete(stripeEvents)
-      .where(eq(stripeEvents.eventId, eventId))
+      .delete(webhookEvents)
+      .where(eq(webhookEvents.eventId, eventId))
       .catch(() => {});
     res.status(500).json({ error: "Erro interno ao processar webhook" });
     return;

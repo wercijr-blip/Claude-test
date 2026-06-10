@@ -57,28 +57,41 @@
  * Configurar lifecycle no S3 para Glacier após 90 dias se necessário.
  */
 
-import { createConnection } from 'mysql2/promise'
+import { createConnection } from "mysql2/promise";
 
-const DATABASE_URL = process.env.DATABASE_URL
+const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {
-  console.error('[backup] DATABASE_URL não definida — rode com: DATABASE_URL=... pnpm backup')
-  process.exit(1)
+  console.error(
+    "[backup] DATABASE_URL não definida — rode com: DATABASE_URL=... pnpm backup",
+  );
+  process.exit(1);
 }
 
-console.log('[backup] TiDB Cloud (PITR) — verificando conectividade...')
+console.log("[backup] TiDB Cloud (PITR) — verificando conectividade...");
 
-let conn
+let conn;
 try {
-  conn = await createConnection(DATABASE_URL)
-  const [rows] = await conn.query('SELECT VERSION() AS version, NOW() AS now')
-  const { version, now } = (rows as Array<{ version: string; now: Date }>)[0]!
-  console.log(`[backup] ✅ Conectado — TiDB ${version} — server time: ${now.toISOString()}`)
-  console.log('[backup] ℹ️  Backups automáticos (PITR) gerenciados pelo TiDB Cloud.')
-  console.log('[backup] ℹ️  Acesse: https://tidbcloud.com → cluster facilita_prep → Backup')
-  console.log('[backup] ℹ️  Para restore detalhado, veja RUNBOOK.md § 13 ou os comentários deste arquivo.')
+  conn = await createConnection(DATABASE_URL);
+  const [rows] = await conn.query("SELECT VERSION() AS version, NOW() AS now");
+  const { version, now } = (rows as Array<{ version: string; now: Date }>)[0]!;
+  console.log(
+    `[backup] ✅ Conectado — TiDB ${version} — server time: ${now.toISOString()}`,
+  );
+  console.log(
+    "[backup] ℹ️  Backups automáticos (PITR) gerenciados pelo TiDB Cloud.",
+  );
+  console.log(
+    "[backup] ℹ️  Acesse: https://tidbcloud.com → cluster facilita_prep → Backup",
+  );
+  console.log(
+    "[backup] ℹ️  Para restore detalhado, veja RUNBOOK.md § 13 ou os comentários deste arquivo.",
+  );
 } catch (err) {
-  console.error('[backup] ❌ Falha na conexão com o banco:', (err as Error).message)
-  process.exit(1)
+  console.error(
+    "[backup] ❌ Falha na conexão com o banco:",
+    (err as Error).message,
+  );
+  process.exit(1);
 } finally {
-  await conn?.end()
+  await conn?.end();
 }

@@ -1,154 +1,157 @@
-import type { Metadata } from 'next'
-import { Cormorant_Garamond, DM_Sans } from 'next/font/google'
-import Script from 'next/script'
-import './globals.css'
-import TrpcProvider from '@web/components/TrpcProvider'
-import FooterCfm from '@web/components/FooterCfm'
-import CookieConsent from '@web/components/CookieConsent'
+import type { Metadata } from "next";
+import { Cormorant_Garamond, DM_Sans } from "next/font/google";
+import Script from "next/script";
+import "./globals.css";
+import TrpcProvider from "@web/components/TrpcProvider";
+import FooterCfm from "@web/components/FooterCfm";
+import CookieConsent from "@web/components/CookieConsent";
 
 const cormorant = Cormorant_Garamond({
-  subsets: ['latin'],
-  weight: ['300', '400', '500', '600'],
-  variable: '--font-display',
-  display: 'swap',
-})
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600"],
+  variable: "--font-display",
+  display: "swap",
+});
 
 const dmSans = DM_Sans({
-  subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700'],
-  variable: '--font-body',
-  display: 'swap',
-})
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
+  variable: "--font-body",
+  display: "swap",
+});
 
-const DOMAIN = process.env.NEXT_PUBLIC_DOMAIN ?? 'https://www.facilitaprep.com.br'
+const DOMAIN =
+  process.env.NEXT_PUBLIC_DOMAIN ?? "https://www.facilitaprep.com.br";
 
 export const metadata: Metadata = {
   metadataBase: new URL(DOMAIN),
   title: {
-    template: '%s | Facilita PrEP',
-    default: 'Consulta PrEP Online | Médico Infectologista | Facilita PrEP',
+    template: "%s | Facilita PrEP",
+    default: "Consulta PrEP Online | Médico Infectologista | Facilita PrEP",
   },
   description:
-    'Consulta online com infectologista para PrEP. Receita digital ICP-Brasil em até 48h. Sigiloso, sem deslocamento, atendimento em todo o Brasil. CRM-DF 16381.',
-  themeColor: '#6b46c1',
-  appleWebApp: { title: 'Facilita PrEP' },
+    "Consulta online com infectologista para PrEP. Receita digital ICP-Brasil em até 48h. Sigiloso, sem deslocamento, atendimento em todo o Brasil. CRM-DF 16381.",
+  themeColor: "#6b46c1",
+  appleWebApp: { title: "Facilita PrEP" },
   keywords: [
-    'PrEP online',
-    'consulta PrEP',
-    'profilaxia HIV online',
-    'médico infectologista online',
-    'PrEP particular',
-    'receita PrEP digital',
-    'PrEP teleconsulta',
+    "PrEP online",
+    "consulta PrEP",
+    "profilaxia HIV online",
+    "médico infectologista online",
+    "PrEP particular",
+    "receita PrEP digital",
+    "PrEP teleconsulta",
   ],
-  authors: [{ name: 'Dr. Werciley Saraiva Vieira Junior', url: DOMAIN }],
-  creator: 'Facilita PrEP',
+  authors: [{ name: "Dr. Werciley Saraiva Vieira Junior", url: DOMAIN }],
+  creator: "Facilita PrEP",
   robots: {
     index: true,
     follow: true,
     googleBot: {
       index: true,
       follow: true,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
     },
   },
   alternates: {
     canonical: DOMAIN,
   },
   openGraph: {
-    siteName: 'Facilita PrEP',
-    locale: 'pt_BR',
-    type: 'website',
+    siteName: "Facilita PrEP",
+    locale: "pt_BR",
+    type: "website",
     url: DOMAIN,
-    title: 'Facilita PrEP — Consulta médica online para PrEP com receita digital',
+    title:
+      "Facilita PrEP — Consulta médica online para PrEP com receita digital",
     description:
-      'Acesso rápido, sigiloso e 100% digital à PrEP. Cadastro, formulário clínico e receita assinada com ICP-Brasil — tudo sem sair de casa.',
+      "Acesso rápido, sigiloso e 100% digital à PrEP. Cadastro, formulário clínico e receita assinada com ICP-Brasil — tudo sem sair de casa.",
     images: [
       {
         url: `${DOMAIN}/og-image.png`,
         width: 1200,
         height: 630,
-        alt: 'Facilita PrEP — Sua saúde em boas mãos',
+        alt: "Facilita PrEP — Sua saúde em boas mãos",
       },
     ],
   },
   twitter: {
-    card: 'summary_large_image',
-    title: 'Facilita PrEP — Acesso digital à PrEP',
-    description: 'Cadastro, consulta e receita digital à PrEP, sem sair de casa.',
+    card: "summary_large_image",
+    title: "Facilita PrEP — Acesso digital à PrEP",
+    description:
+      "Cadastro, consulta e receita digital à PrEP, sem sair de casa.",
     images: [`${DOMAIN}/og-image.png`],
   },
-}
+};
 
-const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID ?? 'GTM-WCF38JBP'
-const META_PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID
-const GOOGLE_ADS_ID = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID
-const TIKTOK_PIXEL_ID = process.env.NEXT_PUBLIC_TIKTOK_PIXEL_ID
-const CLARITY_ID = process.env.NEXT_PUBLIC_CLARITY_ID
-const GA4_ID = process.env.NEXT_PUBLIC_GA4_ID
+const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID ?? "GTM-WCF38JBP";
+const META_PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID;
+const GOOGLE_ADS_ID = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID;
+const TIKTOK_PIXEL_ID = process.env.NEXT_PUBLIC_TIKTOK_PIXEL_ID;
+const CLARITY_ID = process.env.NEXT_PUBLIC_CLARITY_ID;
+const GA4_ID = process.env.NEXT_PUBLIC_GA4_ID;
 
 const SCHEMA_LD = {
-  '@context': 'https://schema.org',
-  '@graph': [
+  "@context": "https://schema.org",
+  "@graph": [
     {
-      '@type': 'MedicalBusiness',
-      '@id': `${DOMAIN}/#organization`,
-      name: 'Facilita PrEP',
-      alternateName: 'Iaso Saúde Hospital Dia',
+      "@type": "MedicalBusiness",
+      "@id": `${DOMAIN}/#organization`,
+      name: "Facilita PrEP",
+      alternateName: "Iaso Saúde Hospital Dia",
       url: DOMAIN,
       logo: `${DOMAIN}/favicon.svg`,
       image: `${DOMAIN}/og-image.png`,
-      description: 'Plataforma de teleconsulta médica especializada em PrEP (Profilaxia Pré-Exposição ao HIV), com receita digital ICP-Brasil e acompanhamento médico online.',
-      telephone: ['+55-61-99401-8161', '+55-61-4042-7188'],
-      email: 'contato@facilitaprep.com.br',
-      priceRange: '$$',
+      description:
+        "Plataforma de teleconsulta médica especializada em PrEP (Profilaxia Pré-Exposição ao HIV), com receita digital ICP-Brasil e acompanhamento médico online.",
+      telephone: ["+55-61-99401-8161", "+55-61-4042-7188"],
+      email: "contato@facilitaprep.com.br",
+      priceRange: "$$",
       address: {
-        '@type': 'PostalAddress',
-        streetAddress: 'SHLS Quadra 716, Conjunto A, Consultórios 607 e 609, Parte B, S/N — 6º Andar',
-        addressLocality: 'Brasília',
-        addressRegion: 'DF',
-        postalCode: '70390-700',
-        addressCountry: 'BR',
+        "@type": "PostalAddress",
+        streetAddress:
+          "SHLS Quadra 716, Conjunto A, Consultórios 607 e 609, Parte B, S/N — 6º Andar",
+        addressLocality: "Brasília",
+        addressRegion: "DF",
+        postalCode: "70390-700",
+        addressCountry: "BR",
       },
-      medicalSpecialty: 'https://schema.org/Infectious',
-      areaServed: { '@type': 'Country', name: 'Brasil' },
+      medicalSpecialty: "https://schema.org/Infectious",
+      areaServed: { "@type": "Country", name: "Brasil" },
       availableService: {
-        '@type': 'MedicalProcedure',
-        name: 'Consulta para Profilaxia Pré-Exposição (PrEP) ao HIV',
-        procedureType: 'https://schema.org/TherapeuticProcedure',
+        "@type": "MedicalProcedure",
+        name: "Consulta para Profilaxia Pré-Exposição (PrEP) ao HIV",
+        procedureType: "https://schema.org/TherapeuticProcedure",
       },
       founder: {
-        '@type': 'Physician',
-        '@id': `${DOMAIN}/#physician`,
-        name: 'Werciley Saraiva Vieira Júnior',
-        medicalSpecialty: 'https://schema.org/Infectious',
+        "@type": "Physician",
+        "@id": `${DOMAIN}/#physician`,
+        name: "Werciley Saraiva Vieira Júnior",
+        medicalSpecialty: "https://schema.org/Infectious",
         identifier: [
-          { '@type': 'PropertyValue', propertyID: 'CRM', value: 'DF-16381' },
-          { '@type': 'PropertyValue', propertyID: 'RQE', value: '14486' },
+          { "@type": "PropertyValue", propertyID: "CRM", value: "DF-16381" },
+          { "@type": "PropertyValue", propertyID: "RQE", value: "14486" },
         ],
       },
     },
     {
-      '@type': 'WebSite',
-      '@id': `${DOMAIN}/#website`,
+      "@type": "WebSite",
+      "@id": `${DOMAIN}/#website`,
       url: DOMAIN,
-      name: 'Facilita PrEP',
-      publisher: { '@id': `${DOMAIN}/#organization` },
+      name: "Facilita PrEP",
+      publisher: { "@id": `${DOMAIN}/#organization` },
     },
   ],
-}
+};
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="pt-BR" className={`${cormorant.variable} ${dmSans.variable}`}>
       <head>
-        {/* GTM — loads immediately, consent handled via CookieConsent dataLayer events */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${GTM_ID}');`,
-          }}
-        />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(SCHEMA_LD) }}
@@ -159,8 +162,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <noscript>
           <iframe
             src={`https://www.googletagmanager.com/ns.html?id=${GTM_ID}`}
-            height="0" width="0"
-            style={{ display: 'none', visibility: 'hidden' }}
+            height="0"
+            width="0"
+            style={{ display: "none", visibility: "hidden" }}
           />
         </noscript>
         <TrpcProvider>
@@ -197,5 +201,5 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         )}
       </body>
     </html>
-  )
+  );
 }

@@ -1,0 +1,39 @@
+{
+  "_instrucoes": "Edite os textos aqui. Use {nome}, {medico}, {especialidade}, {data}, {hora}, {diaSemana} como variáveis — elas serão substituídas automaticamente.",
+
+  "menu_boas_vindas": "Olá! 👋 Bem-vindo(a) à *Atos Saúde Integrada*!\n\nO que você precisa hoje?\n\n1️⃣ Conhecer a Atos Saúde\n2️⃣ Marcar consulta\n3️⃣ Marcar infusão\n4️⃣ Solicitar medicação\n5️⃣ Falar com atendente",
+
+  "lembrete_24h": "👋 Olá, *{nome}*!\n\nLembrando que você tem consulta *amanhã*:\n\n🩺 {especialidade}\n👨‍⚕️ {medico}\n📅 *{diaSemana}, {data}* às *{hora}*\n📍 Setor Hospitalar Sul 716, Conj. A — Asa Sul\n\nLembre-se de trazer:\n📋 Pedido médico (se houver)\n💳 Carteirinha do convênio (se tiver)\n🪪 Documento com foto e CPF\n\nEm caso de cancelamento, avise com antecedência. 🙏\n*Atos Saúde Integrada* | (61) 4042-7188 🏥",
+
+  "lembrete_2h": "⏰ Olá, *{nome}*!\n\nSua consulta é *daqui a 2 horas*!\n\n👨‍⚕️ {medico}\n🕐 Hoje às *{hora}*\n📍 Setor Hospitalar Sul 716, Conj. A — Asa Sul, Brasília-DF\n\nChegue com 10 minutos de antecedência. 😊\n*Atos Saúde Integrada* 🏥",
+
+  "agenda_medico_cabecalho": "📅 *Agenda de amanhã — {diaSemana}, {data}*",
+  "agenda_medico_rodape": "\nTotal: *{total} consulta(s)*\n\n*Atos Saúde Integrada* 🏥",
+  "agenda_medico_vazia": "📅 *Agenda de amanhã — {diaSemana}, {data}*\n\nNenhuma consulta agendada. ✅\n\n*Atos Saúde Integrada* 🏥",
+
+  "pesquisa_pergunta": "😊 Olá, *{nome}*!\n\nComo foi sua consulta hoje na *Atos Saúde*?\n\nSua avaliação nos ajuda a melhorar cada vez mais! 🙏\n\n⭐ Como você avalia o atendimento?\n\n1️⃣ Péssimo\n2️⃣ Ruim\n3️⃣ Regular\n4️⃣ Bom\n5️⃣ Excelente ⭐",
+
+  "pesquisa_positiva_comentario": "{emoji} Que ótimo! Ficamos muito felizes com sua avaliação *{label}*!\n\nGostaria de deixar algum comentário? (opcional)\n\nEnvie seu comentário ou *0* para encerrar.",
+  "pesquisa_negativa_comentario": "{emoji} Obrigado pelo retorno. Lamentamos que sua experiência tenha sido *{label}*.\n\nPoderia nos contar o que aconteceu? Seu feedback é muito importante para melhorarmos! 🙏\n\nEnvie seu comentário ou *0* para encerrar.",
+
+  "pesquisa_agradecimento_positivo": "{emoji} *Muito obrigado pela sua avaliação!*\n\nÉ um prazer cuidar da sua saúde!\n\nSe precisar de algo, estamos sempre aqui. 😊\n*Atos Saúde Integrada* 🏥",
+  "pesquisa_agradecimento_negativo": "{emoji} *Obrigado pelo seu feedback!*\n\nVamos analisar sua avaliação para melhorar nosso atendimento.\n\nSe quiser falar com nossa equipe, envie *oi*. 😊\n*Atos Saúde Integrada* | (61) 4042-7188 🏥",
+
+  "cancelamento_individual": "⚠️ Olá, *{nome}*!\n\nPrecisamos informar que sua consulta foi *cancelada*:\n\n🩺 {especialidade}\n👨‍⚕️ {medico}\n📅 {data_hora}\n\nPor favor, entre em contato para reagendar:\n📞 *(61) 4042-7188*\n_Pedimos desculpas pelo transtorno._ 🙏\n*Atos Saúde Integrada* 🏥",
+
+  "cancelamento_bloqueio": "⚠️ Olá, *{nome}*!\n\nInfelizmente a agenda do *{medico}* precisou ser *cancelada*{motivo}.\n\n{data_hora}Por favor, entre em contato para reagendar:\n📞 *(61) 4042-7188*\n_Pedimos desculpas pelo inconveniente._ 🙏\n*Atos Saúde Integrada* 🏥",
+
+  "confirmacao_marcacao_manual": "✅ *Consulta agendada!*\n\n📋 *Resumo:*\n🩺 {especialidade}\n👨‍⚕️ {medico}\n📅 *{diaSemana}, {data}* às *{hora}*\n👤 {nome}\n\nNossa recepção confirmará em breve. ⏰\n*Atos Saúde Integrada* 🏥",
+
+  "lembrete_24h_remarcar": "👋 Olá, *{nome}*!\n\nLembrando que você tem consulta *amanhã*:\n\n🩺 {especialidade}\n👨‍⚕️ {medico}\n📅 *{diaSemana}, {data}* às *{hora}*\n📍 Setor Hospitalar Sul 716, Conj. A — Asa Sul\n\nLembre-se de trazer:\n📋 Pedido médico (se houver)\n💳 Carteirinha do convênio (se tiver)\n🪪 Documento com foto e CPF\n\n🔄 *Precisa remarcar?* Acesse: {linkRemarcar}\n\n*Atos Saúde Integrada* | (61) 4042-7188 🏥",
+
+  "lembrete_2h_remarcar": "⏰ Olá, *{nome}*!\n\nSua consulta é *daqui a 2 horas*!\n\n👨‍⚕️ {medico}\n🕐 Hoje às *{hora}*\n📍 Setor Hospitalar Sul 716, Conj. A — Asa Sul, Brasília-DF\n\nChegue com 10 minutos de antecedência. 😊\n\n🔄 *Precisou remarcar?* Acesse: {linkRemarcar}\n\n*Atos Saúde Integrada* 🏥",
+
+  "encaixe_vaga_disponivel": "🎉 Olá, *{nome}*!\n\nUma vaga ficou disponível na sua fila de encaixe!\n\n🩺 {especialidade}\n👨‍⚕️ {medico}\n📅 *{diaSemana}, {data}* às *{hora}*\n\nDeseja confirmar este horário?\n\n1️⃣ *Sim, quero este horário!*\n2️⃣ *Não, manter consulta atual*\n\n⚠️ Esta vaga é exclusiva por 15 minutos.",
+
+  "encaixe_confirmado": "✅ *Ótimo! Consulta remarcada com sucesso!*\n\n🩺 {especialidade}\n👨‍⚕️ {medico}\n📅 *{diaSemana}, {data}* às *{hora}*\n📍 Setor Hospitalar Sul 716, Conj. A — Asa Sul\n\n*Atos Saúde Integrada* 🏥",
+
+  "encaixe_recusado": "👍 Entendido! Você permanece na sua consulta original.\n\nContinuaremos verificando outras vagas para você. 😊\n\n*Atos Saúde Integrada* 🏥",
+
+  "remarcar_slot_cancelado": "✅ Sua consulta foi *cancelada* e você está pronto para remarcar!\n\nDigite *oi* para iniciar o processo de remarcação e escolher um novo horário. 😊\n\n*Atos Saúde Integrada* 🏥"
+}

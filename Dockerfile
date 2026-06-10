@@ -55,6 +55,6 @@ COPY drizzle.config.ts ./
 
 EXPOSE ${PORT:-3000}
 
-# --import loads instrument.ts before any other module so Sentry can
-# properly instrument Express in ESM mode (required by @sentry/node).
-CMD ["pnpm", "exec", "tsx", "--import", "./server/_core/instrument.ts", "server/_core/index.ts"]
+# Use node directly so --import registers Sentry's OTEL hooks at the Node loader
+# level before Express loads. tsx/esm provides TypeScript support as an ESM hook.
+CMD ["node", "--import", "tsx/esm", "--import", "./server/_core/instrument.ts", "./server/_core/index.ts"]

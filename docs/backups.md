@@ -13,14 +13,14 @@ que oferece backup automático nativo — não é necessário script manual de `
 
 ### Backup Automático
 
-| Recurso | Detalhe |
-|---|---|
-| Frequência | Diária (automática pela TiDB Cloud) |
-| Retenção | 7 dias (padrão tier gratuito) |
-| Tipo | Snapshot incremental |
-| Acesso | Console TiDB Cloud → Cluster → Backups |
-| RPO | < 24 horas |
-| RTO | < 4 horas (restauração via console) |
+| Recurso    | Detalhe                                |
+| ---------- | -------------------------------------- |
+| Frequência | Diária (automática pela TiDB Cloud)    |
+| Retenção   | 7 dias (padrão tier gratuito)          |
+| Tipo       | Snapshot incremental                   |
+| Acesso     | Console TiDB Cloud → Cluster → Backups |
+| RPO        | < 24 horas                             |
+| RTO        | < 4 horas (restauração via console)    |
 
 ### Backup Manual (Export)
 
@@ -91,11 +91,11 @@ Exames enviados ficam no bucket `AWS_S3_BUCKET` (padrão: `facilita-prep-exames-
 
 ### Proteção
 
-| Recurso | Configuração |
-|---|---|
-| Versioning | Habilitar via console AWS S3 → Properties |
-| Lifecycle | `exames-inicio/` expira em 30 dias (configurado via `storage.ts:ensureS3Lifecycle`) |
-| Replicação | Opcional: Cross-Region Replication para sa-east-1 → us-east-1 |
+| Recurso    | Configuração                                                                        |
+| ---------- | ----------------------------------------------------------------------------------- |
+| Versioning | Habilitar via console AWS S3 → Properties                                           |
+| Lifecycle  | `exames-inicio/` expira em 30 dias (configurado via `storage.ts:ensureS3Lifecycle`) |
+| Replicação | Opcional: Cross-Region Replication para sa-east-1 → us-east-1                       |
 
 ### Recomendação
 
@@ -136,7 +136,7 @@ o prazo legal de retenção.
 
 Execute este checklist mensalmente para garantir que os procedimentos de restauração funcionam. Documente a data e o responsável.
 
-**Data do último teste:** ___________  **Responsável:** ___________
+**Data do último teste:** \***\*\_\_\_\*\*** **Responsável:** \***\*\_\_\_\*\***
 
 ### Banco de Dados (TiDB Cloud)
 
@@ -171,10 +171,10 @@ Execute este checklist mensalmente para garantir que os procedimentos de restaur
 
 ### Resultado do Drill
 
-| Item | Status | Observação |
-|---|---|---|
-| TiDB restore | ✅ / ❌ | |
-| S3 versioning | ✅ / ❌ | |
-| Railway redeploy | ✅ / ❌ | |
-| Certificado ICP | ✅ / ❌ | |
-| Tempo total (RTO) | ___min | Objetivo: < 2h |
+| Item              | Status    | Observação     |
+| ----------------- | --------- | -------------- |
+| TiDB restore      | ✅ / ❌   |                |
+| S3 versioning     | ✅ / ❌   |                |
+| Railway redeploy  | ✅ / ❌   |                |
+| Certificado ICP   | ✅ / ❌   |                |
+| Tempo total (RTO) | \_\_\_min | Objetivo: < 2h |

@@ -8,6 +8,7 @@
 O projeto usa TiDB Cloud Serverless (MySQL 8-compatível) como banco principal. As mudanças de schema precisam ser aplicadas com segurança em produção sem downtime, e rastreadas em versionamento.
 
 Três ferramentas coexistem:
+
 1. **Drizzle Kit** — gera arquivos SQL a partir de mudanças em `drizzle/schema.ts`
 2. **`server/_core/ensureSchema.ts`** — cria tabelas e patches de colunas via `CREATE TABLE IF NOT EXISTS` + `ALTER TABLE` idempotentes na inicialização do servidor
 3. **`drizzle/0NNN_*.sql`** — arquivos SQL raw para mudanças que o Drizzle Kit não suporta (ex: colunas geradas, índices funcionais)
@@ -30,13 +31,13 @@ Três ferramentas coexistem:
 
 ### Quando usar cada abordagem
 
-| Situação | Abordagem |
-|----------|-----------|
-| Nova tabela ou coluna simples | `drizzle/schema.ts` → `pnpm db:generate` → `pnpm db:push` |
-| DROP COLUMN (schema.ts remove) | Idem — gerar migration e aplicar |
-| Coluna GENERATED/VIRTUAL | SQL manual em `drizzle/0NNN_*.sql` + `ensureSchema.ts` |
-| Índice funcional ou parcial | SQL manual em `drizzle/0NNN_*.sql` |
-| Backfill de dados | Script em `server/scripts/` executado manualmente |
+| Situação                       | Abordagem                                                 |
+| ------------------------------ | --------------------------------------------------------- |
+| Nova tabela ou coluna simples  | `drizzle/schema.ts` → `pnpm db:generate` → `pnpm db:push` |
+| DROP COLUMN (schema.ts remove) | Idem — gerar migration e aplicar                          |
+| Coluna GENERATED/VIRTUAL       | SQL manual em `drizzle/0NNN_*.sql` + `ensureSchema.ts`    |
+| Índice funcional ou parcial    | SQL manual em `drizzle/0NNN_*.sql`                        |
+| Backfill de dados              | Script em `server/scripts/` executado manualmente         |
 
 ### Numeração de migrations manuais
 
@@ -76,11 +77,13 @@ pnpm db:migrate
 ## Consequências
 
 **Positivo:**
+
 - Histórico completo de mudanças de schema em Git
 - `ensureSchema.ts` garante que novos ambientes (dev, staging) arrancam sem setup manual
 - CI valida drift com `pnpm db:check`
 
 **Negativo:**
+
 - Dupla manutenção: `schema.ts` + `ensureSchema.ts` devem ser mantidos sincronizados
 - Migrations manuais (SQL raw) não são rastreadas pelo Drizzle Kit journal
 

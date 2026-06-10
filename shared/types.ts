@@ -113,6 +113,22 @@ export interface ResultadoIa {
   sbis?: SbisMetadata;
 }
 
+export interface ExtracacaoExame {
+  tipoExameDetectado: "hiv" | "outro" | "nao_identificado";
+  nomeExame: string | null;
+  resultadoHiv:
+    | "reagente"
+    | "nao_reagente"
+    | "inconclusivo"
+    | "nao_identificado";
+  resultadoTexto: string | null;
+  dataColeta: string | null;
+  dataResultado: string | null;
+  dataExame: string | null;
+  confianca: number;
+  processadoEm: string;
+}
+
 export interface AuthUser {
   type: "staff";
   id: number;

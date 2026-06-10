@@ -1,0 +1,32 @@
+{
+  "doctors": [
+    {
+      "id": "dr_werciley",
+      "nome": "Dr. Werciley Júnior",
+      "crm": "CRM 16.381-DF",
+      "especialidade": "Infectologia",
+      "calendarId": "PREENCHER",
+      "whatsapp": "PREENCHER_NUMERO_COM_DDI",
+      "slotDurationMinutes": 30,
+      "active": true
+    },
+    {
+      "id": "dr_02",
+      "nome": "PREENCHER",
+      "crm": "PREENCHER",
+      "especialidade": "Reumatologia",
+      "calendarId": "PREENCHER",
+      "whatsapp": "PREENCHER_NUMERO_COM_DDI",
+      "slotDurationMinutes": 30,
+      "active": false
+    }
+  ],
+  "workingHours": {
+    "start": "07:00",
+    "end": "19:00",
+    "weekdays": [1, 2, 3, 4, 5],
+    "saturday": { "active": true, "start": "07:00", "end": "13:00" }
+  },
+  "searchDaysAhead": 14,
+  "slotsToOffer": 3
+}

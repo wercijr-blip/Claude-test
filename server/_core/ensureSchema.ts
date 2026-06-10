@@ -1,6 +1,6 @@
-import { sql } from 'drizzle-orm'
-import { db } from '../db.ts'
-import { logger } from './logger.ts'
+import { sql } from "drizzle-orm";
+import { db } from "../db.ts";
+import { logger } from "./logger.ts";
 
 // Creates all tables using IF NOT EXISTS so this is safe to run on every boot.
 // Tables are listed in FK dependency order.
@@ -103,15 +103,13 @@ const DDL_STATEMENTS = [
     carteirinha_s3_key VARCHAR(500),
     documento_s3_key VARCHAR(500),
     status VARCHAR(50) NOT NULL DEFAULT 'aguardando',
-    stripe_session_id VARCHAR(200),
     access_token_id INT,
     validado_por_id INT,
     validado_em DATETIME,
     observacoes TEXT,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_precad_cpf_hash (cpf_hash),
-    INDEX idx_precad_status (status),
-    INDEX idx_precad_session (stripe_session_id)
+    INDEX idx_precad_status (status)
   )`,
 
   `CREATE TABLE IF NOT EXISTS exames (
@@ -224,14 +222,11 @@ const DDL_STATEMENTS = [
     paciente_id INT NOT NULL,
     provider VARCHAR(20) NOT NULL DEFAULT 'asaas',
     asaas_payment_id VARCHAR(100),
-    stripe_payment_id VARCHAR(100),
-    stripe_session_id VARCHAR(100),
     status VARCHAR(50) NOT NULL DEFAULT 'pendente',
     valor_centavos INT NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_pagamentos_paciente (paciente_id),
-    INDEX idx_pagamentos_asaas (asaas_payment_id),
-    INDEX idx_pagamentos_session (stripe_session_id)
+    INDEX idx_pagamentos_asaas (asaas_payment_id)
   )`,
 
   `CREATE TABLE IF NOT EXISTS stripe_events (
@@ -247,241 +242,285 @@ const DDL_STATEMENTS = [
     expira_em DATETIME NOT NULL,
     UNIQUE INDEX idx_pesquisa_token (token)
   )`,
-]
+];
 
 // Mapa de tabela -> colunas esperadas (DDL para ALTER TABLE ADD COLUMN).
 // Usado para adicionar colunas que faltam em tabelas pré-existentes
 // criadas com schema antigo.
 const COLUMN_PATCHES: Record<string, Array<{ name: string; ddl: string }>> = {
   consultas_inicio: [
-    { name: 'tipo_consulta', ddl: 'VARCHAR(50)' },
-    { name: 'tem_exame_recente', ddl: 'TINYINT(1)' },
-    { name: 'exame_s3_key', ddl: 'VARCHAR(500)' },
-    { name: 'pedido_completo_s3_key', ddl: 'VARCHAR(500)' },
-    { name: 'pedido_ist_s3_key', ddl: 'VARCHAR(500)' },
-    { name: 'pedido_hiv_s3_key', ddl: 'VARCHAR(500)' },
-    { name: 'pedido_densitometria_s3_key', ddl: 'VARCHAR(500)' },
-    { name: 'status', ddl: "VARCHAR(50) NOT NULL DEFAULT 'aguardando_escolha'" },
-    { name: 'resultado_ia', ddl: 'JSON' },
-    { name: 'motivo_rejeicao', ddl: 'VARCHAR(200)' },
-    { name: 'tentativas_reenvio', ddl: 'INT NOT NULL DEFAULT 0' },
-    { name: 'validado_por_id', ddl: 'INT' },
-    { name: 'validado_em', ddl: 'DATETIME' },
-    { name: 'data_exame_validado', ddl: 'VARCHAR(20)' },
-    { name: 'resultado_hiv_validado', ddl: 'VARCHAR(20)' },
-    { name: 'observacoes_medico', ddl: 'TEXT' },
-    { name: 'ultimo_lembrete_at', ddl: 'DATETIME' },
-    { name: 'link_expires_at', ddl: 'DATETIME' },
+    { name: "tipo_consulta", ddl: "VARCHAR(50)" },
+    { name: "tem_exame_recente", ddl: "TINYINT(1)" },
+    { name: "exame_s3_key", ddl: "VARCHAR(500)" },
+    { name: "pedido_completo_s3_key", ddl: "VARCHAR(500)" },
+    { name: "pedido_ist_s3_key", ddl: "VARCHAR(500)" },
+    { name: "pedido_hiv_s3_key", ddl: "VARCHAR(500)" },
+    { name: "pedido_densitometria_s3_key", ddl: "VARCHAR(500)" },
+    {
+      name: "status",
+      ddl: "VARCHAR(50) NOT NULL DEFAULT 'aguardando_escolha'",
+    },
+    { name: "resultado_ia", ddl: "JSON" },
+    { name: "motivo_rejeicao", ddl: "VARCHAR(200)" },
+    { name: "tentativas_reenvio", ddl: "INT NOT NULL DEFAULT 0" },
+    { name: "validado_por_id", ddl: "INT" },
+    { name: "validado_em", ddl: "DATETIME" },
+    { name: "data_exame_validado", ddl: "VARCHAR(20)" },
+    { name: "resultado_hiv_validado", ddl: "VARCHAR(20)" },
+    { name: "observacoes_medico", ddl: "TEXT" },
+    { name: "ultimo_lembrete_at", ddl: "DATETIME" },
+    { name: "link_expires_at", ddl: "DATETIME" },
   ],
   precadastros: [
-    { name: 'plano', ddl: 'VARCHAR(100)' },
-    { name: 'carteirinha_s3_key', ddl: 'VARCHAR(500)' },
-    { name: 'documento_s3_key', ddl: 'VARCHAR(500)' },
-    { name: 'stripe_session_id', ddl: 'VARCHAR(200)' },
-    { name: 'access_token_id', ddl: 'INT' },
-    { name: 'validado_por_id', ddl: 'INT' },
-    { name: 'validado_em', ddl: 'DATETIME' },
-    { name: 'observacoes', ddl: 'TEXT' },
+    { name: "plano", ddl: "VARCHAR(100)" },
+    { name: "carteirinha_s3_key", ddl: "VARCHAR(500)" },
+    { name: "documento_s3_key", ddl: "VARCHAR(500)" },
+    { name: "access_token_id", ddl: "INT" },
+    { name: "validado_por_id", ddl: "INT" },
+    { name: "validado_em", ddl: "DATETIME" },
+    { name: "observacoes", ddl: "TEXT" },
   ],
   access_tokens: [
-    { name: 'patient_email', ddl: 'VARCHAR(255)' },
-    { name: 'tipo', ddl: "VARCHAR(20) NOT NULL DEFAULT 'privado'" },
-    { name: 'convenio', ddl: 'VARCHAR(100)' },
-    { name: 'used_at', ddl: 'DATETIME' },
-    { name: 'revoked_at', ddl: 'DATETIME' },
+    { name: "patient_email", ddl: "VARCHAR(255)" },
+    { name: "tipo", ddl: "VARCHAR(20) NOT NULL DEFAULT 'privado'" },
+    { name: "convenio", ddl: "VARCHAR(100)" },
+    { name: "used_at", ddl: "DATETIME" },
+    { name: "revoked_at", ddl: "DATETIME" },
   ],
   pacientes: [
-    { name: 'nome_mae_encrypted', ddl: 'TEXT' },
-    { name: 'cns', ddl: 'VARCHAR(20)' },
-    { name: 'identidade_genero', ddl: 'VARCHAR(50)' },
-    { name: 'orientacao_sexual', ddl: 'VARCHAR(50)' },
-    { name: 'uf_nascimento', ddl: 'VARCHAR(2)' },
-    { name: 'municipio_nascimento', ddl: 'VARCHAR(100)' },
-    { name: 'situacao_rua', ddl: 'TINYINT(1)' },
-    { name: 'privado_liberdade', ddl: 'TINYINT(1)' },
-    { name: 'permite_contato', ddl: 'TINYINT(1)' },
-    { name: 'tipo_contato', ddl: 'VARCHAR(20)' },
-    { name: 'prep_modalidade', ddl: 'VARCHAR(30)' },
+    { name: "nome_mae_encrypted", ddl: "TEXT" },
+    { name: "cns", ddl: "VARCHAR(20)" },
+    { name: "identidade_genero", ddl: "VARCHAR(50)" },
+    { name: "orientacao_sexual", ddl: "VARCHAR(50)" },
+    { name: "uf_nascimento", ddl: "VARCHAR(2)" },
+    { name: "municipio_nascimento", ddl: "VARCHAR(100)" },
+    { name: "situacao_rua", ddl: "TINYINT(1)" },
+    { name: "privado_liberdade", ddl: "TINYINT(1)" },
+    { name: "permite_contato", ddl: "TINYINT(1)" },
+    { name: "tipo_contato", ddl: "VARCHAR(20)" },
+    { name: "prep_modalidade", ddl: "VARCHAR(30)" },
   ],
   exames: [
-    { name: 'tipo_exame', ddl: 'VARCHAR(100)' },
-    { name: 'mime_type', ddl: 'VARCHAR(100)' },
-    { name: 'tamanho_bytes', ddl: 'INT' },
-    { name: 'resultado_ia', ddl: 'JSON' },
-    { name: 'revisado_por_id', ddl: 'INT' },
-    { name: 'revisado_em', ddl: 'DATETIME' },
-    { name: 'liberado_por_medico_id', ddl: 'INT' },
-    { name: 'liberado_em', ddl: 'DATETIME' },
+    { name: "tipo_exame", ddl: "VARCHAR(100)" },
+    { name: "mime_type", ddl: "VARCHAR(100)" },
+    { name: "tamanho_bytes", ddl: "INT" },
+    { name: "resultado_ia", ddl: "JSON" },
+    { name: "revisado_por_id", ddl: "INT" },
+    { name: "revisado_em", ddl: "DATETIME" },
+    { name: "liberado_por_medico_id", ddl: "INT" },
+    { name: "liberado_em", ddl: "DATETIME" },
   ],
   pdfs: [
-    { name: 'certificado_serial', ddl: 'VARCHAR(100)' },
-    { name: 'assinado_em', ddl: 'DATETIME' },
+    { name: "certificado_serial", ddl: "VARCHAR(100)" },
+    { name: "assinado_em", ddl: "DATETIME" },
   ],
   nfse_registros: [
-    { name: 'precadastro_id', ddl: 'INT' },
-    { name: 'numero_nfse', ddl: 'VARCHAR(50)' },
-    { name: 'erro_descricao', ddl: 'TEXT' },
-    { name: 'emitido_em', ddl: 'DATETIME' },
+    { name: "precadastro_id", ddl: "INT" },
+    { name: "numero_nfse", ddl: "VARCHAR(50)" },
+    { name: "erro_descricao", ddl: "TEXT" },
+    { name: "emitido_em", ddl: "DATETIME" },
   ],
   tcle_assinaturas: [
-    { name: 'ip_address', ddl: 'VARCHAR(45)' },
-    { name: 'user_agent', ddl: 'TEXT' },
+    { name: "ip_address", ddl: "VARCHAR(45)" },
+    { name: "user_agent", ddl: "TEXT" },
   ],
   users: [
-    { name: 'email', ddl: 'VARCHAR(255)' },
-    { name: 'nome', ddl: 'VARCHAR(255)' },
-    { name: 'role', ddl: "VARCHAR(50) NOT NULL DEFAULT 'user'" },
-    { name: 'ativo', ddl: 'TINYINT(1) NOT NULL DEFAULT 1' },
+    { name: "email", ddl: "VARCHAR(255)" },
+    { name: "nome", ddl: "VARCHAR(255)" },
+    { name: "role", ddl: "VARCHAR(50) NOT NULL DEFAULT 'user'" },
+    { name: "ativo", ddl: "TINYINT(1) NOT NULL DEFAULT 1" },
     // TOTP 2FA — adicionado na Etapa 6.3, faltava em produção (causava 500 em auth.callback)
-    { name: 'totp_secret_encrypted', ddl: 'TEXT' },
-    { name: 'totp_enabled', ddl: 'TINYINT(1) NOT NULL DEFAULT 0' },
-    { name: 'totp_backup_codes', ddl: 'JSON' },
+    { name: "totp_secret_encrypted", ddl: "TEXT" },
+    { name: "totp_enabled", ddl: "TINYINT(1) NOT NULL DEFAULT 0" },
+    { name: "totp_backup_codes", ddl: "JSON" },
   ],
   security_events: [
-    { name: 'user_id', ddl: 'INT' },
-    { name: 'ip_address', ddl: 'VARCHAR(45)' },
-    { name: 'user_agent', ddl: 'TEXT' },
-    { name: 'detalhes', ddl: 'JSON' },
+    { name: "user_id", ddl: "INT" },
+    { name: "ip_address", ddl: "VARCHAR(45)" },
+    { name: "user_agent", ddl: "TEXT" },
+    { name: "detalhes", ddl: "JSON" },
   ],
   satisfacao_pesquisas: [
-    { name: 'achou_facil', ddl: 'TINYINT(1)' },
-    { name: 'conseguiu_medicacao', ddl: 'TINYINT(1)' },
-    { name: 'indicaria', ddl: 'TINYINT(1)' },
-    { name: 'comentario', ddl: 'TEXT' },
+    { name: "achou_facil", ddl: "TINYINT(1)" },
+    { name: "conseguiu_medicacao", ddl: "TINYINT(1)" },
+    { name: "indicaria", ddl: "TINYINT(1)" },
+    { name: "comentario", ddl: "TEXT" },
   ],
   pagamentos: [
-    { name: 'provider', ddl: "VARCHAR(20) NOT NULL DEFAULT 'asaas'" },
-    { name: 'asaas_payment_id', ddl: 'VARCHAR(100)' },
-    { name: 'stripe_payment_id', ddl: 'VARCHAR(100)' },
-    { name: 'stripe_session_id', ddl: 'VARCHAR(100)' },
-    { name: 'status', ddl: "VARCHAR(50) NOT NULL DEFAULT 'pendente'" },
+    { name: "provider", ddl: "VARCHAR(20) NOT NULL DEFAULT 'asaas'" },
+    { name: "asaas_payment_id", ddl: "VARCHAR(100)" },
+    { name: "status", ddl: "VARCHAR(50) NOT NULL DEFAULT 'pendente'" },
     // valor_centavos é NOT NULL sem DEFAULT — ALTER TABLE ADD COLUMN
     // com NOT NULL falha em tabela com dados, então não é patchável.
     // Em ambientes pré-existentes a coluna já deve existir; deploys
     // novos pegam via CREATE TABLE.
   ],
-  // stripe_events e pesquisa_tokens só têm colunas NOT NULL essenciais
-  // (event_id PK / token / expira_em). Nada para patch.
-}
+  // stripe_events (tabela de idempotência de webhooks) e pesquisa_tokens
+  // só têm colunas NOT NULL essenciais. Nada para patch.
+};
 
 // Mapa de tabela.coluna -> DDL para conversão de NOT NULL → NULL.
 // Cada entrada SÓ executa o ALTER se IS_NULLABLE='NO' no momento do boot,
 // evitando rodar DDL custosa em deploys subsequentes.
-const NULLABILITY_PATCHES: Array<{ table: string; column: string; ddl: string }> = [
+const NULLABILITY_PATCHES: Array<{
+  table: string;
+  column: string;
+  ddl: string;
+}> = [
   // Aceite eletrônico via checkbox substituiu a assinatura desenhada;
   // a coluna deixa de ser obrigatória.
-  { table: 'tcle_assinaturas', column: 'assinatura_data_url', ddl: 'TEXT NULL' },
-]
+  {
+    table: "tcle_assinaturas",
+    column: "assinatura_data_url",
+    ddl: "TEXT NULL",
+  },
+];
 
 async function getExistingColumns(table: string): Promise<Set<string>> {
   const rows = (await db.execute(sql`
     SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ${table}`
-  )) as unknown as Array<{ COLUMN_NAME?: string; column_name?: string }> | { rows?: Array<{ COLUMN_NAME?: string; column_name?: string }> }
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ${table}`)) as unknown as
+    | Array<{ COLUMN_NAME?: string; column_name?: string }>
+    | { rows?: Array<{ COLUMN_NAME?: string; column_name?: string }> };
 
-  const list = Array.isArray(rows) ? rows : (rows.rows ?? [])
+  const list = Array.isArray(rows) ? rows : (rows.rows ?? []);
   // mysql2 driver returns rows in [results, fields] tuple — flatten if needed
-  const flat: Array<{ COLUMN_NAME?: string; column_name?: string }> = Array.isArray(list[0])
-    ? (list[0] as Array<{ COLUMN_NAME?: string; column_name?: string }>)
-    : (list as Array<{ COLUMN_NAME?: string; column_name?: string }>)
+  const flat: Array<{ COLUMN_NAME?: string; column_name?: string }> =
+    Array.isArray(list[0])
+      ? (list[0] as Array<{ COLUMN_NAME?: string; column_name?: string }>)
+      : (list as Array<{ COLUMN_NAME?: string; column_name?: string }>);
 
-  return new Set(flat.map((r) => r.COLUMN_NAME ?? r.column_name ?? '').filter(Boolean))
+  return new Set(
+    flat.map((r) => r.COLUMN_NAME ?? r.column_name ?? "").filter(Boolean),
+  );
 }
 
-async function getColumnIsNullable(table: string, column: string): Promise<boolean | null> {
+async function getColumnIsNullable(
+  table: string,
+  column: string,
+): Promise<boolean | null> {
   try {
     const rows = (await db.execute(sql`
       SELECT IS_NULLABLE FROM INFORMATION_SCHEMA.COLUMNS
-      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ${table} AND COLUMN_NAME = ${column}`
-    )) as unknown as Array<{ IS_NULLABLE?: string; is_nullable?: string }> | { rows?: Array<{ IS_NULLABLE?: string; is_nullable?: string }> }
+      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ${table} AND COLUMN_NAME = ${column}`)) as unknown as
+      | Array<{ IS_NULLABLE?: string; is_nullable?: string }>
+      | { rows?: Array<{ IS_NULLABLE?: string; is_nullable?: string }> };
 
-    const list = Array.isArray(rows) ? rows : (rows.rows ?? [])
-    const flat: Array<{ IS_NULLABLE?: string; is_nullable?: string }> = Array.isArray(list[0])
-      ? (list[0] as Array<{ IS_NULLABLE?: string; is_nullable?: string }>)
-      : (list as Array<{ IS_NULLABLE?: string; is_nullable?: string }>)
+    const list = Array.isArray(rows) ? rows : (rows.rows ?? []);
+    const flat: Array<{ IS_NULLABLE?: string; is_nullable?: string }> =
+      Array.isArray(list[0])
+        ? (list[0] as Array<{ IS_NULLABLE?: string; is_nullable?: string }>)
+        : (list as Array<{ IS_NULLABLE?: string; is_nullable?: string }>);
 
-    const value = flat[0]?.IS_NULLABLE ?? flat[0]?.is_nullable
-    if (!value) return null
-    return value.toUpperCase() === 'YES'
+    const value = flat[0]?.IS_NULLABLE ?? flat[0]?.is_nullable;
+    if (!value) return null;
+    return value.toUpperCase() === "YES";
   } catch (err) {
-    logger.error('[ensureSchema] Falha ao consultar IS_NULLABLE', { table, column, error: String(err) })
-    return null
+    logger.error("[ensureSchema] Falha ao consultar IS_NULLABLE", {
+      table,
+      column,
+      error: String(err),
+    });
+    return null;
   }
 }
 
-const SAFE_IDENTIFIER = /^[a-zA-Z_][a-zA-Z0-9_]*$/
+const SAFE_IDENTIFIER = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
-async function patchColumnNullability(table: string, column: string, ddl: string): Promise<void> {
+async function patchColumnNullability(
+  table: string,
+  column: string,
+  ddl: string,
+): Promise<void> {
   if (!SAFE_IDENTIFIER.test(table) || !SAFE_IDENTIFIER.test(column)) {
-    logger.error('[ensureSchema] Identificador inválido em NULLABILITY_PATCHES — ignorado', { table, column })
-    return
+    logger.error(
+      "[ensureSchema] Identificador inválido em NULLABILITY_PATCHES — ignorado",
+      { table, column },
+    );
+    return;
   }
-  const isNullable = await getColumnIsNullable(table, column)
-  if (isNullable === null) return // coluna ou tabela não existe — nada a fazer
-  if (isNullable) return           // já é NULL — não precisa rodar DDL
+  const isNullable = await getColumnIsNullable(table, column);
+  if (isNullable === null) return; // coluna ou tabela não existe — nada a fazer
+  if (isNullable) return; // já é NULL — não precisa rodar DDL
   try {
-    await db.execute(sql.raw(`ALTER TABLE ${table} MODIFY COLUMN ${column} ${ddl}`))
-    logger.info('[ensureSchema] Coluna convertida para NULL', { table, column })
+    await db.execute(
+      sql.raw(`ALTER TABLE ${table} MODIFY COLUMN ${column} ${ddl}`),
+    );
+    logger.info("[ensureSchema] Coluna convertida para NULL", {
+      table,
+      column,
+    });
   } catch (err) {
-    logger.error('[ensureSchema] Falha ao alterar nullability (continuando)', {
-      table, column, error: String(err),
-    })
+    logger.error("[ensureSchema] Falha ao alterar nullability (continuando)", {
+      table,
+      column,
+      error: String(err),
+    });
   }
 }
 
-async function patchTableColumns(table: string, columns: Array<{ name: string; ddl: string }>): Promise<void> {
-  let existing: Set<string>
+async function patchTableColumns(
+  table: string,
+  columns: Array<{ name: string; ddl: string }>,
+): Promise<void> {
+  let existing: Set<string>;
   try {
-    existing = await getExistingColumns(table)
+    existing = await getExistingColumns(table);
   } catch (err) {
-    logger.error('[ensureSchema] Falha ao listar colunas existentes', { table, error: String(err) })
-    return
+    logger.error("[ensureSchema] Falha ao listar colunas existentes", {
+      table,
+      error: String(err),
+    });
+    return;
   }
 
   for (const col of columns) {
-    if (existing.has(col.name)) continue
-    const stmt = `ALTER TABLE ${table} ADD COLUMN ${col.name} ${col.ddl}`
+    if (existing.has(col.name)) continue;
+    const stmt = `ALTER TABLE ${table} ADD COLUMN ${col.name} ${col.ddl}`;
     try {
-      await db.execute(sql.raw(stmt))
-      logger.info('[ensureSchema] Coluna adicionada', { table, column: col.name })
+      await db.execute(sql.raw(stmt));
+      logger.info("[ensureSchema] Coluna adicionada", {
+        table,
+        column: col.name,
+      });
     } catch (err) {
-      logger.error('[ensureSchema] Falha ao adicionar coluna (continuando)', {
+      logger.error("[ensureSchema] Falha ao adicionar coluna (continuando)", {
         table,
         column: col.name,
         error: String(err),
-      })
+      });
     }
   }
 }
 
 export async function ensureSchema(): Promise<void> {
-  logger.info('[ensureSchema] Verificando schema do banco de dados...')
-  let ok = 0
-  let failed = 0
+  logger.info("[ensureSchema] Verificando schema do banco de dados...");
+  let ok = 0;
+  let failed = 0;
   for (const stmt of DDL_STATEMENTS) {
     try {
-      await db.execute(sql.raw(stmt))
-      ok++
+      await db.execute(sql.raw(stmt));
+      ok++;
     } catch (err) {
-      failed++
-      logger.error('[ensureSchema] Falha ao executar DDL (continuando)', {
+      failed++;
+      logger.error("[ensureSchema] Falha ao executar DDL (continuando)", {
         error: String(err),
         stmt: stmt.slice(0, 100),
-      })
+      });
     }
   }
-  logger.info(`[ensureSchema] DDL concluído: ${ok} ok, ${failed} falhas.`)
+  logger.info(`[ensureSchema] DDL concluído: ${ok} ok, ${failed} falhas.`);
 
   // Patch de colunas faltantes em tabelas pré-existentes
   for (const [table, columns] of Object.entries(COLUMN_PATCHES)) {
-    await patchTableColumns(table, columns)
+    await patchTableColumns(table, columns);
   }
 
   // Patch de colunas que precisam virar NULL (idempotente — só roda
   // o ALTER se a coluna ainda estiver NOT NULL).
   for (const { table, column, ddl } of NULLABILITY_PATCHES) {
-    await patchColumnNullability(table, column, ddl)
+    await patchColumnNullability(table, column, ddl);
   }
 
-  logger.info('[ensureSchema] Verificação concluída.')
+  logger.info("[ensureSchema] Verificação concluída.");
 }

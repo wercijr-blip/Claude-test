@@ -2,7 +2,41 @@
 
 > Arquivo de contexto para Claude Code. Lido automaticamente no início de cada sessão.
 
------
+---
+
+## ESCOPO DO PROJETO — LEIA ANTES DE QUALQUER AÇÃO
+
+Este repositório contém **EXCLUSIVAMENTE** o código do **Facilita PrEP**.
+
+- **Projeto:** Facilita PrEP (plataforma de saúde digital — PrEP/HIV)
+- **Repositório GitHub:** `wercijr-blip/Claude-test`
+- **Branch de produção:** `claude/review-facilita-prep-setup-ZDKky`
+- **Branch de desenvolvimento:** `claude/code-session-work-V5kd9`
+
+### Regras obrigatórias para toda sessão Claude
+
+1. **NUNCA** fazer push de código de outro projeto neste repositório
+2. **NUNCA** deletar arquivos do Facilita PrEP (`server/`, `drizzle/schema.ts`, `client/`, `shared/`)
+3. **NUNCA** substituir `drizzle/schema.ts` pelo schema de outro projeto
+4. **NUNCA** fazer push direto sem confirmar que o branch destino é do Facilita PrEP
+5. Em caso de dúvida sobre escopo, **PERGUNTAR** ao usuário antes de qualquer push
+
+### Projetos que existem em repositórios SEPARADOS (nunca misturar)
+
+| Projeto                                | Repositório                       | Nunca commitar aqui                       |
+| -------------------------------------- | --------------------------------- | ----------------------------------------- |
+| CIS / MedScribe (inteligência clínica) | `wercijr-blip/facilita-cis`       | soap_notes, clinical_sessions, cis-schema |
+| Marketing site                         | subpasta `web/` DENTRO deste repo | —                                         |
+
+### Arquivos críticos — nunca deletar ou substituir
+
+- `drizzle/schema.ts` — schema do banco do Facilita PrEP
+- `drizzle/relations.ts` — relações Drizzle
+- `server/routes/` — rotas tRPC (medico, admin, paciente, secretaria, etc.)
+- `server/email.ts`, `server/pdfSigner.ts`, `server/examAnalysis.ts`
+- `server/asaas/` — integração de pagamentos Asaas
+
+---
 
 ## 🎯 O que é este projeto
 
@@ -11,28 +45,28 @@
 **Domínio de produção:** `https://facilitaprep.com.br` (com `www.facilitaprep.com.br` redirecionando para o apex)
 **Hosting:** Railway — URL interna `claude-test-production-8672.up.railway.app` (fallback)
 
------
+---
 
 ## 🏗️ Stack Técnica
 
-|Camada            |Tecnologia                                            |
-|------------------|------------------------------------------------------|
-|Frontend          |React 19, TypeScript, Vite, Tailwind CSS v4, shadcn/ui|
-|Roteamento client |Wouter 3.x (patchado)                                 |
-|API               |tRPC v11 + Express 4                                  |
-|ORM               |Drizzle ORM (MySQL dialect)                           |
-|Banco de dados    |TiDB / MySQL 8                                        |
-|Autenticação      |OAuth via OAUTH_SERVER_URL + JWT (jose)               |
-|Assinatura digital|pdf-lib + @signpdf + node-forge (ICP-Brasil)          |
-|Upload de arquivos|AWS S3 + Multer                                       |
-|Filas             |BullMQ (geração assíncrona de PDF)                    |
-|E-mail            |Nodemailer (Gmail SMTP)                               |
-|NFS-e             |FocusNFe API (homologação/produção)                   |
-|Pagamentos        |Stripe                                                |
-|Testes            |Vitest 2.x                                            |
-|Package manager   |**pnpm** (obrigatório — não usar npm/yarn)            |
+| Camada             | Tecnologia                                             |
+| ------------------ | ------------------------------------------------------ |
+| Frontend           | React 19, TypeScript, Vite, Tailwind CSS v4, shadcn/ui |
+| Roteamento client  | Wouter 3.x (patchado)                                  |
+| API                | tRPC v11 + Express 4                                   |
+| ORM                | Drizzle ORM (MySQL dialect)                            |
+| Banco de dados     | TiDB / MySQL 8                                         |
+| Autenticação       | OAuth via OAUTH_SERVER_URL + JWT (jose)                |
+| Assinatura digital | pdf-lib + @signpdf + node-forge (ICP-Brasil)           |
+| Upload de arquivos | AWS S3 + Multer                                        |
+| Filas              | BullMQ (geração assíncrona de PDF)                     |
+| E-mail             | Nodemailer (Gmail SMTP)                                |
+| NFS-e              | FocusNFe API (homologação/produção)                    |
+| Pagamentos         | Asaas                                                  |
+| Testes             | Vitest 2.x                                             |
+| Package manager    | **pnpm** (obrigatório — não usar npm/yarn)             |
 
------
+---
 
 ## 📁 Estrutura de Diretórios
 
@@ -76,8 +110,9 @@
 │   ├── examAnalysis.ts           # Análise de exames via LLM
 │   ├── email.ts                  # Templates e envio de e-mails
 │   ├── storage.ts                # Upload S3
-│   ├── stripe/
-│   │   ├── products.ts
+│   ├── focusnfe.ts               # Emissão NFS-e
+│   ├── asaas/
+│   │   ├── client.ts
 │   │   └── webhook.ts
 │   └── certs/                    # Certificados ICP-Brasil (NÃO commitar)
 │       ├── werciley-cert.pem
@@ -103,7 +138,7 @@
 └── tsconfig.json
 ```
 
------
+---
 
 ## ⚡ Comandos Essenciais
 
@@ -161,7 +196,7 @@ npx drizzle-kit studio
 pnpm format
 ```
 
------
+---
 
 ## 🔐 Variáveis de Ambiente Necessárias
 
@@ -192,15 +227,16 @@ GMAIL_APP_PASSWORD=senha_de_app_gmail
 # NFS-e via Asaas (automático com pagamento)
 # Sem configuração extra — emissão via ASAAS_API_KEY
 
-# Stripe (legado — não usar)
-# STRIPE_SECRET_KEY=sk_test_...
+# Asaas (pagamentos)
+ASAAS_API_KEY=sua_asaas_api_key
+ASAAS_ENVIRONMENT=sandbox  # ou production
 
 # LLM para análise de exames
 BUILT_IN_FORGE_API_URL=https://api.anthropic.com
 BUILT_IN_FORGE_API_KEY=sk-ant-...
 ```
 
------
+---
 
 ## 🏥 Arquitetura do Sistema
 
@@ -210,8 +246,8 @@ BUILT_IN_FORGE_API_KEY=sk-ant-...
 1. Secretaria gera token de acesso (privado ou convênio)
 2. Token enviado ao paciente por e-mail
 3. Paciente acessa formulário multi-etapas:
-   StepPaciente → StepDemografico → StepContato → 
-   StepConduta → StepPrescricao → StepServico → 
+   StepPaciente → StepDemografico → StepContato →
+   StepConduta → StepPrescricao → StepServico →
    StepAutorizados → StepTcle (assinatura)
 4. Upload de exames HIV (análise por IA)
 5. Médico revisa no dashboard
@@ -221,12 +257,12 @@ BUILT_IN_FORGE_API_KEY=sk-ant-...
 
 ### Sistema de Roles (tRPC procedures)
 
-|Role        |Procedure                               |Acesso                  |
-|------------|----------------------------------------|------------------------|
-|`user`      |`publicProcedure` / `protectedProcedure`|Formulário do paciente  |
-|`secretaria`|`staffProcedure`                        |Gerar tokens, ver exames|
-|`medico`    |`medicoProcedure`                       |Revisar exames, aprovar |
-|`admin`     |`adminProcedure`                        |Tudo + gerenciar equipe |
+| Role         | Procedure                                | Acesso                   |
+| ------------ | ---------------------------------------- | ------------------------ |
+| `user`       | `publicProcedure` / `protectedProcedure` | Formulário do paciente   |
+| `secretaria` | `staffProcedure`                         | Gerar tokens, ver exames |
+| `medico`     | `medicoProcedure`                        | Revisar exames, aprovar  |
+| `admin`      | `adminProcedure`                         | Tudo + gerenciar equipe  |
 
 ### Assinatura Digital ICP-Brasil
 
@@ -235,23 +271,23 @@ BUILT_IN_FORGE_API_KEY=sk-ant-...
 - Política: DocMDP (não repúdio) + carimbos de tempo ITI
 - Compliance: CFM 2.299/2021, RT 01/2020 ITI
 
------
+---
 
 ## 🧪 Suíte de Testes
 
-|Arquivo                     |O que testa                                     |
-|----------------------------|------------------------------------------------|
-|`server/security.test.ts`   |CPF injection, CSRF, Open Redirect, Payload Bomb|
-|`server/roles.test.ts`      |Sistema de permissões por role                  |
-|`server/pdfSigner.test.ts`  |Geração e validação de PDFs assinados           |
-|`server/token.test.ts`      |Ciclo de vida de tokens de acesso               |
-|`server/email.test.ts`      |Templates e envio de notificações               |
-|`server/examReview.test.ts` |Análise de exames por IA                        |
-|`server/auth.logout.test.ts`|Logout e invalidação de sessão                  |
+| Arquivo                      | O que testa                                      |
+| ---------------------------- | ------------------------------------------------ |
+| `server/security.test.ts`    | CPF injection, CSRF, Open Redirect, Payload Bomb |
+| `server/roles.test.ts`       | Sistema de permissões por role                   |
+| `server/pdfSigner.test.ts`   | Geração e validação de PDFs assinados            |
+| `server/token.test.ts`       | Ciclo de vida de tokens de acesso                |
+| `server/email.test.ts`       | Templates e envio de notificações                |
+| `server/examReview.test.ts`  | Análise de exames por IA                         |
+| `server/auth.logout.test.ts` | Logout e invalidação de sessão                   |
 
 **Convenção de testes:** Vitest com `describe/it/expect`. Mocks com `vi.mock()`. Todos os testes ficam em `server/**/*.test.ts`.
 
------
+---
 
 ## 🔒 Segurança & LGPD
 
@@ -263,7 +299,7 @@ BUILT_IN_FORGE_API_KEY=sk-ant-...
 - **Retenção de dados:** `retentionUntil` nos registros (CFM: 20 anos para dados de saúde)
 - **Security Logger:** todos os eventos de segurança em `securityLogger.ts`
 
------
+---
 
 ## 📝 Convenções do Código
 
@@ -292,7 +328,7 @@ BUILT_IN_FORGE_API_KEY=sk-ant-...
 - Após mudar `drizzle/schema.ts`: rodar `pnpm db:push`
 - Índices obrigatórios em colunas de busca frequente
 
------
+---
 
 ## ⚠️ Atenção ao Trabalhar no Projeto
 
