@@ -174,7 +174,7 @@ describe("meRouter.exportData", () => {
 
     // All 4 queries return empty — paciente[0] will be undefined
     const makeEmpty = () => {
-      const p = Promise.resolve([]) as Promise<unknown[]> & {
+      const p = Promise.resolve([]) as unknown as Promise<unknown[]> & {
         limit: ReturnType<typeof vi.fn>;
       };
       p.limit = vi.fn().mockResolvedValue([]);

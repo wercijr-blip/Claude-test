@@ -342,7 +342,7 @@ describe("twoFactorRouter.verify", () => {
     const { jwtVerify } = await import("jose");
     vi.mocked(jwtVerify).mockResolvedValueOnce({
       payload: { type: "staff", userId: 1 },
-    } as Awaited<ReturnType<typeof jwtVerify>>);
+    } as unknown as Awaited<ReturnType<typeof jwtVerify>>);
 
     const { twoFactorRouter } = await import("./routes/twoFactor.ts");
     const caller = twoFactorRouter.createCaller(publicCtx);
@@ -355,7 +355,7 @@ describe("twoFactorRouter.verify", () => {
     const { jwtVerify } = await import("jose");
     vi.mocked(jwtVerify).mockResolvedValueOnce({
       payload: { type: "pending_2fa", userId: "not-a-number" },
-    } as Awaited<ReturnType<typeof jwtVerify>>);
+    } as unknown as Awaited<ReturnType<typeof jwtVerify>>);
 
     const { twoFactorRouter } = await import("./routes/twoFactor.ts");
     const caller = twoFactorRouter.createCaller(publicCtx);
@@ -368,7 +368,7 @@ describe("twoFactorRouter.verify", () => {
     const { jwtVerify } = await import("jose");
     vi.mocked(jwtVerify).mockResolvedValueOnce({
       payload: { type: "pending_2fa", userId: 1 },
-    } as Awaited<ReturnType<typeof jwtVerify>>);
+    } as unknown as Awaited<ReturnType<typeof jwtVerify>>);
     dbSelectLimitFn.mockResolvedValueOnce([]);
 
     const { twoFactorRouter } = await import("./routes/twoFactor.ts");
@@ -382,7 +382,7 @@ describe("twoFactorRouter.verify", () => {
     const { jwtVerify } = await import("jose");
     vi.mocked(jwtVerify).mockResolvedValueOnce({
       payload: { type: "pending_2fa", userId: 1 },
-    } as Awaited<ReturnType<typeof jwtVerify>>);
+    } as unknown as Awaited<ReturnType<typeof jwtVerify>>);
     dbSelectLimitFn.mockResolvedValueOnce([makeUser({ ativo: false })]);
 
     const { twoFactorRouter } = await import("./routes/twoFactor.ts");
@@ -396,7 +396,7 @@ describe("twoFactorRouter.verify", () => {
     const { jwtVerify } = await import("jose");
     vi.mocked(jwtVerify).mockResolvedValueOnce({
       payload: { type: "pending_2fa", userId: 1 },
-    } as Awaited<ReturnType<typeof jwtVerify>>);
+    } as unknown as Awaited<ReturnType<typeof jwtVerify>>);
     dbSelectLimitFn.mockResolvedValueOnce([
       makeUser({ totpEnabled: false, totpSecretEncrypted: null }),
     ]);
@@ -412,7 +412,7 @@ describe("twoFactorRouter.verify", () => {
     const { jwtVerify } = await import("jose");
     vi.mocked(jwtVerify).mockResolvedValueOnce({
       payload: { type: "pending_2fa", userId: 1 },
-    } as Awaited<ReturnType<typeof jwtVerify>>);
+    } as unknown as Awaited<ReturnType<typeof jwtVerify>>);
     dbSelectLimitFn.mockResolvedValueOnce([
       makeUser({ totpEnabled: true, totpSecretEncrypted: null }),
     ]);
@@ -428,7 +428,7 @@ describe("twoFactorRouter.verify", () => {
     const { jwtVerify } = await import("jose");
     vi.mocked(jwtVerify).mockResolvedValueOnce({
       payload: { type: "pending_2fa", userId: 1 },
-    } as Awaited<ReturnType<typeof jwtVerify>>);
+    } as unknown as Awaited<ReturnType<typeof jwtVerify>>);
     dbSelectLimitFn.mockResolvedValueOnce([makeUser()]);
 
     const { verifySync } = await import("otplib");
@@ -447,7 +447,7 @@ describe("twoFactorRouter.verify", () => {
     const { jwtVerify } = await import("jose");
     vi.mocked(jwtVerify).mockResolvedValueOnce({
       payload: { type: "pending_2fa", userId: 1 },
-    } as Awaited<ReturnType<typeof jwtVerify>>);
+    } as unknown as Awaited<ReturnType<typeof jwtVerify>>);
     dbSelectLimitFn.mockResolvedValueOnce([makeUser()]);
 
     const { verifySync } = await import("otplib");
@@ -475,7 +475,7 @@ describe("twoFactorRouter.verify", () => {
     const { jwtVerify } = await import("jose");
     vi.mocked(jwtVerify).mockResolvedValueOnce({
       payload: { type: "pending_2fa", userId: 1 },
-    } as Awaited<ReturnType<typeof jwtVerify>>);
+    } as unknown as Awaited<ReturnType<typeof jwtVerify>>);
 
     dbSelectLimitFn.mockResolvedValueOnce([
       makeUser({
@@ -501,7 +501,7 @@ describe("twoFactorRouter.verify", () => {
     const { jwtVerify } = await import("jose");
     vi.mocked(jwtVerify).mockResolvedValueOnce({
       payload: { type: "pending_2fa", userId: 1 },
-    } as Awaited<ReturnType<typeof jwtVerify>>);
+    } as unknown as Awaited<ReturnType<typeof jwtVerify>>);
 
     dbSelectLimitFn.mockResolvedValueOnce([
       makeUser({
@@ -523,7 +523,7 @@ describe("twoFactorRouter.verify", () => {
     const { jwtVerify } = await import("jose");
     vi.mocked(jwtVerify).mockResolvedValueOnce({
       payload: { type: "pending_2fa", userId: 1 },
-    } as Awaited<ReturnType<typeof jwtVerify>>);
+    } as unknown as Awaited<ReturnType<typeof jwtVerify>>);
 
     dbSelectLimitFn.mockResolvedValueOnce([
       makeUser({
