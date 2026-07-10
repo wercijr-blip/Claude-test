@@ -32,26 +32,12 @@ import {
 } from "../../shared/security-constants.ts";
 import { enqueueEnviarLinkAcesso } from "../pdfQueue.ts";
 import type { PagamentoMeta } from "../email.ts";
-import { ERROR_MESSAGES, HORARIO_ATENDIMENTO } from "../../shared/const.ts";
+import { ERROR_MESSAGES } from "../../shared/const.ts";
 import { paginationInput, paginatedResponse } from "../_core/pagination.ts";
 import { logger } from "../_core/logger.ts";
 import * as Sentry from "@sentry/node";
 import { okEmpty } from "../_core/response.ts";
 import { sendCapiLead } from "../capi.ts";
-
-function _isDentroHorarioAtendimento(): boolean {
-  const agora = new Date();
-  const spTime = new Date(
-    agora.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }),
-  );
-  const hora = spTime.getHours();
-  const diaSemana = spTime.getDay(); // 0=Dom, 1=Seg, ..., 6=Sab
-  const isDiaUtil = diaSemana >= 1 && diaSemana <= 5;
-  const isDentroHorario =
-    hora >= HORARIO_ATENDIMENTO.ABERTURA_HORA &&
-    hora < HORARIO_ATENDIMENTO.FECHAMENTO_HORA;
-  return isDiaUtil && isDentroHorario;
-}
 
 export async function gerarEEnviarLinkAcesso(
   precadastroId: number,

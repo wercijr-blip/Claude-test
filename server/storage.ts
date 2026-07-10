@@ -364,13 +364,19 @@ export function uploadExame(req: Request, res: Response): Promise<void> {
 
         // Queue async AI analysis — returns immediately, analysis runs in background
         const exameId = inserted.insertId;
-        await enqueueAnalisarExame(exameId).catch((queueErr) => {
-          // Non-fatal: log and continue. Exam is saved; analysis can be retried manually.
-          logger.error(
-            `[storage] Falha ao enfileirar análise do exame ${exameId}`,
-            queueErr,
-          );
-        });
+        if (exameId) {
+          await enqueueAnalisarExame(exameId).catch((queueErr) => {
+            // Non-fatal: log and continue. Exam is saved; analysis can be retried manually.
+            logger.error(
+              `[storage] Falha ao enfileirar análise do exame ${exameId}`,
+              queueErr,
+            );
+          });
+        } else {
+          logger.error("[storage] insertId ausente — análise não enfileirada", {
+            s3Key,
+          });
+        }
 
         res.json({ ok: true, s3Key });
       } catch (uploadErr) {

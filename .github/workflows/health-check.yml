@@ -11,11 +11,20 @@ jobs:
     steps:
       - name: Ping health endpoint
         # -L segue o 301 do apex → www (APP_URL canônico é www.facilitaprep.com.br)
+        # /api/health responde 200 sempre que o processo está vivo; o campo
+        # "status" do corpo indica dependências degradadas (db/redis).
+        # Falhamos o job nos dois casos para alertar por e-mail.
         run: |
+          BODY=$(curl -sL --max-time 10 https://facilitaprep.com.br/api/health || echo "")
           STATUS=$(curl -sL -o /dev/null -w "%{http_code}" --max-time 10 https://facilitaprep.com.br/api/health || echo "000")
           echo "HTTP status: $STATUS"
+          echo "Body: $BODY"
           if [ "$STATUS" != "200" ]; then
-            echo "Health check falhou: HTTP $STATUS"
+            echo "Health check falhou: HTTP $STATUS (site fora do ar)"
+            exit 1
+          fi
+          if echo "$BODY" | grep -q '"status":"degraded"'; then
+            echo "Health check degradado: dependência (db/redis) com problema"
             exit 1
           fi
           echo "Health check OK"

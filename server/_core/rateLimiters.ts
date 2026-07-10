@@ -1,15 +1,29 @@
 import rateLimit from "express-rate-limit";
 import { RedisStore } from "rate-limit-redis";
-import { redis } from "./redis.ts";
+import { redisFailFast } from "./redis.ts";
 import { RATE_LIMITS } from "../../shared/security-constants.ts";
 import type { SendCommandFn } from "rate-limit-redis";
 
+// Todos os limiters usam o client fail-fast + passOnStoreError (fail-open):
+// se o Redis cair, a requisição passa sem rate limit em vez de pendurar ou
+// retornar 500 — disponibilidade da plataforma de saúde vem primeiro.
+// O erro de store é logado pelo handler em redis.ts (throttled).
 function makeStore(prefix: string) {
-  return new RedisStore({
+  const store = new RedisStore({
     sendCommand: ((...args: string[]) =>
-      redis.call(args[0]!, ...args.slice(1))) as unknown as SendCommandFn,
+      redisFailFast.call(
+        args[0]!,
+        ...args.slice(1),
+      )) as unknown as SendCommandFn,
     prefix: `rl:${prefix}:`,
   });
+  // O construtor do RedisStore guarda promises flutuantes (SCRIPT LOAD dos
+  // scripts lua). Com Redis indisponível no boot elas rejeitam sem handler —
+  // unhandledRejection derruba o processo em produção. allSettled marca as
+  // rejeições como tratadas; os awaits internos da lib seguem recebendo o
+  // erro e o limiter faz fail-open via passOnStoreError.
+  void Promise.allSettled([store.incrementScriptSha, store.getScriptSha]);
+  return store;
 }
 
 // Global IP limiter — blanket protection against floods across all endpoints
@@ -20,6 +34,7 @@ export const globalLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   store: makeStore("global"),
+  passOnStoreError: true,
 });
 
 export const authLimiter = rateLimit({
@@ -29,6 +44,7 @@ export const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   store: makeStore("auth"),
+  passOnStoreError: true,
 });
 
 export const tokenValidateLimiter = rateLimit({
@@ -38,6 +54,7 @@ export const tokenValidateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   store: makeStore("token"),
+  passOnStoreError: true,
 });
 
 export const uploadLimiter = rateLimit({
@@ -47,6 +64,7 @@ export const uploadLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   store: makeStore("upload"),
+  passOnStoreError: true,
 });
 
 export const apiLimiter = rateLimit({
@@ -56,6 +74,7 @@ export const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   store: makeStore("api"),
+  passOnStoreError: true,
 });
 
 export const pdfLimiter = rateLimit({
@@ -65,6 +84,7 @@ export const pdfLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   store: makeStore("pdf"),
+  passOnStoreError: true,
 });
 
 export const dataRightsLimiter = rateLimit({
@@ -76,6 +96,7 @@ export const dataRightsLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   store: makeStore("data-rights"),
+  passOnStoreError: true,
 });
 
 export const totpLimiter = rateLimit({
@@ -87,4 +108,5 @@ export const totpLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   store: makeStore("totp"),
+  passOnStoreError: true,
 });

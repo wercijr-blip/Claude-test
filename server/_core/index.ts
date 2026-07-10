@@ -9,7 +9,7 @@ import { fileURLToPath } from "url";
 import { randomUUID } from "crypto";
 import { env } from "./env.ts";
 import { logger } from "./logger.ts";
-import { redis } from "./redis.ts";
+import { redis, redisFailFast } from "./redis.ts";
 import { applySecurityMiddleware } from "./security.ts";
 import { appRouter } from "../routers.ts";
 import { createContext } from "./context.ts";
@@ -263,18 +263,39 @@ app.use(
   }),
 );
 
+// Healthchecks precisam responder mesmo com dependências penduradas —
+// um check que nunca resolve derruba o monitoramento junto com o serviço.
+function checkWithTimeout<T>(
+  p: Promise<T>,
+  ms: number,
+  fallback: T,
+): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+  ]);
+}
+
 // Deep healthcheck — verifica DB, Redis e S3
 app.get("/api/health/deep", async (_req, res) => {
   const { S3Client, HeadBucketCommand } = await import("@aws-sdk/client-s3");
   const checks = await Promise.allSettled([
-    db
-      .execute("SELECT 1")
-      .then(() => ({ name: "db", ok: true }))
-      .catch((e: Error) => ({ name: "db", ok: false, error: e.message })),
-    redis
-      .ping()
-      .then((r) => ({ name: "redis", ok: r === "PONG" }))
-      .catch((e: Error) => ({ name: "redis", ok: false, error: e.message })),
+    checkWithTimeout(
+      db
+        .execute("SELECT 1")
+        .then(() => ({ name: "db", ok: true }))
+        .catch((e: Error) => ({ name: "db", ok: false, error: e.message })),
+      3_000,
+      { name: "db", ok: false, error: "timeout" },
+    ),
+    checkWithTimeout(
+      redisFailFast
+        .ping()
+        .then((r) => ({ name: "redis", ok: r === "PONG" }))
+        .catch((e: Error) => ({ name: "redis", ok: false, error: e.message })),
+      3_000,
+      { name: "redis", ok: false, error: "timeout" },
+    ),
     new S3Client({
       region: env.AWS_REGION,
       credentials: {
@@ -300,18 +321,30 @@ app.get("/api/health/deep", async (_req, res) => {
 // Healthcheck com verificação do banco e Redis
 app.get("/api/health", async (_req, res) => {
   const [dbOk, redisOk] = await Promise.all([
-    db
-      .execute("SELECT 1")
-      .then(() => true)
-      .catch(() => false),
-    redis
-      .ping()
-      .then((r) => r === "PONG")
-      .catch(() => false),
+    checkWithTimeout(
+      db
+        .execute("SELECT 1")
+        .then(() => true)
+        .catch(() => false),
+      3_000,
+      false,
+    ),
+    checkWithTimeout(
+      redisFailFast
+        .ping()
+        .then((r) => r === "PONG")
+        .catch(() => false),
+      3_000,
+      false,
+    ),
   ]);
 
   const allOk = dbOk && redisOk;
-  res.status(allOk ? 200 : 503).json({
+  // HTTP 200 sempre que o processo responde: este endpoint é o healthcheck
+  // do Railway (railway.toml), que reinicia/rejeita o deploy em não-200.
+  // Dependência degradada NÃO deve derrubar o app — o corpo carrega o status
+  // e o workflow health-check.yml alerta quando status != "ok".
+  res.status(200).json({
     status: allOk ? "ok" : "degraded",
     uptime: Math.floor(process.uptime()),
     version: "1.0.0",
@@ -651,12 +684,6 @@ if (env.NODE_ENV === "production") {
 // Sentry error handler — must come after all routes, before listen
 Sentry.setupExpressErrorHandler(app);
 
-await ensureSchema().catch((err) => {
-  logger.error("[server] ensureSchema falhou (continuando)", {
-    error: String(err),
-  });
-});
-
 // Cert expiry alert — warn and email if ICP-Brasil certificate expires in < 60 days
 if (env.NODE_ENV === "production") {
   const { inspecionarCertificado } = await import("../pdfSigner.ts");
@@ -686,18 +713,31 @@ if (env.NODE_ENV === "production") {
     });
 }
 
-// Configura a regra de lifecycle do S3 (exames-inicio/ expira em 30 dias)
-const { ensureS3Lifecycle } = await import("../storage.ts");
-await ensureS3Lifecycle().catch((err) => {
-  logger.error("[server] ensureS3Lifecycle falhou (continuando)", {
-    error: String(err),
-  });
-});
-
+// A porta abre ANTES das tarefas que dependem de serviços externos
+// (ensureSchema → banco, ensureS3Lifecycle → AWS). Se banco/S3 estiverem
+// lentos ou fora do ar, o container ainda fica saudável para o Railway e
+// serve o frontend, em vez de ciclar em crash-loop sem nunca abrir a porta.
 const server = app.listen(env.PORT, async () => {
   logger.info(`Facilita PrEP rodando na porta ${env.PORT}`, {
     env: env.NODE_ENV,
   });
+
+  // Safety-net de schema roda antes dos workers (que escrevem nas tabelas).
+  await ensureSchema().catch((err) => {
+    logger.error("[server] ensureSchema falhou (continuando)", {
+      error: String(err),
+    });
+  });
+
+  // Configura a regra de lifecycle do S3 (exames-inicio/ expira em 30 dias).
+  // Não-crítico: fire-and-forget para não atrasar o start dos workers.
+  void import("../storage.ts").then(({ ensureS3Lifecycle }) =>
+    ensureS3Lifecycle().catch((err) => {
+      logger.error("[server] ensureS3Lifecycle falhou (continuando)", {
+        error: String(err),
+      });
+    }),
+  );
 
   // Workers run in-process by default (single-service deploy).
   // Set WORKERS_ENABLED=false when running a dedicated worker service via server/workers.ts.
