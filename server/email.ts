@@ -62,32 +62,6 @@ async function send(opts: {
   if (error) throw new Error(`Resend: ${error.message}`);
 }
 
-async function _sendMultiple(opts: {
-  to: string[];
-  subject: string;
-  html: string;
-}): Promise<void> {
-  let client: NonNullable<typeof resend>;
-  try {
-    client = assertResend();
-  } catch (e) {
-    if ((e as Error).message === "__dev_skip__") return;
-    throw e;
-  }
-  const { error } = await withCircuitBreaker(
-    "resend",
-    () =>
-      client.emails.send({
-        from: env.EMAIL_FROM,
-        to: opts.to,
-        subject: opts.subject,
-        html: opts.html,
-      }),
-    { threshold: 5, resetMs: 60_000 },
-  );
-  if (error) throw new Error(`Resend: ${error.message}`);
-}
-
 function formatarValidade(expiresAt: Date): string {
   return expiresAt.toLocaleString("pt-BR", {
     day: "2-digit",

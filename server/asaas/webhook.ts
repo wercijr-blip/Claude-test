@@ -12,7 +12,7 @@ import { gerarEEnviarLinkAcesso } from "../routes/intake.ts";
 import { emitirNfseAsaas } from "./client.ts";
 import { logger } from "../_core/logger.ts";
 import { Sentry } from "../_core/instrument.ts";
-import { decrypt } from "../_core/encryption.ts";
+import { safeDecrypt } from "../_core/encryption.ts";
 import { sendCapiPurchase } from "../capi.ts";
 
 interface AsaasWebhookPayment {
@@ -194,15 +194,20 @@ async function handlePaymentConfirmed(
 
     log("INFO", `Link sent for precadastroId=${precadastroId}`);
 
-    // CAPI Purchase event — fire-and-forget, non-fatal
-    const [capiFirst] = decrypt(precad.nomeEncrypted).trim().split(" ");
-    sendCapiPurchase({
-      eventId: `pay-${paymentId}`,
-      email: decrypt(precad.emailEncrypted),
-      phone: decrypt(precad.telefoneEncrypted),
-      firstName: capiFirst,
-      value,
-    }).catch(() => {});
+    // CAPI Purchase event — fire-and-forget, non-fatal.
+    // safeDecrypt: um registro corrompido não pode derrubar o handler depois
+    // do link já enviado (Asaas faria retry e duplicaria o processamento).
+    const capiEmail = safeDecrypt(precad.emailEncrypted, "");
+    const [capiFirst] = safeDecrypt(precad.nomeEncrypted, "").trim().split(" ");
+    if (capiEmail) {
+      sendCapiPurchase({
+        eventId: `pay-${paymentId}`,
+        email: capiEmail,
+        phone: safeDecrypt(precad.telefoneEncrypted, ""),
+        firstName: capiFirst,
+        value,
+      }).catch(() => {});
+    }
 
     // NFS-e via Asaas native endpoint (fire-and-forget — non-fatal).
     // Sem retry automático: reemitir após timeout pode duplicar a nota.
