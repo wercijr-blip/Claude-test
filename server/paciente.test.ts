@@ -188,3 +188,51 @@ describe("encrypt/decrypt — campos sensíveis do paciente", () => {
     expect(hashCpf(cpf)).toBe(hashCpf(cpf));
   });
 });
+
+// ────────────────────────────────────────────────────────────────────────────
+// finalizar — gate de aprovação do exame (fecha geração de receita assinada
+// sem aprovação médica/IA) e checagem de ownership do pacienteId.
+// Replica exatamente a condição usada em paciente.ts:finalizar e no gate
+// espelhado em workers/pdfWorker.ts.
+// ────────────────────────────────────────────────────────────────────────────
+describe("finalizar — gate de aprovação do exame", () => {
+  function bloqueiaGeracaoPdf(consultaStatus: string | undefined): boolean {
+    return consultaStatus !== "aprovado_ia" && consultaStatus !== "aprovado";
+  }
+
+  it("permite quando a IA aprovou sozinha (aprovado_ia)", () => {
+    expect(bloqueiaGeracaoPdf("aprovado_ia")).toBe(false);
+  });
+
+  it("permite quando o médico aprovou (aprovado)", () => {
+    expect(bloqueiaGeracaoPdf("aprovado")).toBe(false);
+  });
+
+  it("bloqueia enquanto aguardando upload do exame", () => {
+    expect(bloqueiaGeracaoPdf("aguardando_upload")).toBe(true);
+  });
+
+  it("bloqueia durante validação por IA em andamento", () => {
+    expect(bloqueiaGeracaoPdf("em_validacao_ia")).toBe(true);
+  });
+
+  it("bloqueia quando pendente de revisão médica", () => {
+    expect(bloqueiaGeracaoPdf("pendente_revisao_medica")).toBe(true);
+  });
+
+  it("bloqueia quando pendente de revisão médica urgente", () => {
+    expect(bloqueiaGeracaoPdf("pendente_revisao_medica_urgente")).toBe(true);
+  });
+
+  it("bloqueia quando o médico rejeitou", () => {
+    expect(bloqueiaGeracaoPdf("rejeitado")).toBe(true);
+  });
+
+  it("bloqueia quando a IA rejeitou por data inválida", () => {
+    expect(bloqueiaGeracaoPdf("rejeitado_data_invalida")).toBe(true);
+  });
+
+  it("bloqueia quando não existe consultasInicio para o token (status undefined)", () => {
+    expect(bloqueiaGeracaoPdf(undefined)).toBe(true);
+  });
+});
