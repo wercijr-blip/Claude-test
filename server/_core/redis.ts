@@ -53,8 +53,17 @@ attachErrorLogger(redisFailFast, "fail-fast");
 // Sem offline queue, comandos emitidos antes da conexão abrir são rejeitados.
 // Conecta antecipadamente em produção para os primeiros requests já terem
 // rate limit; em dev/test a conexão abre sob demanda (lazyConnect).
-if (env.NODE_ENV === "production") {
-  redisFailFast.connect().catch(() => {
-    // erro já logado pelo handler acima; reconexão é automática
-  });
-}
+//
+// index.ts aguarda esta promise (bounded pelo connectTimeout de 2s acima)
+// antes de abrir a porta — sem isso, a porta abre e o healthcheck/primeiro
+// tráfego real chegam antes da conexão terminar, e cada comando nessa janela
+// é rejeitado na hora ("Stream isn't writeable"), aparecendo nos logs a
+// cada boot mesmo com o Redis saudável. O bound de 2s não reintroduz o
+// crash-loop original (ensureSchema/DB, que não tinha timeout algum) — no
+// pior caso (Redis fora do ar) o boot atrasa só esses 2s, nunca trava.
+export const redisFailFastReady: Promise<void> =
+  env.NODE_ENV === "production"
+    ? redisFailFast.connect().catch(() => {
+        // erro já logado pelo handler acima; reconexão é automática
+      })
+    : Promise.resolve();

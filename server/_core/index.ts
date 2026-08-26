@@ -9,7 +9,7 @@ import { fileURLToPath } from "url";
 import { randomUUID } from "crypto";
 import { env } from "./env.ts";
 import { logger } from "./logger.ts";
-import { redis, redisFailFast } from "./redis.ts";
+import { redis, redisFailFast, redisFailFastReady } from "./redis.ts";
 import { applySecurityMiddleware } from "./security.ts";
 import { appRouter } from "../routers.ts";
 import { createContext } from "./context.ts";
@@ -722,6 +722,13 @@ if (env.NODE_ENV === "production") {
 // (ensureSchema → banco, ensureS3Lifecycle → AWS). Se banco/S3 estiverem
 // lentos ou fora do ar, o container ainda fica saudável para o Railway e
 // serve o frontend, em vez de ciclar em crash-loop sem nunca abrir a porta.
+//
+// Exceção: redisFailFastReady é aguardado aqui — diferente de ensureSchema,
+// tem timeout bounded em 2s (redis.ts), então não reintroduz o crash-loop;
+// sem esperar, o healthcheck/primeiro tráfego real chegam antes da conexão
+// terminar e cada rate limiter loga "Stream isn't writeable" a cada boot.
+await redisFailFastReady;
+
 const server = app.listen(env.PORT, async () => {
   logger.info(`Facilita PrEP rodando na porta ${env.PORT}`, {
     env: env.NODE_ENV,
