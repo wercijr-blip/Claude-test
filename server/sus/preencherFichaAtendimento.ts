@@ -2,7 +2,7 @@
  * Preenche o Formulário 02 — Ficha de Atendimento PrEP (FEV/2025).
  *
  * Defaults conforme política da clínica:
- *   - Serviço: Serviço Especializado | Origem: Privada | CNES: SUS_CNES (env)
+ *   - Serviço: Teleatendimento | Origem: Privada | CNES: SUS_CNES (env)
  *   - Identificação Preferencial: Nome Civil
  *   - Uso de PrEP relacionado: não se aplica
  *   - 13. Estudo de vacina: Não
@@ -148,7 +148,9 @@ export async function preencherFichaAtendimento(
   };
 
   // ── Cabeçalho do serviço ──────────────────────────────────────
-  setDropdown("1-serviço", "Serviço Especializado");
+  // Atendimento 100% online — "Teleatendimento" é a opção oficial do
+  // formulário (não há "Teleconsulta" nas opções do dropdown do PDF).
+  setDropdown("1-serviço", "Teleatendimento");
   setDropdown("2-acompanhamento_médico", "Privada");
   setText("3-CNES", config.cnes);
   setDropdown("4-ident_preferencial", "Nome Civil");
