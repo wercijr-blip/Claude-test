@@ -4,9 +4,13 @@ import path from "path";
 import { fileURLToPath } from "url";
 import forge from "node-forge";
 import { SignPdf } from "@signpdf/signpdf";
-import { P12Signer } from "@signpdf/signer-p12";
 import { plainAddPlaceholder } from "@signpdf/placeholder-plain";
-import { SUBFILTER_ETSI_CADES_DETACHED } from "@signpdf/utils";
+import {
+  SUBFILTER_ETSI_CADES_DETACHED,
+  Signer,
+  SignPdfError,
+  convertBuffer,
+} from "@signpdf/utils";
 import { env } from "./_core/env.ts";
 import {
   RT_NOME,
@@ -296,6 +300,378 @@ function extrairSerial(pfxData: Buffer, password: string): string {
   }
 }
 
+// id-aa-signingCertificateV2 (RFC 5035) — atributo assinado obrigatório do
+// CAdES-BES que vincula a assinatura ao certificado do signatário via hash
+// SHA-256. @signpdf/signer-p12 produz apenas um PKCS#7 básico (contentType +
+// signingTime + messageDigest — o padrão adbe.pkcs7.detached da Adobe), sem
+// esse atributo. O placeholder declara SubFilter=ETSI.CAdES.detached (ver
+// plainAddPlaceholder abaixo), então o formato declarado não batia com o que
+// de fato estava assinado — o verificador do ITI recusa isso como "formato
+// de assinatura inválido". IcpCadesP12Signer acrescenta o atributo faltante
+// e reassina o digest sobre o conjunto completo de atributos.
+const OID_SIGNING_CERTIFICATE_V2 = "1.2.840.113549.1.9.16.2.47";
+
+interface ForgeAuthenticatedAttribute {
+  type: string;
+  value?: unknown;
+}
+
+// forge.pkcs7's internal _attributeToAsn1 só sabe serializar contentType,
+// messageDigest e signingTime (é uma função privada do módulo, não exposta
+// em forge.pkcs7). Esta é uma réplica fiel dela — mesma forma
+// SEQUENCE[OID, SET[value]] — estendida para o nosso atributo CAdES, cujo
+// `value` já chega como um nó ASN.1 pronto.
+function attributeToAsn1(attr: ForgeAuthenticatedAttribute): forge.asn1.Asn1 {
+  let value: forge.asn1.Asn1;
+  if (attr.type === forge.pki.oids.contentType) {
+    value = forge.asn1.create(
+      forge.asn1.Class.UNIVERSAL,
+      forge.asn1.Type.OID,
+      false,
+      forge.asn1.oidToDer(attr.value as string).getBytes(),
+    );
+  } else if (attr.type === forge.pki.oids.messageDigest) {
+    value = forge.asn1.create(
+      forge.asn1.Class.UNIVERSAL,
+      forge.asn1.Type.OCTETSTRING,
+      false,
+      (attr.value as forge.util.ByteStringBuffer).bytes(),
+    );
+  } else if (attr.type === forge.pki.oids.signingTime) {
+    value = forge.asn1.create(
+      forge.asn1.Class.UNIVERSAL,
+      forge.asn1.Type.UTCTIME,
+      false,
+      forge.asn1.dateToUtcTime(attr.value as Date),
+    );
+  } else if (attr.type === OID_SIGNING_CERTIFICATE_V2) {
+    value = attr.value as forge.asn1.Asn1;
+  } else {
+    throw new Error(`Atributo CAdES não suportado: ${attr.type}`);
+  }
+
+  return forge.asn1.create(
+    forge.asn1.Class.UNIVERSAL,
+    forge.asn1.Type.SEQUENCE,
+    true,
+    [
+      forge.asn1.create(
+        forge.asn1.Class.UNIVERSAL,
+        forge.asn1.Type.OID,
+        false,
+        forge.asn1.oidToDer(attr.type).getBytes(),
+      ),
+      forge.asn1.create(forge.asn1.Class.UNIVERSAL, forge.asn1.Type.SET, true, [
+        value,
+      ]),
+    ],
+  );
+}
+
+// Monta o atributo signingCertificateV2 (ESSCertIDv2, RFC 5035) apontando
+// para o certificado que efetivamente assina — hashAlgorithm explícito
+// (SHA-256) + certHash. issuerSerial e a lista de policies são OPTIONAL no
+// RFC e foram omitidos; o vínculo com o certificado já fica garantido pelo
+// certHash sozinho.
+function buildSigningCertificateV2Attribute(
+  cert: forge.pki.Certificate,
+): ForgeAuthenticatedAttribute {
+  const certDer = forge.asn1
+    .toDer(forge.pki.certificateToAsn1(cert))
+    .getBytes();
+  const md = forge.md.sha256.create();
+  md.update(certDer);
+  const certHash = md.digest().getBytes();
+
+  const essCertIdV2 = forge.asn1.create(
+    forge.asn1.Class.UNIVERSAL,
+    forge.asn1.Type.SEQUENCE,
+    true,
+    [
+      forge.asn1.create(
+        forge.asn1.Class.UNIVERSAL,
+        forge.asn1.Type.SEQUENCE,
+        true,
+        [
+          forge.asn1.create(
+            forge.asn1.Class.UNIVERSAL,
+            forge.asn1.Type.OID,
+            false,
+            forge.asn1.oidToDer(forge.pki.oids.sha256).getBytes(),
+          ),
+          forge.asn1.create(
+            forge.asn1.Class.UNIVERSAL,
+            forge.asn1.Type.NULL,
+            false,
+            "",
+          ),
+        ],
+      ),
+      forge.asn1.create(
+        forge.asn1.Class.UNIVERSAL,
+        forge.asn1.Type.OCTETSTRING,
+        false,
+        certHash,
+      ),
+    ],
+  );
+
+  const signingCertificateV2 = forge.asn1.create(
+    forge.asn1.Class.UNIVERSAL,
+    forge.asn1.Type.SEQUENCE,
+    true,
+    [
+      forge.asn1.create(
+        forge.asn1.Class.UNIVERSAL,
+        forge.asn1.Type.SEQUENCE,
+        true,
+        [essCertIdV2],
+      ),
+    ],
+  );
+
+  return { type: OID_SIGNING_CERTIFICATE_V2, value: signingCertificateV2 };
+}
+
+interface ForgeInternalSigner {
+  key: forge.pki.rsa.PrivateKey;
+  version: number;
+  issuer: forge.pki.CertificateField[];
+  serialNumber: string;
+  digestAlgorithm: string;
+  signatureAlgorithm: string;
+  authenticatedAttributes: ForgeAuthenticatedAttribute[];
+  authenticatedAttributesAsn1?: forge.asn1.Asn1;
+  signature?: string;
+}
+
+// Réplica de _signerToAsn1 (node-forge lib/pkcs7.js, também privada/não
+// exportada). p7.toAsn1() serializa msg.signerInfos — um array construído
+// UMA VEZ dentro de p7.sign() — em vez de reconstruir a partir de
+// msg.signers a cada chamada. Por isso, mutar signer.authenticatedAttributes/
+// .signature depois do sign() não é o bastante: é preciso substituir
+// msg.signerInfos manualmente com esta réplica para que a mudança realmente
+// chegue ao DER final.
+function signerToAsn1(signer: ForgeInternalSigner): forge.asn1.Asn1 {
+  const distinguishedNameToAsn1 = (
+    forge.pki as unknown as {
+      distinguishedNameToAsn1: (dn: {
+        attributes: forge.pki.CertificateField[];
+      }) => forge.asn1.Asn1;
+    }
+  ).distinguishedNameToAsn1;
+
+  const rval = forge.asn1.create(
+    forge.asn1.Class.UNIVERSAL,
+    forge.asn1.Type.SEQUENCE,
+    true,
+    [
+      forge.asn1.create(
+        forge.asn1.Class.UNIVERSAL,
+        forge.asn1.Type.INTEGER,
+        false,
+        forge.asn1.integerToDer(signer.version).getBytes(),
+      ),
+      forge.asn1.create(
+        forge.asn1.Class.UNIVERSAL,
+        forge.asn1.Type.SEQUENCE,
+        true,
+        [
+          distinguishedNameToAsn1({ attributes: signer.issuer }),
+          forge.asn1.create(
+            forge.asn1.Class.UNIVERSAL,
+            forge.asn1.Type.INTEGER,
+            false,
+            forge.util.hexToBytes(signer.serialNumber),
+          ),
+        ],
+      ),
+      forge.asn1.create(
+        forge.asn1.Class.UNIVERSAL,
+        forge.asn1.Type.SEQUENCE,
+        true,
+        [
+          forge.asn1.create(
+            forge.asn1.Class.UNIVERSAL,
+            forge.asn1.Type.OID,
+            false,
+            forge.asn1.oidToDer(signer.digestAlgorithm).getBytes(),
+          ),
+          forge.asn1.create(
+            forge.asn1.Class.UNIVERSAL,
+            forge.asn1.Type.NULL,
+            false,
+            "",
+          ),
+        ],
+      ),
+    ],
+  );
+
+  if (signer.authenticatedAttributesAsn1) {
+    (rval.value as forge.asn1.Asn1[]).push(signer.authenticatedAttributesAsn1);
+  }
+
+  (rval.value as forge.asn1.Asn1[]).push(
+    forge.asn1.create(
+      forge.asn1.Class.UNIVERSAL,
+      forge.asn1.Type.SEQUENCE,
+      true,
+      [
+        forge.asn1.create(
+          forge.asn1.Class.UNIVERSAL,
+          forge.asn1.Type.OID,
+          false,
+          forge.asn1.oidToDer(signer.signatureAlgorithm).getBytes(),
+        ),
+        forge.asn1.create(
+          forge.asn1.Class.UNIVERSAL,
+          forge.asn1.Type.NULL,
+          false,
+          "",
+        ),
+      ],
+    ),
+  );
+
+  (rval.value as forge.asn1.Asn1[]).push(
+    forge.asn1.create(
+      forge.asn1.Class.UNIVERSAL,
+      forge.asn1.Type.OCTETSTRING,
+      false,
+      signer.signature ?? "",
+    ),
+  );
+
+  return rval;
+}
+
+/**
+ * Substitui @signpdf/signer-p12: mesma leitura do .pfx e mesma assinatura
+ * PKCS#7 detached, mas com o atributo CAdES signingCertificateV2 (RFC 5035)
+ * que a lib original não produz — necessário para o SubFilter
+ * ETSI.CAdES.detached ser aceito como CAdES-BES válido pelo verificador do
+ * ITI (sem ele, o formato declarado no PDF não corresponde ao que está
+ * assinado).
+ */
+export class IcpCadesP12Signer extends Signer {
+  private readonly cert: forge.util.ByteStringBuffer;
+  private readonly passphrase: string;
+
+  constructor(p12Buffer: Buffer, options: { passphrase?: string } = {}) {
+    super();
+    const buffer = convertBuffer(p12Buffer, "p12 certificate");
+    this.passphrase = options.passphrase ?? "";
+    this.cert = forge.util.createBuffer(buffer.toString("binary"));
+  }
+
+  async sign(
+    pdfBuffer: Buffer,
+    signingTime: Date = new Date(),
+  ): Promise<Buffer> {
+    if (!(pdfBuffer instanceof Buffer)) {
+      throw new SignPdfError(
+        "PDF expected as Buffer.",
+        SignPdfError.TYPE_INPUT,
+      );
+    }
+
+    const p12Asn1 = forge.asn1.fromDer(this.cert);
+    const p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, false, this.passphrase);
+
+    const certBags =
+      p12.getBags({ bagType: forge.pki.oids.certBag })[
+        forge.pki.oids.certBag
+      ] ?? [];
+    const keyBags =
+      p12.getBags({ bagType: forge.pki.oids.pkcs8ShroudedKeyBag })[
+        forge.pki.oids.pkcs8ShroudedKeyBag
+      ] ?? [];
+    const privateKey = keyBags[0]?.key as forge.pki.rsa.PrivateKey | undefined;
+    if (!privateKey) {
+      throw new SignPdfError(
+        "Failed to find a private key in the .pfx.",
+        SignPdfError.TYPE_INPUT,
+      );
+    }
+
+    const p7 = forge.pkcs7.createSignedData();
+    p7.content = forge.util.createBuffer(pdfBuffer.toString("binary"));
+
+    let certificate: forge.pki.Certificate | undefined;
+    for (const bag of certBags) {
+      if (!bag.cert) continue;
+      p7.addCertificate(bag.cert);
+      const publicKey = bag.cert.publicKey as forge.pki.rsa.PublicKey;
+      if (
+        privateKey.n.compareTo(publicKey.n) === 0 &&
+        privateKey.e.compareTo(publicKey.e) === 0
+      ) {
+        certificate = bag.cert;
+      }
+    }
+    if (!certificate) {
+      throw new SignPdfError(
+        "Failed to find a certificate that matches the private key.",
+        SignPdfError.TYPE_INPUT,
+      );
+    }
+
+    p7.addSigner({
+      key: privateKey,
+      certificate,
+      digestAlgorithm: forge.pki.oids.sha256,
+      authenticatedAttributes: [
+        { type: forge.pki.oids.contentType, value: forge.pki.oids.data },
+        {
+          type: forge.pki.oids.signingTime,
+          // @types/node-forge tipa value como string, mas o runtime aceita
+          // (e exige, para formatação correta) um Date — ver dateToUtcTime.
+          value: signingTime as unknown as string,
+        },
+        { type: forge.pki.oids.messageDigest },
+      ],
+    });
+    p7.sign({ detached: true });
+
+    // p7.sign() só assina os 3 atributos acima. Acrescenta o signingCertificateV2
+    // e reassina o digest sobre o conjunto completo de atributos — a
+    // assinatura original (sobre só 3 atributos) é descartada.
+    const signer = (p7 as unknown as { signers: unknown[] })
+      .signers[0] as unknown as ForgeInternalSigner;
+    signer.authenticatedAttributes.push(
+      buildSigningCertificateV2Attribute(certificate),
+    );
+
+    const attrsAsn1 = forge.asn1.create(
+      forge.asn1.Class.UNIVERSAL,
+      forge.asn1.Type.SET,
+      true,
+      signer.authenticatedAttributes.map(attributeToAsn1),
+    );
+    signer.authenticatedAttributesAsn1 = forge.asn1.create(
+      forge.asn1.Class.CONTEXT_SPECIFIC,
+      0,
+      true,
+      signer.authenticatedAttributes.map(attributeToAsn1),
+    );
+
+    const digest = forge.md.sha256.create();
+    digest.update(forge.asn1.toDer(attrsAsn1).getBytes());
+    signer.signature = privateKey.sign(digest, "RSASSA-PKCS1-V1_5");
+
+    // p7.toAsn1() serializa msg.signerInfos (cacheado por p7.sign() acima),
+    // não os campos do signer — sem isso, o patch acima nunca chegaria ao
+    // resultado final e a assinatura continuaria só com os 3 atributos
+    // originais.
+    (p7 as unknown as { signerInfos: forge.asn1.Asn1[] }).signerInfos = [
+      signerToAsn1(signer),
+    ];
+
+    return Buffer.from(forge.asn1.toDer(p7.toAsn1()).getBytes(), "binary");
+  }
+}
+
 export interface CertificadoInfo {
   status: "configurado" | "demo" | "erro";
   /** CN (Common Name) do titular */
@@ -488,7 +864,7 @@ export async function assinarPdf(
   });
 
   // 3. Assina o placeholder com o .pfx (PKCS#7 detached SignedData)
-  const signer = new P12Signer(pfxData, { passphrase: pfxPassword });
+  const signer = new IcpCadesP12Signer(pfxData, { passphrase: pfxPassword });
   const signedBuffer = await signpdf.sign(pdfComPlaceholder, signer);
 
   const certificadoSerial = extrairSerial(pfxData, pfxPassword);
