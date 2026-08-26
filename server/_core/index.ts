@@ -20,6 +20,7 @@ import {
   totpLimiter,
   dataRightsLimiter,
   globalLimiter,
+  checkoutLimiter,
 } from "./rateLimiters.ts";
 import { db, pool } from "../db.ts";
 import { ensureSchema } from "./ensureSchema.ts";
@@ -220,6 +221,10 @@ app.use("/trpc/intake.solicitarReenvioLink", tokenValidateLimiter);
 app.use("/trpc/twoFactor.verify", totpLimiter);
 app.use("/trpc/me.exportData", dataRightsLimiter);
 app.use("/trpc/me.requestAnonymization", dataRightsLimiter);
+app.use("/trpc/intake.iniciarPagamento", checkoutLimiter);
+app.use("/trpc/intake.acessoPosPagamento", checkoutLimiter);
+app.use("/trpc/intake.consultarStatusPorPrecadastro", checkoutLimiter);
+app.use("/trpc/intake.consultarStatusPagamento", checkoutLimiter);
 app.use(
   "/trpc",
   createExpressMiddleware({

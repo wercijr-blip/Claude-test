@@ -8,6 +8,10 @@ export const RATE_LIMITS = {
   DATA_RIGHTS: { windowMs: 60 * 60 * 1000, max: 3 },
   // TOTP verification — 2FA endpoints
   TOTP: { windowMs: 15 * 60 * 1000, max: 10 },
+  // Checkout público de intake — iniciar/consultar pagamento, trocar
+  // checkoutRef/paymentId por sessão. Sem autenticação prévia; limita
+  // enumeração e abuso de custo (cobranças reais no Asaas).
+  CHECKOUT: { windowMs: 5 * 60 * 1000, max: 20 },
 } as const;
 
 export const TOKEN_EXPIRY_DAYS = 7;

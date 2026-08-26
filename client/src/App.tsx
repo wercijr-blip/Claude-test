@@ -355,9 +355,9 @@ function PagamentoSucesso() {
   // Flow A: legacy — paymentId present (PIX fallback, old card flow)
   const paymentId =
     params.get("paymentId") || params.get("asaas_payment_id") || "";
-  // Flow B: card checkout — Asaas autoRedirect carries precadastroId
-  const precadastroIdParam = params.get("precadastroId");
-  const precadastroId = precadastroIdParam ? Number(precadastroIdParam) : null;
+  // Flow B: card checkout — Asaas autoRedirect carries checkoutRef (token
+  // assinado; nunca o precadastroId cru, que seria previsível/enumerável).
+  const checkoutRef = params.get("checkoutRef");
 
   const [, navigate] = useLocation();
   const { setToken } = useAuth();
@@ -384,13 +384,13 @@ function PagamentoSucesso() {
     { refetchInterval: 3000, enabled: !!paymentId && !hasAttempted.current },
   );
 
-  // Flow B: poll by precadastroId (card checkout — Asaas autoRedirect)
+  // Flow B: poll by checkoutRef (card checkout — Asaas autoRedirect)
   const { data: statusPrecad } =
     trpc.intake.consultarStatusPorPrecadastro.useQuery(
-      { precadastroId: precadastroId ?? 0 },
+      { checkoutRef: checkoutRef ?? "" },
       {
         refetchInterval: pollingTimedOut ? false : 3000,
-        enabled: !!precadastroId && !hasAttempted.current,
+        enabled: !!checkoutRef && !hasAttempted.current,
       },
     );
 
@@ -407,11 +407,11 @@ function PagamentoSucesso() {
   }, [statusData?.status]);
 
   useEffect(() => {
-    const { confirmado } = statusPrecad ?? {};
-    if (confirmado && precadastroId && !hasAttempted.current) {
+    const { confirmado, precadastroId } = statusPrecad ?? {};
+    if (confirmado && checkoutRef && !hasAttempted.current) {
       hasAttempted.current = true;
       trackPurchase(`precad-${precadastroId}`, 250);
-      acesso.mutate({ precadastroId });
+      acesso.mutate({ checkoutRef });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusPrecad?.confirmado]);
@@ -422,7 +422,7 @@ function PagamentoSucesso() {
     statusPrecad?.confirmado;
 
   // No identifier → friendly message instead of infinite spinner
-  if (!paymentId && !precadastroId) {
+  if (!paymentId && !checkoutRef) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 max-w-md w-full text-center">

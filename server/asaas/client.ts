@@ -128,10 +128,19 @@ export async function criarCobrancaIntake(
   email: string,
   metodo: "PIX" | "CREDIT_CARD" | "DEBIT_CARD" = "PIX",
   valorCentavos: number = Math.round(env.CONSULTA_VALOR * 100),
+  // Token assinado (não o precadastroId cru — previsível/enumerável) usado na
+  // successUrl do checkout de cartão. Ver signCheckoutRef em routes/intake.ts.
+  checkoutRef?: string,
 ): Promise<
   | { tipo: "pix"; paymentId: string; pixQrCode: string; pixCopiaECola: string }
   | { tipo: "cartao"; paymentId: string; invoiceUrl: string }
 > {
+  if (metodo !== "PIX" && !checkoutRef) {
+    throw new Error(
+      "checkoutRef é obrigatório para pagamentos via cartão (successUrl do checkout).",
+    );
+  }
+
   const customerId = await encontrarOuCriarCliente(nome, cpf, email);
 
   const hoje = new Date();
@@ -145,12 +154,13 @@ export async function criarCobrancaIntake(
     description: `Consulta PrEP — Facilita PrEP (R$ ${(valorCentavos / 100).toFixed(2).replace(".", ",")})`,
     externalReference: `precad-${precadastroId}`,
     // Card payments use Asaas hosted checkout — autoRedirect brings the user back after payment.
-    // precadastroId in successUrl lets /sucesso poll the right payment without a paymentId param.
+    // checkoutRef in successUrl lets /sucesso poll the right payment without a paymentId param,
+    // without exposing the enumerable precadastroId as the de facto auth credential.
     // PIX uses QR code inline, no hosted page, so no callback needed.
     ...(metodo !== "PIX"
       ? {
           callback: {
-            successUrl: `${env.APP_URL}/sucesso?precadastroId=${precadastroId}`,
+            successUrl: `${env.APP_URL}/sucesso?checkoutRef=${encodeURIComponent(checkoutRef ?? "")}`,
             autoRedirect: true,
           },
         }

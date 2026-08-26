@@ -110,3 +110,13 @@ export const totpLimiter = rateLimit({
   store: makeStore("totp"),
   passOnStoreError: true,
 });
+
+export const checkoutLimiter = rateLimit({
+  windowMs: RATE_LIMITS.CHECKOUT.windowMs,
+  max: RATE_LIMITS.CHECKOUT.max,
+  message: { error: "Muitas tentativas. Aguarde alguns minutos." },
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: makeStore("checkout"),
+  passOnStoreError: true,
+});
