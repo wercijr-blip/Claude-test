@@ -25,7 +25,7 @@ import {
 import { notificarStaff, staffTemplates } from "../whatsapp.staff.ts";
 import { getPresignedUrl } from "../storage.ts";
 import { env } from "../_core/env.ts";
-import { SignJWT } from "jose";
+import { SignJWT, jwtVerify } from "jose";
 import {
   TOKEN_EXPIRY_DAYS,
   JWT_EXPIRY_PATIENT,
@@ -38,6 +38,47 @@ import { logger } from "../_core/logger.ts";
 import * as Sentry from "@sentry/node";
 import { okEmpty } from "../_core/response.ts";
 import { sendCapiLead } from "../capi.ts";
+
+// O checkout de cartão redireciona de volta ao site após o pagamento levando
+// um identificador na querystring (ex: /sucesso?checkoutRef=...). precadastroId
+// é um inteiro autoincrement previsível — usá-lo cru ali permitiria a qualquer
+// visitante adivinhar o ID de outro paciente já pago e assumir a sessão dele
+// (consultarStatusPorPrecadastro/acessoPosPagamento aceitando o ID por si só).
+// Este token assinado (HS256, curta duração) é o segredo real: só quem
+// iniciou o pagamento agora mesmo o recebe.
+const CHECKOUT_REF_EXPIRY = "2h";
+
+async function signCheckoutRef(precadastroId: number): Promise<string> {
+  const secret = new TextEncoder().encode(env.JWT_SECRET);
+  return new SignJWT({ purpose: "checkout", precadastroId })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime(CHECKOUT_REF_EXPIRY)
+    .sign(secret);
+}
+
+async function verifyCheckoutRef(ref: string): Promise<number> {
+  const secret = new TextEncoder().encode(env.JWT_SECRET);
+  let payload: Record<string, unknown>;
+  try {
+    ({ payload } = await jwtVerify(ref, secret));
+  } catch {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Referência de pagamento inválida ou expirada.",
+    });
+  }
+  if (
+    payload.purpose !== "checkout" ||
+    typeof payload.precadastroId !== "number"
+  ) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Referência de pagamento inválida.",
+    });
+  }
+  return payload.precadastroId;
+}
 
 export async function gerarEEnviarLinkAcesso(
   precadastroId: number,
@@ -324,7 +365,7 @@ export const intakeRouter = router({
     .input(
       z.union([
         z.object({ paymentId: z.string().min(1) }),
-        z.object({ precadastroId: z.number().int().positive() }),
+        z.object({ checkoutRef: z.string().min(1) }),
       ]),
     )
     .mutation(async ({ input }) => {
@@ -358,9 +399,13 @@ export const intakeRouter = router({
         }
         precadastroId = parseInt(precadMatch[1]!, 10);
       } else {
-        // Card autoRedirect path: verify payment is confirmed via Asaas before issuing JWT
+        // Card autoRedirect path: checkoutRef proves this caller is the one who
+        // just started this specific checkout — precadastroId sozinho não
+        // bastaria (previsível/enumerável, veria a sessão de qualquer paciente
+        // já pago). Verifica o pagamento via Asaas antes de emitir o JWT.
+        precadastroId = await verifyCheckoutRef(input.checkoutRef);
         const payments = await listarPagamentosPorReferencia(
-          `precad-${input.precadastroId}`,
+          `precad-${precadastroId}`,
         );
         const confirmed = payments.find(
           (p) => p.status === "RECEIVED" || p.status === "CONFIRMED",
@@ -372,7 +417,6 @@ export const intakeRouter = router({
               "Pagamento ainda não confirmado. Tente novamente em instantes.",
           });
         }
-        precadastroId = input.precadastroId;
       }
 
       const { raw } = await gerarEEnviarLinkAcesso(precadastroId);
@@ -446,12 +490,16 @@ export const intakeRouter = router({
       const emailDecrypted = decrypt(precad.emailEncrypted);
 
       try {
+        const checkoutRef =
+          input.metodo !== "PIX" ? await signCheckoutRef(precad.id) : undefined;
         return await criarCobrancaIntake(
           precad.id,
           nomeDecrypted,
           cpfDecrypted,
           emailDecrypted,
           input.metodo,
+          undefined,
+          checkoutRef,
         );
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -519,13 +567,16 @@ export const intakeRouter = router({
       return { status: payment.status };
     }),
 
-  // Polls Asaas live for the payment status given a precadastroId.
-  // Used by /sucesso when the card checkout autoRedirect carries precadastroId instead of paymentId.
+  // Polls Asaas live for the payment status given a checkoutRef.
+  // Used by /sucesso when the card checkout autoRedirect carries checkoutRef
+  // instead of paymentId. checkoutRef (not the raw precadastroId, previsível/
+  // enumerável) é a única forma de correlacionar essa consulta a um pré-cadastro.
   consultarStatusPorPrecadastro: publicProcedure
-    .input(z.object({ precadastroId: z.number().int().positive() }))
+    .input(z.object({ checkoutRef: z.string().min(1) }))
     .query(async ({ input }) => {
+      const precadastroId = await verifyCheckoutRef(input.checkoutRef);
       const payments = await listarPagamentosPorReferencia(
-        `precad-${input.precadastroId}`,
+        `precad-${precadastroId}`,
       );
       const confirmed = payments.find(
         (p) => p.status === "RECEIVED" || p.status === "CONFIRMED",
@@ -534,6 +585,8 @@ export const intakeRouter = router({
       return {
         confirmado: !!confirmed,
         status: latest?.status ?? "NOT_FOUND",
+        // Seguro expor agora: o chamador já provou posse do checkoutRef.
+        precadastroId,
       };
     }),
 

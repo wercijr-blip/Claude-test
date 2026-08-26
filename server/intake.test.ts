@@ -180,26 +180,100 @@ describe("consultarStatusPorPrecadastro — shape de resposta", () => {
 // consultarStatusPorPrecadastro — validação Zod do input
 // ────────────────────────────────────────────────────────────────────────────
 describe("consultarStatusPorPrecadastro — validação de input", () => {
-  const inputSchema = z.object({ precadastroId: z.number().int().positive() });
+  // O schema real usa checkoutRef (token assinado), não mais o precadastroId
+  // cru — ver "checkoutRef — sign/verify" abaixo para o porquê.
+  const inputSchema = z.object({ checkoutRef: z.string().min(1) });
 
-  it("aceita precadastroId inteiro positivo", () => {
-    expect(() => inputSchema.parse({ precadastroId: 42 })).not.toThrow();
+  it("aceita checkoutRef não vazio", () => {
+    expect(() =>
+      inputSchema.parse({ checkoutRef: "abc.def.ghi" }),
+    ).not.toThrow();
   });
 
-  it("rejeita precadastroId zero", () => {
-    expect(() => inputSchema.parse({ precadastroId: 0 })).toThrow();
+  it("rejeita checkoutRef vazio", () => {
+    expect(() => inputSchema.parse({ checkoutRef: "" })).toThrow();
   });
 
-  it("rejeita precadastroId negativo", () => {
-    expect(() => inputSchema.parse({ precadastroId: -5 })).toThrow();
+  it("rejeita ausência de checkoutRef", () => {
+    expect(() => inputSchema.parse({})).toThrow();
   });
 
-  it("rejeita precadastroId decimal", () => {
-    expect(() => inputSchema.parse({ precadastroId: 1.5 })).toThrow();
+  it("rejeita precadastroId numérico cru (schema antigo não é mais aceito)", () => {
+    expect(() => inputSchema.parse({ precadastroId: 42 })).toThrow();
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// checkoutRef — sign/verify (fecha o account-takeover via precadastroId
+// sequencial em acessoPosPagamento/consultarStatusPorPrecadastro/iniciarPagamento)
+// ────────────────────────────────────────────────────────────────────────────
+describe("checkoutRef — sign/verify", () => {
+  const secret = new TextEncoder().encode(
+    "test-secret-with-at-least-32-chars-here",
+  );
+
+  async function sign(precadastroId: number, expiresIn = "2h") {
+    const { SignJWT } = await import("jose");
+    return new SignJWT({ purpose: "checkout", precadastroId })
+      .setProtectedHeader({ alg: "HS256" })
+      .setIssuedAt()
+      .setExpirationTime(expiresIn)
+      .sign(secret);
+  }
+
+  async function verify(ref: string): Promise<number> {
+    const { jwtVerify } = await import("jose");
+    const { payload } = await jwtVerify(ref, secret);
+    if (
+      payload.purpose !== "checkout" ||
+      typeof payload.precadastroId !== "number"
+    ) {
+      throw new Error("Referência de pagamento inválida.");
+    }
+    return payload.precadastroId;
+  }
+
+  it("assina e verifica, devolvendo o precadastroId original", async () => {
+    const ref = await sign(42);
+    await expect(verify(ref)).resolves.toBe(42);
   });
 
-  it("rejeita precadastroId string vazia", () => {
-    expect(() => inputSchema.parse({ precadastroId: "" })).toThrow();
+  it("rejeita token expirado", async () => {
+    const ref = await sign(42, "-1s");
+    await expect(verify(ref)).rejects.toThrow();
+  });
+
+  it("rejeita token assinado com outro segredo", async () => {
+    const { SignJWT } = await import("jose");
+    const outroSecret = new TextEncoder().encode(
+      "outro-secret-completamente-diferente-32ch",
+    );
+    const ref = await new SignJWT({ purpose: "checkout", precadastroId: 42 })
+      .setProtectedHeader({ alg: "HS256" })
+      .setIssuedAt()
+      .setExpirationTime("2h")
+      .sign(outroSecret);
+    await expect(verify(ref)).rejects.toThrow();
+  });
+
+  it("rejeita token com purpose diferente (não reutilizável de outro fluxo)", async () => {
+    const { SignJWT } = await import("jose");
+    const ref = await new SignJWT({ purpose: "outra-coisa", precadastroId: 42 })
+      .setProtectedHeader({ alg: "HS256" })
+      .setIssuedAt()
+      .setExpirationTime("2h")
+      .sign(secret);
+    await expect(verify(ref)).rejects.toThrow();
+  });
+
+  it("rejeita string arbitrária (não é um JWT válido)", async () => {
+    await expect(verify("nao-e-um-jwt")).rejects.toThrow();
+  });
+
+  it("dois precadastroId distintos produzem refs distintos", async () => {
+    const refA = await sign(1);
+    const refB = await sign(2);
+    expect(refA).not.toBe(refB);
   });
 });
 

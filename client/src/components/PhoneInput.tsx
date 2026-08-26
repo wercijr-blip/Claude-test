@@ -134,6 +134,20 @@ export function PhoneInput({
         type="tel"
         value={inputValue}
         onChange={handlePhoneValueChange}
+        onPaste={(e) => {
+          // Pasted text without a leading "+" (e.g. a number copied from
+          // Contacts/WhatsApp) has no explicit dial code, so the library
+          // guesses one from the raw digits — "2015550123" reads as Egypt's
+          // "+20" prefix and silently overrides the country the user just
+          // picked, or gets discarded if guessing is off. Prepending the
+          // selected country's dial code ourselves removes the ambiguity.
+          const pasted = e.clipboardData.getData("text");
+          if (pasted.trim().startsWith("+")) return;
+          const digits = pasted.replace(/\D/g, "");
+          if (!digits) return;
+          e.preventDefault();
+          onChange(`+${country.dialCode}${digits}`);
+        }}
         required={required}
         inputMode="tel"
         placeholder="(61) 99999-9999"
