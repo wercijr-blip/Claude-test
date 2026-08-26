@@ -18,6 +18,9 @@ const cbRedis = new IORedis(env.REDIS_URL, {
   enableOfflineQueue: false,
   lazyConnect: true,
   connectTimeout: 1_000,
+  // Sem keepalive, um NAT/proxy ocioso pode derrubar a conexão em silêncio —
+  // ver o mesmo comentário em redis.ts (redisFailFast) para o cenário completo.
+  keepAlive: 10_000,
 });
 cbRedis.on("error", () => {}); // suppress unhandled error events; failures are caught per-call
 

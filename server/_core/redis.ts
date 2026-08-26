@@ -17,12 +17,22 @@ function attachErrorLogger(client: IORedis, name: string): void {
   });
 }
 
+// TCP keepalive (probes a cada 10s de inatividade) — sem isso, um NAT/load
+// balancer/proxy entre a app e o Redis gerenciado pode derrubar a conexão
+// silenciosamente após um período ocioso; o ioredis só percebe a queda no
+// próximo comando, gerando reconexões frequentes. Cada reconexão abre uma
+// janela onde comandos no redisFailFast (enableOfflineQueue: false) são
+// rejeitados na hora com "Stream isn't writeable" — sob tráfego real, isso
+// aparece como o erro se repetindo nos logs mesmo com o Redis no ar.
+const KEEP_ALIVE_MS = 10_000;
+
 // Client para BullMQ (filas/workers). BullMQ exige maxRetriesPerRequest: null,
 // o que faz comandos aguardarem reconexão indefinidamente — aceitável para
 // jobs em background, NUNCA para o caminho de requisições HTTP.
 export const redis = new IORedis(env.REDIS_URL, {
   maxRetriesPerRequest: null,
   lazyConnect: true,
+  keepAlive: KEEP_ALIVE_MS,
 });
 attachErrorLogger(redis, "bullmq");
 
@@ -36,6 +46,7 @@ export const redisFailFast = new IORedis(env.REDIS_URL, {
   enableOfflineQueue: false,
   connectTimeout: 2_000,
   lazyConnect: true,
+  keepAlive: KEEP_ALIVE_MS,
 });
 attachErrorLogger(redisFailFast, "fail-fast");
 
