@@ -98,6 +98,21 @@ export function startPdfWorker() {
         .from(consultasInicio)
         .where(eq(consultasInicio.tokenId, p.tokenId))
         .limit(1);
+
+      // Defesa em profundidade: paciente.finalizar já exige que o exame
+      // esteja aprovado (IA ou médico, quando a IA está em dúvida) antes de
+      // enfileirar este job — repete a checagem aqui para que nenhum outro
+      // caminho (ex: retry manual pela DLQ com pacienteId arbitrário) consiga
+      // gerar e assinar uma prescrição sem essa aprovação.
+      if (
+        consulta?.status !== "aprovado_ia" &&
+        consulta?.status !== "aprovado"
+      ) {
+        throw new Error(
+          `Paciente ${pacienteId} sem exame aprovado (consultasInicio.status=${consulta?.status ?? "N/A"}) — recusando gerar/assinar documentos.`,
+        );
+      }
+
       const tipoConsulta = consulta?.tipoConsulta ?? "primeiro_atendimento";
 
       const nome = decrypt(p.nomeEncrypted);

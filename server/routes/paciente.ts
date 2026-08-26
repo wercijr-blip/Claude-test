@@ -9,6 +9,7 @@ import {
   pdfs,
   tcleAssinaturas,
   accessTokens,
+  consultasInicio,
 } from "../../drizzle/schema.ts";
 import { eq, and, sql, gte } from "drizzle-orm";
 import type { ResultSetHeader } from "mysql2";
@@ -469,6 +470,45 @@ export const pacienteRouter = router({
     .input(z.object({ pacienteId: z.number() }))
     .mutation(async ({ input, ctx }) => {
       assertPatient(ctx.session);
+
+      // Ownership: o roteamento já só deixa o paciente chegar aqui com o
+      // próprio pacienteId, mas nunca confie só nisso — sem essa checagem,
+      // qualquer pacienteId de terceiro dispararia geração de documentos
+      // médico-legais (prescrição assinada) para outra pessoa.
+      const [p] = await db
+        .select({ id: pacientes.id })
+        .from(pacientes)
+        .where(
+          and(
+            eq(pacientes.id, input.pacienteId),
+            eq(pacientes.tokenId, ctx.session.tokenId),
+          ),
+        )
+        .limit(1);
+      if (!p) throw new TRPCError({ code: "NOT_FOUND" });
+
+      // Defesa em profundidade: detectarProximaFase (token.ts) já bloqueia o
+      // acesso a /formulario até o exame estar aprovado (pela IA ou, em caso
+      // de dúvida, pelo médico) — o médico só entra quando a IA não está
+      // confiante. Repete a mesma checagem aqui para que nenhuma chamada
+      // direta a esta mutation consiga gerar e assinar uma receita sem essa
+      // aprovação já ter acontecido.
+      const [consulta] = await db
+        .select({ status: consultasInicio.status })
+        .from(consultasInicio)
+        .where(eq(consultasInicio.tokenId, ctx.session.tokenId))
+        .limit(1);
+      if (
+        consulta?.status !== "aprovado_ia" &&
+        consulta?.status !== "aprovado"
+      ) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "Seu exame ainda está em análise. Você será notificado assim que for aprovado.",
+        });
+      }
+
       await db
         .update(pacientes)
         .set({ status: "pendente", updatedAt: new Date() })
