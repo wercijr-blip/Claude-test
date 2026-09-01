@@ -50,7 +50,14 @@ const envSchema = z.object({
 
   SUS_CNES: z.string().default("9843744"),
 
-  APP_URL: z.string().url().default("https://www.facilitaprep.com.br"),
+  // Domínio apex, não www — www redireciona pro apex na infraestrutura, e se
+  // esse redirect não preservar o método HTTP (301/302 em vez de 307/308),
+  // todo POST/mutation gerado a partir de um link nosso apontando pra www
+  // vira GET ao seguir o redirect, quebrando qualquer mutation tRPC (ex:
+  // intake.iniciarPagamento) com "METHOD_NOT_SUPPORTED". Links que o próprio
+  // sistema gera (TCLE, pagamento, acesso por e-mail/WhatsApp) nunca devem
+  // depender desse redirect.
+  APP_URL: z.string().url().default("https://facilitaprep.com.br"),
   ALLOWED_ORIGINS: z.string().optional(),
 
   PORT: z.coerce.number().default(3000),
