@@ -7,12 +7,18 @@ const mockGetJob = vi.fn();
 const mockWorkerOn = vi.fn();
 
 vi.mock("bullmq", () => ({
-  Queue: vi.fn().mockImplementation(() => ({
-    remove: mockRemove,
-    add: mockAdd,
-    getJob: mockGetJob,
-  })),
-  Worker: vi.fn().mockImplementation(() => ({ on: mockWorkerOn })),
+  // function (não arrow) — precisa ser invocável via `new`. Vitest 4 não
+  // tolera mais arrow function como construtor mockado.
+  Queue: vi.fn().mockImplementation(function () {
+    return {
+      remove: mockRemove,
+      add: mockAdd,
+      getJob: mockGetJob,
+    };
+  }),
+  Worker: vi.fn().mockImplementation(function () {
+    return { on: mockWorkerOn };
+  }),
 }));
 
 vi.mock("./workers/queues.ts", () => ({

@@ -14,25 +14,27 @@ let capturedFailedHandler:
   | undefined;
 
 vi.mock("bullmq", () => ({
-  Worker: vi
-    .fn()
-    .mockImplementation(
-      (_name: string, callback: (job: NutricaoJobLike) => Promise<unknown>) => {
-        capturedCallback = callback;
-        return {
-          on: vi
-            .fn()
-            .mockImplementation(
-              (
-                event: string,
-                handler: (job: NutricaoJobLike | undefined, err: Error) => void,
-              ) => {
-                if (event === "failed") capturedFailedHandler = handler;
-              },
-            ),
-        };
-      },
-    ),
+  // function (não arrow) — Worker é instanciado via `new` pelo código real;
+  // Vitest 4 não tolera mais arrow function como construtor mockado. O `on`
+  // interno não precisa mudar — é só um método chamado normalmente.
+  Worker: vi.fn().mockImplementation(function (
+    _name: string,
+    callback: (job: NutricaoJobLike) => Promise<unknown>,
+  ) {
+    capturedCallback = callback;
+    return {
+      on: vi
+        .fn()
+        .mockImplementation(
+          (
+            event: string,
+            handler: (job: NutricaoJobLike | undefined, err: Error) => void,
+          ) => {
+            if (event === "failed") capturedFailedHandler = handler;
+          },
+        ),
+    };
+  }),
 }));
 
 const mockNutricaoQueueAdd = vi.fn().mockResolvedValue({});
@@ -100,9 +102,11 @@ const mockEmailSend = vi
   .fn()
   .mockResolvedValue({ data: { id: "email-1" }, error: null });
 vi.mock("resend", () => ({
-  Resend: vi
-    .fn()
-    .mockImplementation(() => ({ emails: { send: mockEmailSend } })),
+  // function (não arrow) — Resend é instanciado via `new` pelo código real;
+  // Vitest 4 não tolera mais arrow function como construtor mockado.
+  Resend: vi.fn().mockImplementation(function () {
+    return { emails: { send: mockEmailSend } };
+  }),
 }));
 
 vi.mock("@sentry/node", () => ({ captureException: vi.fn() }));
