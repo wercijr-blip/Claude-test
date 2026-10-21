@@ -64,6 +64,82 @@ declare global {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+const MAINTENANCE_HTML = `<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Facilita PrEP — Em manutenção</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: #faf8fc;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #2d2a32;
+  }
+  .card {
+    max-width: 480px;
+    width: 100%;
+    background: #fff;
+    border-radius: 24px;
+    padding: 40px 32px;
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 8px 24px rgba(107,70,193,0.08);
+  }
+  .icon {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 20px;
+    border-radius: 16px;
+    background: #f1ebfa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+  }
+  h1 {
+    font-size: 21px;
+    font-weight: 700;
+    margin: 0 0 12px;
+    color: #1f1b24;
+  }
+  p {
+    font-size: 15px;
+    line-height: 1.6;
+    color: #5b5563;
+    margin: 0 0 10px;
+  }
+  .badge {
+    display: inline-block;
+    margin-top: 20px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: #f1ebfa;
+    color: #6b46c1;
+    font-size: 13px;
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+  <main class="card">
+    <div class="icon">🛠️</div>
+    <h1>Facilita PrEP está temporariamente fora do ar</h1>
+    <p>Estamos fazendo ajustes nas receitas médicas emitidas pela plataforma e, por precaução, pausamos o acesso enquanto confirmamos que tudo está correto.</p>
+    <p>Já estamos trabalhando na resolução. Volte a tentar em breve.</p>
+    <span class="badge">Em manutenção</span>
+  </main>
+</body>
+</html>`;
+
 const app = express();
 
 // Trust Railway's reverse proxy so X-Forwarded-For is recognized
@@ -72,6 +148,59 @@ app.set("trust proxy", 1);
 applySecurityMiddleware(app);
 app.use(compression());
 app.use(cookieParser());
+
+// ── Modo de manutenção ──────────────────────────────────────────────────
+// Bloqueia TODO o site (pacientes e staff) com uma página de aviso — sem
+// deploy de código, via env MAINTENANCE_MODE no Railway. /api/health* fica
+// de fora: o healthcheck do Railway precisa continuar confirmando que o
+// container está de pé, não que o produto está disponível para uso.
+if (env.MAINTENANCE_MODE) {
+  app.use((req, res, next) => {
+    if (req.path.startsWith("/api/health")) {
+      next();
+      return;
+    }
+
+    // Bypass para a equipe conferir o site durante a manutenção:
+    // /?bypass=<MAINTENANCE_BYPASS_TOKEN> grava um cookie que libera este
+    // navegador até o modo de manutenção ser desligado.
+    const queryBypass =
+      typeof req.query.bypass === "string" ? req.query.bypass : undefined;
+    const cookieBypass = req.cookies?.maintenance_bypass as string | undefined;
+    const bypassOk =
+      !!env.MAINTENANCE_BYPASS_TOKEN &&
+      (queryBypass === env.MAINTENANCE_BYPASS_TOKEN ||
+        cookieBypass === env.MAINTENANCE_BYPASS_TOKEN);
+
+    if (bypassOk) {
+      if (queryBypass) {
+        res.cookie("maintenance_bypass", env.MAINTENANCE_BYPASS_TOKEN!, {
+          httpOnly: true,
+          secure: env.NODE_ENV === "production",
+          sameSite: "lax",
+          maxAge: 7 * 24 * 60 * 60 * 1000,
+        });
+      }
+      next();
+      return;
+    }
+
+    res.status(503).set("Retry-After", "3600");
+    if (req.path.startsWith("/trpc") || req.path.startsWith("/api")) {
+      res.json({
+        error: {
+          message:
+            "Facilita PrEP está temporariamente fora do ar para manutenção.",
+          code: -32001,
+          data: { code: "SERVICE_UNAVAILABLE", httpStatus: 503 },
+        },
+      });
+      return;
+    }
+    res.type("html").send(MAINTENANCE_HTML);
+  });
+}
+
 app.use(globalLimiter);
 
 // Request ID — assigns a short UUID per request, logs method/url/status/duration

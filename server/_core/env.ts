@@ -86,6 +86,15 @@ const envSchema = z.object({
   // Set ENABLE_DEBIT_CARD=true once Asaas account enables DEBIT_CARD billing.
   ENABLE_DEBIT_CARD: z.coerce.boolean().default(false),
 
+  // Modo de manutenção — bloqueia TODO o site (inclusive dashboards de staff)
+  // mostrando uma página de aviso, sem precisar de deploy de código. Toggle
+  // via Railway: setar MAINTENANCE_MODE=true ativa, remover/false desativa.
+  MAINTENANCE_MODE: z.coerce.boolean().default(false),
+  // Bypass para equipe testar o site durante a manutenção: acessar
+  // /?bypass=<MAINTENANCE_BYPASS_TOKEN> grava um cookie que libera o acesso
+  // neste navegador até o modo de manutenção ser desligado.
+  MAINTENANCE_BYPASS_TOKEN: z.string().min(16).optional(),
+
   // Meta Conversions API (CAPI) — server-side tracking sem dependência de cookie/browser.
   // META_PIXEL_ID: ID numérico do pixel (ex: 123456789012345)
   // META_CAPI_TOKEN: System User Access Token com permissão ads_management
