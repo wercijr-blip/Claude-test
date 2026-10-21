@@ -20,25 +20,26 @@ let capturedFailedHandler:
   | undefined;
 
 vi.mock("bullmq", () => ({
-  Worker: vi
-    .fn()
-    .mockImplementation(
-      (_name: string, callback: (job: JobLike) => Promise<void>) => {
-        capturedCallback = callback;
-        return {
-          on: vi
-            .fn()
-            .mockImplementation(
-              (
-                event: string,
-                handler: (job: JobLike | undefined, err: Error) => void,
-              ) => {
-                if (event === "failed") capturedFailedHandler = handler;
-              },
-            ),
-        };
-      },
-    ),
+  // function (não arrow) — Worker é instanciado via `new` pelo código real;
+  // Vitest 4 não tolera mais arrow function como construtor mockado.
+  Worker: vi.fn().mockImplementation(function (
+    _name: string,
+    callback: (job: JobLike) => Promise<void>,
+  ) {
+    capturedCallback = callback;
+    return {
+      on: vi
+        .fn()
+        .mockImplementation(
+          (
+            event: string,
+            handler: (job: JobLike | undefined, err: Error) => void,
+          ) => {
+            if (event === "failed") capturedFailedHandler = handler;
+          },
+        ),
+    };
+  }),
 }));
 
 vi.mock("./queues.ts", () => ({

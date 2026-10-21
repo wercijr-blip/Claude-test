@@ -40,20 +40,19 @@ vi.mock("../workers/queues.ts", () => ({
 }));
 
 vi.mock("bullmq", () => ({
-  Queue: vi.fn().mockImplementation(() => ({
-    add: vi.fn().mockResolvedValue({}),
-  })),
-  Worker: vi
-    .fn()
-    .mockImplementation(
-      (
-        _name: string,
-        callback: () => Promise<{ purged: number; errors: number }>,
-      ) => {
-        capturedWorkerCallback = callback;
-        return { on: vi.fn(), close: vi.fn().mockResolvedValue(undefined) };
-      },
-    ),
+  // function (não arrow) — Queue/Worker são instanciados via `new` pelo
+  // código real; Vitest 4 não tolera mais arrow function como construtor
+  // mockado.
+  Queue: vi.fn().mockImplementation(function () {
+    return { add: vi.fn().mockResolvedValue({}) };
+  }),
+  Worker: vi.fn().mockImplementation(function (
+    _name: string,
+    callback: () => Promise<{ purged: number; errors: number }>,
+  ) {
+    capturedWorkerCallback = callback;
+    return { on: vi.fn(), close: vi.fn().mockResolvedValue(undefined) };
+  }),
 }));
 
 describe("retentionWorker — módulo e exports", () => {

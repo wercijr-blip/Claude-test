@@ -7,15 +7,30 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   test: {
     globals: true,
-    setupFiles: ["./client/src/test-setup.ts"],
-    include: ["server/**/*.test.ts", "client/src/**/*.test.{ts,tsx}"],
-    environmentMatchGlobs: [
-      ["client/src/**/*.test.{ts,tsx}", "jsdom"],
-      ["server/**/*.test.ts", "node"],
-    ],
     alias: {
       "@shared": path.resolve(__dirname, "shared"),
     },
+    // Vitest 4 removeu environmentMatchGlobs — cada ambiente agora é um
+    // "project" com seu próprio include/environment/setupFiles.
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "server",
+          environment: "node",
+          include: ["server/**/*.test.ts"],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "client",
+          environment: "jsdom",
+          include: ["client/src/**/*.test.{ts,tsx}"],
+          setupFiles: ["./client/src/test-setup.ts"],
+        },
+      },
+    ],
     coverage: {
       provider: "v8",
       reporter: ["text", "lcov", "html"],

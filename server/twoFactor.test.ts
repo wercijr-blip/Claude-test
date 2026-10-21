@@ -71,13 +71,17 @@ vi.mock("qrcode", () => ({
 }));
 
 vi.mock("jose", () => ({
-  SignJWT: vi.fn().mockImplementation(() => ({
-    setProtectedHeader: vi.fn().mockReturnThis(),
-    setSubject: vi.fn().mockReturnThis(),
-    setIssuedAt: vi.fn().mockReturnThis(),
-    setExpirationTime: vi.fn().mockReturnThis(),
-    sign: vi.fn().mockResolvedValue("mock.jwt.token"),
-  })),
+  // function (não arrow) — SignJWT é instanciado via `new` pelo código real;
+  // Vitest 4 não tolera mais arrow function como construtor mockado.
+  SignJWT: vi.fn().mockImplementation(function () {
+    return {
+      setProtectedHeader: vi.fn().mockReturnThis(),
+      setSubject: vi.fn().mockReturnThis(),
+      setIssuedAt: vi.fn().mockReturnThis(),
+      setExpirationTime: vi.fn().mockReturnThis(),
+      sign: vi.fn().mockResolvedValue("mock.jwt.token"),
+    };
+  }),
   jwtVerify: vi.fn().mockResolvedValue({
     payload: { type: "pending_2fa", userId: 1 },
   }),

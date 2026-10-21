@@ -4,12 +4,18 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const mockAdd = vi.fn().mockResolvedValue({ id: "job-1" });
 const mockCount = vi.fn().mockResolvedValue(0);
 vi.mock("bullmq", () => ({
-  Queue: vi.fn().mockImplementation(() => ({
-    add: mockAdd,
-    count: mockCount,
-    getWaitingCount: vi.fn().mockResolvedValue(0),
-  })),
-  Worker: vi.fn().mockImplementation(() => ({ on: vi.fn() })),
+  // function (não arrow) — precisa ser invocável via `new` pelo código real
+  // (Queue/Worker do BullMQ). Vitest 4 não tolera mais arrow como construtor.
+  Queue: vi.fn().mockImplementation(function () {
+    return {
+      add: mockAdd,
+      count: mockCount,
+      getWaitingCount: vi.fn().mockResolvedValue(0),
+    };
+  }),
+  Worker: vi.fn().mockImplementation(function () {
+    return { on: vi.fn() };
+  }),
 }));
 
 vi.mock("./_core/env.ts", () => ({
